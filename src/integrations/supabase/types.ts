@@ -14,16 +14,576 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      captive_portals: {
+        Row: {
+          background_url: string | null
+          enable_otp: boolean | null
+          enable_voucher: boolean | null
+          id: string
+          logo_url: string | null
+          primary_color: string | null
+          tenant_id: string
+          terms_text: string | null
+          updated_at: string
+          welcome_text: string | null
+        }
+        Insert: {
+          background_url?: string | null
+          enable_otp?: boolean | null
+          enable_voucher?: boolean | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          tenant_id: string
+          terms_text?: string | null
+          updated_at?: string
+          welcome_text?: string | null
+        }
+        Update: {
+          background_url?: string | null
+          enable_otp?: boolean | null
+          enable_voucher?: boolean | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          tenant_id?: string
+          terms_text?: string | null
+          updated_at?: string
+          welcome_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "captive_portals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          created_at: string
+          customer_type: string
+          email: string | null
+          expires_at: string | null
+          full_name: string | null
+          id: string
+          package_id: string | null
+          phone: string | null
+          pppoe_password: string | null
+          pppoe_username: string | null
+          router_id: string | null
+          static_ip: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_type?: string
+          email?: string | null
+          expires_at?: string | null
+          full_name?: string | null
+          id?: string
+          package_id?: string | null
+          phone?: string | null
+          pppoe_password?: string | null
+          pppoe_username?: string | null
+          router_id?: string | null
+          static_ip?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_type?: string
+          email?: string | null
+          expires_at?: string | null
+          full_name?: string | null
+          id?: string
+          package_id?: string | null
+          phone?: string | null
+          pppoe_password?: string | null
+          pppoe_username?: string | null
+          router_id?: string | null
+          static_ip?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      packages: {
+        Row: {
+          active: boolean | null
+          burst_kbps: number | null
+          created_at: string
+          data_limit_mb: number | null
+          description: string | null
+          device_limit: number | null
+          download_kbps: number | null
+          duration_unit: string | null
+          duration_value: number | null
+          id: string
+          idle_timeout_sec: number | null
+          kind: string
+          mac_binding: boolean | null
+          name: string
+          price: number
+          session_timeout_sec: number | null
+          simultaneous_logins: number | null
+          tenant_id: string
+          unlimited: boolean | null
+          upload_kbps: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          burst_kbps?: number | null
+          created_at?: string
+          data_limit_mb?: number | null
+          description?: string | null
+          device_limit?: number | null
+          download_kbps?: number | null
+          duration_unit?: string | null
+          duration_value?: number | null
+          id?: string
+          idle_timeout_sec?: number | null
+          kind?: string
+          mac_binding?: boolean | null
+          name: string
+          price?: number
+          session_timeout_sec?: number | null
+          simultaneous_logins?: number | null
+          tenant_id: string
+          unlimited?: boolean | null
+          upload_kbps?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          burst_kbps?: number | null
+          created_at?: string
+          data_limit_mb?: number | null
+          description?: string | null
+          device_limit?: number | null
+          download_kbps?: number | null
+          duration_unit?: string | null
+          duration_value?: number | null
+          id?: string
+          idle_timeout_sec?: number | null
+          kind?: string
+          mac_binding?: boolean | null
+          name?: string
+          price?: number
+          session_timeout_sec?: number | null
+          simultaneous_logins?: number | null
+          tenant_id?: string
+          unlimited?: boolean | null
+          upload_kbps?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          checkout_request_id: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          mpesa_receipt: string | null
+          package_id: string | null
+          phone: string | null
+          raw_callback: Json | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          amount: number
+          checkout_request_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          mpesa_receipt?: string | null
+          package_id?: string | null
+          phone?: string | null
+          raw_callback?: Json | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          amount?: number
+          checkout_request_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          mpesa_receipt?: string | null
+          package_id?: string | null
+          phone?: string | null
+          raw_callback?: Json | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          phone: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          phone?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          phone?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routers: {
+        Row: {
+          cpu_usage: number | null
+          created_at: string
+          id: string
+          last_seen_at: string | null
+          mac_address: string | null
+          model: string | null
+          name: string
+          provision_token: string | null
+          provision_token_expires_at: string | null
+          public_ip: string | null
+          ram_usage: number | null
+          routeros_version: string | null
+          serial: string | null
+          status: string
+          tenant_id: string
+          uptime_seconds: number | null
+        }
+        Insert: {
+          cpu_usage?: number | null
+          created_at?: string
+          id?: string
+          last_seen_at?: string | null
+          mac_address?: string | null
+          model?: string | null
+          name: string
+          provision_token?: string | null
+          provision_token_expires_at?: string | null
+          public_ip?: string | null
+          ram_usage?: number | null
+          routeros_version?: string | null
+          serial?: string | null
+          status?: string
+          tenant_id: string
+          uptime_seconds?: number | null
+        }
+        Update: {
+          cpu_usage?: number | null
+          created_at?: string
+          id?: string
+          last_seen_at?: string | null
+          mac_address?: string | null
+          model?: string | null
+          name?: string
+          provision_token?: string | null
+          provision_token_expires_at?: string | null
+          public_ip?: string | null
+          ram_usage?: number | null
+          routeros_version?: string | null
+          serial?: string | null
+          status?: string
+          tenant_id?: string
+          uptime_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          bytes_in: number | null
+          bytes_out: number | null
+          customer_id: string | null
+          ended_at: string | null
+          id: string
+          ip_address: string | null
+          mac_address: string | null
+          router_id: string | null
+          started_at: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          bytes_in?: number | null
+          bytes_out?: number | null
+          customer_id?: string | null
+          ended_at?: string | null
+          id?: string
+          ip_address?: string | null
+          mac_address?: string | null
+          router_id?: string | null
+          started_at?: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          bytes_in?: number | null
+          bytes_out?: number | null
+          customer_id?: string | null
+          ended_at?: string | null
+          id?: string
+          ip_address?: string | null
+          mac_address?: string | null
+          router_id?: string | null
+          started_at?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          body: string | null
+          created_at: string
+          customer_id: string | null
+          id: string
+          status: string
+          subject: string
+          tenant_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          status?: string
+          subject: string
+          tenant_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          status?: string
+          subject?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          mpesa_paybill: string | null
+          mpesa_shortcode: string | null
+          mpesa_till: string | null
+          name: string
+          primary_color: string | null
+          slug: string
+          status: string
+          subdomain: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          mpesa_paybill?: string | null
+          mpesa_shortcode?: string | null
+          mpesa_till?: string | null
+          name: string
+          primary_color?: string | null
+          slug: string
+          status?: string
+          subdomain?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          mpesa_paybill?: string | null
+          mpesa_shortcode?: string | null
+          mpesa_till?: string | null
+          name?: string
+          primary_color?: string | null
+          slug?: string
+          status?: string
+          subdomain?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      user_tenant_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
-      [_ in never]: never
+      app_role:
+        | "super_admin"
+        | "tenant_admin"
+        | "technician"
+        | "billing_agent"
+        | "support_staff"
+        | "end_user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +710,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: [
+        "super_admin",
+        "tenant_admin",
+        "technician",
+        "billing_agent",
+        "support_staff",
+        "end_user",
+      ],
+    },
   },
 } as const
