@@ -9,38 +9,388 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TenantRouteImport } from './routes/tenant'
+import { Route as SuperAdminRouteImport } from './routes/super-admin'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as PortalRouteImport } from './routes/portal'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TenantIndexRouteImport } from './routes/tenant.index'
+import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
+import { Route as PortalIndexRouteImport } from './routes/portal.index'
+import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
+import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
+import { Route as TenantSettingsRouteImport } from './routes/tenant.settings'
+import { Route as TenantSessionsRouteImport } from './routes/tenant.sessions'
+import { Route as TenantRoutersRouteImport } from './routes/tenant.routers'
+import { Route as TenantPppoeRouteImport } from './routes/tenant.pppoe'
+import { Route as TenantPortalRouteImport } from './routes/tenant.portal'
+import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
+import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
+import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
+import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
+import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
+import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tenants'
+import { Route as SuperAdminHealthRouteImport } from './routes/super-admin.health'
+import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
+import { Route as PortalUsageRouteImport } from './routes/portal.usage'
+import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
+import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
 
+const TenantRoute = TenantRouteImport.update({
+  id: '/tenant',
+  path: '/tenant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuperAdminRoute = SuperAdminRouteImport.update({
+  id: '/super-admin',
+  path: '/super-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TenantIndexRoute = TenantIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const PortalIndexRoute = PortalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalRoute,
+} as any)
+const TenantTicketsRoute = TenantTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSmsRoute = TenantSmsRouteImport.update({
+  id: '/sms',
+  path: '/sms',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSettingsRoute = TenantSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSessionsRoute = TenantSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantRoutersRoute = TenantRoutersRouteImport.update({
+  id: '/routers',
+  path: '/routers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPppoeRoute = TenantPppoeRouteImport.update({
+  id: '/pppoe',
+  path: '/pppoe',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPortalRoute = TenantPortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPaymentsRoute = TenantPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackagesRoute = TenantPackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHotspotRoute = TenantHotspotRouteImport.update({
+  id: '/hotspot',
+  path: '/hotspot',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCustomersRoute = TenantCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const SuperAdminUsersRoute = SuperAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminTenantsRoute = SuperAdminTenantsRouteImport.update({
+  id: '/tenants',
+  path: '/tenants',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminHealthRoute = SuperAdminHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminBillingRoute = SuperAdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const PortalUsageRoute = PortalUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalPackagesRoute = PortalPackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalInvoicesRoute = PortalInvoicesRouteImport.update({
+  id: '/invoices',
+  path: '/invoices',
+  getParentRoute: () => PortalRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
+  '/signup': typeof SignupRoute
+  '/super-admin': typeof SuperAdminRouteWithChildren
+  '/tenant': typeof TenantRouteWithChildren
+  '/portal/invoices': typeof PortalInvoicesRoute
+  '/portal/packages': typeof PortalPackagesRoute
+  '/portal/usage': typeof PortalUsageRoute
+  '/super-admin/billing': typeof SuperAdminBillingRoute
+  '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/tenants': typeof SuperAdminTenantsRoute
+  '/super-admin/users': typeof SuperAdminUsersRoute
+  '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/packages': typeof TenantPackagesRoute
+  '/tenant/payments': typeof TenantPaymentsRoute
+  '/tenant/portal': typeof TenantPortalRoute
+  '/tenant/pppoe': typeof TenantPppoeRoute
+  '/tenant/routers': typeof TenantRoutersRoute
+  '/tenant/sessions': typeof TenantSessionsRoute
+  '/tenant/settings': typeof TenantSettingsRoute
+  '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/tickets': typeof TenantTicketsRoute
+  '/portal/': typeof PortalIndexRoute
+  '/super-admin/': typeof SuperAdminIndexRoute
+  '/tenant/': typeof TenantIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/portal/invoices': typeof PortalInvoicesRoute
+  '/portal/packages': typeof PortalPackagesRoute
+  '/portal/usage': typeof PortalUsageRoute
+  '/super-admin/billing': typeof SuperAdminBillingRoute
+  '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/tenants': typeof SuperAdminTenantsRoute
+  '/super-admin/users': typeof SuperAdminUsersRoute
+  '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/packages': typeof TenantPackagesRoute
+  '/tenant/payments': typeof TenantPaymentsRoute
+  '/tenant/portal': typeof TenantPortalRoute
+  '/tenant/pppoe': typeof TenantPppoeRoute
+  '/tenant/routers': typeof TenantRoutersRoute
+  '/tenant/sessions': typeof TenantSessionsRoute
+  '/tenant/settings': typeof TenantSettingsRoute
+  '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/tickets': typeof TenantTicketsRoute
+  '/portal': typeof PortalIndexRoute
+  '/super-admin': typeof SuperAdminIndexRoute
+  '/tenant': typeof TenantIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/portal': typeof PortalRouteWithChildren
+  '/signup': typeof SignupRoute
+  '/super-admin': typeof SuperAdminRouteWithChildren
+  '/tenant': typeof TenantRouteWithChildren
+  '/portal/invoices': typeof PortalInvoicesRoute
+  '/portal/packages': typeof PortalPackagesRoute
+  '/portal/usage': typeof PortalUsageRoute
+  '/super-admin/billing': typeof SuperAdminBillingRoute
+  '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/tenants': typeof SuperAdminTenantsRoute
+  '/super-admin/users': typeof SuperAdminUsersRoute
+  '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/packages': typeof TenantPackagesRoute
+  '/tenant/payments': typeof TenantPaymentsRoute
+  '/tenant/portal': typeof TenantPortalRoute
+  '/tenant/pppoe': typeof TenantPppoeRoute
+  '/tenant/routers': typeof TenantRoutersRoute
+  '/tenant/sessions': typeof TenantSessionsRoute
+  '/tenant/settings': typeof TenantSettingsRoute
+  '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/tickets': typeof TenantTicketsRoute
+  '/portal/': typeof PortalIndexRoute
+  '/super-admin/': typeof SuperAdminIndexRoute
+  '/tenant/': typeof TenantIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/portal'
+    | '/signup'
+    | '/super-admin'
+    | '/tenant'
+    | '/portal/invoices'
+    | '/portal/packages'
+    | '/portal/usage'
+    | '/super-admin/billing'
+    | '/super-admin/health'
+    | '/super-admin/tenants'
+    | '/super-admin/users'
+    | '/tenant/customers'
+    | '/tenant/hotspot'
+    | '/tenant/packages'
+    | '/tenant/payments'
+    | '/tenant/portal'
+    | '/tenant/pppoe'
+    | '/tenant/routers'
+    | '/tenant/sessions'
+    | '/tenant/settings'
+    | '/tenant/sms'
+    | '/tenant/tickets'
+    | '/portal/'
+    | '/super-admin/'
+    | '/tenant/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/portal/invoices'
+    | '/portal/packages'
+    | '/portal/usage'
+    | '/super-admin/billing'
+    | '/super-admin/health'
+    | '/super-admin/tenants'
+    | '/super-admin/users'
+    | '/tenant/customers'
+    | '/tenant/hotspot'
+    | '/tenant/packages'
+    | '/tenant/payments'
+    | '/tenant/portal'
+    | '/tenant/pppoe'
+    | '/tenant/routers'
+    | '/tenant/sessions'
+    | '/tenant/settings'
+    | '/tenant/sms'
+    | '/tenant/tickets'
+    | '/portal'
+    | '/super-admin'
+    | '/tenant'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/portal'
+    | '/signup'
+    | '/super-admin'
+    | '/tenant'
+    | '/portal/invoices'
+    | '/portal/packages'
+    | '/portal/usage'
+    | '/super-admin/billing'
+    | '/super-admin/health'
+    | '/super-admin/tenants'
+    | '/super-admin/users'
+    | '/tenant/customers'
+    | '/tenant/hotspot'
+    | '/tenant/packages'
+    | '/tenant/payments'
+    | '/tenant/portal'
+    | '/tenant/pppoe'
+    | '/tenant/routers'
+    | '/tenant/sessions'
+    | '/tenant/settings'
+    | '/tenant/sms'
+    | '/tenant/tickets'
+    | '/portal/'
+    | '/super-admin/'
+    | '/tenant/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  LoginRoute: typeof LoginRoute
+  PortalRoute: typeof PortalRouteWithChildren
+  SignupRoute: typeof SignupRoute
+  SuperAdminRoute: typeof SuperAdminRouteWithChildren
+  TenantRoute: typeof TenantRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tenant': {
+      id: '/tenant'
+      path: '/tenant'
+      fullPath: '/tenant'
+      preLoaderRoute: typeof TenantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/super-admin': {
+      id: '/super-admin'
+      path: '/super-admin'
+      fullPath: '/super-admin'
+      preLoaderRoute: typeof SuperAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +398,234 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tenant/': {
+      id: '/tenant/'
+      path: '/'
+      fullPath: '/tenant/'
+      preLoaderRoute: typeof TenantIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/super-admin/': {
+      id: '/super-admin/'
+      path: '/'
+      fullPath: '/super-admin/'
+      preLoaderRoute: typeof SuperAdminIndexRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/portal/': {
+      id: '/portal/'
+      path: '/'
+      fullPath: '/portal/'
+      preLoaderRoute: typeof PortalIndexRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/tenant/tickets': {
+      id: '/tenant/tickets'
+      path: '/tickets'
+      fullPath: '/tenant/tickets'
+      preLoaderRoute: typeof TenantTicketsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/sms': {
+      id: '/tenant/sms'
+      path: '/sms'
+      fullPath: '/tenant/sms'
+      preLoaderRoute: typeof TenantSmsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/settings': {
+      id: '/tenant/settings'
+      path: '/settings'
+      fullPath: '/tenant/settings'
+      preLoaderRoute: typeof TenantSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/sessions': {
+      id: '/tenant/sessions'
+      path: '/sessions'
+      fullPath: '/tenant/sessions'
+      preLoaderRoute: typeof TenantSessionsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/routers': {
+      id: '/tenant/routers'
+      path: '/routers'
+      fullPath: '/tenant/routers'
+      preLoaderRoute: typeof TenantRoutersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/pppoe': {
+      id: '/tenant/pppoe'
+      path: '/pppoe'
+      fullPath: '/tenant/pppoe'
+      preLoaderRoute: typeof TenantPppoeRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/portal': {
+      id: '/tenant/portal'
+      path: '/portal'
+      fullPath: '/tenant/portal'
+      preLoaderRoute: typeof TenantPortalRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/payments': {
+      id: '/tenant/payments'
+      path: '/payments'
+      fullPath: '/tenant/payments'
+      preLoaderRoute: typeof TenantPaymentsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/packages': {
+      id: '/tenant/packages'
+      path: '/packages'
+      fullPath: '/tenant/packages'
+      preLoaderRoute: typeof TenantPackagesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/hotspot': {
+      id: '/tenant/hotspot'
+      path: '/hotspot'
+      fullPath: '/tenant/hotspot'
+      preLoaderRoute: typeof TenantHotspotRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/customers': {
+      id: '/tenant/customers'
+      path: '/customers'
+      fullPath: '/tenant/customers'
+      preLoaderRoute: typeof TenantCustomersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/super-admin/users': {
+      id: '/super-admin/users'
+      path: '/users'
+      fullPath: '/super-admin/users'
+      preLoaderRoute: typeof SuperAdminUsersRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/tenants': {
+      id: '/super-admin/tenants'
+      path: '/tenants'
+      fullPath: '/super-admin/tenants'
+      preLoaderRoute: typeof SuperAdminTenantsRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/health': {
+      id: '/super-admin/health'
+      path: '/health'
+      fullPath: '/super-admin/health'
+      preLoaderRoute: typeof SuperAdminHealthRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/billing': {
+      id: '/super-admin/billing'
+      path: '/billing'
+      fullPath: '/super-admin/billing'
+      preLoaderRoute: typeof SuperAdminBillingRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/portal/usage': {
+      id: '/portal/usage'
+      path: '/usage'
+      fullPath: '/portal/usage'
+      preLoaderRoute: typeof PortalUsageRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/packages': {
+      id: '/portal/packages'
+      path: '/packages'
+      fullPath: '/portal/packages'
+      preLoaderRoute: typeof PortalPackagesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/invoices': {
+      id: '/portal/invoices'
+      path: '/invoices'
+      fullPath: '/portal/invoices'
+      preLoaderRoute: typeof PortalInvoicesRouteImport
+      parentRoute: typeof PortalRoute
+    }
   }
 }
 
+interface PortalRouteChildren {
+  PortalInvoicesRoute: typeof PortalInvoicesRoute
+  PortalPackagesRoute: typeof PortalPackagesRoute
+  PortalUsageRoute: typeof PortalUsageRoute
+  PortalIndexRoute: typeof PortalIndexRoute
+}
+
+const PortalRouteChildren: PortalRouteChildren = {
+  PortalInvoicesRoute: PortalInvoicesRoute,
+  PortalPackagesRoute: PortalPackagesRoute,
+  PortalUsageRoute: PortalUsageRoute,
+  PortalIndexRoute: PortalIndexRoute,
+}
+
+const PortalRouteWithChildren =
+  PortalRoute._addFileChildren(PortalRouteChildren)
+
+interface SuperAdminRouteChildren {
+  SuperAdminBillingRoute: typeof SuperAdminBillingRoute
+  SuperAdminHealthRoute: typeof SuperAdminHealthRoute
+  SuperAdminTenantsRoute: typeof SuperAdminTenantsRoute
+  SuperAdminUsersRoute: typeof SuperAdminUsersRoute
+  SuperAdminIndexRoute: typeof SuperAdminIndexRoute
+}
+
+const SuperAdminRouteChildren: SuperAdminRouteChildren = {
+  SuperAdminBillingRoute: SuperAdminBillingRoute,
+  SuperAdminHealthRoute: SuperAdminHealthRoute,
+  SuperAdminTenantsRoute: SuperAdminTenantsRoute,
+  SuperAdminUsersRoute: SuperAdminUsersRoute,
+  SuperAdminIndexRoute: SuperAdminIndexRoute,
+}
+
+const SuperAdminRouteWithChildren = SuperAdminRoute._addFileChildren(
+  SuperAdminRouteChildren,
+)
+
+interface TenantRouteChildren {
+  TenantCustomersRoute: typeof TenantCustomersRoute
+  TenantHotspotRoute: typeof TenantHotspotRoute
+  TenantPackagesRoute: typeof TenantPackagesRoute
+  TenantPaymentsRoute: typeof TenantPaymentsRoute
+  TenantPortalRoute: typeof TenantPortalRoute
+  TenantPppoeRoute: typeof TenantPppoeRoute
+  TenantRoutersRoute: typeof TenantRoutersRoute
+  TenantSessionsRoute: typeof TenantSessionsRoute
+  TenantSettingsRoute: typeof TenantSettingsRoute
+  TenantSmsRoute: typeof TenantSmsRoute
+  TenantTicketsRoute: typeof TenantTicketsRoute
+  TenantIndexRoute: typeof TenantIndexRoute
+}
+
+const TenantRouteChildren: TenantRouteChildren = {
+  TenantCustomersRoute: TenantCustomersRoute,
+  TenantHotspotRoute: TenantHotspotRoute,
+  TenantPackagesRoute: TenantPackagesRoute,
+  TenantPaymentsRoute: TenantPaymentsRoute,
+  TenantPortalRoute: TenantPortalRoute,
+  TenantPppoeRoute: TenantPppoeRoute,
+  TenantRoutersRoute: TenantRoutersRoute,
+  TenantSessionsRoute: TenantSessionsRoute,
+  TenantSettingsRoute: TenantSettingsRoute,
+  TenantSmsRoute: TenantSmsRoute,
+  TenantTicketsRoute: TenantTicketsRoute,
+  TenantIndexRoute: TenantIndexRoute,
+}
+
+const TenantRouteWithChildren =
+  TenantRoute._addFileChildren(TenantRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  LoginRoute: LoginRoute,
+  PortalRoute: PortalRouteWithChildren,
+  SignupRoute: SignupRoute,
+  SuperAdminRoute: SuperAdminRouteWithChildren,
+  TenantRoute: TenantRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
