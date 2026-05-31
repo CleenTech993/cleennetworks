@@ -14,6 +14,9 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
+import { Route as TenantRoutersRouteImport } from './routes/tenant.routers'
+import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
+import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 
 const TenantRoute = TenantRouteImport.update({
   id: '/tenant',
@@ -40,18 +43,39 @@ const TenantIndexRoute = TenantIndexRouteImport.update({
   path: '/',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantRoutersRoute = TenantRoutersRouteImport.update({
+  id: '/routers',
+  path: '/routers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackagesRoute = TenantPackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCustomersRoute = TenantCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => TenantRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/tenant': typeof TenantRouteWithChildren
+  '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/packages': typeof TenantPackagesRoute
+  '/tenant/routers': typeof TenantRoutersRoute
   '/tenant/': typeof TenantIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/packages': typeof TenantPackagesRoute
+  '/tenant/routers': typeof TenantRoutersRoute
   '/tenant': typeof TenantIndexRoute
 }
 export interface FileRoutesById {
@@ -60,14 +84,41 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/tenant': typeof TenantRouteWithChildren
+  '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/packages': typeof TenantPackagesRoute
+  '/tenant/routers': typeof TenantRoutersRoute
   '/tenant/': typeof TenantIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/signup' | '/tenant' | '/tenant/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/tenant'
+    | '/tenant/customers'
+    | '/tenant/packages'
+    | '/tenant/routers'
+    | '/tenant/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/signup' | '/tenant'
-  id: '__root__' | '/' | '/login' | '/signup' | '/tenant' | '/tenant/'
+  to:
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/tenant/customers'
+    | '/tenant/packages'
+    | '/tenant/routers'
+    | '/tenant'
+  id:
+    | '__root__'
+    | '/'
+    | '/login'
+    | '/signup'
+    | '/tenant'
+    | '/tenant/customers'
+    | '/tenant/packages'
+    | '/tenant/routers'
+    | '/tenant/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -114,14 +165,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantIndexRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/routers': {
+      id: '/tenant/routers'
+      path: '/routers'
+      fullPath: '/tenant/routers'
+      preLoaderRoute: typeof TenantRoutersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/packages': {
+      id: '/tenant/packages'
+      path: '/packages'
+      fullPath: '/tenant/packages'
+      preLoaderRoute: typeof TenantPackagesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/customers': {
+      id: '/tenant/customers'
+      path: '/customers'
+      fullPath: '/tenant/customers'
+      preLoaderRoute: typeof TenantCustomersRouteImport
+      parentRoute: typeof TenantRoute
+    }
   }
 }
 
 interface TenantRouteChildren {
+  TenantCustomersRoute: typeof TenantCustomersRoute
+  TenantPackagesRoute: typeof TenantPackagesRoute
+  TenantRoutersRoute: typeof TenantRoutersRoute
   TenantIndexRoute: typeof TenantIndexRoute
 }
 
 const TenantRouteChildren: TenantRouteChildren = {
+  TenantCustomersRoute: TenantCustomersRoute,
+  TenantPackagesRoute: TenantPackagesRoute,
+  TenantRoutersRoute: TenantRoutersRoute,
   TenantIndexRoute: TenantIndexRoute,
 }
 
