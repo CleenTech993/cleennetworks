@@ -36,6 +36,14 @@ import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.bill
 import { Route as PortalUsageRouteImport } from './routes/portal.usage'
 import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
 import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
+import { Route as PSlugRouteImport } from './routes/p.$slug'
+import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
+import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
+import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
+import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
+import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
+import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
+import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
 
 const TenantRoute = TenantRouteImport.update({
   id: '/tenant',
@@ -172,6 +180,52 @@ const PortalInvoicesRoute = PortalInvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => PortalRoute,
 } as any)
+const PSlugRoute = PSlugRouteImport.update({
+  id: '/p/$slug',
+  path: '/p/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
+  id: '/api/public/portal/$slug',
+  path: '/api/public/portal/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicRouterHeartbeatTokenRoute =
+  ApiPublicRouterHeartbeatTokenRouteImport.update({
+    id: '/api/public/router/heartbeat/$token',
+    path: '/api/public/router/heartbeat/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicProvisionTokenRouterDotrscRoute =
+  ApiPublicProvisionTokenRouterDotrscRouteImport.update({
+    id: '/api/public/provision/$token/router.rsc',
+    path: '/api/public/provision/$token/router.rsc',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPortalSlugVoucherRoute =
+  ApiPublicPortalSlugVoucherRouteImport.update({
+    id: '/voucher',
+    path: '/voucher',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
+const ApiPublicPortalSlugPaymentStatusRoute =
+  ApiPublicPortalSlugPaymentStatusRouteImport.update({
+    id: '/payment-status',
+    path: '/payment-status',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
+const ApiPublicPortalSlugCheckoutRoute =
+  ApiPublicPortalSlugCheckoutRouteImport.update({
+    id: '/checkout',
+    path: '/checkout',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
+const ApiPublicMpesaCallbackTenantIdRoute =
+  ApiPublicMpesaCallbackTenantIdRouteImport.update({
+    id: '/api/public/mpesa/callback/$tenantId',
+    path: '/api/public/mpesa/callback/$tenantId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -180,6 +234,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/tenant': typeof TenantRouteWithChildren
+  '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
@@ -201,11 +256,19 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
+  '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
+  '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
+  '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
+  '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
@@ -227,6 +290,13 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
+  '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
+  '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
+  '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
+  '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
+  '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -236,6 +306,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/tenant': typeof TenantRouteWithChildren
+  '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
@@ -257,6 +328,13 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
+  '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
+  '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
+  '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
+  '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -267,6 +345,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/super-admin'
     | '/tenant'
+    | '/p/$slug'
     | '/portal/invoices'
     | '/portal/packages'
     | '/portal/usage'
@@ -288,11 +367,19 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/public/portal/$slug'
+    | '/api/public/mpesa/callback/$tenantId'
+    | '/api/public/portal/$slug/checkout'
+    | '/api/public/portal/$slug/payment-status'
+    | '/api/public/portal/$slug/voucher'
+    | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/heartbeat/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/signup'
+    | '/p/$slug'
     | '/portal/invoices'
     | '/portal/packages'
     | '/portal/usage'
@@ -314,6 +401,13 @@ export interface FileRouteTypes {
     | '/portal'
     | '/super-admin'
     | '/tenant'
+    | '/api/public/portal/$slug'
+    | '/api/public/mpesa/callback/$tenantId'
+    | '/api/public/portal/$slug/checkout'
+    | '/api/public/portal/$slug/payment-status'
+    | '/api/public/portal/$slug/voucher'
+    | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/heartbeat/$token'
   id:
     | '__root__'
     | '/'
@@ -322,6 +416,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/super-admin'
     | '/tenant'
+    | '/p/$slug'
     | '/portal/invoices'
     | '/portal/packages'
     | '/portal/usage'
@@ -343,6 +438,13 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/public/portal/$slug'
+    | '/api/public/mpesa/callback/$tenantId'
+    | '/api/public/portal/$slug/checkout'
+    | '/api/public/portal/$slug/payment-status'
+    | '/api/public/portal/$slug/voucher'
+    | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/heartbeat/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -352,6 +454,11 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
+  PSlugRoute: typeof PSlugRoute
+  ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
+  ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
+  ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
+  ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -545,6 +652,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalInvoicesRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/p/$slug': {
+      id: '/p/$slug'
+      path: '/p/$slug'
+      fullPath: '/p/$slug'
+      preLoaderRoute: typeof PSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/portal/$slug': {
+      id: '/api/public/portal/$slug'
+      path: '/api/public/portal/$slug'
+      fullPath: '/api/public/portal/$slug'
+      preLoaderRoute: typeof ApiPublicPortalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/router/heartbeat/$token': {
+      id: '/api/public/router/heartbeat/$token'
+      path: '/api/public/router/heartbeat/$token'
+      fullPath: '/api/public/router/heartbeat/$token'
+      preLoaderRoute: typeof ApiPublicRouterHeartbeatTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/provision/$token/router.rsc': {
+      id: '/api/public/provision/$token/router.rsc'
+      path: '/api/public/provision/$token/router.rsc'
+      fullPath: '/api/public/provision/$token/router.rsc'
+      preLoaderRoute: typeof ApiPublicProvisionTokenRouterDotrscRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/portal/$slug/voucher': {
+      id: '/api/public/portal/$slug/voucher'
+      path: '/voucher'
+      fullPath: '/api/public/portal/$slug/voucher'
+      preLoaderRoute: typeof ApiPublicPortalSlugVoucherRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
+    '/api/public/portal/$slug/payment-status': {
+      id: '/api/public/portal/$slug/payment-status'
+      path: '/payment-status'
+      fullPath: '/api/public/portal/$slug/payment-status'
+      preLoaderRoute: typeof ApiPublicPortalSlugPaymentStatusRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
+    '/api/public/portal/$slug/checkout': {
+      id: '/api/public/portal/$slug/checkout'
+      path: '/checkout'
+      fullPath: '/api/public/portal/$slug/checkout'
+      preLoaderRoute: typeof ApiPublicPortalSlugCheckoutRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
+    '/api/public/mpesa/callback/$tenantId': {
+      id: '/api/public/mpesa/callback/$tenantId'
+      path: '/api/public/mpesa/callback/$tenantId'
+      fullPath: '/api/public/mpesa/callback/$tenantId'
+      preLoaderRoute: typeof ApiPublicMpesaCallbackTenantIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -618,6 +781,21 @@ const TenantRouteChildren: TenantRouteChildren = {
 const TenantRouteWithChildren =
   TenantRoute._addFileChildren(TenantRouteChildren)
 
+interface ApiPublicPortalSlugRouteChildren {
+  ApiPublicPortalSlugCheckoutRoute: typeof ApiPublicPortalSlugCheckoutRoute
+  ApiPublicPortalSlugPaymentStatusRoute: typeof ApiPublicPortalSlugPaymentStatusRoute
+  ApiPublicPortalSlugVoucherRoute: typeof ApiPublicPortalSlugVoucherRoute
+}
+
+const ApiPublicPortalSlugRouteChildren: ApiPublicPortalSlugRouteChildren = {
+  ApiPublicPortalSlugCheckoutRoute: ApiPublicPortalSlugCheckoutRoute,
+  ApiPublicPortalSlugPaymentStatusRoute: ApiPublicPortalSlugPaymentStatusRoute,
+  ApiPublicPortalSlugVoucherRoute: ApiPublicPortalSlugVoucherRoute,
+}
+
+const ApiPublicPortalSlugRouteWithChildren =
+  ApiPublicPortalSlugRoute._addFileChildren(ApiPublicPortalSlugRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
@@ -625,6 +803,12 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SuperAdminRoute: SuperAdminRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
+  PSlugRoute: PSlugRoute,
+  ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
+  ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
+  ApiPublicProvisionTokenRouterDotrscRoute:
+    ApiPublicProvisionTokenRouterDotrscRoute,
+  ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

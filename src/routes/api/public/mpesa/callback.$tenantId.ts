@@ -14,10 +14,11 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
         const tenantId = params.tenantId;
         let body: Record<string, unknown> = {};
         try {
-          body = await request.json();
+          body = (await request.json()) as Record<string, unknown>;
         } catch {
           return Response.json({ ResultCode: 1, ResultDesc: "Invalid JSON" }, { status: 400 });
         }
+        const rawJson = body as unknown as never;
 
         const stk = (body as { Body?: { stkCallback?: Record<string, unknown> } })?.Body?.stkCallback;
         if (!stk) {
