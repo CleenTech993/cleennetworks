@@ -218,12 +218,14 @@ export type Database = {
           created_at: string
           customer_id: string | null
           id: string
+          merchant_request_id: string | null
           mpesa_receipt: string | null
           package_id: string | null
           phone: string | null
           raw_callback: Json | null
           status: string
           tenant_id: string
+          voucher_code: string | null
         }
         Insert: {
           amount: number
@@ -231,12 +233,14 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           id?: string
+          merchant_request_id?: string | null
           mpesa_receipt?: string | null
           package_id?: string | null
           phone?: string | null
           raw_callback?: Json | null
           status?: string
           tenant_id: string
+          voucher_code?: string | null
         }
         Update: {
           amount?: number
@@ -244,12 +248,14 @@ export type Database = {
           created_at?: string
           customer_id?: string | null
           id?: string
+          merchant_request_id?: string | null
           mpesa_receipt?: string | null
           package_id?: string | null
           phone?: string | null
           raw_callback?: Json | null
           status?: string
           tenant_id?: string
+          voucher_code?: string | null
         }
         Relationships: [
           {
@@ -489,6 +495,10 @@ export type Database = {
           created_at: string
           id: string
           logo_url: string | null
+          mpesa_consumer_key: string | null
+          mpesa_consumer_secret: string | null
+          mpesa_env: string
+          mpesa_passkey: string | null
           mpesa_paybill: string | null
           mpesa_shortcode: string | null
           mpesa_till: string | null
@@ -503,6 +513,10 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          mpesa_consumer_key?: string | null
+          mpesa_consumer_secret?: string | null
+          mpesa_env?: string
+          mpesa_passkey?: string | null
           mpesa_paybill?: string | null
           mpesa_shortcode?: string | null
           mpesa_till?: string | null
@@ -517,6 +531,10 @@ export type Database = {
           created_at?: string
           id?: string
           logo_url?: string | null
+          mpesa_consumer_key?: string | null
+          mpesa_consumer_secret?: string | null
+          mpesa_env?: string
+          mpesa_passkey?: string | null
           mpesa_paybill?: string | null
           mpesa_shortcode?: string | null
           mpesa_till?: string | null
@@ -560,6 +578,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vouchers: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          package_id: string | null
+          payment_id: string | null
+          status: string
+          tenant_id: string
+          used_at: string | null
+          used_by_mac: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          package_id?: string | null
+          payment_id?: string | null
+          status?: string
+          tenant_id: string
+          used_at?: string | null
+          used_by_mac?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          package_id?: string | null
+          payment_id?: string | null
+          status?: string
+          tenant_id?: string
+          used_at?: string | null
+          used_by_mac?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {
