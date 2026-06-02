@@ -49,7 +49,7 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
         if (resultCode !== 0) {
           await supabaseAdmin
             .from("payments")
-            .update({ status: "failed", raw_callback: body })
+            .update({ status: "failed", raw_callback: rawJson })
             .eq("id", payment.id);
           return Response.json({ ResultCode: 0, ResultDesc: "Recorded failure" });
         }
@@ -88,7 +88,7 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
             mpesa_receipt: receipt,
             phone: phone || undefined,
             amount: amount || undefined,
-            raw_callback: body,
+            raw_callback: rawJson,
             voucher_code: voucherCode,
           })
           .eq("id", payment.id);
