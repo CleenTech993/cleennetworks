@@ -45,25 +45,15 @@ function SignupPage() {
         return;
       }
 
-      // Create tenant + assign admin role + link profile
+      // Create tenant + assign admin role via secure RPC (atomic, server-validated)
       const slug = `${slugify(companyName)}-${Math.random().toString(36).slice(2, 6)}`;
-      const { data: tenant, error: tErr } = await supabase
-        .from("tenants")
-        .insert({ name: companyName, slug })
-        .select("id")
-        .single();
-      if (tErr) throw tErr;
+      const { error: rpcErr } = await supabase.rpc("bootstrap_tenant", {
+        p_name: companyName,
+        p_slug: slug,
+        p_full_name: fullName,
+      });
+      if (rpcErr) throw rpcErr;
 
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ tenant_id: tenant.id, full_name: fullName })
-        .eq("id", user.id);
-      if (pErr) throw pErr;
-
-      const { error: rErr } = await supabase
-        .from("user_roles")
-        .insert({ user_id: user.id, role: "tenant_admin", tenant_id: tenant.id });
-      if (rErr) throw rErr;
 
       toast.success("Welcome to NetGrid!");
       navigate({ to: "/tenant" });

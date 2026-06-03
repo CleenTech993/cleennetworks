@@ -623,6 +623,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      bootstrap_tenant: {
+        Args: { p_full_name?: string; p_name: string; p_slug: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
