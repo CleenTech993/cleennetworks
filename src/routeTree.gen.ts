@@ -13,6 +13,7 @@ import { Route as TenantRouteImport } from './routes/tenant'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as PendingRouteImport } from './routes/pending'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
@@ -63,6 +64,11 @@ const SignupRoute = SignupRouteImport.update({
 const PortalRoute = PortalRouteImport.update({
   id: '/portal',
   path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PendingRoute = PendingRouteImport.update({
+  id: '/pending',
+  path: '/pending',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -230,6 +236,7 @@ const ApiPublicMpesaCallbackTenantIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/pending': typeof PendingRoute
   '/portal': typeof PortalRouteWithChildren
   '/signup': typeof SignupRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
@@ -267,6 +274,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/pending': typeof PendingRoute
   '/signup': typeof SignupRoute
   '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
@@ -302,6 +310,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/pending': typeof PendingRoute
   '/portal': typeof PortalRouteWithChildren
   '/signup': typeof SignupRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/pending'
     | '/portal'
     | '/signup'
     | '/super-admin'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/pending'
     | '/signup'
     | '/p/$slug'
     | '/portal/invoices'
@@ -412,6 +423,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/login'
+    | '/pending'
     | '/portal'
     | '/signup'
     | '/super-admin'
@@ -450,6 +462,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   LoginRoute: typeof LoginRoute
+  PendingRoute: typeof PendingRoute
   PortalRoute: typeof PortalRouteWithChildren
   SignupRoute: typeof SignupRoute
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
@@ -489,6 +502,13 @@ declare module '@tanstack/react-router' {
       path: '/portal'
       fullPath: '/portal'
       preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pending': {
+      id: '/pending'
+      path: '/pending'
+      fullPath: '/pending'
+      preLoaderRoute: typeof PendingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -799,6 +819,7 @@ const ApiPublicPortalSlugRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   LoginRoute: LoginRoute,
+  PendingRoute: PendingRoute,
   PortalRoute: PortalRouteWithChildren,
   SignupRoute: SignupRoute,
   SuperAdminRoute: SuperAdminRouteWithChildren,
