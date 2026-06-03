@@ -8,17 +8,12 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Create your ISP — NetGrid" }] }),
+  head: () => ({ meta: [{ title: "Request access — NetGrid" }] }),
   component: SignupPage,
 });
 
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || `isp-${Date.now()}`;
-}
-
 function SignupPage() {
   const navigate = useNavigate();
-  const [companyName, setCompanyName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,35 +23,23 @@ function SignupPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/tenant`;
+      const redirectUrl = `${window.location.origin}/pending`;
       const { data: signup, error: signErr } = await supabase.auth.signUp({
         email,
         password,
         options: { emailRedirectTo: redirectUrl, data: { full_name: fullName } },
       });
       if (signErr) throw signErr;
-      const user = signup.user;
-      if (!user) throw new Error("Signup failed");
+      if (!signup.user) throw new Error("Signup failed");
 
-      // If email confirmation is on, session may be null — instruct and bail
       if (!signup.session) {
         toast.success("Check your email to confirm your account.");
         navigate({ to: "/login" });
         return;
       }
 
-      // Create tenant + assign admin role via secure RPC (atomic, server-validated)
-      const slug = `${slugify(companyName)}-${Math.random().toString(36).slice(2, 6)}`;
-      const { error: rpcErr } = await supabase.rpc("bootstrap_tenant", {
-        p_name: companyName,
-        p_slug: slug,
-        p_full_name: fullName,
-      });
-      if (rpcErr) throw rpcErr;
-
-
-      toast.success("Welcome to NetGrid!");
-      navigate({ to: "/tenant" });
+      toast.success("Account created. A super admin will review your access.");
+      navigate({ to: "/pending" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Signup failed");
     } finally {
@@ -69,13 +52,9 @@ function SignupPage() {
       <div className="w-full max-w-md">
         <Link to="/" className="mb-6 flex justify-center"><Brand /></Link>
         <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h1 className="text-xl font-semibold">Launch your ISP</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Create a tenant workspace in seconds.</p>
+          <h1 className="text-xl font-semibold">Request access</h1>
+          <p className="mt-1 text-sm text-muted-foreground">A super admin will review and assign you to a workspace.</p>
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <div>
-              <Label htmlFor="company">Company / ISP name</Label>
-              <Input id="company" required value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme WiFi Ltd" className="mt-1" />
-            </div>
             <div>
               <Label htmlFor="name">Your name</Label>
               <Input id="name" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1" />
@@ -88,7 +67,7 @@ function SignupPage() {
               <Label htmlFor="password">Password</Label>
               <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1" />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>{loading ? "Creating…" : "Create workspace"}</Button>
+            <Button type="submit" className="w-full" disabled={loading}>{loading ? "Submitting…" : "Request access"}</Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>

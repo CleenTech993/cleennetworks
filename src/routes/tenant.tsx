@@ -25,6 +25,8 @@ export const Route = createFileRoute("/tenant")({
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/login" });
+    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
+    if (!roles || roles.length === 0) throw redirect({ to: "/pending" });
   },
   component: TenantLayout,
 });

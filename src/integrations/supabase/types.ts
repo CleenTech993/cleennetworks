@@ -623,6 +623,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_approve_user: {
+        Args: {
+          p_new_tenant_name?: string
+          p_new_tenant_slug?: string
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_tenant_id?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       bootstrap_tenant: {
         Args: { p_full_name?: string; p_name: string; p_slug: string }
         Returns: string
