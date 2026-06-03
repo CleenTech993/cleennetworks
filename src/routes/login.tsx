@@ -31,7 +31,9 @@ function LoginPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-    const isSuper = (roles ?? []).some((r) => r.role === "super_admin");
+    const list = roles ?? [];
+    if (list.length === 0) { navigate({ to: "/pending" }); return; }
+    const isSuper = list.some((r) => r.role === "super_admin");
     navigate({ to: isSuper ? "/super-admin" : "/tenant" });
   }
 
