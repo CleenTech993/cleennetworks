@@ -77,7 +77,7 @@ function Tenants() {
       <PageHeader
         title="Tenants"
         description="All ISPs on the platform."
-        actions={
+        action={
           <Dialog
             open={open}
             onOpenChange={(o) => {
