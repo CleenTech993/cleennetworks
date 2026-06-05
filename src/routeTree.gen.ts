@@ -32,6 +32,8 @@ import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
 import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tenants'
+import { Route as SuperAdminSettlementsRouteImport } from './routes/super-admin.settlements'
+import { Route as SuperAdminPaymentsRouteImport } from './routes/super-admin.payments'
 import { Route as SuperAdminHealthRouteImport } from './routes/super-admin.health'
 import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
 import { Route as PortalUsageRouteImport } from './routes/portal.usage'
@@ -42,6 +44,8 @@ import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/por
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
 import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
+import { Route as ApiPublicPortalSlugStatusRouteImport } from './routes/api/public/portal/$slug/status'
+import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/public/portal/$slug/reconnect'
 import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
 import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
@@ -161,6 +165,16 @@ const SuperAdminTenantsRoute = SuperAdminTenantsRouteImport.update({
   path: '/tenants',
   getParentRoute: () => SuperAdminRoute,
 } as any)
+const SuperAdminSettlementsRoute = SuperAdminSettlementsRouteImport.update({
+  id: '/settlements',
+  path: '/settlements',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminPaymentsRoute = SuperAdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
 const SuperAdminHealthRoute = SuperAdminHealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -214,6 +228,18 @@ const ApiPublicPortalSlugVoucherRoute =
     path: '/voucher',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
+const ApiPublicPortalSlugStatusRoute =
+  ApiPublicPortalSlugStatusRouteImport.update({
+    id: '/status',
+    path: '/status',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
+const ApiPublicPortalSlugReconnectRoute =
+  ApiPublicPortalSlugReconnectRouteImport.update({
+    id: '/reconnect',
+    path: '/reconnect',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
 const ApiPublicPortalSlugPaymentStatusRoute =
   ApiPublicPortalSlugPaymentStatusRouteImport.update({
     id: '/payment-status',
@@ -247,6 +273,8 @@ export interface FileRoutesByFullPath {
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/payments': typeof SuperAdminPaymentsRoute
+  '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -267,6 +295,8 @@ export interface FileRoutesByFullPath {
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
+  '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
+  '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
@@ -282,6 +312,8 @@ export interface FileRoutesByTo {
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/payments': typeof SuperAdminPaymentsRoute
+  '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -302,6 +334,8 @@ export interface FileRoutesByTo {
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
+  '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
+  '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
@@ -321,6 +355,8 @@ export interface FileRoutesById {
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/payments': typeof SuperAdminPaymentsRoute
+  '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -341,6 +377,8 @@ export interface FileRoutesById {
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
+  '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
+  '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
@@ -361,6 +399,8 @@ export interface FileRouteTypes {
     | '/portal/usage'
     | '/super-admin/billing'
     | '/super-admin/health'
+    | '/super-admin/payments'
+    | '/super-admin/settlements'
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/customers'
@@ -381,6 +421,8 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
+    | '/api/public/portal/$slug/reconnect'
+    | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
@@ -396,6 +438,8 @@ export interface FileRouteTypes {
     | '/portal/usage'
     | '/super-admin/billing'
     | '/super-admin/health'
+    | '/super-admin/payments'
+    | '/super-admin/settlements'
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/customers'
@@ -416,6 +460,8 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
+    | '/api/public/portal/$slug/reconnect'
+    | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
@@ -434,6 +480,8 @@ export interface FileRouteTypes {
     | '/portal/usage'
     | '/super-admin/billing'
     | '/super-admin/health'
+    | '/super-admin/payments'
+    | '/super-admin/settlements'
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/customers'
@@ -454,6 +502,8 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
+    | '/api/public/portal/$slug/reconnect'
+    | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
@@ -637,6 +687,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperAdminTenantsRouteImport
       parentRoute: typeof SuperAdminRoute
     }
+    '/super-admin/settlements': {
+      id: '/super-admin/settlements'
+      path: '/settlements'
+      fullPath: '/super-admin/settlements'
+      preLoaderRoute: typeof SuperAdminSettlementsRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/payments': {
+      id: '/super-admin/payments'
+      path: '/payments'
+      fullPath: '/super-admin/payments'
+      preLoaderRoute: typeof SuperAdminPaymentsRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
     '/super-admin/health': {
       id: '/super-admin/health'
       path: '/health'
@@ -707,6 +771,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugVoucherRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
+    '/api/public/portal/$slug/status': {
+      id: '/api/public/portal/$slug/status'
+      path: '/status'
+      fullPath: '/api/public/portal/$slug/status'
+      preLoaderRoute: typeof ApiPublicPortalSlugStatusRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
+    '/api/public/portal/$slug/reconnect': {
+      id: '/api/public/portal/$slug/reconnect'
+      path: '/reconnect'
+      fullPath: '/api/public/portal/$slug/reconnect'
+      preLoaderRoute: typeof ApiPublicPortalSlugReconnectRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
     '/api/public/portal/$slug/payment-status': {
       id: '/api/public/portal/$slug/payment-status'
       path: '/payment-status'
@@ -751,6 +829,8 @@ const PortalRouteWithChildren =
 interface SuperAdminRouteChildren {
   SuperAdminBillingRoute: typeof SuperAdminBillingRoute
   SuperAdminHealthRoute: typeof SuperAdminHealthRoute
+  SuperAdminPaymentsRoute: typeof SuperAdminPaymentsRoute
+  SuperAdminSettlementsRoute: typeof SuperAdminSettlementsRoute
   SuperAdminTenantsRoute: typeof SuperAdminTenantsRoute
   SuperAdminUsersRoute: typeof SuperAdminUsersRoute
   SuperAdminIndexRoute: typeof SuperAdminIndexRoute
@@ -759,6 +839,8 @@ interface SuperAdminRouteChildren {
 const SuperAdminRouteChildren: SuperAdminRouteChildren = {
   SuperAdminBillingRoute: SuperAdminBillingRoute,
   SuperAdminHealthRoute: SuperAdminHealthRoute,
+  SuperAdminPaymentsRoute: SuperAdminPaymentsRoute,
+  SuperAdminSettlementsRoute: SuperAdminSettlementsRoute,
   SuperAdminTenantsRoute: SuperAdminTenantsRoute,
   SuperAdminUsersRoute: SuperAdminUsersRoute,
   SuperAdminIndexRoute: SuperAdminIndexRoute,
@@ -804,12 +886,16 @@ const TenantRouteWithChildren =
 interface ApiPublicPortalSlugRouteChildren {
   ApiPublicPortalSlugCheckoutRoute: typeof ApiPublicPortalSlugCheckoutRoute
   ApiPublicPortalSlugPaymentStatusRoute: typeof ApiPublicPortalSlugPaymentStatusRoute
+  ApiPublicPortalSlugReconnectRoute: typeof ApiPublicPortalSlugReconnectRoute
+  ApiPublicPortalSlugStatusRoute: typeof ApiPublicPortalSlugStatusRoute
   ApiPublicPortalSlugVoucherRoute: typeof ApiPublicPortalSlugVoucherRoute
 }
 
 const ApiPublicPortalSlugRouteChildren: ApiPublicPortalSlugRouteChildren = {
   ApiPublicPortalSlugCheckoutRoute: ApiPublicPortalSlugCheckoutRoute,
   ApiPublicPortalSlugPaymentStatusRoute: ApiPublicPortalSlugPaymentStatusRoute,
+  ApiPublicPortalSlugReconnectRoute: ApiPublicPortalSlugReconnectRoute,
+  ApiPublicPortalSlugStatusRoute: ApiPublicPortalSlugStatusRoute,
   ApiPublicPortalSlugVoucherRoute: ApiPublicPortalSlugVoucherRoute,
 }
 
