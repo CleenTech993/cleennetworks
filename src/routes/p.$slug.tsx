@@ -12,7 +12,7 @@ export const Route = createFileRoute("/p/$slug")({
   head: () => ({
     meta: [
       { title: "Wi-Fi access — connect" },
-      { name: "description", content: "Buy internet access or redeem your voucher." },
+      { name: "description", content: "Buy internet access, redeem your voucher, or reconnect an active package." },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
     ],
   }),
@@ -47,10 +47,7 @@ function PortalPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div
-        className="px-4 py-10"
-        style={{ background: `linear-gradient(160deg, ${primary}22, transparent 60%)` }}
-      >
+      <div className="px-4 py-10" style={{ background: `linear-gradient(160deg, ${primary}22, transparent 60%)` }}>
         <div className="mx-auto max-w-md text-center">
           {data.portal?.logo_url || data.tenant.logo_url ? (
             <img src={(data.portal?.logo_url ?? data.tenant.logo_url) as string} alt={data.tenant.name} className="mx-auto h-12" />
@@ -61,19 +58,27 @@ function PortalPage() {
           )}
           <h1 className="mt-3 text-2xl font-bold">{data.tenant.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {data.portal?.welcome_text ?? "Connect to Wi-Fi — pick a package or redeem a voucher."}
+            {data.portal?.welcome_text ?? "Connect to Wi-Fi — buy, reconnect, or redeem a voucher."}
           </p>
         </div>
       </div>
 
       <div className="mx-auto max-w-md px-4 pb-12">
         <Tabs defaultValue="buy">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="buy">Buy access</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="buy">Buy</TabsTrigger>
+            <TabsTrigger value="reconnect">Reconnect</TabsTrigger>
+            <TabsTrigger value="status">Status</TabsTrigger>
             <TabsTrigger value="voucher" disabled={data.portal?.enable_voucher === false}>Voucher</TabsTrigger>
           </TabsList>
           <TabsContent value="buy" className="mt-4">
             <BuyFlow slug={slug} packages={data.packages} primary={primary} />
+          </TabsContent>
+          <TabsContent value="reconnect" className="mt-4">
+            <ReconnectFlow slug={slug} primary={primary} />
+          </TabsContent>
+          <TabsContent value="status" className="mt-4">
+            <StatusFlow slug={slug} primary={primary} />
           </TabsContent>
           <TabsContent value="voucher" className="mt-4">
             <VoucherFlow slug={slug} primary={primary} />
@@ -148,12 +153,7 @@ function BuyFlow({ slug, packages, primary }: { slug: string; packages: PortalDa
         <Label htmlFor="phone">M-Pesa phone</Label>
         <Input id="phone" inputMode="tel" placeholder="07XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" />
       </div>
-      <Button
-        className="mt-4 w-full"
-        style={{ backgroundColor: primary }}
-        disabled={!picked || !phone || submitting}
-        onClick={pay}
-      >
+      <Button className="mt-4 w-full" style={{ backgroundColor: primary }} disabled={!picked || !phone || submitting} onClick={pay}>
         {submitting ? "Sending prompt…" : "Pay with M-Pesa"}
       </Button>
     </div>
@@ -205,6 +205,142 @@ function PaymentWaiting({ slug, paymentId, primary }: { slug: string; paymentId:
       <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
       <p className="mt-3 font-medium">Waiting for M-Pesa…</p>
       <p className="mt-1 text-sm text-muted-foreground">Approve the prompt on your phone.</p>
+    </div>
+  );
+}
+
+interface ReconnectResult {
+  active: boolean;
+  reason?: string;
+  package?: { name: string; duration_value: number | null; duration_unit: string | null } | null;
+  expires_at?: string;
+  remaining_minutes?: number;
+  voucher_code?: string | null;
+  mpesa_receipt?: string | null;
+}
+
+function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ReconnectResult | null>(null);
+
+  async function go() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/public/portal/${slug}/reconnect`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ phone: phone || undefined, mpesaCode: code || undefined }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setResult(json);
+      if (!json.active) toast.error(json.reason ?? "No active package");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (result?.active) {
+    return (
+      <div className="rounded-lg border bg-card p-6 text-center">
+        <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
+        <h2 className="mt-3 text-lg font-semibold">You're online</h2>
+        {result.package && <p className="mt-1 text-sm">{result.package.name}</p>}
+        <p className="mt-1 text-xs text-muted-foreground">
+          Expires {result.expires_at ? new Date(result.expires_at).toLocaleString() : "—"}
+          {typeof result.remaining_minutes === "number" && ` · ${result.remaining_minutes} min left`}
+        </p>
+        {result.voucher_code && (
+          <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-sm tracking-widest">{result.voucher_code}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">Enter the phone number you paid with, or your M-Pesa transaction code.</p>
+      <div>
+        <Label htmlFor="rphone">Phone number</Label>
+        <Input id="rphone" inputMode="tel" placeholder="07XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" />
+      </div>
+      <div>
+        <Label htmlFor="rcode">M-Pesa code</Label>
+        <Input id="rcode" autoCapitalize="characters" placeholder="e.g. SFE1A2B3CD" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} className="mt-1 font-mono tracking-widest" />
+      </div>
+      <Button className="w-full" style={{ backgroundColor: primary }} disabled={busy || (!phone && !code)} onClick={go}>
+        {busy ? "Checking…" : "Reconnect"}
+      </Button>
+    </div>
+  );
+}
+
+interface StatusResp {
+  active: { id: string; amount: number; expires_at: string; mpesa_receipt: string | null } | null;
+  history: Array<{ id: string; amount: number; status: string; created_at: string; mpesa_receipt: string | null }>;
+}
+
+function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [data, setData] = useState<StatusResp | null>(null);
+
+  async function check() {
+    if (!phone) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/public/portal/${slug}/status?phone=${encodeURIComponent(phone)}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setData(json);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <Label htmlFor="sphone">Phone number</Label>
+        <Input id="sphone" inputMode="tel" placeholder="07XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" />
+      </div>
+      <Button className="w-full" style={{ backgroundColor: primary }} disabled={busy || !phone} onClick={check}>
+        {busy ? "Checking…" : "Check status"}
+      </Button>
+
+      {data && (
+        <div className="mt-2 rounded-lg border bg-card p-4">
+          {data.active ? (
+            <div>
+              <p className="font-medium">Active package</p>
+              <p className="text-xs text-muted-foreground mt-1">Expires {new Date(data.active.expires_at).toLocaleString()}</p>
+              <p className="text-xs text-muted-foreground">Receipt {data.active.mpesa_receipt ?? "—"}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No active package on this number.</p>
+          )}
+          {data.history.length > 0 && (
+            <div className="mt-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Recent transactions</p>
+              <ul className="space-y-1.5 text-xs">
+                {data.history.slice(0, 5).map((h) => (
+                  <li key={h.id} className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">{new Date(h.created_at).toLocaleString()}</span>
+                    <span>KES {Number(h.amount).toFixed(0)}</span>
+                    <span className="capitalize">{h.status}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
