@@ -60,7 +60,11 @@ function Settlements() {
         totals.set(p.tenant_id, (totals.get(p.tenant_id) ?? 0) + Number(p.amount));
       }
 
-      const inserts: Array<Record<string, unknown>> = [];
+      const inserts: Array<{
+        tenant_id: string; period_start: string; period_end: string;
+        gross_amount: number; commission_amount: number; net_amount: number;
+        payment_method: string; status: string;
+      }> = [];
       for (const t of tenants ?? []) {
         const gross = totals.get(t.id) ?? 0;
         if (gross <= 0) continue;
@@ -123,7 +127,7 @@ function Settlements() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-t">
-                  <td className="px-4 py-2.5">{r.tenants.name}</td>
+                  <td className="px-4 py-2.5">{r.tenant.name}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
                     {new Date(r.period_start).toLocaleDateString()} → {new Date(r.period_end).toLocaleDateString()}
                   </td>
