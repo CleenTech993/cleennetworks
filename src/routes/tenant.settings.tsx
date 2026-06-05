@@ -41,7 +41,7 @@ function Settings() {
   const [form, setForm] = useState(empty);
   useEffect(() => {
     if (tenant) {
-      const t = tenant as Record<string, string | null>;
+      const t = tenant as unknown as Record<string, string | null>;
       setForm({
         name: t.name ?? "",
         primary_color: t.primary_color ?? "",

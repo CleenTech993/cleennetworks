@@ -26,17 +26,16 @@ function Settlements() {
   const { data: rows } = useQuery({
     queryKey: ["settlements"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("settlements")
-        .select("*, tenants!inner(name,slug)")
-        .order("created_at", { ascending: false });
+      const [{ data: s, error }, { data: ts }] = await Promise.all([
+        supabase.from("settlements").select("*").order("created_at", { ascending: false }),
+        supabase.from("tenants").select("id,name,slug"),
+      ]);
       if (error) throw error;
-      return data as Array<{
-        id: string; tenant_id: string; period_start: string; period_end: string;
-        gross_amount: number; commission_amount: number; net_amount: number;
-        payment_method: string; status: string; paid_at: string | null;
-        tenants: { name: string; slug: string };
-      }>;
+      const tmap = new Map((ts ?? []).map((t) => [t.id, t]));
+      return (s ?? []).map((r) => ({
+        ...r,
+        tenant: tmap.get(r.tenant_id) ?? { name: "—", slug: "" },
+      }));
     },
   });
 
