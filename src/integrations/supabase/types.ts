@@ -217,6 +217,7 @@ export type Database = {
           checkout_request_id: string | null
           created_at: string
           customer_id: string | null
+          expires_at: string | null
           id: string
           merchant_request_id: string | null
           mpesa_receipt: string | null
@@ -232,6 +233,7 @@ export type Database = {
           checkout_request_id?: string | null
           created_at?: string
           customer_id?: string | null
+          expires_at?: string | null
           id?: string
           merchant_request_id?: string | null
           mpesa_receipt?: string | null
@@ -247,6 +249,7 @@ export type Database = {
           checkout_request_id?: string | null
           created_at?: string
           customer_id?: string | null
+          expires_at?: string | null
           id?: string
           merchant_request_id?: string | null
           mpesa_receipt?: string | null
@@ -280,6 +283,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_mpesa_config: {
+        Row: {
+          callback_base_url: string | null
+          confirmation_url: string | null
+          consumer_key: string | null
+          consumer_secret: string | null
+          id: number
+          mpesa_env: string
+          passkey: string | null
+          shortcode: string | null
+          updated_at: string
+          validation_url: string | null
+        }
+        Insert: {
+          callback_base_url?: string | null
+          confirmation_url?: string | null
+          consumer_key?: string | null
+          consumer_secret?: string | null
+          id?: number
+          mpesa_env?: string
+          passkey?: string | null
+          shortcode?: string | null
+          updated_at?: string
+          validation_url?: string | null
+        }
+        Update: {
+          callback_base_url?: string | null
+          confirmation_url?: string | null
+          consumer_key?: string | null
+          consumer_secret?: string | null
+          id?: number
+          mpesa_env?: string
+          passkey?: string | null
+          shortcode?: string | null
+          updated_at?: string
+          validation_url?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -445,6 +487,51 @@ export type Database = {
           },
         ]
       }
+      settlements: {
+        Row: {
+          commission_amount: number
+          created_at: string
+          gross_amount: number
+          id: string
+          net_amount: number
+          notes: string | null
+          paid_at: string | null
+          payment_method: string
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          commission_amount?: number
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string
+          period_end: string
+          period_start: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          commission_amount?: number
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          paid_at?: string | null
+          payment_method?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       support_tickets: {
         Row: {
           body: string | null
@@ -492,6 +579,10 @@ export type Database = {
       }
       tenants: {
         Row: {
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_branch: string | null
+          bank_name: string | null
           created_at: string
           id: string
           logo_url: string | null
@@ -503,13 +594,21 @@ export type Database = {
           mpesa_shortcode: string | null
           mpesa_till: string | null
           name: string
+          payment_instructions: string | null
+          platform_commission_pct: number
           primary_color: string | null
           slug: string
           status: string
           subdomain: string | null
+          support_email: string | null
+          support_phone: string | null
           updated_at: string
         }
         Insert: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
@@ -521,13 +620,21 @@ export type Database = {
           mpesa_shortcode?: string | null
           mpesa_till?: string | null
           name: string
+          payment_instructions?: string | null
+          platform_commission_pct?: number
           primary_color?: string | null
           slug: string
           status?: string
           subdomain?: string | null
+          support_email?: string | null
+          support_phone?: string | null
           updated_at?: string
         }
         Update: {
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_branch?: string | null
+          bank_name?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
@@ -539,10 +646,14 @@ export type Database = {
           mpesa_shortcode?: string | null
           mpesa_till?: string | null
           name?: string
+          payment_instructions?: string | null
+          platform_commission_pct?: number
           primary_color?: string | null
           slug?: string
           status?: string
           subdomain?: string | null
+          support_email?: string | null
+          support_phone?: string | null
           updated_at?: string
         }
         Relationships: []
