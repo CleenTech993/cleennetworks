@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { loadTenantByIdAdmin, stkPush, normalizePhone } from "./mpesa.server";
+import { loadPlatformMpesaConfig, stkPush, normalizePhone } from "./mpesa.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const StkSchema = z.object({
@@ -31,10 +31,11 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
       .single();
     if (kErr || !pkg || pkg.tenant_id !== tenantId) throw new Error("Package not found");
 
-    const tenant = await loadTenantByIdAdmin(tenantId);
+    const cfg = await loadPlatformMpesaConfig();
 
     const host = getRequestHost();
-    const callbackUrl = `https://${host}/api/public/mpesa/callback/${tenantId}`;
+    const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
+    const callbackUrl = `${callbackBase}/api/public/mpesa/callback/${tenantId}`;
 
     // Insert pending payment first so the callback can find it
     const { data: pay, error: payErr } = await supabaseAdmin
@@ -52,7 +53,7 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
     if (payErr || !pay) throw new Error(payErr?.message ?? "Could not create payment");
 
     const result = await stkPush({
-      tenant,
+      cfg,
       amount: Number(pkg.price),
       phone: data.phone,
       reference: pkg.name,

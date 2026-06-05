@@ -2,7 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { loadTenantBySlugAdmin, stkPush, normalizePhone } from "@/lib/mpesa.server";
+import {
+  loadTenantBySlugAdmin,
+  loadPlatformMpesaConfig,
+  stkPush,
+  normalizePhone,
+} from "@/lib/mpesa.server";
 
 const Schema = z.object({
   packageId: z.string().uuid(),
@@ -20,6 +25,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
         try {
           const tenant = await loadTenantBySlugAdmin(params.slug);
+          const cfg = await loadPlatformMpesaConfig();
+
           const { data: pkg } = await supabaseAdmin
             .from("packages")
             .select("id,name,price,kind,tenant_id,active")
@@ -43,13 +50,14 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (payErr || !pay) return Response.json({ error: payErr?.message }, { status: 500 });
 
           const host = getRequestHost();
+          const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
           const result = await stkPush({
-            tenant,
+            cfg,
             amount: Number(pkg.price),
             phone: parsed.data.phone,
-            reference: pkg.name,
+            reference: tenant.slug,
             description: pkg.kind ?? "Internet",
-            callbackUrl: `https://${host}/api/public/mpesa/callback/${tenant.id}`,
+            callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
           });
 
           await supabaseAdmin
