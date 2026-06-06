@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 
 // Heartbeat from MikroTik routers. Optional query params push live metrics.
 // Example:
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
           return v && v.length <= 200 ? v : null;
         };
 
-        const patch: Record<string, unknown> = {
+        const patch: TablesUpdate<"routers"> = {
           status: "online",
           last_seen_at: new Date().toISOString(),
           last_heartbeat_at: new Date().toISOString(),
