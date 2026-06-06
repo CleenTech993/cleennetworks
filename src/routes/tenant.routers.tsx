@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -108,7 +108,10 @@ function RoutersPage() {
                     <p className="text-xs text-muted-foreground">{r.model ?? "Model pending"} · {r.routeros_version ?? "RouterOS ?"}</p>
                   </div>
                 </div>
-                <Badge variant={r.status === "online" ? "default" : "secondary"}>{r.status}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant={r.status === "online" ? "default" : "secondary"}>{r.status}</Badge>
+                  <Link to="/tenant/routers/$id" params={{ id: r.id }} className="text-xs text-primary underline">Details</Link>
+                </div>
               </div>
               {r.provision_token && r.status === "pending" && (
                 <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">

@@ -360,9 +360,17 @@ export type Database = {
       }
       routers: {
         Row: {
+          architecture: string | null
+          board_name: string | null
+          cpu_load: number | null
           cpu_usage: number | null
           created_at: string
+          firmware_version: string | null
+          free_memory_mb: number | null
+          hdd_free_mb: number | null
           id: string
+          lan_ip: string | null
+          last_heartbeat_at: string | null
           last_seen_at: string | null
           mac_address: string | null
           model: string | null
@@ -374,13 +382,26 @@ export type Database = {
           routeros_version: string | null
           serial: string | null
           status: string
+          tags: string[] | null
+          temperature: number | null
           tenant_id: string
+          total_memory_mb: number | null
           uptime_seconds: number | null
+          voltage: number | null
+          wan_ip: string | null
         }
         Insert: {
+          architecture?: string | null
+          board_name?: string | null
+          cpu_load?: number | null
           cpu_usage?: number | null
           created_at?: string
+          firmware_version?: string | null
+          free_memory_mb?: number | null
+          hdd_free_mb?: number | null
           id?: string
+          lan_ip?: string | null
+          last_heartbeat_at?: string | null
           last_seen_at?: string | null
           mac_address?: string | null
           model?: string | null
@@ -392,13 +413,26 @@ export type Database = {
           routeros_version?: string | null
           serial?: string | null
           status?: string
+          tags?: string[] | null
+          temperature?: number | null
           tenant_id: string
+          total_memory_mb?: number | null
           uptime_seconds?: number | null
+          voltage?: number | null
+          wan_ip?: string | null
         }
         Update: {
+          architecture?: string | null
+          board_name?: string | null
+          cpu_load?: number | null
           cpu_usage?: number | null
           created_at?: string
+          firmware_version?: string | null
+          free_memory_mb?: number | null
+          hdd_free_mb?: number | null
           id?: string
+          lan_ip?: string | null
+          last_heartbeat_at?: string | null
           last_seen_at?: string | null
           mac_address?: string | null
           model?: string | null
@@ -410,8 +444,13 @@ export type Database = {
           routeros_version?: string | null
           serial?: string | null
           status?: string
+          tags?: string[] | null
+          temperature?: number | null
           tenant_id?: string
+          total_memory_mb?: number | null
           uptime_seconds?: number | null
+          voltage?: number | null
+          wan_ip?: string | null
         }
         Relationships: [
           {
