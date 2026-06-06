@@ -1,19 +1,64 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
+// Heartbeat from MikroTik routers. Optional query params push live metrics.
+// Example:
+//   /api/public/router/heartbeat/<token>?cpu=12&mem-free=512&mem-total=1024&uptime=86400
+//     &temp=42&voltage=24.1&version=7.14&board=hAP-ac2&arch=arm&wan-ip=1.2.3.4
 export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
   server: {
     handlers: {
       GET: async ({ params, request }) => {
+        const url = new URL(request.url);
+        const q = url.searchParams;
         const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+
+        const num = (k: string) => {
+          const v = q.get(k);
+          if (v == null || v === "") return null;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        };
+        const str = (k: string) => {
+          const v = q.get(k);
+          return v && v.length <= 200 ? v : null;
+        };
+
+        const patch: Record<string, unknown> = {
+          status: "online",
+          last_seen_at: new Date().toISOString(),
+          last_heartbeat_at: new Date().toISOString(),
+          public_ip: ip,
+        };
+
+        const cpu = num("cpu"); if (cpu != null) patch.cpu_load = Math.max(0, Math.min(100, Math.round(cpu)));
+        const memFree = num("mem-free"); if (memFree != null) patch.free_memory_mb = Math.round(memFree);
+        const memTotal = num("mem-total"); if (memTotal != null) patch.total_memory_mb = Math.round(memTotal);
+        const hddFree = num("hdd-free"); if (hddFree != null) patch.hdd_free_mb = Math.round(hddFree);
+        const uptime = num("uptime"); if (uptime != null) patch.uptime_seconds = Math.round(uptime);
+        const temp = num("temp"); if (temp != null) patch.temperature = temp;
+        const voltage = num("voltage"); if (voltage != null) patch.voltage = voltage;
+        const ramPct = (() => {
+          if (memTotal && memFree != null && memTotal > 0) {
+            return Math.round(((memTotal - memFree) / memTotal) * 100);
+          }
+          return null;
+        })();
+        if (ramPct != null) patch.ram_usage = ramPct;
+        if (cpu != null) patch.cpu_usage = Math.round(cpu);
+
+        const version = str("version"); if (version) patch.routeros_version = version;
+        const board = str("board"); if (board) patch.board_name = board;
+        const arch = str("arch"); if (arch) patch.architecture = arch;
+        const wanIp = str("wan-ip"); if (wanIp) patch.wan_ip = wanIp;
+        const lanIp = str("lan-ip"); if (lanIp) patch.lan_ip = lanIp;
+        const model = str("model"); if (model) patch.model = model;
+
         await supabaseAdmin
           .from("routers")
-          .update({
-            status: "online",
-            last_seen_at: new Date().toISOString(),
-            public_ip: ip,
-          })
+          .update(patch)
           .eq("provision_token", params.token);
+
         return new Response("ok", { headers: { "content-type": "text/plain" } });
       },
     },
