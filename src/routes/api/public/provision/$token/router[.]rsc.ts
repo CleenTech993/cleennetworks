@@ -88,9 +88,9 @@ add dst-host=api.safaricom.co.ke
 /ip hotspot walled-garden ip
 add action=accept dst-host=${new URL(p.portalUrl).host}
 
-# Heartbeat every minute
+# Heartbeat every minute with live metrics (CPU/RAM/uptime/temp/voltage/version/board/arch/wan-ip)
 /system scheduler
-add name=netgrid-heartbeat interval=1m on-event="/tool fetch url=\\"${p.callbackUrl}\\" mode=https keep-result=no"
+add name=netgrid-heartbeat interval=1m on-event=":global hbUrl \\"${p.callbackUrl}\\"; :local r [/system resource get]; :local cpu (\\$r->\\"cpu-load\\"); :local mf ((\\$r->\\"free-memory\\")/1048576); :local mt ((\\$r->\\"total-memory\\")/1048576); :local up (\\$r->\\"uptime\\"); :local ver (\\$r->\\"version\\"); :local board (\\$r->\\"board-name\\"); :local arch (\\$r->\\"architecture-name\\"); :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={}; :local wan \\"\\"; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={}; :local volt 0; :do { :set volt [/system health get voltage] } on-error={}; :local temp 0; :do { :set temp [/system health get temperature] } on-error={}; /tool fetch url=(\\$hbUrl . \\"?cpu=\\" . \\$cpu . \\"&mem-free=\\" . \\$mf . \\"&mem-total=\\" . \\$mt . \\"&hdd-free=\\" . \\$hf . \\"&uptime=\\" . \\$up . \\"&temp=\\" . \\$temp . \\"&voltage=\\" . \\$volt . \\"&version=\\" . \\$ver . \\"&board=\\" . \\$board . \\"&arch=\\" . \\$arch . \\"&wan-ip=\\" . \\$wan) mode=https keep-result=no"
 
 :log info "NetGrid: auto-config complete"
 :put "NetGrid auto-config applied. Portal: ${p.portalUrl}"
