@@ -34,12 +34,14 @@ import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
 import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tenants'
 import { Route as SuperAdminSettlementsRouteImport } from './routes/super-admin.settlements'
 import { Route as SuperAdminPaymentsRouteImport } from './routes/super-admin.payments'
+import { Route as SuperAdminNocRouteImport } from './routes/super-admin.noc'
 import { Route as SuperAdminHealthRouteImport } from './routes/super-admin.health'
 import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
 import { Route as PortalUsageRouteImport } from './routes/portal.usage'
 import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
 import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
+import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
@@ -175,6 +177,11 @@ const SuperAdminPaymentsRoute = SuperAdminPaymentsRouteImport.update({
   path: '/payments',
   getParentRoute: () => SuperAdminRoute,
 } as any)
+const SuperAdminNocRoute = SuperAdminNocRouteImport.update({
+  id: '/noc',
+  path: '/noc',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
 const SuperAdminHealthRoute = SuperAdminHealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -204,6 +211,11 @@ const PSlugRoute = PSlugRouteImport.update({
   id: '/p/$slug',
   path: '/p/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => TenantRoutersRoute,
 } as any)
 const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   id: '/api/public/portal/$slug',
@@ -273,6 +285,7 @@ export interface FileRoutesByFullPath {
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
@@ -283,7 +296,7 @@ export interface FileRoutesByFullPath {
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
   '/tenant/pppoe': typeof TenantPppoeRoute
-  '/tenant/routers': typeof TenantRoutersRoute
+  '/tenant/routers': typeof TenantRoutersRouteWithChildren
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
@@ -291,6 +304,7 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -312,6 +326,7 @@ export interface FileRoutesByTo {
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
@@ -322,7 +337,7 @@ export interface FileRoutesByTo {
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
   '/tenant/pppoe': typeof TenantPppoeRoute
-  '/tenant/routers': typeof TenantRoutersRoute
+  '/tenant/routers': typeof TenantRoutersRouteWithChildren
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
@@ -330,6 +345,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
+  '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -355,6 +371,7 @@ export interface FileRoutesById {
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
@@ -365,7 +382,7 @@ export interface FileRoutesById {
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
   '/tenant/pppoe': typeof TenantPppoeRoute
-  '/tenant/routers': typeof TenantRoutersRoute
+  '/tenant/routers': typeof TenantRoutersRouteWithChildren
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
@@ -373,6 +390,7 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -399,6 +417,7 @@ export interface FileRouteTypes {
     | '/portal/usage'
     | '/super-admin/billing'
     | '/super-admin/health'
+    | '/super-admin/noc'
     | '/super-admin/payments'
     | '/super-admin/settlements'
     | '/super-admin/tenants'
@@ -417,6 +436,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -438,6 +458,7 @@ export interface FileRouteTypes {
     | '/portal/usage'
     | '/super-admin/billing'
     | '/super-admin/health'
+    | '/super-admin/noc'
     | '/super-admin/payments'
     | '/super-admin/settlements'
     | '/super-admin/tenants'
@@ -456,6 +477,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/super-admin'
     | '/tenant'
+    | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -480,6 +502,7 @@ export interface FileRouteTypes {
     | '/portal/usage'
     | '/super-admin/billing'
     | '/super-admin/health'
+    | '/super-admin/noc'
     | '/super-admin/payments'
     | '/super-admin/settlements'
     | '/super-admin/tenants'
@@ -498,6 +521,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -701,6 +725,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperAdminPaymentsRouteImport
       parentRoute: typeof SuperAdminRoute
     }
+    '/super-admin/noc': {
+      id: '/super-admin/noc'
+      path: '/noc'
+      fullPath: '/super-admin/noc'
+      preLoaderRoute: typeof SuperAdminNocRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
     '/super-admin/health': {
       id: '/super-admin/health'
       path: '/health'
@@ -742,6 +773,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/p/$slug'
       preLoaderRoute: typeof PSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/tenant/routers/$id': {
+      id: '/tenant/routers/$id'
+      path: '/$id'
+      fullPath: '/tenant/routers/$id'
+      preLoaderRoute: typeof TenantRoutersIdRouteImport
+      parentRoute: typeof TenantRoutersRoute
     }
     '/api/public/portal/$slug': {
       id: '/api/public/portal/$slug'
@@ -829,6 +867,7 @@ const PortalRouteWithChildren =
 interface SuperAdminRouteChildren {
   SuperAdminBillingRoute: typeof SuperAdminBillingRoute
   SuperAdminHealthRoute: typeof SuperAdminHealthRoute
+  SuperAdminNocRoute: typeof SuperAdminNocRoute
   SuperAdminPaymentsRoute: typeof SuperAdminPaymentsRoute
   SuperAdminSettlementsRoute: typeof SuperAdminSettlementsRoute
   SuperAdminTenantsRoute: typeof SuperAdminTenantsRoute
@@ -839,6 +878,7 @@ interface SuperAdminRouteChildren {
 const SuperAdminRouteChildren: SuperAdminRouteChildren = {
   SuperAdminBillingRoute: SuperAdminBillingRoute,
   SuperAdminHealthRoute: SuperAdminHealthRoute,
+  SuperAdminNocRoute: SuperAdminNocRoute,
   SuperAdminPaymentsRoute: SuperAdminPaymentsRoute,
   SuperAdminSettlementsRoute: SuperAdminSettlementsRoute,
   SuperAdminTenantsRoute: SuperAdminTenantsRoute,
@@ -850,6 +890,18 @@ const SuperAdminRouteWithChildren = SuperAdminRoute._addFileChildren(
   SuperAdminRouteChildren,
 )
 
+interface TenantRoutersRouteChildren {
+  TenantRoutersIdRoute: typeof TenantRoutersIdRoute
+}
+
+const TenantRoutersRouteChildren: TenantRoutersRouteChildren = {
+  TenantRoutersIdRoute: TenantRoutersIdRoute,
+}
+
+const TenantRoutersRouteWithChildren = TenantRoutersRoute._addFileChildren(
+  TenantRoutersRouteChildren,
+)
+
 interface TenantRouteChildren {
   TenantCustomersRoute: typeof TenantCustomersRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
@@ -857,7 +909,7 @@ interface TenantRouteChildren {
   TenantPaymentsRoute: typeof TenantPaymentsRoute
   TenantPortalRoute: typeof TenantPortalRoute
   TenantPppoeRoute: typeof TenantPppoeRoute
-  TenantRoutersRoute: typeof TenantRoutersRoute
+  TenantRoutersRoute: typeof TenantRoutersRouteWithChildren
   TenantSessionsRoute: typeof TenantSessionsRoute
   TenantSettingsRoute: typeof TenantSettingsRoute
   TenantSmsRoute: typeof TenantSmsRoute
@@ -872,7 +924,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPaymentsRoute: TenantPaymentsRoute,
   TenantPortalRoute: TenantPortalRoute,
   TenantPppoeRoute: TenantPppoeRoute,
-  TenantRoutersRoute: TenantRoutersRoute,
+  TenantRoutersRoute: TenantRoutersRouteWithChildren,
   TenantSessionsRoute: TenantSessionsRoute,
   TenantSettingsRoute: TenantSettingsRoute,
   TenantSmsRoute: TenantSmsRoute,

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
-type RouterRow = Tables<"routers"> & { tenants?: { name: string; slug: string } | null };
+type RouterRow = Tables<"routers"> & { tenantName?: string | null };
 
 export const Route = createFileRoute("/super-admin/noc")({ component: NocPage });
 
@@ -21,12 +21,14 @@ function NocPage() {
   const { data, refetch } = useQuery({
     queryKey: ["noc-routers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("routers")
-        .select("*, tenants(name, slug)")
-        .order("last_heartbeat_at", { ascending: false, nullsFirst: false });
-      if (error) throw error;
-      return (data ?? []) as RouterRow[];
+      const [routersRes, tenantsRes] = await Promise.all([
+        supabase.from("routers").select("*").order("last_heartbeat_at", { ascending: false, nullsFirst: false }),
+        supabase.from("tenants").select("id,name"),
+      ]);
+      if (routersRes.error) throw routersRes.error;
+      if (tenantsRes.error) throw tenantsRes.error;
+      const tmap = new Map((tenantsRes.data ?? []).map((t) => [t.id, t.name]));
+      return (routersRes.data ?? []).map((r) => ({ ...r, tenantName: tmap.get(r.tenant_id) ?? null })) as RouterRow[];
     },
     refetchInterval: 30_000,
   });
@@ -107,7 +109,7 @@ function NocPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.tenants?.name ?? "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{r.tenantName ?? "—"}</td>
                   <td className="px-4 py-3">
                     <Badge variant={live ? "default" : "secondary"}>{live ? "online" : "offline"}</Badge>
                   </td>
