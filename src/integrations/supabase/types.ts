@@ -358,6 +358,135 @@ export type Database = {
           },
         ]
       }
+      router_metrics: {
+        Row: {
+          cpu_pct: number | null
+          id: number
+          mem_pct: number | null
+          router_id: string
+          rx_bps: number | null
+          temp: number | null
+          tenant_id: string
+          ts: string
+          tx_bps: number | null
+          wan_latency_ms: number | null
+          wan_loss_pct: number | null
+        }
+        Insert: {
+          cpu_pct?: number | null
+          id?: number
+          mem_pct?: number | null
+          router_id: string
+          rx_bps?: number | null
+          temp?: number | null
+          tenant_id: string
+          ts?: string
+          tx_bps?: number | null
+          wan_latency_ms?: number | null
+          wan_loss_pct?: number | null
+        }
+        Update: {
+          cpu_pct?: number | null
+          id?: number
+          mem_pct?: number | null
+          router_id?: string
+          rx_bps?: number | null
+          temp?: number | null
+          tenant_id?: string
+          ts?: string
+          tx_bps?: number | null
+          wan_latency_ms?: number | null
+          wan_loss_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_metrics_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      router_metrics_daily: {
+        Row: {
+          avg_cpu: number | null
+          avg_mem: number | null
+          avg_temp: number | null
+          day: string
+          max_cpu: number | null
+          max_mem: number | null
+          router_id: string
+          samples: number
+          tenant_id: string
+        }
+        Insert: {
+          avg_cpu?: number | null
+          avg_mem?: number | null
+          avg_temp?: number | null
+          day: string
+          max_cpu?: number | null
+          max_mem?: number | null
+          router_id: string
+          samples?: number
+          tenant_id: string
+        }
+        Update: {
+          avg_cpu?: number | null
+          avg_mem?: number | null
+          avg_temp?: number | null
+          day?: string
+          max_cpu?: number | null
+          max_mem?: number | null
+          router_id?: string
+          samples?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_metrics_daily_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      router_uptime_events: {
+        Row: {
+          ended_at: string | null
+          id: string
+          kind: string
+          router_id: string
+          started_at: string
+          tenant_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          kind?: string
+          router_id: string
+          started_at?: string
+          tenant_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          kind?: string
+          router_id?: string
+          started_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_uptime_events_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routers: {
         Row: {
           architecture: string | null
@@ -795,6 +924,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      rollup_router_metrics: { Args: never; Returns: undefined }
       user_tenant_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
@@ -820,12 +950,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -849,11 +979,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -874,11 +1004,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -899,11 +1029,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -916,11 +1046,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
