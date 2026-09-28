@@ -358,9 +358,72 @@ export type Database = {
           },
         ]
       }
+      router_interfaces: {
+        Row: {
+          disabled: boolean
+          id: string
+          name: string
+          router_id: string
+          running: boolean
+          rx_bps: number
+          rx_bytes: number
+          rx_drops: number
+          rx_errors: number
+          tenant_id: string
+          tx_bps: number
+          tx_bytes: number
+          tx_drops: number
+          tx_errors: number
+          updated_at: string
+        }
+        Insert: {
+          disabled?: boolean
+          id?: string
+          name: string
+          router_id: string
+          running?: boolean
+          rx_bps?: number
+          rx_bytes?: number
+          rx_drops?: number
+          rx_errors?: number
+          tenant_id: string
+          tx_bps?: number
+          tx_bytes?: number
+          tx_drops?: number
+          tx_errors?: number
+          updated_at?: string
+        }
+        Update: {
+          disabled?: boolean
+          id?: string
+          name?: string
+          router_id?: string
+          running?: boolean
+          rx_bps?: number
+          rx_bytes?: number
+          rx_drops?: number
+          rx_errors?: number
+          tenant_id?: string
+          tx_bps?: number
+          tx_bytes?: number
+          tx_drops?: number
+          tx_errors?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_interfaces_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       router_metrics: {
         Row: {
           cpu_pct: number | null
+          dns_ok: boolean | null
           id: number
           mem_pct: number | null
           router_id: string
@@ -369,11 +432,13 @@ export type Database = {
           tenant_id: string
           ts: string
           tx_bps: number | null
+          wan_jitter_ms: number | null
           wan_latency_ms: number | null
           wan_loss_pct: number | null
         }
         Insert: {
           cpu_pct?: number | null
+          dns_ok?: boolean | null
           id?: number
           mem_pct?: number | null
           router_id: string
@@ -382,11 +447,13 @@ export type Database = {
           tenant_id: string
           ts?: string
           tx_bps?: number | null
+          wan_jitter_ms?: number | null
           wan_latency_ms?: number | null
           wan_loss_pct?: number | null
         }
         Update: {
           cpu_pct?: number | null
+          dns_ok?: boolean | null
           id?: number
           mem_pct?: number | null
           router_id?: string
@@ -395,6 +462,7 @@ export type Database = {
           tenant_id?: string
           ts?: string
           tx_bps?: number | null
+          wan_jitter_ms?: number | null
           wan_latency_ms?: number | null
           wan_loss_pct?: number | null
         }

@@ -87,6 +87,8 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
           tx_bps: num("tx-bps"),
           wan_latency_ms: num("latency"),
           wan_loss_pct: num("loss"),
+          wan_jitter_ms: num("jitter"),
+          dns_ok: q.get("dns") === "1" ? true : q.get("dns") === "0" ? false : null,
           temp,
         });
 
