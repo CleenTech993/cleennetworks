@@ -358,6 +358,135 @@ export type Database = {
           },
         ]
       }
+      router_metrics: {
+        Row: {
+          cpu_pct: number | null
+          id: number
+          mem_pct: number | null
+          router_id: string
+          rx_bps: number | null
+          temp: number | null
+          tenant_id: string
+          ts: string
+          tx_bps: number | null
+          wan_latency_ms: number | null
+          wan_loss_pct: number | null
+        }
+        Insert: {
+          cpu_pct?: number | null
+          id?: number
+          mem_pct?: number | null
+          router_id: string
+          rx_bps?: number | null
+          temp?: number | null
+          tenant_id: string
+          ts?: string
+          tx_bps?: number | null
+          wan_latency_ms?: number | null
+          wan_loss_pct?: number | null
+        }
+        Update: {
+          cpu_pct?: number | null
+          id?: number
+          mem_pct?: number | null
+          router_id?: string
+          rx_bps?: number | null
+          temp?: number | null
+          tenant_id?: string
+          ts?: string
+          tx_bps?: number | null
+          wan_latency_ms?: number | null
+          wan_loss_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_metrics_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      router_metrics_daily: {
+        Row: {
+          avg_cpu: number | null
+          avg_mem: number | null
+          avg_temp: number | null
+          day: string
+          max_cpu: number | null
+          max_mem: number | null
+          router_id: string
+          samples: number
+          tenant_id: string
+        }
+        Insert: {
+          avg_cpu?: number | null
+          avg_mem?: number | null
+          avg_temp?: number | null
+          day: string
+          max_cpu?: number | null
+          max_mem?: number | null
+          router_id: string
+          samples?: number
+          tenant_id: string
+        }
+        Update: {
+          avg_cpu?: number | null
+          avg_mem?: number | null
+          avg_temp?: number | null
+          day?: string
+          max_cpu?: number | null
+          max_mem?: number | null
+          router_id?: string
+          samples?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_metrics_daily_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      router_uptime_events: {
+        Row: {
+          ended_at: string | null
+          id: string
+          kind: string
+          router_id: string
+          started_at: string
+          tenant_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          kind?: string
+          router_id: string
+          started_at?: string
+          tenant_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          kind?: string
+          router_id?: string
+          started_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_uptime_events_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routers: {
         Row: {
           architecture: string | null
@@ -795,6 +924,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      rollup_router_metrics: { Args: never; Returns: undefined }
       user_tenant_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {
