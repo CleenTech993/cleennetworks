@@ -43,6 +43,7 @@ import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
+import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
 import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
@@ -222,6 +223,12 @@ const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   path: '/api/public/portal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicRouterInterfacesTokenRoute =
+  ApiPublicRouterInterfacesTokenRouteImport.update({
+    id: '/api/public/router/interfaces/$token',
+    path: '/api/public/router/interfaces/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicRouterHeartbeatTokenRoute =
   ApiPublicRouterHeartbeatTokenRouteImport.update({
     id: '/api/public/router/heartbeat/$token',
@@ -314,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
+  '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -355,6 +363,7 @@ export interface FileRoutesByTo {
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
+  '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -400,6 +409,7 @@ export interface FileRoutesById {
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
+  '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -446,6 +456,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
+    | '/api/public/router/interfaces/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -487,6 +498,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
+    | '/api/public/router/interfaces/$token'
   id:
     | '__root__'
     | '/'
@@ -531,6 +543,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
+    | '/api/public/router/interfaces/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -546,6 +559,7 @@ export interface RootRouteChildren {
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
+  ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -788,6 +802,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/router/interfaces/$token': {
+      id: '/api/public/router/interfaces/$token'
+      path: '/api/public/router/interfaces/$token'
+      fullPath: '/api/public/router/interfaces/$token'
+      preLoaderRoute: typeof ApiPublicRouterInterfacesTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/router/heartbeat/$token': {
       id: '/api/public/router/heartbeat/$token'
       path: '/api/public/router/heartbeat/$token'
@@ -968,6 +989,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicProvisionTokenRouterDotrscRoute:
     ApiPublicProvisionTokenRouterDotrscRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
+  ApiPublicRouterInterfacesTokenRoute: ApiPublicRouterInterfacesTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
