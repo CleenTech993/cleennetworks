@@ -6,6 +6,7 @@ import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { RouterHistory } from "@/components/router-history";
 
 export const Route = createFileRoute("/tenant/routers/$id")({ component: RouterDetail });
 
@@ -124,6 +125,8 @@ function RouterDetail() {
         <Gauge label="CPU load" value={r.cpu_load ?? r.cpu_usage ?? null} icon={<Cpu className="h-4 w-4" />} />
         <Gauge label="Memory" value={ramPct} icon={<HardDrive className="h-4 w-4" />} />
       </div>
+
+      <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />
     </div>
   );
 }

@@ -55,10 +55,40 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
         const lanIp = str("lan-ip"); if (lanIp) patch.lan_ip = lanIp;
         const model = str("model"); if (model) patch.model = model;
 
-        await supabaseAdmin
+        const { data: prev } = await supabaseAdmin
           .from("routers")
-          .update(patch)
-          .eq("provision_token", params.token);
+          .select("id,tenant_id,last_heartbeat_at,last_seen_at")
+          .eq("provision_token", params.token)
+          .maybeSingle();
+        if (!prev) return new Response("unknown", { status: 404 });
+
+        await supabaseAdmin.from("routers").update(patch).eq("id", prev.id);
+
+        const nowIso = new Date().toISOString();
+        const lastPrev = prev.last_heartbeat_at ?? prev.last_seen_at;
+        // Gap > 3 min since last heartbeat => record a closed downtime event
+        if (lastPrev && Date.now() - new Date(lastPrev).getTime() > 3 * 60 * 1000) {
+          await supabaseAdmin.from("router_uptime_events").insert({
+            router_id: prev.id,
+            tenant_id: prev.tenant_id,
+            kind: "down",
+            started_at: lastPrev,
+            ended_at: nowIso,
+          });
+        }
+
+        await supabaseAdmin.from("router_metrics").insert({
+          router_id: prev.id,
+          tenant_id: prev.tenant_id,
+          ts: nowIso,
+          cpu_pct: patch.cpu_load ?? null,
+          mem_pct: ramPct,
+          rx_bps: num("rx-bps"),
+          tx_bps: num("tx-bps"),
+          wan_latency_ms: num("latency"),
+          wan_loss_pct: num("loss"),
+          temp,
+        });
 
         return new Response("ok", { headers: { "content-type": "text/plain" } });
       },
