@@ -50,6 +50,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           tenantName: tenant?.name ?? "ISP",
           portalUrl,
           callbackUrl,
+          interfacesUrl: `https://${host}/api/public/router/interfaces/${token}`,
         });
 
         return new Response(rsc, {
@@ -64,7 +65,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
   },
 });
 
-function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string }) {
+function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string }) {
   return `# NetGrid auto-config for ${p.tenantName}
 :log info "NetGrid: applying auto-config"
 
@@ -88,9 +89,34 @@ add dst-host=api.safaricom.co.ke
 /ip hotspot walled-garden ip
 add action=accept dst-host=${new URL(p.portalUrl).host}
 
-# Heartbeat every minute with live metrics (CPU/RAM/uptime/temp/voltage/version/board/arch/wan-ip)
+# WAN quality check: latency, jitter, loss (8.8.8.8) and DNS resolution
+/system script
+remove [find name=netgrid-wan]
+add name=netgrid-wan source={
+  :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
+  :local avg 0; :local mn 0; :local mx 0; :local rcv 0;
+  :do { /tool flood-ping 8.8.8.8 count=10 size=64 do={ :set avg \$"avg-rtt"; :set mn \$"min-rtt"; :set mx \$"max-rtt"; :set rcv \$"received" } } on-error={}
+  :set ngLat \$avg; :set ngJit (\$mx - \$mn); :set ngLoss ((10 - \$rcv) * 10);
+  :set ngDns 0; :do { :resolve google.com; :set ngDns 1 } on-error={}
+}
+
+# Interface stats push (name|running|disabled|rx|tx|rx-err|tx-err|rx-drop|tx-drop)
+remove [find name=netgrid-ifaces]
+add name=netgrid-ifaces source={
+  :local d "";
+  :foreach i in=[/interface find] do={
+    :local x [/interface get \$i];
+    :set d (\$d . (\$x->"name") . "|" . (\$x->"running") . "|" . (\$x->"disabled") . "|" . (\$x->"rx-byte") . "|" . (\$x->"tx-byte") . "|" . (\$x->"rx-error") . "|" . (\$x->"tx-error") . "|" . (\$x->"rx-drop") . "|" . (\$x->"tx-drop") . ";")
+  }
+  :do { /tool fetch url="${p.interfacesUrl}" http-method=post http-data=\$d mode=https keep-result=no } on-error={ :log warning "NetGrid: interface push failed" }
+}
+
 /system scheduler
-add name=netgrid-heartbeat interval=1m on-event=":global hbUrl \\"${p.callbackUrl}\\"; :local r [/system resource get]; :local cpu (\\$r->\\"cpu-load\\"); :local mf ((\\$r->\\"free-memory\\")/1048576); :local mt ((\\$r->\\"total-memory\\")/1048576); :local up (\\$r->\\"uptime\\"); :local ver (\\$r->\\"version\\"); :local board (\\$r->\\"board-name\\"); :local arch (\\$r->\\"architecture-name\\"); :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={}; :local wan \\"\\"; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={}; :local volt 0; :do { :set volt [/system health get voltage] } on-error={}; :local temp 0; :do { :set temp [/system health get temperature] } on-error={}; /tool fetch url=(\\$hbUrl . \\"?cpu=\\" . \\$cpu . \\"&mem-free=\\" . \\$mf . \\"&mem-total=\\" . \\$mt . \\"&hdd-free=\\" . \\$hf . \\"&uptime=\\" . \\$up . \\"&temp=\\" . \\$temp . \\"&voltage=\\" . \\$volt . \\"&version=\\" . \\$ver . \\"&board=\\" . \\$board . \\"&arch=\\" . \\$arch . \\"&wan-ip=\\" . \\$wan) mode=https keep-result=no"
+remove [find name~"netgrid-"]
+add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan"
+add name=netgrid-ifaces interval=1m on-event="/system script run netgrid-ifaces"
+# Heartbeat every minute with live metrics (CPU/RAM/uptime/temp/voltage/version/board/arch/wan-ip + WAN quality)
+add name=netgrid-heartbeat interval=1m on-event=":global hbUrl \\"${p.callbackUrl}\\"; :global ngLat; :global ngLoss; :global ngJit; :global ngDns; :local r [/system resource get]; :local cpu (\\$r->\\"cpu-load\\"); :local mf ((\\$r->\\"free-memory\\")/1048576); :local mt ((\\$r->\\"total-memory\\")/1048576); :local up (\\$r->\\"uptime\\"); :local ver (\\$r->\\"version\\"); :local board (\\$r->\\"board-name\\"); :local arch (\\$r->\\"architecture-name\\"); :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={}; :local wan \\"\\"; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={}; :local volt 0; :do { :set volt [/system health get voltage] } on-error={}; :local temp 0; :do { :set temp [/system health get temperature] } on-error={}; /tool fetch url=(\\$hbUrl . \\"?cpu=\\" . \\$cpu . \\"&mem-free=\\" . \\$mf . \\"&mem-total=\\" . \\$mt . \\"&hdd-free=\\" . \\$hf . \\"&uptime=\\" . \\$up . \\"&temp=\\" . \\$temp . \\"&voltage=\\" . \\$volt . \\"&version=\\" . \\$ver . \\"&board=\\" . \\$board . \\"&arch=\\" . \\$arch . \\"&wan-ip=\\" . \\$wan . \\"&latency=\\" . \\$ngLat . \\"&loss=\\" . \\$ngLoss . \\"&jitter=\\" . \\$ngJit . \\"&dns=\\" . \\$ngDns) mode=https keep-result=no"
 
 :log info "NetGrid: auto-config complete"
 :put "NetGrid auto-config applied. Portal: ${p.portalUrl}"
