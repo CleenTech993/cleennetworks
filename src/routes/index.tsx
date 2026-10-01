@@ -51,7 +51,7 @@ function Landing() {
           {[
             { icon: Router, title: "Zero-touch routers", body: "Generate a one-line MikroTik command. Router auto-configures, reboots, reports back." },
             { icon: Wifi, title: "Captive portal", body: "Per-tenant branded portal with vouchers, OTP and M-Pesa STK Push checkout." },
-            { icon: CreditCard, title: "M-Pesa Daraja", body: "STK Push, C2B callbacks, automatic package activation and SMS receipts." },
+            { icon: CreditCard, title: "M-Pesa via PayHero", body: "STK Push, C2B callbacks, automatic package activation and SMS receipts." },
             { icon: Radio, title: "PPPoE & hotspot", body: "RADIUS-backed PPPoE for fiber subs, hotspot for Wi-Fi resale — same console." },
             { icon: BarChart3, title: "Live monitoring", body: "Router CPU/RAM, online users, throughput and revenue analytics in real time." },
             { icon: Shield, title: "Multi-tenant", body: "Strict tenant isolation with role-based access — super admin to support agent." },

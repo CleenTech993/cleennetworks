@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             cfg,
             amount: Number(pkg.price),
             phone: parsed.data.phone,
-            reference: tenant.slug,
+            reference: pay.id,
             description: pkg.kind ?? "Internet",
             callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
           });

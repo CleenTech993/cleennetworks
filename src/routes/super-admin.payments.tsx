@@ -68,28 +68,14 @@ function PlatformPayments() {
 
   return (
     <div>
-      <PageHeader title="Platform Payments" description="Centralized M-Pesa Daraja API — used by every tenant portal." />
+      <PageHeader title="Platform Payments" description="Centralized PayHero gateway — used by every tenant portal." />
       <div className="rounded-lg border bg-card p-5 max-w-3xl">
         <p className="text-xs text-muted-foreground mb-4">
-          These credentials power STK Push for every tenant. Tenants do not set Daraja keys — they only provide where they want
-          to receive payouts (Paybill / Till / bank). Use sandbox while testing.
+          M-Pesa prompts are sent through PayHero using the platform's saved API username, password and channel ID.
+          Tenants only provide where they want to receive payouts (Paybill / Till / bank).
         </p>
         <div className="space-y-3">
-          <div>
-            <Label>Environment</Label>
-            <select className="mt-1 flex h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-              value={form.mpesa_env} onChange={(e) => setForm({ ...form, mpesa_env: e.target.value })}>
-              <option value="sandbox">Sandbox</option>
-              <option value="production">Production</option>
-            </select>
-          </div>
-          {field("shortcode", "Business shortcode")}
-          {field("consumer_key", "Consumer key")}
-          {field("consumer_secret", "Consumer secret", undefined, "password")}
-          {field("passkey", "Lipa na M-Pesa passkey", undefined, "password")}
-          {field("callback_base_url", "Callback base URL", "https://your-domain.lovable.app")}
-          {field("validation_url", "Validation URL (C2B)")}
-          {field("confirmation_url", "Confirmation URL (C2B)")}
+          {field("callback_base_url", "Callback base URL (optional)", "https://cleennetworks.lovable.app")}
         </div>
         <div className="mt-5"><Button onClick={() => save.mutate()} disabled={save.isPending}>Save</Button></div>
       </div>
