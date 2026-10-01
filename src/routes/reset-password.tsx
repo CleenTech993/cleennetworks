@@ -1,0 +1,102 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Brand } from "@/components/brand";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+
+export const Route = createFileRoute("/reset-password")({
+  head: () => ({ meta: [{ title: "Set new password — NetGrid" }] }),
+  component: ResetPasswordPage,
+});
+
+function ResetPasswordPage() {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [invalid, setInvalid] = useState(false);
+
+  useEffect(() => {
+    // Recovery links arrive with type=recovery in the URL hash; the Supabase
+    // client exchanges it for a session automatically.
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery")) {
+      setReady(true);
+      return;
+    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setReady(true);
+    });
+    // If a recovery session already exists, allow the form too.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setReady(true);
+      else if (!hash.includes("type=recovery")) setInvalid(true);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Password updated. You can now sign in.");
+    navigate({ to: "/login" });
+  }
+
+  return (
+    <div className="grid min-h-screen place-items-center bg-background px-4">
+      <div className="w-full max-w-sm">
+        <Link to="/" className="mb-6 flex justify-center"><Brand /></Link>
+        <div className="rounded-lg border bg-card p-6 shadow-sm">
+          <h1 className="text-xl font-semibold">Set a new password</h1>
+          {invalid ? (
+            <>
+              <p className="mt-3 text-sm text-muted-foreground">
+                This reset link is invalid or has expired. Request a new one.
+              </p>
+              <Button asChild className="mt-5 w-full">
+                <Link to="/forgot-password">Request new link</Link>
+              </Button>
+            </>
+          ) : !ready ? (
+            <p className="mt-3 text-sm text-muted-foreground">Verifying your reset link…</p>
+          ) : (
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              <div>
+                <Label htmlFor="password">New password</Label>
+                <Input id="password" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="confirm">Confirm new password</Label>
+                <Input id="confirm" type="password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} className="mt-1" />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Updating…" : "Update password"}
+              </Button>
+            </form>
+          )}
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            <Link to="/login" className="text-primary hover:underline">Back to sign in</Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
