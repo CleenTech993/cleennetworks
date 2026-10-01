@@ -20,35 +20,27 @@ export interface TenantReceiving {
   mpesa_till: string | null;
 }
 
-export function darajaBase(env: string) {
-  return env === "production"
-    ? "https://api.safaricom.co.ke"
-    : "https://sandbox.safaricom.co.ke";
+// Payment gateway: PayHero (https://payhero.co.ke). Credentials live in
+// server secrets PAYHERO_API_USERNAME / PAYHERO_API_PASSWORD / PAYHERO_CHANNEL_ID.
+export const PAYHERO_BASE = "https://backend.payhero.co.ke/api/v2";
+
+export function payheroAuthHeader(): string {
+  const user = process.env["PAYHERO_API_USERNAME"];
+  const pass = process.env["PAYHERO_API_PASSWORD"];
+  if (!user || !pass) throw new Error("Payment gateway is not configured.");
+  return `Basic ${btoa(`${user}:${pass}`)}`;
 }
 
 export async function loadPlatformMpesaConfig(): Promise<PlatformMpesaConfig> {
-  const { data, error } = await supabaseAdmin
+  const { data } = await supabaseAdmin
     .from("platform_mpesa_config")
     .select("mpesa_env,shortcode,consumer_key,consumer_secret,passkey,callback_base_url")
     .eq("id", 1)
-    .single();
-  if (error || !data) throw new Error("Platform M-Pesa is not configured. Ask Super Admin to set credentials.");
-  if (!data.consumer_key || !data.consumer_secret || !data.passkey || !data.shortcode) {
-    throw new Error("Platform M-Pesa is not fully configured.");
-  }
-  return data as PlatformMpesaConfig;
-}
-
-export async function getDarajaToken(cfg: PlatformMpesaConfig): Promise<string> {
-  const auth = btoa(`${cfg.consumer_key}:${cfg.consumer_secret}`);
-  const res = await fetch(
-    `${darajaBase(cfg.mpesa_env)}/oauth/v1/generate?grant_type=client_credentials`,
-    { headers: { Authorization: `Basic ${auth}` } },
-  );
-  if (!res.ok) throw new Error(`Daraja OAuth failed: ${res.status}`);
-  const json = (await res.json()) as { access_token?: string };
-  if (!json.access_token) throw new Error("Daraja returned no access_token");
-  return json.access_token;
+    .maybeSingle();
+  return (data ?? {
+    mpesa_env: "production", shortcode: null, consumer_key: null,
+    consumer_secret: null, passkey: null, callback_base_url: null,
+  }) as PlatformMpesaConfig;
 }
 
 export function normalizePhone(input: string): string {
@@ -63,49 +55,63 @@ interface StkPushParams {
   cfg: PlatformMpesaConfig;
   amount: number;
   phone: string;
+  /** Our payment id — sent as PayHero external_reference. */
   reference: string;
   description: string;
   callbackUrl: string;
+  customerName?: string;
 }
 
 export interface StkPushResult {
   CheckoutRequestID: string;
+  /** PayHero transaction reference (used for status verification). */
   MerchantRequestID: string;
-  ResponseCode: string;
-  ResponseDescription: string;
   CustomerMessage: string;
 }
 
 export async function stkPush(p: StkPushParams): Promise<StkPushResult> {
-  const shortcode = p.cfg.shortcode!;
-  const token = await getDarajaToken(p.cfg);
-  const ts = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
-  const password = btoa(`${shortcode}${p.cfg.passkey}${ts}`);
-
-  const body = {
-    BusinessShortCode: shortcode,
-    Password: password,
-    Timestamp: ts,
-    TransactionType: "CustomerPayBillOnline",
-    Amount: Math.max(1, Math.round(p.amount)),
-    PartyA: normalizePhone(p.phone),
-    PartyB: shortcode,
-    PhoneNumber: normalizePhone(p.phone),
-    CallBackURL: p.callbackUrl,
-    AccountReference: p.reference.slice(0, 12),
-    TransactionDesc: p.description.slice(0, 13),
-  };
-
-  const res = await fetch(`${darajaBase(p.cfg.mpesa_env)}/mpesa/stkpush/v1/processrequest`, {
+  const channelId = Number(process.env["PAYHERO_CHANNEL_ID"]);
+  if (!channelId) throw new Error("Payment gateway channel is not configured.");
+  const res = await fetch(`${PAYHERO_BASE}/payments`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    headers: { Authorization: payheroAuthHeader(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: Math.max(1, Math.round(p.amount)),
+      phone_number: normalizePhone(p.phone),
+      channel_id: channelId,
+      provider: "m-pesa",
+      external_reference: p.reference,
+      customer_name: p.customerName ?? p.description,
+      callback_url: p.callbackUrl,
+    }),
   });
-  const json = await res.json();
-  if (!res.ok || json.ResponseCode !== "0") {
-    throw new Error(json.errorMessage ?? json.ResponseDescription ?? "STK Push failed");
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = JSON.parse(text); } catch { /* keep raw */ }
+  if (!res.ok || json.success === false) {
+    console.error(`PayHero STK failed [${res.status}]: ${text}`);
+    throw new Error((json.error_message as string) ?? (json.message as string) ?? "Could not send M-Pesa prompt");
   }
-  return json as StkPushResult;
+  return {
+    CheckoutRequestID: String(json.CheckoutRequestID ?? ""),
+    MerchantRequestID: String(json.reference ?? ""),
+    CustomerMessage: "Check your phone for the M-Pesa prompt",
+  };
+}
+
+/** Ask PayHero directly for the true status of a transaction. */
+export async function payheroTransactionStatus(reference: string): Promise<{ status: string; receipt: string | null; raw: unknown }> {
+  const res = await fetch(`${PAYHERO_BASE}/transaction-status?reference=${encodeURIComponent(reference)}`, {
+    headers: { Authorization: payheroAuthHeader() },
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`PayHero status failed [${res.status}]: ${text}`);
+  const json = JSON.parse(text) as Record<string, unknown>;
+  return {
+    status: String(json.status ?? "").toUpperCase(),
+    receipt: (json.provider_reference as string) ?? null,
+    raw: json,
+  };
 }
 
 export async function loadTenantBySlugAdmin(slug: string): Promise<TenantReceiving> {

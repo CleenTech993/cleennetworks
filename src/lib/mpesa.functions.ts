@@ -56,7 +56,7 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
       cfg,
       amount: Number(pkg.price),
       phone: data.phone,
-      reference: pkg.name,
+      reference: pay.id,
       description: pkg.kind ?? "Internet",
       callbackUrl,
     });
