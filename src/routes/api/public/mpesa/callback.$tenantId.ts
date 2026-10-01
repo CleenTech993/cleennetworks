@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
           })
           .eq("id", payment.id);
 
-        return Response.json({ ResultCode: 0, ResultDesc: "OK" });
+        return Response.json({ ok: true });
       },
     },
   },
