@@ -81,10 +81,9 @@ export const Route = createFileRoute("/api/public/router/wireguard/$token")({
           return new Response("# register public key first (POST)\n", { status: 409 });
         }
 
+        // The interface (and its private key) is created by the provisioning
+        // script before this snippet runs — here we only set peer + address.
         const rsc = `# NetGrid WireGuard tunnel
-/interface wireguard
-remove [find name=netgrid-wg]
-add name=netgrid-wg listen-port=13231 comment="NetGrid management tunnel"
 /interface wireguard peers
 remove [find interface=netgrid-wg]
 add interface=netgrid-wg public-key="${cfg.server_public_key}" endpoint-address=${cfg.server_host} endpoint-port=${cfg.server_port} allowed-address=${cfg.tunnel_network} persistent-keepalive=25s comment="NetGrid platform"

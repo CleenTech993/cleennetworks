@@ -51,6 +51,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           portalUrl,
           callbackUrl,
           interfacesUrl: `https://${host}/api/public/router/interfaces/${token}`,
+          wireguardUrl: `https://${host}/api/public/router/wireguard/${token}`,
         });
 
         return new Response(rsc, {
