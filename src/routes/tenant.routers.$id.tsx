@@ -106,6 +106,7 @@ function RouterDetail() {
             <Row label="WAN IP" value={r.wan_ip ?? r.public_ip ?? "—"} mono />
             <Row label="LAN IP" value={r.lan_ip ?? "—"} mono />
             <Row label="Status" value={r.status} />
+            <Row label="WireGuard tunnel" value={r.wg_tunnel_ip ? r.wg_tunnel_ip.split("/")[0] : "not configured"} mono />
             <Row
               label="Temperature"
               value={r.temperature != null ? `${r.temperature}°C` : "—"}
