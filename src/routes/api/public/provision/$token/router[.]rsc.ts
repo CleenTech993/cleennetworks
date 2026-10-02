@@ -90,6 +90,18 @@ add dst-host=api.safaricom.co.ke
 /ip hotspot walled-garden ip
 add action=accept dst-host=${new URL(p.portalUrl).host}
 
+# --- WireGuard management tunnel ---
+# Create the interface (generates the keypair), register our public key with
+# the platform, then pull the peer/address config the platform returns.
+/interface wireguard
+:if ([:len [find name=netgrid-wg]] = 0) do={ add name=netgrid-wg listen-port=13231 comment="NetGrid management tunnel" }
+:local wgPub [/interface wireguard get netgrid-wg public-key]
+:do { /tool fetch url="${p.wireguardUrl}" http-method=post http-data=\$wgPub mode=https keep-result=no } on-error={ :log warning "NetGrid: WireGuard key registration failed (platform endpoint not configured yet?)" }
+:do {
+  /tool fetch url="${p.wireguardUrl}" mode=https dst-path=netgrid-wg.rsc
+  /import file-name=netgrid-wg.rsc
+} on-error={ :log warning "NetGrid: WireGuard config fetch failed" }
+
 # WAN quality check: latency, jitter, loss (8.8.8.8) and DNS resolution
 /system script
 remove [find name=netgrid-wan]
