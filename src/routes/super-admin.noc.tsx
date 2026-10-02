@@ -157,6 +157,127 @@ function NocPage() {
         Live — updates push automatically on each router heartbeat.{" "}
         <Link to="/super-admin/tenants" className="underline">Manage tenants</Link>
       </p>
+
+      <WireGuardPanel routers={routers} />
+    </div>
+  );
+}
+
+function WireGuardPanel({ routers }: { routers: RouterRow[] }) {
+  const qc = useQueryClient();
+  const { data: cfg } = useQuery({
+    queryKey: ["wg-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("platform_wg_config").select("*").eq("id", 1).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("51820");
+  const [pubkey, setPubkey] = useState("");
+  const [network, setNetwork] = useState("10.99.0.0/24");
+  const [enabled, setEnabled] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (cfg && !loaded) {
+      setHost(cfg.server_host ?? "");
+      setPort(String(cfg.server_port ?? 51820));
+      setPubkey(cfg.server_public_key ?? "");
+      setNetwork(cfg.tunnel_network ?? "10.99.0.0/24");
+      setEnabled(cfg.enabled ?? false);
+      setLoaded(true);
+    }
+  }, [cfg, loaded]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("platform_wg_config").update({
+        server_host: host || null,
+        server_port: parseInt(port, 10) || 51820,
+        server_public_key: pubkey || null,
+        tunnel_network: network || "10.99.0.0/24",
+        enabled,
+        updated_at: new Date().toISOString(),
+      }).eq("id", 1);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("WireGuard endpoint saved");
+      qc.invalidateQueries({ queryKey: ["wg-config"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const peers = routers.filter((r) => r.wg_public_key);
+
+  return (
+    <div className="mt-8 rounded-lg border bg-card p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <ShieldCheck className="h-5 w-5 text-primary" />
+        <div>
+          <h3 className="font-semibold">WireGuard management tunnel</h3>
+          <p className="text-xs text-muted-foreground">
+            One platform endpoint. Routers register their key during provisioning and build an encrypted tunnel for management traffic.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="wg-host">Server address (public IP or DNS)</Label>
+            <Input id="wg-host" className="mt-1" placeholder="vpn.example.com" value={host} onChange={(e) => setHost(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="wg-port">Port</Label>
+              <Input id="wg-port" className="mt-1" value={port} onChange={(e) => setPort(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="wg-net">Tunnel network</Label>
+              <Input id="wg-net" className="mt-1" value={network} onChange={(e) => setNetwork(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="wg-pub">Server public key</Label>
+            <Input id="wg-pub" className="mt-1 font-mono text-xs" placeholder="base64 WireGuard public key" value={pubkey} onChange={(e) => setPubkey(e.target.value)} />
+          </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="wg-enabled">Enable tunnel provisioning</Label>
+            <Switch id="wg-enabled" checked={enabled} onCheckedChange={setEnabled} />
+          </div>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save endpoint"}
+          </Button>
+        </div>
+
+        <div>
+          <h4 className="mb-2 text-sm font-medium">Registered router peers ({peers.length})</h4>
+          {peers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No routers have registered a key yet. Save the endpoint, then re-run provisioning on each router.
+            </p>
+          ) : (
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {peers.map((r) => (
+                <div key={r.id} className="rounded-md bg-muted p-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="font-medium">{r.name}</span>
+                    <span className="font-mono">{r.wg_tunnel_ip?.split("/")[0]}</span>
+                  </div>
+                  <div className="mt-1 break-all font-mono text-muted-foreground">{r.wg_public_key}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Add each peer above to your WireGuard server config with its tunnel IP as the allowed address.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
