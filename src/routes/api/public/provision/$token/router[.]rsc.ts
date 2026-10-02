@@ -66,7 +66,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
   },
 });
 
-function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string }) {
+function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string; wireguardUrl: string }) {
   return `# NetGrid auto-config for ${p.tenantName}
 :log info "NetGrid: applying auto-config"
 
