@@ -45,7 +45,6 @@ import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
-import { Route as ApiPublicRouterWireguardTokenRouteImport } from './routes/api/public/router/wireguard.$token'
 import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
@@ -236,12 +235,6 @@ const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   path: '/api/public/portal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicRouterWireguardTokenRoute =
-  ApiPublicRouterWireguardTokenRouteImport.update({
-    id: '/api/public/router/wireguard/$token',
-    path: '/api/public/router/wireguard/$token',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicRouterInterfacesTokenRoute =
   ApiPublicRouterInterfacesTokenRouteImport.update({
     id: '/api/public/router/interfaces/$token',
@@ -343,7 +336,6 @@ export interface FileRoutesByFullPath {
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
-  '/api/public/router/wireguard/$token': typeof ApiPublicRouterWireguardTokenRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -388,7 +380,6 @@ export interface FileRoutesByTo {
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
-  '/api/public/router/wireguard/$token': typeof ApiPublicRouterWireguardTokenRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -437,7 +428,6 @@ export interface FileRoutesById {
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
-  '/api/public/router/wireguard/$token': typeof ApiPublicRouterWireguardTokenRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -487,7 +477,6 @@ export interface FileRouteTypes {
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
-    | '/api/public/router/wireguard/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -532,7 +521,6 @@ export interface FileRouteTypes {
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
-    | '/api/public/router/wireguard/$token'
   id:
     | '__root__'
     | '/'
@@ -580,7 +568,6 @@ export interface FileRouteTypes {
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
-    | '/api/public/router/wireguard/$token'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -599,7 +586,6 @@ export interface RootRouteChildren {
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
   ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
-  ApiPublicRouterWireguardTokenRoute: typeof ApiPublicRouterWireguardTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -856,13 +842,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/router/wireguard/$token': {
-      id: '/api/public/router/wireguard/$token'
-      path: '/api/public/router/wireguard/$token'
-      fullPath: '/api/public/router/wireguard/$token'
-      preLoaderRoute: typeof ApiPublicRouterWireguardTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/router/interfaces/$token': {
       id: '/api/public/router/interfaces/$token'
       path: '/api/public/router/interfaces/$token'
@@ -1053,7 +1032,6 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicProvisionTokenRouterDotrscRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
   ApiPublicRouterInterfacesTokenRoute: ApiPublicRouterInterfacesTokenRoute,
-  ApiPublicRouterWireguardTokenRoute: ApiPublicRouterWireguardTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

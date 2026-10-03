@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { RouterHistory } from "@/components/router-history";
-import { WgDiagnosePanel } from "@/components/wg-diagnose-panel";
 
 export const Route = createFileRoute("/tenant/routers/$id")({ component: RouterDetail });
 
@@ -107,7 +106,6 @@ function RouterDetail() {
             <Row label="WAN IP" value={r.wan_ip ?? r.public_ip ?? "—"} mono />
             <Row label="LAN IP" value={r.lan_ip ?? "—"} mono />
             <Row label="Status" value={r.status} />
-            <Row label="WireGuard tunnel" value={r.wg_tunnel_ip ? r.wg_tunnel_ip.split("/")[0] : "not configured"} mono />
             <Row
               label="Temperature"
               value={r.temperature != null ? `${r.temperature}°C` : "—"}
@@ -130,7 +128,6 @@ function RouterDetail() {
 
       <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />
 
-      <WgDiagnosePanel routerId={r.id} />
     </div>
   );
 }
