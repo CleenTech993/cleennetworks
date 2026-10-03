@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { RouterHistory } from "@/components/router-history";
+import { WgDiagnosePanel } from "@/components/wg-diagnose-panel";
 
 export const Route = createFileRoute("/tenant/routers/$id")({ component: RouterDetail });
 
@@ -128,6 +129,8 @@ function RouterDetail() {
       </div>
 
       <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />
+
+      <WgDiagnosePanel routerId={r.id} />
     </div>
   );
 }

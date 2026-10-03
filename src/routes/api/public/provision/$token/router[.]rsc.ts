@@ -107,9 +107,22 @@ add action=accept dst-host=${new URL(p.portalUrl).host}
 remove [find name=netgrid-wan]
 add name=netgrid-wan source={
   :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
-  :local avg 0; :local mn 0; :local mx 0; :local rcv 0;
-  :do { /tool flood-ping 8.8.8.8 count=10 size=64 do={ :set avg \$"avg-rtt"; :set mn \$"min-rtt"; :set mx \$"max-rtt"; :set rcv \$"received" } } on-error={}
-  :set ngLat \$avg; :set ngJit (\$mx - \$mn); :set ngLoss ((10 - \$rcv) * 10);
+  :local rcv 0; :local sum 0; :local mn 100000; :local mx 0;
+  :for i from=1 to=5 do={
+    :do {
+      :local res [/ping 8.8.8.8 count=1 as-value];
+      :if ([:len \$res] > 0) do={
+        :local s [:tostr (\$res->0->"time")];
+        :local t [:tonum [:pick \$s 0 [:find \$s "ms"]]];
+        :set rcv (\$rcv + 1); :set sum (\$sum + \$t);
+        :if (\$t < \$mn) do={ :set mn \$t }
+        :if (\$t > \$mx) do={ :set mx \$t }
+      }
+    } on-error={}
+    :delay 1s
+  }
+  :if (\$rcv > 0) do={ :set ngLat (\$sum / \$rcv); :set ngJit (\$mx - \$mn) } else={ :set ngLat 0; :set ngJit 0 }
+  :set ngLoss ((5 - \$rcv) * 20);
   :set ngDns 0; :do { :resolve google.com; :set ngDns 1 } on-error={}
 }
 
