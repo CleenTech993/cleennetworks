@@ -19,12 +19,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
             headers: { "content-type": "text/plain" },
           });
         }
-        if (router.provision_token_expires_at && new Date(router.provision_token_expires_at) < new Date()) {
-          return new Response("# token expired\n", {
-            status: 410,
-            headers: { "content-type": "text/plain" },
-          });
-        }
+        // Token stays valid so the tenant can re-run setup (it also authenticates heartbeats).
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
