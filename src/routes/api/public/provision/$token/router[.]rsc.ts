@@ -19,12 +19,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
             headers: { "content-type": "text/plain" },
           });
         }
-        if (router.provision_token_expires_at && new Date(router.provision_token_expires_at) < new Date()) {
-          return new Response("# token expired\n", {
-            status: 410,
-            headers: { "content-type": "text/plain" },
-          });
-        }
+        // Token stays valid so the tenant can re-run setup (it also authenticates heartbeats).
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
@@ -66,30 +61,92 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
 });
 
 function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string }) {
+  const portalHost = new URL(p.portalUrl).host;
   return `# NetGrid auto-config for ${p.tenantName}
+# Layout: ether1 = Internet (WAN, DHCP client). ether2-ether5 = customer LAN bridge
+# running Hotspot (10.5.50.0/24) and PPPoE server (10.10.0.0/24).
+# Safe to re-run: previous NetGrid items are removed first.
 :log info "NetGrid: applying auto-config"
 
-/ip hotspot profile
-add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,mac-cookie html-directory=hotspot
-:log info "NetGrid: hotspot profile ready"
+# --- Clean previous NetGrid config ---
+:do { /ip hotspot remove [find name=netgrid-hs] } on-error={}
+:do { /ip hotspot profile remove [find name=netgrid-hsprof] } on-error={}
+:do { /ip dhcp-server remove [find name=netgrid-dhcp] } on-error={}
+:do { /ip dhcp-server network remove [find comment=netgrid] } on-error={}
+:do { /interface pppoe-server server remove [find service-name=netgrid] } on-error={}
+:do { /ppp profile remove [find name=netgrid-pppoe] } on-error={}
+:do { /ip pool remove [find name~"^netgrid-"] } on-error={}
+:do { /ip address remove [find comment=netgrid] } on-error={}
+:do { /ip firewall nat remove [find comment~"^netgrid"] } on-error={}
 
+# --- WAN: ether1 gets internet via DHCP ---
+/ip dhcp-client
+:if ([:len [find interface=ether1]] = 0) do={ add interface=ether1 disabled=no add-default-route=yes use-peer-dns=no comment=netgrid }
+
+# --- DNS ---
+/ip dns set servers=8.8.8.8,1.1.1.1 allow-remote-requests=yes
+
+# --- LAN bridge with ether2-ether5 ---
+/interface bridge
+:if ([:len [find name=netgrid-lan]] = 0) do={ add name=netgrid-lan comment="NetGrid customer LAN" }
+:foreach p in={"ether2";"ether3";"ether4";"ether5"} do={
+  :do {
+    /interface bridge port remove [find interface=\$p]
+    /interface bridge port add bridge=netgrid-lan interface=\$p
+  } on-error={}
+}
+
+# --- Addresses ---
+/ip address
+add address=10.5.50.1/24 interface=netgrid-lan comment=netgrid
+
+# --- Pools ---
 /ip pool
-add name=netgrid-hs-pool ranges=10.5.50.2-10.5.50.254
+add name=netgrid-hs-pool ranges=10.5.50.10-10.5.50.254
+add name=netgrid-pppoe-pool ranges=10.10.0.2-10.10.0.254
 
+# --- DHCP server for hotspot clients ---
+/ip dhcp-server
+add name=netgrid-dhcp interface=netgrid-lan address-pool=netgrid-hs-pool lease-time=1h disabled=no
+/ip dhcp-server network
+add address=10.5.50.0/24 gateway=10.5.50.1 dns-server=10.5.50.1 comment=netgrid
+
+# --- NAT: share internet from ether1 ---
+/ip firewall nat
+add chain=srcnat out-interface=ether1 action=masquerade comment="netgrid masquerade"
+
+# --- Hotspot ---
+/ip hotspot profile
+add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=hotspot
 /ip hotspot
-add name=netgrid-hs interface=ether2 address-pool=netgrid-hs-pool profile=netgrid-hsprof disabled=no
+add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof disabled=no
 
 /ip hotspot walled-garden
-add dst-host=*.lovable.app
-add dst-host=${new URL(p.portalUrl).host}
-add dst-host=sandbox.safaricom.co.ke
-add dst-host=api.safaricom.co.ke
-
-# Send users to the NetGrid captive portal
+:do { remove [find comment=netgrid] } on-error={}
+add dst-host=*.lovable.app comment=netgrid
+add dst-host=${portalHost} comment=netgrid
+add dst-host=*.payhero.co.ke comment=netgrid
+add dst-host=*.safaricom.co.ke comment=netgrid
 /ip hotspot walled-garden ip
-add action=accept dst-host=${new URL(p.portalUrl).host}
+:do { remove [find comment=netgrid] } on-error={}
+add action=accept dst-host=${portalHost} comment=netgrid
 
-# All router <-> platform communication uses HTTPS (/tool fetch mode=https).
+# Login page redirects customers to the NetGrid captive portal
+:do {
+  /file add name=hotspot/login.html contents="<html><head><meta http-equiv='refresh' content='0; url=${p.portalUrl}?mac=\\$(mac)&ip=\\$(ip)&login=\\$(link-login-only)'></head><body>Redirecting...</body></html>"
+} on-error={ :do { /file set [find name=hotspot/login.html] contents="<html><head><meta http-equiv='refresh' content='0; url=${p.portalUrl}?mac=\\$(mac)&ip=\\$(ip)&login=\\$(link-login-only)'></head><body>Redirecting...</body></html>" } on-error={ :log warning "NetGrid: could not write hotspot login page" } }
+
+# --- PPPoE server ---
+/ppp profile
+add name=netgrid-pppoe local-address=10.10.0.1 remote-address=netgrid-pppoe-pool dns-server=8.8.8.8,1.1.1.1 only-one=yes
+/interface pppoe-server server
+add service-name=netgrid interface=netgrid-lan default-profile=netgrid-pppoe authentication=pap,chap,mschap2 one-session-per-host=yes disabled=no
+/ip firewall nat
+add chain=srcnat src-address=10.10.0.0/24 out-interface=ether1 action=masquerade comment="netgrid pppoe"
+
+:log info "NetGrid: network, NAT, hotspot and PPPoE configured"
+
+
 
 
 # WAN quality check: latency, jitter, loss (8.8.8.8) and DNS resolution
