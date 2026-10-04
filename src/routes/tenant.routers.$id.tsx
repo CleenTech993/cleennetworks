@@ -1,14 +1,30 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Cpu, HardDrive, Thermometer, Zap } from "lucide-react";
+import { ArrowLeft, Cpu, HardDrive, RefreshCw, Thermometer, Zap } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { RouterHistory } from "@/components/router-history";
+import { InterfacesTab, QualityTab, TrafficTab } from "@/components/router-network";
 
-export const Route = createFileRoute("/tenant/routers/$id")({ component: RouterDetail });
+export const Route = createFileRoute("/tenant/routers/$id")({
+  head: () => ({ meta: [{ title: "Router details — NetGrid" }, { name: "description", content: "Live router health, ports, internet quality and traffic." }] }),
+  component: RouterDetail,
+});
+
+function health(r: Tables<"routers">, ramPct: number | null, live: boolean) {
+  if (!live) return 0;
+  let s = 100;
+  const cpu = r.cpu_load ?? r.cpu_usage ?? 0;
+  if (cpu > 80) s -= 25; else if (cpu > 60) s -= 10;
+  if ((ramPct ?? 0) > 85) s -= 25; else if ((ramPct ?? 0) > 70) s -= 10;
+  if (r.temperature != null && Number(r.temperature) > 70) s -= 20;
+  return Math.max(0, s);
+}
 
 function fmtUptime(sec?: number | null) {
   if (!sec) return "—";
@@ -79,6 +95,30 @@ function RouterDetail() {
         action={<Badge variant={live ? "default" : "secondary"}>{live ? "online" : "offline"}</Badge>}
       />
 
+      <div className={`mb-6 flex items-center gap-3 rounded-lg border p-3 text-sm ${live ? "bg-primary/5" : "bg-destructive/5"}`}>
+        <span className={`h-2.5 w-2.5 rounded-full ${live ? "bg-primary animate-pulse" : "bg-destructive"}`} />
+        <span className="font-medium">{live ? "Router is reachable" : "Router is not responding"}</span>
+        <span className="text-muted-foreground">
+          {last ? `last check-in ${Math.round((Date.now() - new Date(last).getTime()) / 1000)}s ago` : "never checked in"}
+          {" · "}health score {health(r, ramPct, live)}/100
+        </span>
+        <Button size="sm" variant="outline" className="ml-auto" onClick={() => refetch()}>
+          <RefreshCw className="h-3.5 w-3.5" /> Check now
+        </Button>
+      </div>
+
+      <Tabs defaultValue="overview">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Health</TabsTrigger>
+          <TabsTrigger value="interfaces">Interfaces</TabsTrigger>
+          <TabsTrigger value="quality">Internet quality</TabsTrigger>
+          <TabsTrigger value="traffic">Traffic</TabsTrigger>
+        </TabsList>
+        <TabsContent value="interfaces"><InterfacesTab routerId={r.id} /></TabsContent>
+        <TabsContent value="quality"><QualityTab routerId={r.id} /></TabsContent>
+        <TabsContent value="traffic"><TrafficTab routerId={r.id} /></TabsContent>
+        <TabsContent value="overview">
+
       <div className="grid gap-4 md:grid-cols-4 mb-6">
         <StatCard
           label="CPU"
@@ -127,7 +167,8 @@ function RouterDetail() {
       </div>
 
       <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />
-
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
