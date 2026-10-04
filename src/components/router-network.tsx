@@ -113,9 +113,9 @@ export function QualityTab({ routerId }: { routerId: string }) {
             <XAxis dataKey="t" fontSize={11} />
             <YAxis fontSize={11} />
             <Tooltip />
-            <Line type="monotone" dataKey="latency" name="Ping ms" stroke="hsl(var(--primary))" dot={false} />
-            <Line type="monotone" dataKey="jitter" name="Jitter ms" stroke="hsl(var(--muted-foreground))" dot={false} />
-            <Line type="monotone" dataKey="loss" name="Loss %" stroke="hsl(var(--destructive))" dot={false} />
+            <Line type="monotone" dataKey="latency" name="Ping ms" stroke="var(--primary)" dot={false} />
+            <Line type="monotone" dataKey="jitter" name="Jitter ms" stroke="var(--muted-foreground)" dot={false} />
+            <Line type="monotone" dataKey="loss" name="Loss %" stroke="var(--destructive)" dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -139,8 +139,8 @@ export function TrafficTab({ routerId }: { routerId: string }) {
               <XAxis dataKey="t" fontSize={11} />
               <YAxis fontSize={11} />
               <Tooltip formatter={(v: number) => `${v.toFixed(2)} Mbps`} />
-              <Area type="monotone" dataKey="down" name="Download" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.25)" />
-              <Area type="monotone" dataKey="up" name="Upload" stroke="hsl(var(--muted-foreground))" fill="hsl(var(--muted-foreground) / 0.2)" />
+              <Area type="monotone" dataKey="down" name="Download" stroke="var(--primary)" fill="color-mix(in oklab, var(--primary) 25%, transparent)" />
+              <Area type="monotone" dataKey="up" name="Upload" stroke="var(--muted-foreground)" fill="color-mix(in oklab, var(--muted-foreground) 20%, transparent)" />
             </AreaChart>
           </ResponsiveContainer>
         ) : <p className="text-sm text-muted-foreground">No traffic samples yet.</p>}
