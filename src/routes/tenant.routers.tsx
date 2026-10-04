@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Copy, Router as RouterIcon } from "lucide-react";
+import { Plus, Copy, Router as RouterIcon, Trash2 } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +49,19 @@ function RoutersPage() {
       qc.invalidateQueries({ queryKey: ["routers"] });
       setOpen(false);
       setName("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [showCmd, setShowCmd] = useState<Record<string, boolean>>({});
+  const delRouter = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("routers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Router deleted");
+      qc.invalidateQueries({ queryKey: ["routers"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -109,11 +122,21 @@ function RoutersPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={r.status === "online" ? "default" : "secondary"}>{r.status}</Badge>
+                  {(() => {
+                    const last = r.last_heartbeat_at ?? r.last_seen_at;
+                    const live = last ? Date.now() - new Date(last).getTime() < 3 * 60 * 1000 : false;
+                    return <Badge variant={live ? "default" : "secondary"}>{r.status === "pending" ? "pending" : live ? "online" : "offline"}</Badge>;
+                  })()}
                   <Link to="/tenant/routers/$id" params={{ id: r.id }} className="text-xs text-primary underline">Details</Link>
+                  <Button size="sm" variant="ghost" onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}>Setup</Button>
+                  <Button size="sm" variant="ghost" aria-label="Delete router" onClick={() => {
+                    if (confirm(`Delete router "${r.name}"? Its history will be removed.`)) delRouter.mutate(r.id);
+                  }}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
               </div>
-              {r.provision_token && r.status === "pending" && (
+              {r.provision_token && (r.status === "pending" || showCmd[r.id]) && (
                 <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
                   <div className="flex items-start justify-between gap-3">
                     <code className="break-all">{provisionCommand(r.provision_token)}</code>
