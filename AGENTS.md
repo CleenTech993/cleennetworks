@@ -1,0 +1,1 @@
+- Console layouts (/tenant, /super-admin) use ssr:false + requireConsole() (signed in, OTP aal2, role) — session lives in browser storage, so server render can't see it.
