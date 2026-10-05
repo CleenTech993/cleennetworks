@@ -15,6 +15,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PortalRouteImport } from './routes/portal'
 import { Route as PendingRouteImport } from './routes/pending'
+import { Route as MfaRouteImport } from './routes/mfa'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
@@ -83,6 +84,11 @@ const PortalRoute = PortalRouteImport.update({
 const PendingRoute = PendingRouteImport.update({
   id: '/pending',
   path: '/pending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MfaRoute = MfaRouteImport.update({
+  id: '/mfa',
+  path: '/mfa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -294,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/mfa': typeof MfaRoute
   '/pending': typeof PendingRoute
   '/portal': typeof PortalRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
@@ -341,6 +348,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/mfa': typeof MfaRoute
   '/pending': typeof PendingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
@@ -386,6 +394,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
+  '/mfa': typeof MfaRoute
   '/pending': typeof PendingRoute
   '/portal': typeof PortalRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
@@ -435,6 +444,7 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
+    | '/mfa'
     | '/pending'
     | '/portal'
     | '/reset-password'
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
+    | '/mfa'
     | '/pending'
     | '/reset-password'
     | '/signup'
@@ -526,6 +537,7 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
+    | '/mfa'
     | '/pending'
     | '/portal'
     | '/reset-password'
@@ -574,6 +586,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
+  MfaRoute: typeof MfaRoute
   PendingRoute: typeof PendingRoute
   PortalRoute: typeof PortalRouteWithChildren
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -630,6 +643,13 @@ declare module '@tanstack/react-router' {
       path: '/pending'
       fullPath: '/pending'
       preLoaderRoute: typeof PendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mfa': {
+      id: '/mfa'
+      path: '/mfa'
+      fullPath: '/mfa'
+      preLoaderRoute: typeof MfaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1019,6 +1039,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
+  MfaRoute: MfaRoute,
   PendingRoute: PendingRoute,
   PortalRoute: PortalRouteWithChildren,
   ResetPasswordRoute: ResetPasswordRoute,

@@ -23,6 +23,7 @@ function RoutersPage() {
   const [name, setName] = useState("");
 
   const { data: routers, isLoading } = useQuery({
+    refetchInterval: 30_000,
     queryKey: ["routers"],
     queryFn: async () => {
       const { data, error } = await supabase.from("routers").select("*").order("created_at", { ascending: false });
@@ -119,6 +120,9 @@ function RoutersPage() {
                   <div>
                     <p className="font-medium">{r.name}</p>
                     <p className="text-xs text-muted-foreground">{r.model ?? "Model pending"} · {r.routeros_version ?? "RouterOS ?"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      CPU {r.cpu_load ?? r.cpu_usage ?? "—"}% · RAM {r.total_memory_mb && r.free_memory_mb != null ? Math.round(((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100) : "—"}% · {r.temperature != null ? `${r.temperature}°C · ` : ""}last seen {r.last_heartbeat_at ?? r.last_seen_at ? new Date((r.last_heartbeat_at ?? r.last_seen_at)!).toLocaleTimeString() : "never"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

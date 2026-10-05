@@ -27,14 +27,12 @@ function LoginPage() {
       toast.error(error.message);
       return;
     }
-    // Decide destination
+    // Approved users must pass two-step verification (OTP) before entering a console
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-    const list = roles ?? [];
-    if (list.length === 0) { navigate({ to: "/pending" }); return; }
-    const isSuper = list.some((r) => r.role === "super_admin");
-    navigate({ to: isSuper ? "/super-admin" : "/tenant" });
+    if (!roles?.length) { navigate({ to: "/pending" }); return; }
+    navigate({ to: "/mfa" });
   }
 
   return (

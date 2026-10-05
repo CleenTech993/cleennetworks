@@ -63,7 +63,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
 function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string }) {
   const portalHost = new URL(p.portalUrl).host;
   return `# NetGrid auto-config for ${p.tenantName}
-# Layout: ether1 = Internet (WAN, DHCP client). ether2-ether5 = customer LAN bridge
+# Layout: ether1 = Internet (WAN, DHCP client). ether2-ether5 + Wi-Fi (wlan/wifi) = customer LAN bridge
 # running Hotspot (10.5.50.0/24) and PPPoE server (10.10.0.0/24).
 # Safe to re-run: previous NetGrid items are removed first.
 :log info "NetGrid: applying auto-config"
@@ -89,7 +89,7 @@ function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: strin
 # --- LAN bridge with ether2-ether5 ---
 /interface bridge
 :if ([:len [find name=netgrid-lan]] = 0) do={ add name=netgrid-lan comment="NetGrid customer LAN" }
-:foreach p in={"ether2";"ether3";"ether4";"ether5"} do={
+:foreach p in={"ether2";"ether3";"ether4";"ether5";"wlan1";"wlan2";"wifi1";"wifi2"} do={
   :do {
     /interface bridge port remove [find interface=\$p]
     /interface bridge port add bridge=netgrid-lan interface=\$p
