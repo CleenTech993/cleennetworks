@@ -1,10 +1,10 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import {
   LayoutDashboard, Router, Wifi, Network, Palette, Package, Users,
   Activity, CreditCard, MessageSquare, LifeBuoy, Settings,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
-import { supabase } from "@/integrations/supabase/client";
+import { requireConsole } from "@/lib/auth-guard";
 
 const nav: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
@@ -22,12 +22,9 @@ const nav: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/tenant")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/login" });
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
-    if (!roles || roles.length === 0) throw redirect({ to: "/pending" });
-  },
+  // Session lives in browser storage; server render can't see it (that caused logout on refresh).
+  ssr: false,
+  beforeLoad: () => requireConsole(),
   component: TenantLayout,
 });
 

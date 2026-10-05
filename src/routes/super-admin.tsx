@@ -1,7 +1,7 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { LayoutDashboard, Building2, CreditCard, Activity, Users, Wallet, Banknote, Radar } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
-import { supabase } from "@/integrations/supabase/client";
+import { requireConsole } from "@/lib/auth-guard";
 
 const nav: NavItem[] = [
   { to: "/super-admin", label: "Overview", icon: LayoutDashboard },
@@ -15,11 +15,7 @@ const nav: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/super-admin")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) throw redirect({ to: "/login" });
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
-    if (!roles?.some((r) => r.role === "super_admin")) throw redirect({ to: "/tenant" });
-  },
+  ssr: false,
+  beforeLoad: () => requireConsole({ superAdmin: true }),
   component: () => <DashboardShell title="Super Admin" subtitle="Platform control" nav={nav}><Outlet /></DashboardShell>,
 });
