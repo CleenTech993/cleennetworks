@@ -323,36 +323,6 @@ export type Database = {
         }
         Relationships: []
       }
-      platform_wg_config: {
-        Row: {
-          enabled: boolean
-          id: number
-          server_host: string | null
-          server_port: number
-          server_public_key: string | null
-          tunnel_network: string
-          updated_at: string
-        }
-        Insert: {
-          enabled?: boolean
-          id?: number
-          server_host?: string | null
-          server_port?: number
-          server_public_key?: string | null
-          tunnel_network?: string
-          updated_at?: string
-        }
-        Update: {
-          enabled?: boolean
-          id?: number
-          server_host?: string | null
-          server_port?: number
-          server_public_key?: string | null
-          tunnel_network?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           created_at: string
