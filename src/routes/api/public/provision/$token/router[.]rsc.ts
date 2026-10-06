@@ -61,7 +61,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
   },
 });
 
-function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string }) {
+function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string; syncUrl: string }) {
   const portalHost = new URL(p.portalUrl).host;
   return `# NetGrid auto-config for ${p.tenantName}
 # Layout: ether1 = Internet (WAN, DHCP client). ether2-ether5 + Wi-Fi (wlan/wifi) = customer LAN bridge
