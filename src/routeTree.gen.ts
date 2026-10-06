@@ -9,92 +9,57 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TenantRouteImport } from './routes/tenant'
-import { Route as SuperAdminRouteImport } from './routes/super-admin'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as PortalRouteImport } from './routes/portal'
-import { Route as PendingRouteImport } from './routes/pending'
-import { Route as MfaRouteImport } from './routes/mfa'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TenantIndexRouteImport } from './routes/tenant.index'
-import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
-import { Route as PortalIndexRouteImport } from './routes/portal.index'
-import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
-import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
-import { Route as TenantSettingsRouteImport } from './routes/tenant.settings'
-import { Route as TenantSessionsRouteImport } from './routes/tenant.sessions'
-import { Route as TenantRoutersRouteImport } from './routes/tenant.routers'
-import { Route as TenantPppoeRouteImport } from './routes/tenant.pppoe'
-import { Route as TenantPortalRouteImport } from './routes/tenant.portal'
-import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
-import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
-import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
-import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
-import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
-import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tenants'
-import { Route as SuperAdminSettlementsRouteImport } from './routes/super-admin.settlements'
-import { Route as SuperAdminPaymentsRouteImport } from './routes/super-admin.payments'
-import { Route as SuperAdminNocRouteImport } from './routes/super-admin.noc'
-import { Route as SuperAdminHealthRouteImport } from './routes/super-admin.health'
-import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
-import { Route as PortalUsageRouteImport } from './routes/portal.usage'
-import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
-import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MfaRouteImport } from './routes/mfa'
+import { Route as PendingRouteImport } from './routes/pending'
+import { Route as PortalRouteImport } from './routes/portal'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SuperAdminRouteImport } from './routes/super-admin'
+import { Route as TenantRouteImport } from './routes/tenant'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
+import { Route as PortalIndexRouteImport } from './routes/portal.index'
+import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
+import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
+import { Route as PortalUsageRouteImport } from './routes/portal.usage'
+import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
+import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
+import { Route as SuperAdminHealthRouteImport } from './routes/super-admin.health'
+import { Route as SuperAdminNocRouteImport } from './routes/super-admin.noc'
+import { Route as SuperAdminPaymentsRouteImport } from './routes/super-admin.payments'
+import { Route as SuperAdminSettlementsRouteImport } from './routes/super-admin.settlements'
+import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tenants'
+import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
+import { Route as TenantIndexRouteImport } from './routes/tenant.index'
+import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
+import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
+import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
+import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
+import { Route as TenantPortalRouteImport } from './routes/tenant.portal'
+import { Route as TenantPppoeRouteImport } from './routes/tenant.pppoe'
+import { Route as TenantRoutersRouteImport } from './routes/tenant.routers'
+import { Route as TenantSessionsRouteImport } from './routes/tenant.sessions'
+import { Route as TenantSettingsRouteImport } from './routes/tenant.settings'
+import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
+import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
-import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
-import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
-import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
-import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
-import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
-import { Route as ApiPublicPortalSlugStatusRouteImport } from './routes/api/public/portal/$slug/status'
-import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/public/portal/$slug/reconnect'
-import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
-import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
+import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
+import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
+import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/public/portal/$slug/reconnect'
+import { Route as ApiPublicPortalSlugStatusRouteImport } from './routes/api/public/portal/$slug/status'
+import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
+import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
+import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
+import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
+import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
 
-const TenantRoute = TenantRouteImport.update({
-  id: '/tenant',
-  path: '/tenant',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SuperAdminRoute = SuperAdminRouteImport.update({
-  id: '/super-admin',
-  path: '/super-admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PortalRoute = PortalRouteImport.update({
-  id: '/portal',
-  path: '/portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PendingRoute = PendingRouteImport.update({
-  id: '/pending',
-  path: '/pending',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MfaRoute = MfaRouteImport.update({
-  id: '/mfa',
-  path: '/mfa',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -102,124 +67,54 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TenantIndexRoute = TenantIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => TenantRoute,
+const MfaRoute = MfaRouteImport.update({
+  id: '/mfa',
+  path: '/mfa',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => SuperAdminRoute,
+const PendingRoute = PendingRouteImport.update({
+  id: '/pending',
+  path: '/pending',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuperAdminRoute = SuperAdminRouteImport.update({
+  id: '/super-admin',
+  path: '/super-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TenantRoute = TenantRouteImport.update({
+  id: '/tenant',
+  path: '/tenant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PSlugRoute = PSlugRouteImport.update({
+  id: '/p/$slug',
+  path: '/p/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PortalIndexRoute = PortalIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => PortalRoute,
-} as any)
-const TenantTicketsRoute = TenantTicketsRouteImport.update({
-  id: '/tickets',
-  path: '/tickets',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantSmsRoute = TenantSmsRouteImport.update({
-  id: '/sms',
-  path: '/sms',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantSettingsRoute = TenantSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantSessionsRoute = TenantSessionsRouteImport.update({
-  id: '/sessions',
-  path: '/sessions',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantRoutersRoute = TenantRoutersRouteImport.update({
-  id: '/routers',
-  path: '/routers',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantPppoeRoute = TenantPppoeRouteImport.update({
-  id: '/pppoe',
-  path: '/pppoe',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantPortalRoute = TenantPortalRouteImport.update({
-  id: '/portal',
-  path: '/portal',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantPaymentsRoute = TenantPaymentsRouteImport.update({
-  id: '/payments',
-  path: '/payments',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantPackagesRoute = TenantPackagesRouteImport.update({
-  id: '/packages',
-  path: '/packages',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantHotspotRoute = TenantHotspotRouteImport.update({
-  id: '/hotspot',
-  path: '/hotspot',
-  getParentRoute: () => TenantRoute,
-} as any)
-const TenantCustomersRoute = TenantCustomersRouteImport.update({
-  id: '/customers',
-  path: '/customers',
-  getParentRoute: () => TenantRoute,
-} as any)
-const SuperAdminUsersRoute = SuperAdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => SuperAdminRoute,
-} as any)
-const SuperAdminTenantsRoute = SuperAdminTenantsRouteImport.update({
-  id: '/tenants',
-  path: '/tenants',
-  getParentRoute: () => SuperAdminRoute,
-} as any)
-const SuperAdminSettlementsRoute = SuperAdminSettlementsRouteImport.update({
-  id: '/settlements',
-  path: '/settlements',
-  getParentRoute: () => SuperAdminRoute,
-} as any)
-const SuperAdminPaymentsRoute = SuperAdminPaymentsRouteImport.update({
-  id: '/payments',
-  path: '/payments',
-  getParentRoute: () => SuperAdminRoute,
-} as any)
-const SuperAdminNocRoute = SuperAdminNocRouteImport.update({
-  id: '/noc',
-  path: '/noc',
-  getParentRoute: () => SuperAdminRoute,
-} as any)
-const SuperAdminHealthRoute = SuperAdminHealthRouteImport.update({
-  id: '/health',
-  path: '/health',
-  getParentRoute: () => SuperAdminRoute,
-} as any)
-const SuperAdminBillingRoute = SuperAdminBillingRouteImport.update({
-  id: '/billing',
-  path: '/billing',
-  getParentRoute: () => SuperAdminRoute,
-} as any)
-const PortalUsageRoute = PortalUsageRouteImport.update({
-  id: '/usage',
-  path: '/usage',
-  getParentRoute: () => PortalRoute,
-} as any)
-const PortalPackagesRoute = PortalPackagesRouteImport.update({
-  id: '/packages',
-  path: '/packages',
   getParentRoute: () => PortalRoute,
 } as any)
 const PortalInvoicesRoute = PortalInvoicesRouteImport.update({
@@ -227,10 +122,115 @@ const PortalInvoicesRoute = PortalInvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => PortalRoute,
 } as any)
-const PSlugRoute = PSlugRouteImport.update({
-  id: '/p/$slug',
-  path: '/p/$slug',
-  getParentRoute: () => rootRouteImport,
+const PortalPackagesRoute = PortalPackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => PortalRoute,
+} as any)
+const PortalUsageRoute = PortalUsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => PortalRoute,
+} as any)
+const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminBillingRoute = SuperAdminBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminHealthRoute = SuperAdminHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminNocRoute = SuperAdminNocRouteImport.update({
+  id: '/noc',
+  path: '/noc',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminPaymentsRoute = SuperAdminPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminSettlementsRoute = SuperAdminSettlementsRouteImport.update({
+  id: '/settlements',
+  path: '/settlements',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminTenantsRoute = SuperAdminTenantsRouteImport.update({
+  id: '/tenants',
+  path: '/tenants',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const SuperAdminUsersRoute = SuperAdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
+const TenantIndexRoute = TenantIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCustomersRoute = TenantCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantHotspotRoute = TenantHotspotRouteImport.update({
+  id: '/hotspot',
+  path: '/hotspot',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPackagesRoute = TenantPackagesRouteImport.update({
+  id: '/packages',
+  path: '/packages',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPaymentsRoute = TenantPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPortalRoute = TenantPortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantPppoeRoute = TenantPppoeRouteImport.update({
+  id: '/pppoe',
+  path: '/pppoe',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantRoutersRoute = TenantRoutersRouteImport.update({
+  id: '/routers',
+  path: '/routers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSessionsRoute = TenantSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSettingsRoute = TenantSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantSmsRoute = TenantSmsRouteImport.update({
+  id: '/sms',
+  path: '/sms',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantTicketsRoute = TenantTicketsRouteImport.update({
+  id: '/tickets',
+  path: '/tickets',
+  getParentRoute: () => TenantRoute,
 } as any)
 const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
   id: '/$id',
@@ -242,46 +242,16 @@ const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   path: '/api/public/portal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicRouterSyncTokenRoute =
-  ApiPublicRouterSyncTokenRouteImport.update({
-    id: '/api/public/router/sync/$token',
-    path: '/api/public/router/sync/$token',
+const ApiPublicMpesaCallbackTenantIdRoute =
+  ApiPublicMpesaCallbackTenantIdRouteImport.update({
+    id: '/api/public/mpesa/callback/$tenantId',
+    path: '/api/public/mpesa/callback/$tenantId',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicRouterInterfacesTokenRoute =
-  ApiPublicRouterInterfacesTokenRouteImport.update({
-    id: '/api/public/router/interfaces/$token',
-    path: '/api/public/router/interfaces/$token',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicRouterHeartbeatTokenRoute =
-  ApiPublicRouterHeartbeatTokenRouteImport.update({
-    id: '/api/public/router/heartbeat/$token',
-    path: '/api/public/router/heartbeat/$token',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicProvisionTokenRouterDotrscRoute =
-  ApiPublicProvisionTokenRouterDotrscRouteImport.update({
-    id: '/api/public/provision/$token/router.rsc',
-    path: '/api/public/provision/$token/router.rsc',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicPortalSlugVoucherRoute =
-  ApiPublicPortalSlugVoucherRouteImport.update({
-    id: '/voucher',
-    path: '/voucher',
-    getParentRoute: () => ApiPublicPortalSlugRoute,
-  } as any)
-const ApiPublicPortalSlugStatusRoute =
-  ApiPublicPortalSlugStatusRouteImport.update({
-    id: '/status',
-    path: '/status',
-    getParentRoute: () => ApiPublicPortalSlugRoute,
-  } as any)
-const ApiPublicPortalSlugReconnectRoute =
-  ApiPublicPortalSlugReconnectRouteImport.update({
-    id: '/reconnect',
-    path: '/reconnect',
+const ApiPublicPortalSlugCheckoutRoute =
+  ApiPublicPortalSlugCheckoutRouteImport.update({
+    id: '/checkout',
+    path: '/checkout',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
 const ApiPublicPortalSlugPaymentStatusRoute =
@@ -290,16 +260,46 @@ const ApiPublicPortalSlugPaymentStatusRoute =
     path: '/payment-status',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
-const ApiPublicPortalSlugCheckoutRoute =
-  ApiPublicPortalSlugCheckoutRouteImport.update({
-    id: '/checkout',
-    path: '/checkout',
+const ApiPublicPortalSlugReconnectRoute =
+  ApiPublicPortalSlugReconnectRouteImport.update({
+    id: '/reconnect',
+    path: '/reconnect',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
-const ApiPublicMpesaCallbackTenantIdRoute =
-  ApiPublicMpesaCallbackTenantIdRouteImport.update({
-    id: '/api/public/mpesa/callback/$tenantId',
-    path: '/api/public/mpesa/callback/$tenantId',
+const ApiPublicPortalSlugStatusRoute =
+  ApiPublicPortalSlugStatusRouteImport.update({
+    id: '/status',
+    path: '/status',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
+const ApiPublicPortalSlugVoucherRoute =
+  ApiPublicPortalSlugVoucherRouteImport.update({
+    id: '/voucher',
+    path: '/voucher',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
+const ApiPublicProvisionTokenRouterDotrscRoute =
+  ApiPublicProvisionTokenRouterDotrscRouteImport.update({
+    id: '/api/public/provision/$token/router.rsc',
+    path: '/api/public/provision/$token/router.rsc',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicRouterHeartbeatTokenRoute =
+  ApiPublicRouterHeartbeatTokenRouteImport.update({
+    id: '/api/public/router/heartbeat/$token',
+    path: '/api/public/router/heartbeat/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicRouterInterfacesTokenRoute =
+  ApiPublicRouterInterfacesTokenRouteImport.update({
+    id: '/api/public/router/interfaces/$token',
+    path: '/api/public/router/interfaces/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicRouterSyncTokenRoute =
+  ApiPublicRouterSyncTokenRouteImport.update({
+    id: '/api/public/router/sync/$token',
+    path: '/api/public/router/sync/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -617,60 +617,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tenant': {
-      id: '/tenant'
-      path: '/tenant'
-      fullPath: '/tenant'
-      preLoaderRoute: typeof TenantRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/super-admin': {
-      id: '/super-admin'
-      path: '/super-admin'
-      fullPath: '/super-admin'
-      preLoaderRoute: typeof SuperAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/portal': {
-      id: '/portal'
-      path: '/portal'
-      fullPath: '/portal'
-      preLoaderRoute: typeof PortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pending': {
-      id: '/pending'
-      path: '/pending'
-      fullPath: '/pending'
-      preLoaderRoute: typeof PendingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mfa': {
-      id: '/mfa'
-      path: '/mfa'
-      fullPath: '/mfa'
-      preLoaderRoute: typeof MfaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -680,172 +631,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tenant/': {
-      id: '/tenant/'
-      path: '/'
-      fullPath: '/tenant/'
-      preLoaderRoute: typeof TenantIndexRouteImport
-      parentRoute: typeof TenantRoute
+    '/mfa': {
+      id: '/mfa'
+      path: '/mfa'
+      fullPath: '/mfa'
+      preLoaderRoute: typeof MfaRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/super-admin/': {
-      id: '/super-admin/'
-      path: '/'
-      fullPath: '/super-admin/'
-      preLoaderRoute: typeof SuperAdminIndexRouteImport
-      parentRoute: typeof SuperAdminRoute
+    '/pending': {
+      id: '/pending'
+      path: '/pending'
+      fullPath: '/pending'
+      preLoaderRoute: typeof PendingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/super-admin': {
+      id: '/super-admin'
+      path: '/super-admin'
+      fullPath: '/super-admin'
+      preLoaderRoute: typeof SuperAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tenant': {
+      id: '/tenant'
+      path: '/tenant'
+      fullPath: '/tenant'
+      preLoaderRoute: typeof TenantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/p/$slug': {
+      id: '/p/$slug'
+      path: '/p/$slug'
+      fullPath: '/p/$slug'
+      preLoaderRoute: typeof PSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/portal/': {
       id: '/portal/'
       path: '/'
       fullPath: '/portal/'
       preLoaderRoute: typeof PortalIndexRouteImport
-      parentRoute: typeof PortalRoute
-    }
-    '/tenant/tickets': {
-      id: '/tenant/tickets'
-      path: '/tickets'
-      fullPath: '/tenant/tickets'
-      preLoaderRoute: typeof TenantTicketsRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/sms': {
-      id: '/tenant/sms'
-      path: '/sms'
-      fullPath: '/tenant/sms'
-      preLoaderRoute: typeof TenantSmsRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/settings': {
-      id: '/tenant/settings'
-      path: '/settings'
-      fullPath: '/tenant/settings'
-      preLoaderRoute: typeof TenantSettingsRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/sessions': {
-      id: '/tenant/sessions'
-      path: '/sessions'
-      fullPath: '/tenant/sessions'
-      preLoaderRoute: typeof TenantSessionsRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/routers': {
-      id: '/tenant/routers'
-      path: '/routers'
-      fullPath: '/tenant/routers'
-      preLoaderRoute: typeof TenantRoutersRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/pppoe': {
-      id: '/tenant/pppoe'
-      path: '/pppoe'
-      fullPath: '/tenant/pppoe'
-      preLoaderRoute: typeof TenantPppoeRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/portal': {
-      id: '/tenant/portal'
-      path: '/portal'
-      fullPath: '/tenant/portal'
-      preLoaderRoute: typeof TenantPortalRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/payments': {
-      id: '/tenant/payments'
-      path: '/payments'
-      fullPath: '/tenant/payments'
-      preLoaderRoute: typeof TenantPaymentsRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/packages': {
-      id: '/tenant/packages'
-      path: '/packages'
-      fullPath: '/tenant/packages'
-      preLoaderRoute: typeof TenantPackagesRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/hotspot': {
-      id: '/tenant/hotspot'
-      path: '/hotspot'
-      fullPath: '/tenant/hotspot'
-      preLoaderRoute: typeof TenantHotspotRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/tenant/customers': {
-      id: '/tenant/customers'
-      path: '/customers'
-      fullPath: '/tenant/customers'
-      preLoaderRoute: typeof TenantCustomersRouteImport
-      parentRoute: typeof TenantRoute
-    }
-    '/super-admin/users': {
-      id: '/super-admin/users'
-      path: '/users'
-      fullPath: '/super-admin/users'
-      preLoaderRoute: typeof SuperAdminUsersRouteImport
-      parentRoute: typeof SuperAdminRoute
-    }
-    '/super-admin/tenants': {
-      id: '/super-admin/tenants'
-      path: '/tenants'
-      fullPath: '/super-admin/tenants'
-      preLoaderRoute: typeof SuperAdminTenantsRouteImport
-      parentRoute: typeof SuperAdminRoute
-    }
-    '/super-admin/settlements': {
-      id: '/super-admin/settlements'
-      path: '/settlements'
-      fullPath: '/super-admin/settlements'
-      preLoaderRoute: typeof SuperAdminSettlementsRouteImport
-      parentRoute: typeof SuperAdminRoute
-    }
-    '/super-admin/payments': {
-      id: '/super-admin/payments'
-      path: '/payments'
-      fullPath: '/super-admin/payments'
-      preLoaderRoute: typeof SuperAdminPaymentsRouteImport
-      parentRoute: typeof SuperAdminRoute
-    }
-    '/super-admin/noc': {
-      id: '/super-admin/noc'
-      path: '/noc'
-      fullPath: '/super-admin/noc'
-      preLoaderRoute: typeof SuperAdminNocRouteImport
-      parentRoute: typeof SuperAdminRoute
-    }
-    '/super-admin/health': {
-      id: '/super-admin/health'
-      path: '/health'
-      fullPath: '/super-admin/health'
-      preLoaderRoute: typeof SuperAdminHealthRouteImport
-      parentRoute: typeof SuperAdminRoute
-    }
-    '/super-admin/billing': {
-      id: '/super-admin/billing'
-      path: '/billing'
-      fullPath: '/super-admin/billing'
-      preLoaderRoute: typeof SuperAdminBillingRouteImport
-      parentRoute: typeof SuperAdminRoute
-    }
-    '/portal/usage': {
-      id: '/portal/usage'
-      path: '/usage'
-      fullPath: '/portal/usage'
-      preLoaderRoute: typeof PortalUsageRouteImport
-      parentRoute: typeof PortalRoute
-    }
-    '/portal/packages': {
-      id: '/portal/packages'
-      path: '/packages'
-      fullPath: '/portal/packages'
-      preLoaderRoute: typeof PortalPackagesRouteImport
       parentRoute: typeof PortalRoute
     }
     '/portal/invoices': {
@@ -855,12 +708,159 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalInvoicesRouteImport
       parentRoute: typeof PortalRoute
     }
-    '/p/$slug': {
-      id: '/p/$slug'
-      path: '/p/$slug'
-      fullPath: '/p/$slug'
-      preLoaderRoute: typeof PSlugRouteImport
-      parentRoute: typeof rootRouteImport
+    '/portal/packages': {
+      id: '/portal/packages'
+      path: '/packages'
+      fullPath: '/portal/packages'
+      preLoaderRoute: typeof PortalPackagesRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/portal/usage': {
+      id: '/portal/usage'
+      path: '/usage'
+      fullPath: '/portal/usage'
+      preLoaderRoute: typeof PortalUsageRouteImport
+      parentRoute: typeof PortalRoute
+    }
+    '/super-admin/': {
+      id: '/super-admin/'
+      path: '/'
+      fullPath: '/super-admin/'
+      preLoaderRoute: typeof SuperAdminIndexRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/billing': {
+      id: '/super-admin/billing'
+      path: '/billing'
+      fullPath: '/super-admin/billing'
+      preLoaderRoute: typeof SuperAdminBillingRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/health': {
+      id: '/super-admin/health'
+      path: '/health'
+      fullPath: '/super-admin/health'
+      preLoaderRoute: typeof SuperAdminHealthRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/noc': {
+      id: '/super-admin/noc'
+      path: '/noc'
+      fullPath: '/super-admin/noc'
+      preLoaderRoute: typeof SuperAdminNocRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/payments': {
+      id: '/super-admin/payments'
+      path: '/payments'
+      fullPath: '/super-admin/payments'
+      preLoaderRoute: typeof SuperAdminPaymentsRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/settlements': {
+      id: '/super-admin/settlements'
+      path: '/settlements'
+      fullPath: '/super-admin/settlements'
+      preLoaderRoute: typeof SuperAdminSettlementsRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/tenants': {
+      id: '/super-admin/tenants'
+      path: '/tenants'
+      fullPath: '/super-admin/tenants'
+      preLoaderRoute: typeof SuperAdminTenantsRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/users': {
+      id: '/super-admin/users'
+      path: '/users'
+      fullPath: '/super-admin/users'
+      preLoaderRoute: typeof SuperAdminUsersRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/tenant/': {
+      id: '/tenant/'
+      path: '/'
+      fullPath: '/tenant/'
+      preLoaderRoute: typeof TenantIndexRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/customers': {
+      id: '/tenant/customers'
+      path: '/customers'
+      fullPath: '/tenant/customers'
+      preLoaderRoute: typeof TenantCustomersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/hotspot': {
+      id: '/tenant/hotspot'
+      path: '/hotspot'
+      fullPath: '/tenant/hotspot'
+      preLoaderRoute: typeof TenantHotspotRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/packages': {
+      id: '/tenant/packages'
+      path: '/packages'
+      fullPath: '/tenant/packages'
+      preLoaderRoute: typeof TenantPackagesRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/payments': {
+      id: '/tenant/payments'
+      path: '/payments'
+      fullPath: '/tenant/payments'
+      preLoaderRoute: typeof TenantPaymentsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/portal': {
+      id: '/tenant/portal'
+      path: '/portal'
+      fullPath: '/tenant/portal'
+      preLoaderRoute: typeof TenantPortalRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/pppoe': {
+      id: '/tenant/pppoe'
+      path: '/pppoe'
+      fullPath: '/tenant/pppoe'
+      preLoaderRoute: typeof TenantPppoeRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/routers': {
+      id: '/tenant/routers'
+      path: '/routers'
+      fullPath: '/tenant/routers'
+      preLoaderRoute: typeof TenantRoutersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/sessions': {
+      id: '/tenant/sessions'
+      path: '/sessions'
+      fullPath: '/tenant/sessions'
+      preLoaderRoute: typeof TenantSessionsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/settings': {
+      id: '/tenant/settings'
+      path: '/settings'
+      fullPath: '/tenant/settings'
+      preLoaderRoute: typeof TenantSettingsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/sms': {
+      id: '/tenant/sms'
+      path: '/sms'
+      fullPath: '/tenant/sms'
+      preLoaderRoute: typeof TenantSmsRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/tickets': {
+      id: '/tenant/tickets'
+      path: '/tickets'
+      fullPath: '/tenant/tickets'
+      preLoaderRoute: typeof TenantTicketsRouteImport
+      parentRoute: typeof TenantRoute
     }
     '/tenant/routers/$id': {
       id: '/tenant/routers/$id'
@@ -876,53 +876,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/router/sync/$token': {
-      id: '/api/public/router/sync/$token'
-      path: '/api/public/router/sync/$token'
-      fullPath: '/api/public/router/sync/$token'
-      preLoaderRoute: typeof ApiPublicRouterSyncTokenRouteImport
+    '/api/public/mpesa/callback/$tenantId': {
+      id: '/api/public/mpesa/callback/$tenantId'
+      path: '/api/public/mpesa/callback/$tenantId'
+      fullPath: '/api/public/mpesa/callback/$tenantId'
+      preLoaderRoute: typeof ApiPublicMpesaCallbackTenantIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/router/interfaces/$token': {
-      id: '/api/public/router/interfaces/$token'
-      path: '/api/public/router/interfaces/$token'
-      fullPath: '/api/public/router/interfaces/$token'
-      preLoaderRoute: typeof ApiPublicRouterInterfacesTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/router/heartbeat/$token': {
-      id: '/api/public/router/heartbeat/$token'
-      path: '/api/public/router/heartbeat/$token'
-      fullPath: '/api/public/router/heartbeat/$token'
-      preLoaderRoute: typeof ApiPublicRouterHeartbeatTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/provision/$token/router.rsc': {
-      id: '/api/public/provision/$token/router.rsc'
-      path: '/api/public/provision/$token/router.rsc'
-      fullPath: '/api/public/provision/$token/router.rsc'
-      preLoaderRoute: typeof ApiPublicProvisionTokenRouterDotrscRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/portal/$slug/voucher': {
-      id: '/api/public/portal/$slug/voucher'
-      path: '/voucher'
-      fullPath: '/api/public/portal/$slug/voucher'
-      preLoaderRoute: typeof ApiPublicPortalSlugVoucherRouteImport
-      parentRoute: typeof ApiPublicPortalSlugRoute
-    }
-    '/api/public/portal/$slug/status': {
-      id: '/api/public/portal/$slug/status'
-      path: '/status'
-      fullPath: '/api/public/portal/$slug/status'
-      preLoaderRoute: typeof ApiPublicPortalSlugStatusRouteImport
-      parentRoute: typeof ApiPublicPortalSlugRoute
-    }
-    '/api/public/portal/$slug/reconnect': {
-      id: '/api/public/portal/$slug/reconnect'
-      path: '/reconnect'
-      fullPath: '/api/public/portal/$slug/reconnect'
-      preLoaderRoute: typeof ApiPublicPortalSlugReconnectRouteImport
+    '/api/public/portal/$slug/checkout': {
+      id: '/api/public/portal/$slug/checkout'
+      path: '/checkout'
+      fullPath: '/api/public/portal/$slug/checkout'
+      preLoaderRoute: typeof ApiPublicPortalSlugCheckoutRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
     '/api/public/portal/$slug/payment-status': {
@@ -932,18 +897,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugPaymentStatusRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
-    '/api/public/portal/$slug/checkout': {
-      id: '/api/public/portal/$slug/checkout'
-      path: '/checkout'
-      fullPath: '/api/public/portal/$slug/checkout'
-      preLoaderRoute: typeof ApiPublicPortalSlugCheckoutRouteImport
+    '/api/public/portal/$slug/reconnect': {
+      id: '/api/public/portal/$slug/reconnect'
+      path: '/reconnect'
+      fullPath: '/api/public/portal/$slug/reconnect'
+      preLoaderRoute: typeof ApiPublicPortalSlugReconnectRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
-    '/api/public/mpesa/callback/$tenantId': {
-      id: '/api/public/mpesa/callback/$tenantId'
-      path: '/api/public/mpesa/callback/$tenantId'
-      fullPath: '/api/public/mpesa/callback/$tenantId'
-      preLoaderRoute: typeof ApiPublicMpesaCallbackTenantIdRouteImport
+    '/api/public/portal/$slug/status': {
+      id: '/api/public/portal/$slug/status'
+      path: '/status'
+      fullPath: '/api/public/portal/$slug/status'
+      preLoaderRoute: typeof ApiPublicPortalSlugStatusRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
+    '/api/public/portal/$slug/voucher': {
+      id: '/api/public/portal/$slug/voucher'
+      path: '/voucher'
+      fullPath: '/api/public/portal/$slug/voucher'
+      preLoaderRoute: typeof ApiPublicPortalSlugVoucherRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
+    '/api/public/provision/$token/router.rsc': {
+      id: '/api/public/provision/$token/router.rsc'
+      path: '/api/public/provision/$token/router.rsc'
+      fullPath: '/api/public/provision/$token/router.rsc'
+      preLoaderRoute: typeof ApiPublicProvisionTokenRouterDotrscRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/router/heartbeat/$token': {
+      id: '/api/public/router/heartbeat/$token'
+      path: '/api/public/router/heartbeat/$token'
+      fullPath: '/api/public/router/heartbeat/$token'
+      preLoaderRoute: typeof ApiPublicRouterHeartbeatTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/router/interfaces/$token': {
+      id: '/api/public/router/interfaces/$token'
+      path: '/api/public/router/interfaces/$token'
+      fullPath: '/api/public/router/interfaces/$token'
+      preLoaderRoute: typeof ApiPublicRouterInterfacesTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/router/sync/$token': {
+      id: '/api/public/router/sync/$token'
+      path: '/api/public/router/sync/$token'
+      fullPath: '/api/public/router/sync/$token'
+      preLoaderRoute: typeof ApiPublicRouterSyncTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
