@@ -231,7 +231,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
       const res = await fetch(`/api/public/portal/${slug}/reconnect`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ phone: phone || undefined, mpesaCode: code || undefined }),
+        body: JSON.stringify({ phone: phone || undefined, mpesaCode: code }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
@@ -263,7 +263,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">Enter the phone number you paid with, or your M-Pesa transaction code.</p>
+      <p className="text-xs text-muted-foreground">Enter the M-Pesa transaction code from your payment confirmation SMS. Adding your phone number is optional.</p>
       <div>
         <Label htmlFor="rphone">Phone number</Label>
         <Input id="rphone" inputMode="tel" placeholder="07XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" />
@@ -272,7 +272,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
         <Label htmlFor="rcode">M-Pesa code</Label>
         <Input id="rcode" autoCapitalize="characters" placeholder="e.g. SFE1A2B3CD" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} className="mt-1 font-mono tracking-widest" />
       </div>
-      <Button className="w-full" style={{ backgroundColor: primary }} disabled={busy || (!phone && !code)} onClick={go}>
+      <Button className="w-full" style={{ backgroundColor: primary }} disabled={busy || code.trim().length < 6} onClick={go}>
         {busy ? "Checking…" : "Reconnect"}
       </Button>
     </div>
@@ -280,8 +280,8 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
 }
 
 interface StatusResp {
-  active: { id: string; amount: number; expires_at: string; mpesa_receipt: string | null } | null;
-  history: Array<{ id: string; amount: number; status: string; created_at: string; mpesa_receipt: string | null }>;
+  active: { amount: number; expires_at: string; mpesa_receipt: string | null } | null;
+  history: Array<{ amount: number; status: string; created_at: string; mpesa_receipt: string | null }>;
 }
 
 function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
@@ -329,8 +329,8 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
             <div className="mt-4">
               <p className="text-xs font-medium text-muted-foreground mb-2">Recent transactions</p>
               <ul className="space-y-1.5 text-xs">
-                {data.history.slice(0, 5).map((h) => (
-                  <li key={h.id} className="flex justify-between gap-2">
+                {data.history.slice(0, 5).map((h, i) => (
+                  <li key={i} className="flex justify-between gap-2">
                     <span className="text-muted-foreground">{new Date(h.created_at).toLocaleString()}</span>
                     <span>KES {Number(h.amount).toFixed(0)}</span>
                     <span className="capitalize">{h.status}</span>

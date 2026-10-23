@@ -323,6 +323,24 @@ describe("RLS tenant isolation", () => {
   });
 
   describe("profiles table", () => {
+    it("user A cannot change their own tenant_id (cross-tenant takeover)", async () => {
+      await A.client.from("profiles").update({ tenant_id: B.tenantId }).eq("id", A.userId);
+      const { data } = await admin.from("profiles").select("tenant_id").eq("id", A.userId).single();
+      expect(data?.tenant_id).toBe(A.tenantId);
+      // ...and therefore still cannot see tenant B's rows
+      const { data: rows } = await A.client.from("routers").select("id").eq("tenant_id", B.tenantId);
+      expect(rows ?? []).toHaveLength(0);
+    });
+
+    it("user A can still update their own full_name", async () => {
+      const { error } = await A.client.from("profiles").update({ full_name: "Renamed A" }).eq("id", A.userId);
+      expect(error).toBeNull();
+    });
+
+    it("user A cannot insert a profile row for another user", async () => {
+      const { error } = await A.client.from("profiles").insert({ id: crypto.randomUUID(), tenant_id: B.tenantId });
+      expect(error).not.toBeNull();
+    });
     it("user A cannot read user B's profile", async () => {
       const { data } = await A.client
         .from("profiles")

@@ -2,16 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { normalizePhone } from "@/lib/mpesa.server";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 
+// The M-Pesa receipt code is required: a phone number alone is not a secret, so it must
+// never be enough to retrieve a paid voucher. Phone, if given, is an extra filter.
 const Schema = z.object({
   phone: z.string().min(7).max(20).optional(),
-  mpesaCode: z.string().min(4).max(40).optional(),
-}).refine((v) => v.phone || v.mpesaCode, { message: "Provide phone or M-Pesa code" });
+  mpesaCode: z.string().min(6).max(40),
+});
 
 export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
+        if (!rateLimit(`reconnect:${params.slug}:${clientIp(request)}`, 10, 60_000)) return tooManyRequests();
         let body: unknown;
         try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
         const parsed = Schema.safeParse(body);
@@ -29,11 +33,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
           .order("created_at", { ascending: false })
           .limit(1);
 
-        if (parsed.data.mpesaCode) {
-          q = q.eq("mpesa_receipt", parsed.data.mpesaCode.trim().toUpperCase());
-        } else if (parsed.data.phone) {
-          q = q.eq("phone", normalizePhone(parsed.data.phone));
-        }
+        q = q.eq("mpesa_receipt", parsed.data.mpesaCode.trim().toUpperCase());
+        if (parsed.data.phone) q = q.eq("phone", normalizePhone(parsed.data.phone));
 
         const { data: pay } = await q.maybeSingle();
         if (!pay) return Response.json({ active: false, reason: "No purchase found" });
