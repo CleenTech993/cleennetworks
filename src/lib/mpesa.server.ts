@@ -139,13 +139,4 @@ export function randomVoucher(): string {
   return out;
 }
 
-export function expiryFrom(value: number, unit: string): string {
-  const ms =
-    unit === "minute" ? value * 60_000 :
-    unit === "hour"   ? value * 3_600_000 :
-    unit === "day"    ? value * 86_400_000 :
-    unit === "week"   ? value * 7 * 86_400_000 :
-    unit === "month"  ? value * 30 * 86_400_000 :
-    value * 86_400_000;
-  return new Date(Date.now() + ms).toISOString();
-}
+export { expiryFrom } from "./duration";
