@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { PageHeader, StatCard, EmptyState } from "@/components/dashboard-shell";
+import { PageHeader, StatCard } from "@/components/dashboard-shell";
+import { VoucherManager } from "@/components/voucher-manager";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/tenant/hotspot")({ component: Hotspot });
@@ -36,10 +37,7 @@ function Hotspot() {
         <StatCard label="Upload (live)" value={data ? data.upMB + " MB" : "—"} />
       </div>
       <div className="mt-6">
-        <EmptyState
-          title="Vouchers coming soon"
-          description="Bulk voucher batch generation and printable PDF rolls will appear here. For now, customers buy via the captive portal with M-Pesa STK Push."
-        />
+        <VoucherManager />
       </div>
     </div>
   );

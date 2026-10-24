@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { buildHotspotLoginRedirect } from "@/lib/hotspot-redirect";
 
 export const Route = createFileRoute("/p/$slug")({
   head: () => ({
@@ -347,21 +348,30 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
 
 function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
   const [code, setCode] = useState("");
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<"connecting" | "accepted" | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function redeem() {
     setBusy(true);
     try {
+      // The router's login page sends the customer here with ?mac=…&ip=…&login=<hotspot login URL>.
+      const params = new URLSearchParams(window.location.search);
       const res = await fetch(`/api/public/portal/${slug}/voucher`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, mac: params.get("mac") || undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
-      setDone(true);
       toast.success("Voucher redeemed");
+      // Hand the browser to the router so the device is actually logged in.
+      const target = buildHotspotLoginRedirect(params.get("login"), json.code ?? code);
+      if (target) {
+        setDone("connecting");
+        window.location.href = target;
+      } else {
+        setDone("accepted");
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -373,7 +383,12 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
     return (
       <div className="rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
-        <p className="mt-3 font-medium">You're online</p>
+        <p className="mt-3 font-medium">{done === "connecting" ? "Connecting you to the internet…" : "Voucher accepted"}</p>
+        {done === "accepted" && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Open this page from the Wi-Fi network's sign-in screen to connect, or reconnect to the Wi-Fi.
+          </p>
+        )}
       </div>
     );
   }
