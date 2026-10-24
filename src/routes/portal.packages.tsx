@@ -26,7 +26,7 @@ function BuyPackages() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {data.map((p) => (
-            <div key={p.id} className="flex flex-col rounded-lg border bg-card p-5">
+            <div key={p.id} className="flex flex-col rounded-xl border bg-card p-5">
               <div className="text-xs uppercase tracking-wide text-muted-foreground">{p.kind}</div>
               <h3 className="mt-1 text-lg font-semibold">{p.name}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{p.description ?? ""}</p>

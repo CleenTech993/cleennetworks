@@ -73,7 +73,7 @@ function Users() {
       {!profiles?.length ? (
         <EmptyState title="No users" description="Users will appear here once accounts are created." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>

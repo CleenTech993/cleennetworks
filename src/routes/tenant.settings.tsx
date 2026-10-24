@@ -84,7 +84,7 @@ function Settings() {
     <div>
       <PageHeader title="Settings" description="Branding, receiving details, and customer support." />
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-xl border bg-card p-5">
           <h3 className="font-semibold mb-4">Branding</h3>
           <div className="space-y-3">
             {field("name", "ISP name")}
@@ -98,7 +98,7 @@ function Settings() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-xl border bg-card p-5">
           <h3 className="font-semibold mb-1">Receiving details</h3>
           <p className="text-xs text-muted-foreground mb-4">
             Customers pay through the platform M-Pesa API (managed by Super Admin). These details are used for your settlement
@@ -127,7 +127,7 @@ function Settings() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-card p-5 md:col-span-2">
+        <div className="rounded-xl border bg-card p-5 md:col-span-2">
           <h3 className="font-semibold mb-4">Customer support</h3>
           <div className="grid gap-3 md:grid-cols-2">
             {field("support_phone", "Support phone / WhatsApp")}

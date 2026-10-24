@@ -77,7 +77,7 @@ function Tickets() {
       ) : (
         <div className="space-y-3">
           {data.map((t) => (
-            <div key={t.id} className="rounded-lg border bg-card p-4">
+            <div key={t.id} className="rounded-xl border bg-card p-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h3 className="font-medium">{t.subject}</h3>

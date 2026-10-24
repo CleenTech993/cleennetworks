@@ -39,7 +39,7 @@ function Billing() {
         <StatCard label="Platform commission (KES)" value={data ? Math.round(data.commission).toLocaleString() : "—"} hint="Earned across all tenants" />
         <StatCard label="Owed to tenants (KES)" value={data ? Math.round(data.owed).toLocaleString() : "—"} hint="Pending settlements" />
       </div>
-      <div className="mt-6 rounded-lg border bg-card p-6">
+      <div className="mt-6 rounded-xl border bg-card p-6">
         <h3 className="font-semibold">Subscription plans</h3>
         <p className="mt-1 text-sm text-muted-foreground">Define monthly plans (Starter / Growth / Scale) and assign tenants. Auto-charge via M-Pesa on the 1st of every month — wiring coming with the billing job.</p>
       </div>

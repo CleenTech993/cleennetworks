@@ -59,13 +59,13 @@ function useMetrics(routerId: string) {
   });
 }
 
-const empty = (msg: string) => <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">{msg}</p>;
+const empty = (msg: string) => <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{msg}</p>;
 
 export function InterfacesTab({ routerId }: { routerId: string }) {
   const { data } = useInterfaces(routerId);
   if (!data?.length) return empty("No port data yet. It appears within 2 minutes after the router runs the latest setup file.");
   return (
-    <div className="overflow-x-auto rounded-lg border bg-card">
+    <div className="overflow-x-auto rounded-xl border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
           <tr>{["Port", "Status", "Download", "Upload", "Total in", "Total out", "Errors", "Drops"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
@@ -105,7 +105,7 @@ export function QualityTab({ routerId }: { routerId: string }) {
         <StatCard label="Packet loss" value={`${Number(last.wan_loss_pct ?? 0).toFixed(0)}%`} />
         <StatCard label="DNS" value={last.dns_ok ? "Working" : "Failing"} />
       </div>
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border bg-card p-4">
         <h4 className="mb-2 text-sm font-medium">Last 6 hours</h4>
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={rows}>
@@ -130,7 +130,7 @@ export function TrafficTab({ routerId }: { routerId: string }) {
   const top = [...(ifaces ?? [])].sort((a, b) => b.rx_bps + b.tx_bps - (a.rx_bps + a.tx_bps)).slice(0, 5);
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border bg-card p-4">
         <h4 className="mb-2 text-sm font-medium">Internet (ether1) speed, last 6 hours — Mbps</h4>
         {rows.length ? (
           <ResponsiveContainer width="100%" height={260}>
@@ -145,7 +145,7 @@ export function TrafficTab({ routerId }: { routerId: string }) {
           </ResponsiveContainer>
         ) : <p className="text-sm text-muted-foreground">No traffic samples yet.</p>}
       </div>
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border bg-card p-4">
         <h4 className="mb-2 text-sm font-medium">Busiest ports right now</h4>
         {top.length ? top.map((i) => (
           <div key={i.id} className="flex justify-between border-t py-2 text-sm first:border-t-0">

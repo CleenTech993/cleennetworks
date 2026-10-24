@@ -81,7 +81,7 @@ function NocPage() {
         <StatCard label="Avg CPU" value={`${avgCpu}%`} />
       </div>
 
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="overflow-hidden rounded-xl border bg-card">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
             <tr>

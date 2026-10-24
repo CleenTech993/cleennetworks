@@ -37,7 +37,7 @@ function Payments() {
       {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p>
         : !rows.length ? <EmptyState title="No payments" description={q ? "No payment matches your search." : "Once M-Pesa payments arrive, transactions appear here."} />
         : (
-          <div className="rounded-lg border bg-card overflow-x-auto">
+          <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                 <tr><th className="px-4 py-2.5 text-left">Date</th><th className="px-4 py-2.5 text-left">Phone</th><th className="px-4 py-2.5 text-left">Amount</th><th className="px-4 py-2.5 text-left">M-Pesa code</th><th className="px-4 py-2.5 text-left">Voucher</th><th className="px-4 py-2.5 text-left">Status</th></tr>

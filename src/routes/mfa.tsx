@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
-import { Brand } from "@/components/brand";
+import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,42 +66,34 @@ function MfaPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex justify-center"><Brand /></div>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold">Two-step verification</h1>
-          </div>
-          {mode === "loading" && <p className="mt-4 text-sm text-muted-foreground">Loading…</p>}
-          {mode === "enroll" && (
-            <div className="mt-3 space-y-3 text-sm">
-              <p className="text-muted-foreground">
-                Scan this code with Google Authenticator, Microsoft Authenticator or Authy, then enter the 6-digit code it shows.
-              </p>
-              {qr && <img src={qr} alt="Authenticator QR code" className="mx-auto h-44 w-44 rounded bg-card" />}
-              <p className="break-all text-center font-mono text-xs text-muted-foreground">{secret}</p>
-            </div>
-          )}
-          {mode === "verify" && (
-            <p className="mt-3 text-sm text-muted-foreground">Enter the 6-digit code from your authenticator app.</p>
-          )}
-          {mode !== "loading" && (
-            <form onSubmit={submit} className="mt-4 space-y-3">
-              <div>
-                <Label htmlFor="otp">Code</Label>
-                <Input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="mt-1 text-center font-mono text-lg tracking-widest" />
-              </div>
-              <Button type="submit" className="w-full" disabled={busy || code.length !== 6}>{busy ? "Verifying…" : "Verify"}</Button>
-              <Button type="button" variant="ghost" className="w-full" onClick={async () => { await supabase.auth.signOut(); navigate({ to: "/login" }); }}>
-                Use a different account
-              </Button>
-            </form>
-          )}
+    <AuthLayout
+      title="Two-step verification"
+      icon={<ShieldCheck className="h-6 w-6 text-primary" />}
+      description={mode === "verify" ? "Enter the 6-digit code from your authenticator app." : undefined}
+    >
+      {mode === "loading" && <p className="text-sm text-muted-foreground">Loading…</p>}
+      {mode === "enroll" && (
+        <div className="space-y-3 text-sm">
+          <p className="text-muted-foreground">
+            Scan this code with Google Authenticator, Microsoft Authenticator or Authy, then enter the 6-digit code it shows.
+          </p>
+          {qr && <img src={qr} alt="Authenticator QR code" className="mx-auto h-44 w-44 rounded-lg border bg-white p-2" />}
+          <p className="break-all text-center font-mono text-xs text-muted-foreground">{secret}</p>
         </div>
-      </div>
-    </div>
+      )}
+      {mode !== "loading" && (
+        <form onSubmit={submit} className="mt-5 space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="otp">Code</Label>
+            <Input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="text-center font-mono text-lg tracking-[0.4em]" />
+          </div>
+          <Button type="submit" className="w-full" disabled={busy || code.length !== 6}>{busy ? "Verifying…" : "Verify"}</Button>
+          <Button type="button" variant="ghost" className="w-full" onClick={async () => { await supabase.auth.signOut(); navigate({ to: "/login" }); }}>
+            Use a different account
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

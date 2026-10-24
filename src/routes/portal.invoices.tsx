@@ -29,7 +29,7 @@ function Invoices() {
       {!data?.length ? (
         <EmptyState title="No invoices yet" description="Receipts appear here after your first successful M-Pesa payment." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>

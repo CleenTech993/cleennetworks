@@ -72,7 +72,7 @@ function PortalSettings() {
     <div>
       <PageHeader title="Captive Portal" description="Branding, themes and login methods for your captive portal." />
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2 rounded-lg border bg-card p-6">
+        <div className="space-y-4 lg:col-span-2 rounded-xl border bg-card p-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label>Primary color</Label>
@@ -105,7 +105,7 @@ function PortalSettings() {
           </div>
           <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save changes"}</Button>
         </div>
-        <div className="rounded-lg border bg-card p-6">
+        <div className="rounded-xl border bg-card p-6">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Live preview</p>
           <div className="mt-3 overflow-hidden rounded-md border" style={{ background: form.background_url ? `url(${form.background_url}) center/cover` : "#0f172a" }}>
             <div className="bg-black/40 p-6 text-white">

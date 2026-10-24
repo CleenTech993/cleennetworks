@@ -130,7 +130,7 @@ function RouterDetail() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-xl border bg-card p-5">
           <h3 className="mb-3 font-semibold">Identity</h3>
           <dl className="space-y-2 text-sm">
             <Row label="Model" value={r.model ?? r.board_name ?? "—"} />
@@ -140,7 +140,7 @@ function RouterDetail() {
             <Row label="MAC" value={r.mac_address ?? "—"} mono />
           </dl>
         </div>
-        <div className="rounded-lg border bg-card p-5">
+        <div className="rounded-xl border bg-card p-5">
           <h3 className="mb-3 font-semibold">Network &amp; health</h3>
           <dl className="space-y-2 text-sm">
             <Row label="WAN IP" value={r.wan_ip ?? r.public_ip ?? "—"} mono />
@@ -189,7 +189,7 @@ function Gauge({ label, value, icon }: { label: string; value: number | null; ic
   const pct = value ?? 0;
   const color = pct > 80 ? "bg-destructive" : pct > 60 ? "bg-amber-500" : "bg-primary";
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className="rounded-xl border bg-card p-5">
       <div className="mb-2 flex items-center justify-between text-sm">
         <div className="flex items-center gap-1.5 text-muted-foreground">
           {icon}

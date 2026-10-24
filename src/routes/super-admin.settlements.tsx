@@ -102,7 +102,7 @@ function Settlements() {
   return (
     <div>
       <PageHeader title="Settlements" description="Per-tenant payout records — what tenants are owed after platform commission." />
-      <div className="rounded-lg border bg-card p-4 mb-6 flex flex-wrap items-end gap-3">
+      <div className="rounded-xl border bg-card p-4 mb-6 flex flex-wrap items-end gap-3">
         <div><Label>Period start</Label><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="mt-1" /></div>
         <div><Label>Period end</Label><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-1" /></div>
         <Button onClick={() => generate.mutate()} disabled={generate.isPending}>Generate for period</Button>
@@ -111,7 +111,7 @@ function Settlements() {
       {!rows?.length ? (
         <EmptyState title="No settlements yet" description="Generate a settlement run for a period to see tenant payouts." />
       ) : (
-        <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="rounded-xl border bg-card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>

@@ -101,7 +101,7 @@ export function RouterHistory({
         {(Object.keys(RANGES) as RangeKey[]).map((k) => {
           const p = uptimePct(events, RANGES[k], lastHeartbeat, createdAt);
           return (
-            <div key={k} className="rounded-lg border bg-card p-4">
+            <div key={k} className="rounded-xl border bg-card p-4">
               <div className="text-xs uppercase text-muted-foreground">Uptime {k}</div>
               <div className="mt-1 text-2xl font-semibold">{p == null ? "—" : `${p.toFixed(2)}%`}</div>
               <div className="text-xs text-muted-foreground">
@@ -112,7 +112,7 @@ export function RouterHistory({
         })}
       </div>
 
-      <div className="rounded-lg border bg-card p-5">
+      <div className="rounded-xl border bg-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold">CPU &amp; memory</h3>
           <div className="flex gap-1">
@@ -141,7 +141,7 @@ export function RouterHistory({
         )}
       </div>
 
-      <div className="rounded-lg border bg-card p-5">
+      <div className="rounded-xl border bg-card p-5">
         <h3 className="mb-3 font-semibold">Recent outages</h3>
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">No outages recorded.</p>

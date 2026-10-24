@@ -24,7 +24,7 @@ function PPPoE() {
       {!data?.length ? (
         <EmptyState title="No PPPoE subscribers" description="Add a PPPoE customer from the Customers page to provision a secret on your MikroTik." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>

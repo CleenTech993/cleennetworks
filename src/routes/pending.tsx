@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Brand } from "@/components/brand";
+import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,18 +37,11 @@ function PendingPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4">
-      <div className="w-full max-w-md text-center">
-        <div className="mb-6 flex justify-center"><Brand /></div>
-        <div className="rounded-lg border bg-card p-8 shadow-sm">
-          <h1 className="text-xl font-semibold">Awaiting approval</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Your account {email && <span className="font-medium text-foreground">({email})</span>} is pending review by a super admin.
-            You'll be routed to your console automatically once access is granted.
-          </p>
-          <Button variant="outline" onClick={signOut} className="mt-6">Sign out</Button>
-        </div>
-      </div>
-    </div>
+    <AuthLayout
+      title="Awaiting approval"
+      description={`Your account${email ? ` (${email})` : ""} is waiting for a super admin to review it. You'll be taken to your console automatically once access is granted.`}
+    >
+      <Button variant="outline" onClick={signOut}>Sign out</Button>
+    </AuthLayout>
   );
 }

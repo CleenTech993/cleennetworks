@@ -69,7 +69,7 @@ function PlatformPayments() {
   return (
     <div>
       <PageHeader title="Platform Payments" description="Centralized PayHero gateway — used by every tenant portal." />
-      <div className="rounded-lg border bg-card p-5 max-w-3xl">
+      <div className="rounded-xl border bg-card p-5 max-w-3xl">
         <p className="text-xs text-muted-foreground mb-4">
           M-Pesa prompts are sent through PayHero using the platform's saved API username, password and channel ID.
           Tenants only provide where they want to receive payouts (Paybill / Till / bank).

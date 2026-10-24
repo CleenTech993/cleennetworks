@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Brand } from "@/components/brand";
+import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,31 +36,25 @@ function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <Link to="/" className="mb-6 flex justify-center"><Brand /></Link>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h1 className="text-xl font-semibold">Sign in</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Welcome back to your console.</p>
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
-              </div>
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1" />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            New here? <Link to="/signup" className="text-primary hover:underline">Create an account</Link>
-          </p>
+    <AuthLayout
+      title="Sign in"
+      description="Welcome back. Sign in to your console."
+      footer={<>New here? <Link to="/signup" className="font-medium text-primary hover:underline">Request access</Link></>}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
-      </div>
-    </div>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Password</Label>
+            <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
+          </div>
+          <Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+        <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
+      </form>
+    </AuthLayout>
   );
 }

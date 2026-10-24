@@ -140,7 +140,7 @@ function Tenants() {
       ) : !data?.length ? (
         <EmptyState title="No tenants" description="No tenants have signed up yet." />
       ) : (
-        <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="rounded-xl border bg-card overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>

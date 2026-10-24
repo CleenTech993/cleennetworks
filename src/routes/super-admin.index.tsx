@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Building2, CreditCard, Router, Users } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,12 +25,12 @@ function Overview() {
   });
   return (
     <div>
-      <PageHeader title="Platform overview" description="Aggregated stats across all tenants." />
-      <div className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Tenants" value={data?.tenants ?? "—"} />
-        <StatCard label="Routers" value={data?.routers ?? "—"} />
-        <StatCard label="Customers" value={data?.customers ?? "—"} />
-        <StatCard label="GMV (KES)" value={data ? data.gmv.toLocaleString() : "—"} />
+      <PageHeader title="Platform overview" description="Totals across every tenant." />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={Building2} label="Tenants" value={data?.tenants ?? "—"} />
+        <StatCard icon={Router} label="Routers" value={data?.routers ?? "—"} />
+        <StatCard icon={Users} label="Customers" value={data?.customers ?? "—"} />
+        <StatCard icon={CreditCard} label="Payments processed (KES)" value={data ? data.gmv.toLocaleString() : "—"} />
       </div>
     </div>
   );

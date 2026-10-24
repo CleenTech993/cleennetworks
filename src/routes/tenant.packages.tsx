@@ -118,7 +118,7 @@ function Packages() {
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {packages.map((p) => (
-              <div key={p.id} className="rounded-lg border bg-card p-5">
+              <div key={p.id} className="rounded-xl border bg-card p-5">
                 <div className="flex items-start justify-between">
                   <h3 className="font-semibold">{p.name}</h3>
                   <Badge variant="outline">{p.kind}</Badge>
