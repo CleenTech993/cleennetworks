@@ -66,8 +66,16 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
 
         const nowIso = new Date().toISOString();
         const lastPrev = prev.last_heartbeat_at ?? prev.last_seen_at;
-        // Gap > 3 min since last heartbeat => record a closed downtime event
-        if (lastPrev && Date.now() - new Date(lastPrev).getTime() > 3 * 60 * 1000) {
+        // If the liveness sweeper already opened an outage for this router, close it now.
+        const { data: closed } = await supabaseAdmin
+          .from("router_uptime_events")
+          .update({ ended_at: nowIso })
+          .eq("router_id", prev.id)
+          .eq("kind", "down")
+          .is("ended_at", null)
+          .select("id");
+        // Otherwise, a gap > 3 min since the last heartbeat => record a closed downtime event
+        if (!closed?.length && lastPrev && Date.now() - new Date(lastPrev).getTime() > 3 * 60 * 1000) {
           await supabaseAdmin.from("router_uptime_events").insert({
             router_id: prev.id,
             tenant_id: prev.tenant_id,

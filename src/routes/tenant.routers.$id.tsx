@@ -9,22 +9,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { RouterHistory } from "@/components/router-history";
+import { healthScore } from "@/lib/router-health";
 import { InterfacesTab, QualityTab, TrafficTab } from "@/components/router-network";
 
 export const Route = createFileRoute("/tenant/routers/$id")({
   head: () => ({ meta: [{ title: "Router details — NetGrid" }, { name: "description", content: "Live router health, ports, internet quality and traffic." }] }),
   component: RouterDetail,
 });
-
-function health(r: Tables<"routers">, ramPct: number | null, live: boolean) {
-  if (!live) return 0;
-  let s = 100;
-  const cpu = r.cpu_load ?? r.cpu_usage ?? 0;
-  if (cpu > 80) s -= 25; else if (cpu > 60) s -= 10;
-  if ((ramPct ?? 0) > 85) s -= 25; else if ((ramPct ?? 0) > 70) s -= 10;
-  if (r.temperature != null && Number(r.temperature) > 70) s -= 20;
-  return Math.max(0, s);
-}
 
 function fmtUptime(sec?: number | null) {
   if (!sec) return "—";
@@ -100,7 +91,7 @@ function RouterDetail() {
         <span className="font-medium">{live ? "Router is reachable" : "Router is not responding"}</span>
         <span className="text-muted-foreground">
           {last ? `last check-in ${Math.round((Date.now() - new Date(last).getTime()) / 1000)}s ago` : "never checked in"}
-          {" · "}health score {health(r, ramPct, live)}/100
+          {" · "}health score {healthScore(r)}/100
         </span>
         <Button size="sm" variant="outline" className="ml-auto" onClick={() => refetch()}>
           <RefreshCw className="h-3.5 w-3.5" /> Check now

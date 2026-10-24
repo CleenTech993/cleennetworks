@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { healthScore, healthTone, isRouterLive } from "@/lib/router-health";
 
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
 
@@ -127,9 +128,19 @@ function RoutersPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const last = r.last_heartbeat_at ?? r.last_seen_at;
-                    const live = last ? Date.now() - new Date(last).getTime() < 3 * 60 * 1000 : false;
-                    return <Badge variant={live ? "default" : "secondary"}>{r.status === "pending" ? "pending" : live ? "online" : "offline"}</Badge>;
+                    const live = isRouterLive(r);
+                    const score = healthScore(r);
+                    const tone = healthTone(score);
+                    return (
+                      <>
+                        {live && (
+                          <Badge variant={tone === "good" ? "success" : tone === "warn" ? "warning" : "destructive"}>
+                            Health {score}%
+                          </Badge>
+                        )}
+                        <Badge variant={live ? "default" : "secondary"}>{r.status === "pending" ? "pending" : live ? "online" : "offline"}</Badge>
+                      </>
+                    );
                   })()}
                   <Link to="/tenant/routers/$id" params={{ id: r.id }} className="text-xs text-primary underline">Details</Link>
                   <Button size="sm" variant="ghost" onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}>Setup</Button>
