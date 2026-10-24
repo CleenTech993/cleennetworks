@@ -43,6 +43,7 @@ import { Route as TenantRoutersRouteImport } from './routes/tenant.routers'
 import { Route as TenantSessionsRouteImport } from './routes/tenant.sessions'
 import { Route as TenantSettingsRouteImport } from './routes/tenant.settings'
 import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
+import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
@@ -228,6 +229,11 @@ const TenantSmsRoute = TenantSmsRouteImport.update({
   path: '/sms',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantTeamRoute = TenantTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantTicketsRoute = TenantTicketsRouteImport.update({
   id: '/tickets',
   path: '/tickets',
@@ -342,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
@@ -389,6 +396,7 @@ export interface FileRoutesByTo {
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/portal': typeof PortalIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
@@ -440,6 +448,7 @@ export interface FileRoutesById {
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
@@ -492,6 +501,7 @@ export interface FileRouteTypes {
     | '/tenant/sessions'
     | '/tenant/settings'
     | '/tenant/sms'
+    | '/tenant/team'
     | '/tenant/tickets'
     | '/portal/'
     | '/super-admin/'
@@ -539,6 +549,7 @@ export interface FileRouteTypes {
     | '/tenant/sessions'
     | '/tenant/settings'
     | '/tenant/sms'
+    | '/tenant/team'
     | '/tenant/tickets'
     | '/portal'
     | '/super-admin'
@@ -589,6 +600,7 @@ export interface FileRouteTypes {
     | '/tenant/sessions'
     | '/tenant/settings'
     | '/tenant/sms'
+    | '/tenant/team'
     | '/tenant/tickets'
     | '/portal/'
     | '/super-admin/'
@@ -869,6 +881,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantSmsRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/team': {
+      id: '/tenant/team'
+      path: '/team'
+      fullPath: '/tenant/team'
+      preLoaderRoute: typeof TenantTeamRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/tenant/tickets': {
       id: '/tenant/tickets'
       path: '/tickets'
@@ -1036,6 +1055,7 @@ interface TenantRouteChildren {
   TenantSessionsRoute: typeof TenantSessionsRoute
   TenantSettingsRoute: typeof TenantSettingsRoute
   TenantSmsRoute: typeof TenantSmsRoute
+  TenantTeamRoute: typeof TenantTeamRoute
   TenantTicketsRoute: typeof TenantTicketsRoute
   TenantIndexRoute: typeof TenantIndexRoute
 }
@@ -1051,6 +1071,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantSessionsRoute: TenantSessionsRoute,
   TenantSettingsRoute: TenantSettingsRoute,
   TenantSmsRoute: TenantSmsRoute,
+  TenantTeamRoute: TenantTeamRoute,
   TenantTicketsRoute: TenantTicketsRoute,
   TenantIndexRoute: TenantIndexRoute,
 }
