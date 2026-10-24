@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Wifi, Loader2, CheckCircle2 } from "lucide-react";
+import { Wifi, Loader2, CheckCircle2, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,11 +66,12 @@ function PortalPage() {
 
       <div className="mx-auto max-w-md px-4 pb-12">
         <Tabs defaultValue="buy">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="buy">Buy</TabsTrigger>
             <TabsTrigger value="reconnect">Reconnect</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
             <TabsTrigger value="voucher" disabled={data.portal?.enable_voucher === false}>Voucher</TabsTrigger>
+            <TabsTrigger value="tv">TV</TabsTrigger>
           </TabsList>
           <TabsContent value="buy" className="mt-4">
             <BuyFlow slug={slug} packages={data.packages} primary={primary} />
@@ -83,6 +84,9 @@ function PortalPage() {
           </TabsContent>
           <TabsContent value="voucher" className="mt-4">
             <VoucherFlow slug={slug} primary={primary} />
+          </TabsContent>
+          <TabsContent value="tv" className="mt-4">
+            <TvFlow slug={slug} packages={data.packages} primary={primary} />
           </TabsContent>
         </Tabs>
 
@@ -161,7 +165,7 @@ function BuyFlow({ slug, packages, primary }: { slug: string; packages: PortalDa
   );
 }
 
-function PaymentWaiting({ slug, paymentId, primary }: { slug: string; paymentId: string; primary: string }) {
+function PaymentWaiting({ slug, paymentId, primary, tv = false }: { slug: string; paymentId: string; primary: string; tv?: boolean }) {
   const [status, setStatus] = useState<string>("pending");
   const [voucher, setVoucher] = useState<string | null>(null);
 
@@ -179,6 +183,18 @@ function PaymentWaiting({ slug, paymentId, primary }: { slug: string; paymentId:
     return () => { active = false; clearInterval(t); };
   }, [paymentId, slug]);
 
+  if (status === "success" && tv) {
+    return (
+      <div className="rounded-xl border bg-card p-6 text-center">
+        <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
+        <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your TV will be allowed on the Wi-Fi within about 2 minutes. If it is already connected,
+          switch the TV's Wi-Fi off and on again, then open an app.
+        </p>
+      </div>
+    );
+  }
   if (status === "success") {
     return (
       <div className="rounded-xl border bg-card p-6 text-center">
@@ -206,6 +222,142 @@ function PaymentWaiting({ slug, paymentId, primary }: { slug: string; paymentId:
       <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
       <p className="mt-3 font-medium">Waiting for M-Pesa…</p>
       <p className="mt-1 text-sm text-muted-foreground">Approve the prompt on your phone.</p>
+    </div>
+  );
+}
+
+interface TvStatus { registered: boolean; active: boolean; expires_at: string | null }
+
+function TvFlow({ slug, packages, primary }: { slug: string; packages: PortalData["packages"]; primary: string }) {
+  const [mac, setMac] = useState("");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [picked, setPicked] = useState<string | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [randomized, setRandomized] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [status, setStatus] = useState<TvStatus | null>(null);
+
+  async function checkStatus() {
+    if (!mac) return;
+    setChecking(true);
+    try {
+      const res = await fetch(`/api/public/portal/${slug}/tv?mac=${encodeURIComponent(mac)}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setStatus(json);
+    } catch (e) {
+      setStatus(null);
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function pay() {
+    if (!picked || !phone || !mac) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/public/portal/${slug}/tv`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mac, name: name || undefined, packageId: picked, phone }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      setRandomized(!!json.randomizedMac);
+      setPaymentId(json.paymentId);
+      toast.success("Check your phone for the M-Pesa prompt");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (paymentId) {
+    return (
+      <div className="space-y-3">
+        <PaymentWaiting slug={slug} paymentId={paymentId} primary={primary} tv />
+        {randomized && (
+          <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+            This looks like a private (randomised) Wi-Fi address. Make sure it is the address your TV shows
+            for this Wi-Fi network, otherwise the TV will not connect.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-start gap-3 rounded-xl border bg-card p-4">
+        <Tv className="mt-0.5 h-5 w-5 shrink-0" style={{ color: primary }} />
+        <p className="text-sm text-muted-foreground">
+          Smart TVs can't open the login page. Enter your TV's Wi-Fi MAC address, pick a plan and pay —
+          the TV is then allowed on the network automatically. Find the address in the TV's
+          Settings &rarr; Network (or About / Status).
+        </p>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <div>
+          <Label htmlFor="tv-mac">TV MAC address</Label>
+          <Input id="tv-mac" placeholder="AA:BB:CC:DD:EE:FF" autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+            value={mac} onChange={(e) => { setMac(e.target.value); setStatus(null); }} className="mt-1 font-mono" />
+        </div>
+        <div>
+          <Label htmlFor="tv-name">TV name (optional)</Label>
+          <Input id="tv-name" placeholder="Living room TV" value={name} onChange={(e) => setName(e.target.value)} className="mt-1" />
+        </div>
+      </div>
+
+      {status && (
+        <p className="mt-3 rounded-md bg-muted p-3 text-sm">
+          {status.active
+            ? `This TV is active until ${new Date(status.expires_at as string).toLocaleString()}. You can buy more time below.`
+            : status.registered
+              ? "This TV is registered but has no active plan."
+              : "This TV isn't registered yet."}
+        </p>
+      )}
+      <Button variant="outline" size="sm" className="mt-3" disabled={!mac || checking} onClick={checkStatus}>
+        {checking ? "Checking…" : "Check TV status"}
+      </Button>
+
+      <div className="mt-5 space-y-2">
+        {packages.length === 0 && <p className="text-sm text-muted-foreground">No packages available yet.</p>}
+        {packages.map((p) => {
+          const active = picked === p.id;
+          return (
+            <button
+              key={p.id}
+              onClick={() => setPicked(p.id)}
+              className="block w-full rounded-xl border bg-card p-4 text-left transition"
+              style={active ? { borderColor: primary, boxShadow: `0 0 0 2px ${primary}33` } : undefined}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {p.duration_value} {p.duration_unit}{p.download_kbps ? ` · ${Math.round(p.download_kbps / 1024)}Mbps` : ""}
+                  </p>
+                </div>
+                <p className="text-base font-semibold">KES {Number(p.price).toFixed(0)}</p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-5">
+        <Label htmlFor="tv-phone">M-Pesa phone</Label>
+        <Input id="tv-phone" inputMode="tel" placeholder="07XXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" />
+      </div>
+      <Button className="mt-4 w-full" style={{ backgroundColor: primary }} disabled={!picked || !phone || !mac || submitting} onClick={pay}>
+        {submitting ? "Sending prompt…" : "Pay with M-Pesa"}
+      </Button>
     </div>
   );
 }

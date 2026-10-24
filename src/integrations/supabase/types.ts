@@ -226,6 +226,7 @@ export type Database = {
           raw_callback: Json | null
           status: string
           tenant_id: string
+          tv_device_id: string | null
           voucher_code: string | null
         }
         Insert: {
@@ -242,6 +243,7 @@ export type Database = {
           raw_callback?: Json | null
           status?: string
           tenant_id: string
+          tv_device_id?: string | null
           voucher_code?: string | null
         }
         Update: {
@@ -258,6 +260,7 @@ export type Database = {
           raw_callback?: Json | null
           status?: string
           tenant_id?: string
+          tv_device_id?: string | null
           voucher_code?: string | null
         }
         Relationships: [
@@ -273,6 +276,13 @@ export type Database = {
             columns: ["package_id"]
             isOneToOne: false
             referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_tv_device_id_fkey"
+            columns: ["tv_device_id"]
+            isOneToOne: false
+            referencedRelation: "tv_devices"
             referencedColumns: ["id"]
           },
           {
@@ -902,6 +912,60 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      tv_devices: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          mac_address: string
+          name: string | null
+          package_id: string | null
+          phone: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          mac_address: string
+          name?: string | null
+          package_id?: string | null
+          phone?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          mac_address?: string
+          name?: string | null
+          package_id?: string | null
+          phone?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tv_devices_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tv_devices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
