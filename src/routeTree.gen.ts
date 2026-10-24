@@ -52,6 +52,7 @@ import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/a
 import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/public/portal/$slug/reconnect'
 import { Route as ApiPublicPortalSlugStatusRouteImport } from './routes/api/public/portal/$slug/status'
 import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
+import { Route as ApiPublicProvisionTokenLoginDothtmlRouteImport } from './routes/api/public/provision/$token/login[.]html'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
@@ -278,6 +279,12 @@ const ApiPublicPortalSlugVoucherRoute =
     path: '/voucher',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
+const ApiPublicProvisionTokenLoginDothtmlRoute =
+  ApiPublicProvisionTokenLoginDothtmlRouteImport.update({
+    id: '/api/public/provision/$token/login.html',
+    path: '/api/public/provision/$token/login.html',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicProvisionTokenRouterDotrscRoute =
   ApiPublicProvisionTokenRouterDotrscRouteImport.update({
     id: '/api/public/provision/$token/router.rsc',
@@ -347,6 +354,7 @@ export interface FileRoutesByFullPath {
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
@@ -393,6 +401,7 @@ export interface FileRoutesByTo {
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
@@ -443,6 +452,7 @@ export interface FileRoutesById {
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
@@ -494,6 +504,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
@@ -540,6 +551,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
@@ -589,6 +601,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
@@ -609,6 +622,7 @@ export interface RootRouteChildren {
   PSlugRoute: typeof PSlugRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
+  ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
   ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
@@ -918,6 +932,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugVoucherRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
+    '/api/public/provision/$token/login.html': {
+      id: '/api/public/provision/$token/login.html'
+      path: '/api/public/provision/$token/login.html'
+      fullPath: '/api/public/provision/$token/login.html'
+      preLoaderRoute: typeof ApiPublicProvisionTokenLoginDothtmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/provision/$token/router.rsc': {
       id: '/api/public/provision/$token/router.rsc'
       path: '/api/public/provision/$token/router.rsc'
@@ -1070,6 +1091,8 @@ const rootRouteChildren: RootRouteChildren = {
   PSlugRoute: PSlugRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
+  ApiPublicProvisionTokenLoginDothtmlRoute:
+    ApiPublicProvisionTokenLoginDothtmlRoute,
   ApiPublicProvisionTokenRouterDotrscRoute:
     ApiPublicProvisionTokenRouterDotrscRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,

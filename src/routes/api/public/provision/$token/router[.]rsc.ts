@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import {
+  loginPageMarker,
+  routerosInstallLoginPage,
+  ROUTEROS_PICK_HTML_DIR,
+} from "@/lib/hotspot-login.server";
 
 export const Route = createFileRoute("/api/public/provision/$token/router.rsc")({
   server: {
@@ -28,8 +33,10 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           .single();
 
         const host = getRequestHost();
-        const portalUrl = `https://${host}/p/${tenant?.slug ?? ""}`;
+        const portalUrl = `https://${host}/p/${encodeURIComponent(tenant?.slug ?? "")}`;
         const callbackUrl = `https://${host}/api/public/router/heartbeat/${token}`;
+        const loginUrl = `https://${host}/api/public/provision/${token}/login.html`;
+        const marker = loginPageMarker({ portalUrl, routerId: router.id });
 
         // Mark online on first fetch
         await supabaseAdmin
@@ -47,6 +54,8 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           callbackUrl,
           interfacesUrl: `https://${host}/api/public/router/interfaces/${token}`,
           syncUrl: `https://${host}/api/public/router/sync/${token}`,
+          loginUrl,
+          marker,
         });
 
         return new Response(rsc, {
@@ -61,7 +70,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
   },
 });
 
-function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string; syncUrl: string }) {
+function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string; syncUrl: string; loginUrl: string; marker: string }) {
   const portalHost = new URL(p.portalUrl).host;
   return `# NetGrid auto-config for ${p.tenantName}
 # Layout: ether1 = Internet (WAN, DHCP client). ether2-ether5 + Wi-Fi (wlan/wifi) = customer LAN bridge
@@ -117,8 +126,9 @@ add address=10.5.50.0/24 gateway=10.5.50.1 dns-server=10.5.50.1 comment=netgrid
 add chain=srcnat out-interface=ether1 action=masquerade comment="netgrid masquerade"
 
 # --- Hotspot ---
-/ip hotspot profile
-add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=hotspot
+# Routers with a flash disk keep files outside /flash in RAM (lost on reboot), so the
+# hotspot pages must live in flash/hotspot there.${ROUTEROS_PICK_HTML_DIR}/ip hotspot profile
+add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=$ngDir
 /ip hotspot
 add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof disabled=no
 
@@ -130,13 +140,10 @@ add dst-host=*.payhero.co.ke comment=netgrid
 add dst-host=*.safaricom.co.ke comment=netgrid
 /ip hotspot walled-garden ip
 :do { remove [find comment=netgrid] } on-error={}
-add action=accept dst-host=${portalHost} comment=netgrid
+# dst-host is resolved when added; if the WAN is not up yet, the sync job re-adds it later.
+:do { add action=accept dst-host=${portalHost} comment=netgrid } on-error={ :log warning "NetGrid: portal walled-garden entry deferred (no DNS yet)" }
 
-# Login page redirects customers to the NetGrid captive portal
-:do {
-  /file add name=hotspot/login.html contents="<html><head><meta http-equiv='refresh' content='0; url=${p.portalUrl}?mac=\\$(mac)&ip=\\$(ip)&login=\\$(link-login-only)'></head><body>Redirecting...</body></html>"
-} on-error={ :do { /file set [find name=hotspot/login.html] contents="<html><head><meta http-equiv='refresh' content='0; url=${p.portalUrl}?mac=\\$(mac)&ip=\\$(ip)&login=\\$(link-login-only)'></head><body>Redirecting...</body></html>" } on-error={ :log warning "NetGrid: could not write hotspot login page" } }
-
+${routerosInstallLoginPage({ loginUrl: p.loginUrl, marker: p.marker })}
 # --- PPPoE server ---
 /ppp profile
 add name=netgrid-pppoe local-address=10.10.0.1 remote-address=netgrid-pppoe-pool dns-server=8.8.8.8,1.1.1.1 only-one=yes

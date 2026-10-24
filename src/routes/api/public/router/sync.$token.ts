@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
 // Routers fetch + import this every few minutes (see provisioning scheduler "netgrid-sync").
@@ -14,7 +16,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         if (!router) return new Response("# unknown token\n", { status: 404, headers: { "content-type": "text/plain" } });
 
         const now = new Date().toISOString();
-        const [{ data: customers }, { data: vouchers }] = await Promise.all([
+        const [{ data: tenant }, { data: customers }, { data: vouchers }] = await Promise.all([
+          supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
           supabaseAdmin.from("customers")
             .select("pppoe_username,pppoe_password,status,expires_at,router_id")
             .eq("tenant_id", router.tenant_id).eq("customer_type", "pppoe").eq("status", "active"),
@@ -24,11 +27,25 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .or(`expires_at.is.null,expires_at.gt.${now}`),
         ]);
 
-        const lines: string[] = [
-          "# NetGrid sync",
+        const lines: string[] = ["# NetGrid sync"];
+
+        // Self-heal the hotspot login page (captive-portal redirect): if the router's copy is
+        // missing, stale or was reset, re-download it. No flash write when it is already current.
+        if (tenant?.slug) {
+          const host = getRequestHost();
+          const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
+          lines.push(
+            routerosHealLoginPage({
+              loginUrl: `https://${host}/api/public/provision/${params.token}/login.html`,
+              marker: loginPageMarker({ portalUrl, routerId: router.id }),
+              portalHost: host,
+            }),
+          );
+        }
+        lines.push(
           "/ppp secret",
           ':do { remove [find comment="netgrid"] } on-error={}',
-        ];
+        );
         for (const c of customers ?? []) {
           if (c.router_id && c.router_id !== router.id) continue;
           if (c.expires_at && c.expires_at < now) continue;
