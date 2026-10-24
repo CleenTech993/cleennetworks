@@ -111,7 +111,7 @@ function RoutersPage() {
       ) : (
         <div className="space-y-3">
           {routers.map((r) => (
-            <div key={r.id} className="rounded-lg border bg-card p-4">
+            <div key={r.id} className="rounded-xl border bg-card p-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="grid h-10 w-10 place-items-center rounded-md bg-primary/10 text-primary">

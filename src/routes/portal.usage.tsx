@@ -32,7 +32,7 @@ function Usage() {
       {!data?.length ? (
         <EmptyState title="No sessions yet" description="Connect to the network to start your first session." />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>

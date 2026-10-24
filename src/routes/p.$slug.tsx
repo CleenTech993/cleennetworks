@@ -133,7 +133,7 @@ function BuyFlow({ slug, packages, primary }: { slug: string; packages: PortalDa
             <button
               key={p.id}
               onClick={() => setPicked(p.id)}
-              className="block w-full rounded-lg border bg-card p-4 text-left transition"
+              className="block w-full rounded-xl border bg-card p-4 text-left transition"
               style={active ? { borderColor: primary, boxShadow: `0 0 0 2px ${primary}33` } : undefined}
             >
               <div className="flex items-center justify-between">
@@ -180,7 +180,7 @@ function PaymentWaiting({ slug, paymentId, primary }: { slug: string; paymentId:
 
   if (status === "success") {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center">
+      <div className="rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
         <h2 className="mt-3 text-lg font-semibold">You're online</h2>
         {voucher && (
@@ -194,14 +194,14 @@ function PaymentWaiting({ slug, paymentId, primary }: { slug: string; paymentId:
   }
   if (status === "failed") {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center">
+      <div className="rounded-xl border bg-card p-6 text-center">
         <p className="font-medium">Payment failed</p>
         <p className="mt-1 text-sm text-muted-foreground">Please try again.</p>
       </div>
     );
   }
   return (
-    <div className="rounded-lg border bg-card p-6 text-center">
+    <div className="rounded-xl border bg-card p-6 text-center">
       <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
       <p className="mt-3 font-medium">Waiting for M-Pesa…</p>
       <p className="mt-1 text-sm text-muted-foreground">Approve the prompt on your phone.</p>
@@ -246,7 +246,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
 
   if (result?.active) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center">
+      <div className="rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
         <h2 className="mt-3 text-lg font-semibold">You're online</h2>
         {result.package && <p className="mt-1 text-sm">{result.package.name}</p>}
@@ -315,7 +315,7 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
       </Button>
 
       {data && (
-        <div className="mt-2 rounded-lg border bg-card p-4">
+        <div className="mt-2 rounded-xl border bg-card p-4">
           {data.active ? (
             <div>
               <p className="font-medium">Active package</p>
@@ -371,7 +371,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
 
   if (done) {
     return (
-      <div className="rounded-lg border bg-card p-6 text-center">
+      <div className="rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
         <p className="mt-3 font-medium">You're online</p>
       </div>

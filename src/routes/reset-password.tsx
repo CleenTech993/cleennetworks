@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Brand } from "@/components/brand";
+import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,42 +61,34 @@ function ResetPasswordPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <Link to="/" className="mb-6 flex justify-center"><Brand /></Link>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h1 className="text-xl font-semibold">Set a new password</h1>
-          {invalid ? (
-            <>
-              <p className="mt-3 text-sm text-muted-foreground">
-                This reset link is invalid or has expired. Request a new one.
-              </p>
-              <Button asChild className="mt-5 w-full">
-                <Link to="/forgot-password">Request new link</Link>
-              </Button>
-            </>
-          ) : !ready ? (
-            <p className="mt-3 text-sm text-muted-foreground">Verifying your reset link…</p>
-          ) : (
-            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-              <div>
-                <Label htmlFor="password">New password</Label>
-                <Input id="password" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1" />
-              </div>
-              <div>
-                <Label htmlFor="confirm">Confirm new password</Label>
-                <Input id="confirm" type="password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} className="mt-1" />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Updating…" : "Update password"}
-              </Button>
-            </form>
-          )}
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            <Link to="/login" className="text-primary hover:underline">Back to sign in</Link>
-          </p>
-        </div>
-      </div>
-    </div>
+    <AuthLayout
+      title="Set a new password"
+      footer={<Link to="/login" className="font-medium text-primary hover:underline">Back to sign in</Link>}
+    >
+      {invalid ? (
+        <>
+          <p className="text-sm text-muted-foreground">This reset link is invalid or has expired. Request a new one.</p>
+          <Button asChild className="mt-5 w-full">
+            <Link to="/forgot-password">Request new link</Link>
+          </Button>
+        </>
+      ) : !ready ? (
+        <p className="text-sm text-muted-foreground">Verifying your reset link…</p>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="password">New password</Label>
+            <Input id="password" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm">Confirm new password</Label>
+            <Input id="confirm" type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Updating…" : "Update password"}
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

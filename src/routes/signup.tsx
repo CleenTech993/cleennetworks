@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Brand } from "@/components/brand";
+import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,32 +48,26 @@ function SignupPage() {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-background px-4 py-10">
-      <div className="w-full max-w-md">
-        <Link to="/" className="mb-6 flex justify-center"><Brand /></Link>
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h1 className="text-xl font-semibold">Request access</h1>
-          <p className="mt-1 text-sm text-muted-foreground">A super admin will review and assign you to a workspace.</p>
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <div>
-              <Label htmlFor="name">Your name</Label>
-              <Input id="name" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1" />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1" />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>{loading ? "Submitting…" : "Request access"}</Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
-          </p>
+    <AuthLayout
+      title="Request access"
+      description="A super admin reviews each request and assigns you to a workspace."
+      footer={<>Already have an account? <Link to="/login" className="font-medium text-primary hover:underline">Sign in</Link></>}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="name">Your name</Label>
+          <Input id="name" autoComplete="name" required value={fullName} onChange={(e) => setFullName(e.target.value)} />
         </div>
-      </div>
-    </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" type="password" autoComplete="new-password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+        <Button type="submit" className="w-full" disabled={loading}>{loading ? "Submitting…" : "Request access"}</Button>
+      </form>
+    </AuthLayout>
   );
 }

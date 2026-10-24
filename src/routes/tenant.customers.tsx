@@ -176,7 +176,7 @@ function Customers() {
       {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p>
         : !filtered.length ? <EmptyState title="No customers" description={q ? "No customer matches your search." : "Add your first hotspot or PPPoE customer."} />
         : (
-          <div className="rounded-lg border bg-card overflow-x-auto">
+          <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                 <tr><th className="px-4 py-2.5 text-left">Name</th><th className="px-4 py-2.5 text-left">Phone</th><th className="px-4 py-2.5 text-left">Type</th><th className="px-4 py-2.5 text-left">Status</th><th className="px-4 py-2.5 text-left">Expires</th><th className="px-4 py-2.5" /></tr>
