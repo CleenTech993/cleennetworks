@@ -28,8 +28,9 @@ export function uptimePct(
     const en = Math.min(e.ended_at ? new Date(e.ended_at).getTime() : now, now);
     if (en > s) down += en - s;
   }
-  // Ongoing outage (no heartbeat in >3 min)
-  if (lastHeartbeat) {
+  // Ongoing outage (no heartbeat in >3 min) - unless an open downtime event already covers it
+  const hasOpenEvent = events.some((e) => !e.ended_at);
+  if (lastHeartbeat && !hasOpenEvent) {
     const lh = new Date(lastHeartbeat).getTime();
     if (now - lh > 3 * 60e3) down += now - Math.max(lh, start);
   }

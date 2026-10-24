@@ -11,16 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { healthScore, isRouterLive } from "@/lib/router-health";
 
 type RouterRow = Tables<"routers"> & { tenantName?: string | null };
 
 export const Route = createFileRoute("/super-admin/noc")({ component: NocPage });
 
-function isOnline(r: RouterRow) {
-  const last = r.last_heartbeat_at ?? r.last_seen_at;
-  if (!last) return false;
-  return Date.now() - new Date(last).getTime() < 3 * 60 * 1000;
-}
+const isOnline = (r: RouterRow) => isRouterLive(r);
 
 function NocPage() {
   const { data, refetch } = useQuery({
@@ -88,6 +85,7 @@ function NocPage() {
               <th className="px-4 py-3 text-left">Router</th>
               <th className="px-4 py-3 text-left">Tenant</th>
               <th className="px-4 py-3 text-left">Status</th>
+              <th className="px-4 py-3 text-left">Health</th>
               <th className="px-4 py-3 text-left">CPU</th>
               <th className="px-4 py-3 text-left">RAM</th>
               <th className="px-4 py-3 text-left">WAN IP</th>
@@ -118,6 +116,7 @@ function NocPage() {
                   <td className="px-4 py-3">
                     <Badge variant={live ? "default" : "secondary"}>{live ? "online" : "offline"}</Badge>
                   </td>
+                  <td className="px-4 py-3">{live ? `${healthScore(r)}%` : "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
@@ -142,7 +141,7 @@ function NocPage() {
             })}
             {routers.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                   <Wifi className="mx-auto mb-2 h-6 w-6 opacity-40" />
                   No routers provisioned yet.
                 </td>
