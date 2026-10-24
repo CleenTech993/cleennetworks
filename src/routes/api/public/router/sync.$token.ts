@@ -3,6 +3,7 @@ import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
 import { buildPppoeSyncLines } from "@/lib/pppoe";
+import { buildTvSyncLines } from "@/lib/tv";
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
 // Routers fetch + import this every few minutes (see provisioning scheduler "netgrid-sync").
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         if (!router) return new Response("# unknown token\n", { status: 404, headers: { "content-type": "text/plain" } });
 
         const now = new Date().toISOString();
-        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }] = await Promise.all([
+        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }] = await Promise.all([
           supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
           supabaseAdmin.from("customers")
             .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
@@ -29,6 +30,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           supabaseAdmin.from("packages")
             .select("id,download_kbps,upload_kbps")
             .eq("tenant_id", router.tenant_id).eq("kind", "pppoe"),
+          supabaseAdmin.from("tv_devices")
+            .select("mac_address,status,expires_at")
+            .eq("tenant_id", router.tenant_id).eq("status", "active").gt("expires_at", now),
         ]);
 
         const lines: string[] = ["# NetGrid sync"];
@@ -54,6 +58,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             packages: packages ?? [],
           }),
         );
+        // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
+        lines.push(...buildTvSyncLines(tvs ?? []));
         lines.push("/ip hotspot user", ':do { remove [find comment="netgrid-voucher"] } on-error={}');
         for (const v of vouchers ?? []) {
           if (!SAFE.test(v.code)) continue;

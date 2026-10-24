@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { randomVoucher, expiryFrom, payheroTransactionStatus } from "@/lib/mpesa.server";
+import { renewedExpiry } from "@/lib/pppoe";
 
 // PayHero payment callback. The callback body is NOT trusted: we look up the
 // payment by its external_reference and re-verify the status with PayHero.
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
 
         let q = supabaseAdmin
           .from("payments")
-          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id,phone")
+          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id,phone,tv_device_id,expires_at")
           .eq("tenant_id", tenantId);
         q = /^[0-9a-f-]{36}$/i.test(externalRef) ? q.eq("id", externalRef) : q.eq("checkout_request_id", checkoutId);
         const { data: payment } = await q.maybeSingle();
@@ -75,7 +76,30 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
             if (pkg?.duration_value && pkg?.duration_unit) {
               expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
             }
-            if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
+            if (payment.tv_device_id) {
+              // Smart TV: extend the device's access instead of minting a voucher. The new
+              // expiry is remembered on the payment first so a retried callback reuses it
+              // rather than extending the device a second time.
+              if (!pkg?.duration_value || !pkg?.duration_unit) throw new Error("TV package has no duration");
+              const { data: dev } = await supabaseAdmin
+                .from("tv_devices")
+                .select("id,status,expires_at")
+                .eq("id", payment.tv_device_id)
+                .eq("tenant_id", tenantId)
+                .maybeSingle();
+              if (!dev) throw new Error("TV device not found");
+              expiresAt = payment.expires_at ?? renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
+              if (!payment.expires_at) {
+                await supabaseAdmin.from("payments").update({ expires_at: expiresAt }).eq("id", payment.id);
+              }
+              if (dev.status !== "blocked") {
+                const { error: dErr } = await supabaseAdmin
+                  .from("tv_devices")
+                  .update({ status: "active", expires_at: expiresAt, package_id: payment.package_id, updated_at: new Date().toISOString() })
+                  .eq("id", dev.id);
+                if (dErr) throw dErr;
+              }
+            } else if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
               voucherCode = randomVoucher();
               const { error: vErr } = await supabaseAdmin.from("vouchers").insert({
                 tenant_id: tenantId,
