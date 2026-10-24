@@ -125,9 +125,17 @@ export async function loadTenantBySlugAdmin(slug: string): Promise<TenantReceivi
 }
 
 export function randomVoucher(): string {
+  // Vouchers are bearer credentials: use a CSPRNG with rejection sampling (no modulo bias).
   const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const limit = 256 - (256 % chars.length);
   let out = "";
-  for (let i = 0; i < 10; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  while (out.length < 10) {
+    const buf = new Uint8Array(16);
+    crypto.getRandomValues(buf);
+    for (const b of buf) {
+      if (b < limit && out.length < 10) out += chars[b % chars.length];
+    }
+  }
   return out;
 }
 

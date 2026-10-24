@@ -31,10 +31,16 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           return Response.json({ error: "Voucher expired" }, { status: 400 });
         }
 
-        await supabaseAdmin
+        // Atomic redeem: only one concurrent request can flip unused -> used.
+        const { data: redeemed } = await supabaseAdmin
           .from("vouchers")
           .update({ status: "used", used_at: new Date().toISOString(), used_by_mac: parsed.data.mac ?? null })
-          .eq("id", v.id);
+          .eq("id", v.id)
+          .eq("tenant_id", tenant.id)
+          .eq("status", "unused")
+          .select("id")
+          .maybeSingle();
+        if (!redeemed) return Response.json({ error: "Voucher already used" }, { status: 400 });
 
         return Response.json({ ok: true, packageId: v.package_id });
       },
