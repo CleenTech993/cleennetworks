@@ -23,13 +23,15 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
 
         let q = supabaseAdmin
           .from("payments")
-          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id")
+          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id,phone")
           .eq("tenant_id", tenantId);
         q = /^[0-9a-f-]{36}$/i.test(externalRef) ? q.eq("id", externalRef) : q.eq("checkout_request_id", checkoutId);
         const { data: payment } = await q.maybeSingle();
 
         if (!payment) return Response.json({ ok: true, note: "Unknown payment" });
-        if (payment.status === "success") return Response.json({ ok: true, note: "Already processed" });
+        if (payment.status === "success" || payment.status === "processing") {
+          return Response.json({ ok: true, note: "Already processed" });
+        }
 
         // Verify with PayHero directly
         let verified = { status: "", receipt: null as string | null };
@@ -46,45 +48,64 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
         }
         if (verified.status !== "SUCCESS") return Response.json({ ok: true, note: "Pending" });
 
-        const receipt = String(verified.receipt ?? r.MpesaReceiptNumber ?? "");
-        const phone = String(r.Phone ?? "").replace(/\D/g, "");
-        const amount = Number(r.Amount ?? 0);
-
-        let voucherCode: string | null = null;
-        let expiresAt: string | null = null;
-        if (payment.package_id) {
-          const { data: pkg } = await supabaseAdmin
-            .from("packages")
-            .select("kind,duration_value,duration_unit")
-            .eq("id", payment.package_id)
-            .maybeSingle();
-          if (pkg?.duration_value && pkg?.duration_unit) {
-            expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
-          }
-          if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
-            voucherCode = randomVoucher();
-            await supabaseAdmin.from("vouchers").insert({
-              tenant_id: tenantId,
-              package_id: payment.package_id,
-              code: voucherCode,
-              payment_id: payment.id,
-              expires_at: expiresAt,
-            });
-          }
-        }
-
-        await supabaseAdmin
+        // Atomically claim the payment so concurrent/retried callbacks cannot each
+        // issue a voucher. Only the request that flips pending|failed -> processing proceeds.
+        const { data: claimed } = await supabaseAdmin
           .from("payments")
-          .update({
-            status: "success",
-            mpesa_receipt: receipt,
-            phone: phone || undefined,
-            amount: amount || undefined,
-            raw_callback: rawJson,
-            voucher_code: voucherCode,
-            expires_at: expiresAt,
-          })
-          .eq("id", payment.id);
+          .update({ status: "processing" })
+          .eq("id", payment.id)
+          .in("status", ["pending", "failed"])
+          .select("id")
+          .maybeSingle();
+        if (!claimed) return Response.json({ ok: true, note: "Already processing" });
+
+        const receipt = String(verified.receipt ?? r.MpesaReceiptNumber ?? "");
+        // Keep the amount recorded at STK-push time; the callback body is untrusted.
+        const phone = payment.phone ?? String(r.Phone ?? "").replace(/\D/g, "");
+
+        try {
+          let voucherCode: string | null = null;
+          let expiresAt: string | null = null;
+          if (payment.package_id) {
+            const { data: pkg } = await supabaseAdmin
+              .from("packages")
+              .select("kind,duration_value,duration_unit")
+              .eq("id", payment.package_id)
+              .maybeSingle();
+            if (pkg?.duration_value && pkg?.duration_unit) {
+              expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
+            }
+            if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
+              voucherCode = randomVoucher();
+              const { error: vErr } = await supabaseAdmin.from("vouchers").insert({
+                tenant_id: tenantId,
+                package_id: payment.package_id,
+                code: voucherCode,
+                payment_id: payment.id,
+                expires_at: expiresAt,
+              });
+              if (vErr) throw vErr;
+            }
+          }
+
+          const { error: uErr } = await supabaseAdmin
+            .from("payments")
+            .update({
+              status: "success",
+              mpesa_receipt: receipt || null,
+              phone: phone || undefined,
+              raw_callback: rawJson,
+              voucher_code: voucherCode,
+              expires_at: expiresAt,
+            })
+            .eq("id", payment.id);
+          if (uErr) throw uErr;
+        } catch (e) {
+          // Release the claim so PayHero's retry can reprocess instead of losing the payment.
+          console.error("callback processing failed", e);
+          await supabaseAdmin.from("payments").update({ status: "pending" }).eq("id", payment.id);
+          return Response.json({ ok: false, error: "Processing failed" }, { status: 500 });
+        }
 
         return Response.json({ ok: true });
       },

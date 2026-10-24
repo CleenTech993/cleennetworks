@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 
 const Schema = z.object({ code: z.string().min(4).max(40), mac: z.string().optional() });
 
@@ -8,6 +9,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
+        if (!rateLimit(`voucher:${params.slug}:${clientIp(request)}`, 10, 60_000)) return tooManyRequests();
         let body: unknown;
         try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
         const parsed = Schema.safeParse(body);
@@ -29,10 +31,16 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           return Response.json({ error: "Voucher expired" }, { status: 400 });
         }
 
-        await supabaseAdmin
+        // Atomic redeem: only one concurrent request can flip unused -> used.
+        const { data: redeemed } = await supabaseAdmin
           .from("vouchers")
           .update({ status: "used", used_at: new Date().toISOString(), used_by_mac: parsed.data.mac ?? null })
-          .eq("id", v.id);
+          .eq("id", v.id)
+          .eq("tenant_id", tenant.id)
+          .eq("status", "unused")
+          .select("id")
+          .maybeSingle();
+        if (!redeemed) return Response.json({ error: "Voucher already used" }, { status: 400 });
 
         return Response.json({ ok: true, packageId: v.package_id });
       },
