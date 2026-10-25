@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAal2 } from "@/lib/require-aal2";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { randomVoucher } from "./mpesa.server";
 
@@ -35,7 +35,7 @@ const GenerateSchema = z.object({
 });
 
 export const generateVouchers = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => GenerateSchema.parse(input))
   .handler(async ({ data, context }): Promise<GenerateVouchersResult> => {
     const tenantId = await voucherTenantOf(context.userId);

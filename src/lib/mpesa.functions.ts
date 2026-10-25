@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAal2 } from "@/lib/require-aal2";
 import { loadPlatformMpesaConfig, stkPush, normalizePhone } from "./mpesa.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
@@ -12,7 +12,7 @@ const StkSchema = z.object({
 });
 
 export const initiateStkPushTenant = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => StkSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
