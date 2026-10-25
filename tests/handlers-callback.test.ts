@@ -204,3 +204,81 @@ describe("mpesa callback", () => {
     expect(payment().expires_at).toBeTruthy();
   });
 });
+
+describe("mpesa callback: smart TV payments", () => {
+  const TV = "tv-1";
+  const hoursFromNow = (iso: unknown) => (new Date(String(iso)).getTime() - Date.now()) / 3_600_000;
+  const device = () => h.db.rows("tv_devices").find((d) => d.id === TV)!;
+  const tvPayment = (device: Record<string, unknown> = {}) => {
+    h.db.seed("tv_devices", [
+      {
+        id: TV,
+        tenant_id: TENANT,
+        mac_address: "AA:BB:CC:DD:EE:FF",
+        status: "pending",
+        expires_at: null,
+        ...device,
+      },
+    ]);
+    payment().tv_device_id = TV;
+  };
+
+  it("activates the TV for the package duration and issues no voucher", async () => {
+    tvPayment();
+    payheroSays("SUCCESS");
+    expect((await send()).status).toBe(200);
+
+    expect(device().status).toBe("active");
+    expect(hoursFromNow(device().expires_at)).toBeGreaterThan(1.9);
+    expect(hoursFromNow(device().expires_at)).toBeLessThan(2.1);
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+    expect(payment()).toMatchObject({ status: "success", voucher_code: null });
+  });
+
+  it("renewing adds the new time on top of what is left", async () => {
+    tvPayment({ status: "active", expires_at: new Date(Date.now() + 5 * 3_600_000).toISOString() });
+    payheroSays("SUCCESS");
+    await send();
+    expect(hoursFromNow(device().expires_at)).toBeGreaterThan(6.9);
+    expect(hoursFromNow(device().expires_at)).toBeLessThan(7.1);
+  });
+
+  it("a retried callback does not extend the TV a second time", async () => {
+    tvPayment();
+    payheroSays("SUCCESS");
+    await send();
+    const first = device().expires_at;
+
+    // The first attempt failed after activating the TV: the claim was released, the expiry stays
+    // recorded on the payment. PayHero retries the callback.
+    payment().status = "pending";
+    await send();
+    expect(device().expires_at).toBe(first);
+    expect(payment().status).toBe("success");
+  });
+
+  it("only activates a device of the paying tenant", async () => {
+    h.db.seed("tv_devices", [
+      {
+        id: TV,
+        tenant_id: OTHER_TENANT,
+        mac_address: "AA:BB:CC:DD:EE:FF",
+        status: "pending",
+        expires_at: null,
+      },
+    ]);
+    payment().tv_device_id = TV;
+    payheroSays("SUCCESS");
+    await send();
+    expect(device().status).toBe("pending");
+    expect(device().expires_at).toBeNull();
+  });
+
+  it("records the payment but keeps a blocked TV blocked", async () => {
+    tvPayment({ status: "blocked" });
+    payheroSays("SUCCESS");
+    await send();
+    expect(device().status).toBe("blocked");
+    expect(payment().status).toBe("success");
+  });
+});
