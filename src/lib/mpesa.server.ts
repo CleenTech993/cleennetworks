@@ -2,6 +2,7 @@
 // credential set, owned by Super Admin. Tenants only store receiving details
 // (paybill / till / bank) for display + settlement.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { loadGatewaySecrets } from "@/lib/gateway-secrets.server";
 
 export interface PlatformMpesaConfig {
   mpesa_env: string;
@@ -43,6 +44,8 @@ export function payheroAuthHeader(): string {
 }
 
 export async function loadPlatformMpesaConfig(): Promise<PlatformMpesaConfig> {
+  // Dashboard-entered gateway secrets must be loaded before resolveProvider() looks for them.
+  await loadGatewaySecrets();
   const { data, error } = await supabaseAdmin
     .from("platform_mpesa_config")
     .select(

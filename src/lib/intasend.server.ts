@@ -1,18 +1,20 @@
-// IntaSend M-Pesa STK Push (server only). Credentials are server secrets, never stored in the DB:
+// IntaSend M-Pesa STK Push (server only). Credentials come from Super admin -> Platform Payments (stored
+// encrypted, see gateway-secrets.server.ts) or, as a fallback, from server environment variables:
 //   INTASEND_SECRET_KEY         ISSecretKey_test_… (sandbox) or ISSecretKey_live_… (live)
 //   INTASEND_WEBHOOK_CHALLENGE  the "Challenge" string set on the webhook in the IntaSend dashboard
 //   INTASEND_BASE_URL           optional; defaults to https://api.intasend.com (the key picks sandbox/live)
+import { gatewaySecret, loadGatewaySecrets } from "./gateway-secrets.server";
 import { intasendChargeAmount, parseInvoice, type IntasendInvoice } from "./intasend";
 
 const baseUrl = () =>
   (process.env["INTASEND_BASE_URL"] || "https://api.intasend.com").replace(/\/$/, "");
 
 export function intasendConfigured(): boolean {
-  return !!process.env["INTASEND_SECRET_KEY"];
+  return !!gatewaySecret("INTASEND_SECRET_KEY");
 }
 
 function authHeaders(): Record<string, string> {
-  const key = process.env["INTASEND_SECRET_KEY"];
+  const key = gatewaySecret("INTASEND_SECRET_KEY");
   if (!key) throw new Error("Payment gateway is not configured.");
   return { Authorization: `Bearer ${key}`, "Content-Type": "application/json" };
 }
@@ -21,6 +23,7 @@ async function post(
   path: string,
   body: unknown,
 ): Promise<{ ok: boolean; status: number; text: string; json: unknown }> {
+  await loadGatewaySecrets();
   const res = await fetch(`${baseUrl()}${path}`, {
     method: "POST",
     headers: authHeaders(),
@@ -66,4 +69,24 @@ export async function intasendInvoiceStatus(
   const invoice = r.ok ? parseInvoice(r.json) : null;
   if (!invoice) throw new Error(`IntaSend status failed [${r.status}]: ${r.text.slice(0, 300)}`);
   return { invoice, raw: r.json };
+}
+
+export type KeyCheck = { result: "accepted" | "rejected" | "unreachable" | "not_set" };
+
+/**
+ * Asks IntaSend whether the stored secret key is accepted, without creating anything: it requests the
+ * status of an invoice that does not exist. A bad key is refused outright (401/403); a good key gets a
+ * normal "no such invoice" style answer. The response body is never returned (it can echo account data).
+ */
+export async function intasendCheckKey(): Promise<KeyCheck> {
+  await loadGatewaySecrets({ force: true });
+  if (!gatewaySecret("INTASEND_SECRET_KEY")) return { result: "not_set" };
+  try {
+    const r = await post("/api/v1/payment/status/", { invoice_id: "00000000-connection-test" });
+    if (r.status === 401 || r.status === 403) return { result: "rejected" };
+    if (r.status >= 500) return { result: "unreachable" };
+    return { result: "accepted" };
+  } catch {
+    return { result: "unreachable" };
+  }
 }
