@@ -103,7 +103,7 @@ const DeleteSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(MAX_V
  * couple of minutes, so a deleted code stops working on the routers within about 2 minutes.
  */
 export const deleteVouchers = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => DeleteSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true; deleted: number } | Fail> => {
     const tenantId = await voucherTenantOf(context.userId);
@@ -131,7 +131,7 @@ const UpdateSchema = z.object({
 });
 
 export const updateVoucher = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => UpdateSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await voucherTenantOf(context.userId);
