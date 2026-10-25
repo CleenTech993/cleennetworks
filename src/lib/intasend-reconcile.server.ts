@@ -9,7 +9,9 @@ import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 export async function reconcileIntasendPayment(paymentId: string): Promise<{ status: string }> {
   const { data: pay } = await supabaseAdmin
     .from("payments")
-    .select("id,tenant_id,package_id,phone,amount,status,provider,merchant_request_id,tv_device_id,expires_at")
+    .select(
+      "id,tenant_id,package_id,phone,amount,status,provider,merchant_request_id,tv_device_id,expires_at",
+    )
     .eq("id", paymentId)
     .maybeSingle();
   if (!pay) return { status: "unknown" };

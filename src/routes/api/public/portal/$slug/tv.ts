@@ -25,12 +25,16 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
     handlers: {
       // Status of one TV: GET ?mac=AA:BB:...
       GET: async ({ request, params }) => {
-        if (!rateLimit(`tvstatus:${params.slug}:${clientIp(request)}`, 20, 60_000)) return tooManyRequests();
+        if (!rateLimit(`tvstatus:${params.slug}:${clientIp(request)}`, 20, 60_000))
+          return tooManyRequests();
         const mac = normalizeMac(new URL(request.url).searchParams.get("mac") ?? "");
         if (!mac) return Response.json({ error: BAD_MAC }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
-          .from("tenants").select("id").eq("slug", params.slug).maybeSingle();
+          .from("tenants")
+          .select("id")
+          .eq("slug", params.slug)
+          .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
 
         const { data: tv } = await supabaseAdmin
@@ -39,23 +43,37 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .eq("tenant_id", tenant.id)
           .eq("mac_address", mac)
           .maybeSingle();
-        const active = !!tv && tv.status === "active" && !!tv.expires_at && new Date(tv.expires_at) > new Date();
-        return Response.json({ registered: !!tv, active, expires_at: active ? tv!.expires_at : null });
+        const active =
+          !!tv && tv.status === "active" && !!tv.expires_at && new Date(tv.expires_at) > new Date();
+        return Response.json({
+          registered: !!tv,
+          active,
+          expires_at: active ? tv!.expires_at : null,
+        });
       },
 
       // Register (or renew) a TV and start the M-Pesa payment.
       POST: async ({ request, params }) => {
-        if (!rateLimit(`tv:${params.slug}:${clientIp(request)}`, 5, 60_000)) return tooManyRequests();
+        if (!rateLimit(`tv:${params.slug}:${clientIp(request)}`, 5, 60_000))
+          return tooManyRequests();
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
-        if (!parsed.success) return Response.json({ error: "Please fill in all fields." }, { status: 400 });
+        if (!parsed.success)
+          return Response.json({ error: "Please fill in all fields." }, { status: 400 });
 
         const mac = normalizeMac(parsed.data.mac);
         if (!mac) return Response.json({ error: BAD_MAC }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
-          .from("tenants").select("id").eq("slug", params.slug).maybeSingle();
+          .from("tenants")
+          .select("id")
+          .eq("slug", params.slug)
+          .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
 
         const { data: pkg } = await supabaseAdmin
@@ -83,24 +101,42 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .eq("mac_address", mac)
           .maybeSingle();
         if (existing?.status === "blocked") {
-          return Response.json({ error: "This device has been blocked. Contact support." }, { status: 403 });
+          return Response.json(
+            { error: "This device has been blocked. Contact support." },
+            { status: 403 },
+          );
         }
 
         let deviceId = existing?.id;
         if (existing) {
           await supabaseAdmin
             .from("tv_devices")
-            .update({ phone, package_id: pkg.id, updated_at: now, ...(parsed.data.name ? { name: parsed.data.name } : {}) })
+            .update({
+              phone,
+              package_id: pkg.id,
+              updated_at: now,
+              ...(parsed.data.name ? { name: parsed.data.name } : {}),
+            })
             .eq("id", existing.id);
         } else {
           const { data: created, error } = await supabaseAdmin
             .from("tv_devices")
-            .insert({ tenant_id: tenant.id, mac_address: mac, name: parsed.data.name ?? null, phone, package_id: pkg.id, status: "pending" })
+            .insert({
+              tenant_id: tenant.id,
+              mac_address: mac,
+              name: parsed.data.name ?? null,
+              phone,
+              package_id: pkg.id,
+              status: "pending",
+            })
             .select("id")
             .single();
           if (error || !created) {
             console.error("tv register failed", error);
-            return Response.json({ error: "Could not register the TV. Please try again." }, { status: 500 });
+            return Response.json(
+              { error: "Could not register the TV. Please try again." },
+              { status: 500 },
+            );
           }
           deviceId = created.id;
         }
@@ -113,7 +149,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           provider = resolveProvider(cfg);
         } catch (e) {
           console.error("tv checkout: no payment gateway available", e);
-          return Response.json({ error: "Payments are temporarily unavailable. Please try again later." }, { status: 503 });
+          return Response.json(
+            { error: "Payments are temporarily unavailable. Please try again later." },
+            { status: 503 },
+          );
         }
 
         const { data: pay, error: payErr } = await supabaseAdmin
@@ -131,11 +170,15 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .single();
         if (payErr || !pay) {
           console.error("tv payment insert failed", payErr);
-          return Response.json({ error: "Could not start the payment. Please try again." }, { status: 500 });
+          return Response.json(
+            { error: "Could not start the payment. Please try again." },
+            { status: 500 },
+          );
         }
 
         try {
-          const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${getRequestHost()}`;
+          const callbackBase =
+            cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${getRequestHost()}`;
           const started = await startStkPush({
             provider,
             cfg,
@@ -147,7 +190,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           });
           await supabaseAdmin
             .from("payments")
-            .update({ checkout_request_id: started.checkoutRef, merchant_request_id: started.providerRef })
+            .update({
+              checkout_request_id: started.checkoutRef,
+              merchant_request_id: started.providerRef,
+            })
             .eq("id", pay.id);
           return Response.json({
             paymentId: pay.id,

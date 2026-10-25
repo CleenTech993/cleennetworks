@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildBlockLines, buildDeviceAgentLines, buildHotspotUserLines, buildTetherLines,
-  deviceLimitOf, MAX_DEVICES_PER_REPORT, parseDeviceReport,
+  buildBlockLines,
+  buildDeviceAgentLines,
+  buildHotspotUserLines,
+  buildTetherLines,
+  deviceLimitOf,
+  MAX_DEVICES_PER_REPORT,
+  parseDeviceReport,
 } from "../src/lib/devices";
 
 const URL_OK = "https://app.example.com/api/public/router/devices/abc123_TOKEN-x";
@@ -39,33 +44,59 @@ describe("deviceLimitOf", () => {
 
 describe("parseDeviceReport", () => {
   it("parses well-formed records", () => {
-    const r = parseDeviceReport("aa:bb:cc:dd:ee:02|10.5.50.20|Johns-iPhone|ABCDEF2345|true|0;AA:BB:CC:DD:EE:04|10.5.50.21|||false|1;");
+    const r = parseDeviceReport(
+      "aa:bb:cc:dd:ee:02|10.5.50.20|Johns-iPhone|ABCDEF2345|true|0;AA:BB:CC:DD:EE:04|10.5.50.21|||false|1;",
+    );
     expect(r).toEqual([
-      { mac: "AA:BB:CC:DD:EE:02", ip: "10.5.50.20", hostname: "Johns-iPhone", user: "ABCDEF2345", authorized: true, tether: false },
-      { mac: "AA:BB:CC:DD:EE:04", ip: "10.5.50.21", hostname: null, user: null, authorized: false, tether: true },
+      {
+        mac: "AA:BB:CC:DD:EE:02",
+        ip: "10.5.50.20",
+        hostname: "Johns-iPhone",
+        user: "ABCDEF2345",
+        authorized: true,
+        tether: false,
+      },
+      {
+        mac: "AA:BB:CC:DD:EE:04",
+        ip: "10.5.50.21",
+        hostname: null,
+        user: null,
+        authorized: false,
+        tether: true,
+      },
     ]);
   });
 
   it("drops malformed, multicast, zero and duplicate MACs", () => {
     const r = parseDeviceReport(
-      ["nonsense", "01:00:5E:00:00:01|10.0.0.1|x||false|0", "00:00:00:00:00:00|10.0.0.2|x||false|0",
-       "AA:BB:CC:DD:EE:02|10.0.0.3|a||false|0", "AA:BB:CC:DD:EE:02|10.0.0.4|b||false|0", "AA:BB:CC|10.0.0.5|c||false|0"].join(";"),
+      [
+        "nonsense",
+        "01:00:5E:00:00:01|10.0.0.1|x||false|0",
+        "00:00:00:00:00:00|10.0.0.2|x||false|0",
+        "AA:BB:CC:DD:EE:02|10.0.0.3|a||false|0",
+        "AA:BB:CC:DD:EE:02|10.0.0.4|b||false|0",
+        "AA:BB:CC|10.0.0.5|c||false|0",
+      ].join(";"),
     );
     expect(r.map((x) => x.mac)).toEqual(["AA:BB:CC:DD:EE:02"]);
     expect(r[0]!.ip).toBe("10.0.0.3");
   });
 
   it("neutralises hostile hostnames, users and IPs chosen by the customer's device", () => {
-    const [d] = parseDeviceReport('AA:BB:CC:DD:EE:02|999.1.1.1|x"$(evil) /system reset|bad user!|true|0');
+    const [d] = parseDeviceReport(
+      'AA:BB:CC:DD:EE:02|999.1.1.1|x"$(evil) /system reset|bad user!|true|0',
+    );
     expect(d!.ip).toBeNull();
     expect(d!.user).toBeNull();
-    expect(d!.hostname).not.toMatch(/["$();\/]/);
+    expect(d!.hostname).not.toMatch(/["$();/]/);
     expect(d!.hostname!.length).toBeLessThanOrEqual(64);
   });
 
   it("drops records with the wrong number of fields (a forged delimiter in a name cannot add devices)", () => {
     // a hostname "x;AA:..:99|1.1.1.1|y" turns one record into a fragment plus a fake record
-    expect(parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|x;AA:BB:CC:DD:EE:99|1.1.1.1|y|||false|0")).toEqual([]);
+    expect(
+      parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|x;AA:BB:CC:DD:EE:99|1.1.1.1|y|||false|0"),
+    ).toEqual([]);
     expect(parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|h||false")).toEqual([]); // too few
     expect(parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|h||false|0|extra")).toEqual([]); // too many
   });
@@ -80,11 +111,14 @@ describe("parseDeviceReport", () => {
 });
 
 describe("buildHotspotUserLines", () => {
-  const joined = (v: Parameters<typeof buildHotspotUserLines>[0]) => buildHotspotUserLines(v).join("\n");
+  const joined = (v: Parameters<typeof buildHotspotUserLines>[0]) =>
+    buildHotspotUserLines(v).join("\n");
 
   it("pins a one-device voucher to its MAC and uses the 1-device profile", () => {
     const out = joined([{ code: "ABC123XYZ9", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 }]);
-    expect(out).toContain('add name="ABC123XYZ9" password="ABC123XYZ9" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02');
+    expect(out).toContain(
+      'add name="ABC123XYZ9" password="ABC123XYZ9" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
+    );
     expect(out).toContain("add name=netgrid-d1 shared-users=1");
   });
 
@@ -104,7 +138,10 @@ describe("buildHotspotUserLines", () => {
   });
 
   it("skips codes that are not script-safe", () => {
-    const out = joined([{ code: 'EVIL"; /x', bound_mac: null, limit: 1 }, { code: "GOOD000001", bound_mac: null, limit: 1 }]);
+    const out = joined([
+      { code: 'EVIL"; /x', bound_mac: null, limit: 1 },
+      { code: "GOOD000001", bound_mac: null, limit: 1 },
+    ]);
     expect(out).not.toContain("EVIL");
     expect(out).toContain("GOOD000001");
   });
@@ -117,7 +154,14 @@ describe("buildHotspotUserLines", () => {
   });
 
   it("emits balanced RouterOS syntax", () => {
-    expect(balanced(joined([{ code: "OKCODE0001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 }, { code: "OKCODE0002", bound_mac: null, limit: 4 }]))).toBe(true);
+    expect(
+      balanced(
+        joined([
+          { code: "OKCODE0001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 },
+          { code: "OKCODE0002", bound_mac: null, limit: 4 },
+        ]),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -155,7 +199,11 @@ describe("buildTetherLines", () => {
 
 describe("buildDeviceAgentLines", () => {
   it("refuses a URL that is not the platform's device endpoint", () => {
-    expect(buildDeviceAgentLines('https://x.com/api/public/router/devices/t"; /system reset-configuration')).toEqual([]);
+    expect(
+      buildDeviceAgentLines(
+        'https://x.com/api/public/router/devices/t"; /system reset-configuration',
+      ),
+    ).toEqual([]);
     expect(buildDeviceAgentLines("http://x.com/api/public/router/devices/t")).toEqual([]);
     expect(buildDeviceAgentLines("https://x.com/other/t")).toEqual([]);
   });
@@ -179,20 +227,25 @@ describe("buildDeviceAgentLines", () => {
     expect(m).not.toBeNull();
     const safe = new RegExp(m![1]!);
     for (const ok of ["a", "Z", "7", ".", "_", "-", " "]) expect(safe.test(ok)).toBe(true);
-    for (const bad of ["|", ";", '"', "$", "\\", "(", ")", "/", "\n", "é"]) expect(safe.test(bad)).toBe(false);
+    for (const bad of ["|", ";", '"', "$", "\\", "(", ")", "/", "\n", "é"])
+      expect(safe.test(bad)).toBe(false);
     // the sanitiser runs before the hostname is concatenated into the report
     expect(plain.indexOf("$c ~")).toBeLessThan(plain.indexOf('$d . $mac . "|"'));
   });
 
   it("sends no comment lines to the router", () => {
-    const script = buildDeviceAgentLines(URL_OK).find((l) => l.startsWith("add name=netgrid-devices"))!;
+    const script = buildDeviceAgentLines(URL_OK).find((l) =>
+      l.startsWith("add name=netgrid-devices"),
+    )!;
     expect(script.split("\n").filter((l) => l.trim().startsWith("#"))).toEqual([]);
     expect(script).toContain("$c ~".replace("$", "\\$")); // the sanitiser itself is still there
   });
 
   it("creates the scheduler only when missing (re-creating it every sync would reset its timer)", () => {
     const sched = buildDeviceAgentLines(URL_OK).find((l) => l.includes("scheduler add"))!;
-    expect(sched).toMatch(/^:if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/);
+    expect(sched).toMatch(
+      /^:if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/,
+    );
     expect(sched).toContain("interval=2m");
   });
 

@@ -32,7 +32,11 @@ function Hotspot() {
       <PageHeader title="Hotspot" description="Active hotspot users, vouchers and live sessions." />
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Online now" value={data?.online ?? "—"} />
-        <StatCard label="Hotspot customers" value={data?.hotspotCustomers ?? "—"} hint={`${data?.activeCustomers ?? 0} active`} />
+        <StatCard
+          label="Hotspot customers"
+          value={data?.hotspotCustomers ?? "—"}
+          hint={`${data?.activeCustomers ?? 0} active`}
+        />
         <StatCard label="Download (live)" value={data ? data.downMB + " MB" : "—"} />
         <StatCard label="Upload (live)" value={data ? data.upMB + " MB" : "—"} />
       </div>

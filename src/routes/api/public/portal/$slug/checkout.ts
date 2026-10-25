@@ -22,17 +22,31 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
     handlers: {
       POST: async ({ request, params }) => {
         // Cheap per-IP gate first (per-instance; the per-phone limit below is the durable one).
-        if (!rateLimit(`checkout:${params.slug}:${clientIp(request)}`, CHECKOUT_LIMITS.ipMax, CHECKOUT_LIMITS.ipWindowMs)) {
+        if (
+          !rateLimit(
+            `checkout:${params.slug}:${clientIp(request)}`,
+            CHECKOUT_LIMITS.ipMax,
+            CHECKOUT_LIMITS.ipWindowMs,
+          )
+        ) {
           return tooManyRequests();
         }
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
-        if (!parsed.success) return Response.json({ error: "Please fill in all fields." }, { status: 400 });
+        if (!parsed.success)
+          return Response.json({ error: "Please fill in all fields." }, { status: 400 });
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
-          return Response.json({ error: "Enter a valid M-Pesa number, e.g. 0712345678." }, { status: 400 });
+          return Response.json(
+            { error: "Enter a valid M-Pesa number, e.g. 0712345678." },
+            { status: 400 },
+          );
         }
 
         try {
@@ -62,7 +76,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             })
             .select("id,created_at,status,package_id")
             .single();
-          if (payErr || !pay) return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          if (payErr || !pay)
+            return Response.json({ error: "Could not start the payment." }, { status: 500 });
 
           // Per-phone limit, shared across server instances because it counts payment rows. The
           // row is inserted first and then ranked against earlier ones, so parallel requests
@@ -107,7 +122,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             // limiter counts every attempt, which stops failed prompts being used to spam a phone.
             await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
             return Response.json(
-              { error: "We couldn't send the M-Pesa prompt. Please check the number and try again." },
+              {
+                error: "We couldn't send the M-Pesa prompt. Please check the number and try again.",
+              },
               { status: 502 },
             );
           }
@@ -127,7 +144,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           });
         } catch (e) {
           console.error("checkout failed", e);
-          return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+          return Response.json(
+            { error: "Something went wrong. Please try again." },
+            { status: 500 },
+          );
         }
       },
     },

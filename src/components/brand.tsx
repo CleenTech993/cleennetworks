@@ -12,7 +12,9 @@ export function BrandMark({ className = "h-7 w-7" }: { className?: string }) {
 
 export function Brand({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex items-center gap-2.5 font-display text-lg font-semibold tracking-tight ${className}`}>
+    <div
+      className={`flex items-center gap-2.5 font-display text-lg font-semibold tracking-tight ${className}`}
+    >
       <BrandMark />
       <span>NetGrid</span>
     </div>

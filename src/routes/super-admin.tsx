@@ -1,5 +1,14 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { LayoutDashboard, Building2, CreditCard, Activity, Users, Wallet, Banknote, Radar } from "lucide-react";
+import {
+  LayoutDashboard,
+  Building2,
+  CreditCard,
+  Activity,
+  Users,
+  Wallet,
+  Banknote,
+  Radar,
+} from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
 
@@ -17,5 +26,9 @@ const nav: NavItem[] = [
 export const Route = createFileRoute("/super-admin")({
   ssr: false,
   beforeLoad: () => requireConsole({ superAdmin: true }),
-  component: () => <DashboardShell title="Super Admin" subtitle="Platform control" nav={nav}><Outlet /></DashboardShell>,
+  component: () => (
+    <DashboardShell title="Super Admin" subtitle="Platform control" nav={nav}>
+      <Outlet />
+    </DashboardShell>
+  ),
 });

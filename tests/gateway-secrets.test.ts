@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeDb } from "./helpers/fake-supabase";
 import { h } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
 
 import {
   decryptSecret,
@@ -51,7 +55,9 @@ describe("encryption", () => {
 
   it("fails with the wrong key material", async () => {
     const stored = await encryptSecret("INTASEND_SECRET_KEY", KEY, IKM);
-    await expect(decryptSecret("INTASEND_SECRET_KEY", stored, "some-other-key-material-bbbbbbbb")).rejects.toThrow();
+    await expect(
+      decryptSecret("INTASEND_SECRET_KEY", stored, "some-other-key-material-bbbbbbbb"),
+    ).rejects.toThrow();
   });
 
   it("cannot be moved onto another row (name is authenticated)", async () => {
@@ -63,7 +69,9 @@ describe("encryption", () => {
     const stored = await encryptSecret("INTASEND_SECRET_KEY", KEY, IKM);
     const [v, iv, ct] = stored.split(".");
     const flipped = ct.slice(0, -2) + (ct.endsWith("AA") ? "BB" : "AA");
-    await expect(decryptSecret("INTASEND_SECRET_KEY", `${v}.${iv}.${flipped}`, IKM)).rejects.toThrow();
+    await expect(
+      decryptSecret("INTASEND_SECRET_KEY", `${v}.${iv}.${flipped}`, IKM),
+    ).rejects.toThrow();
     await expect(decryptSecret("INTASEND_SECRET_KEY", "garbage", IKM)).rejects.toThrow();
     await expect(decryptSecret("INTASEND_SECRET_KEY", "v2.a.b", IKM)).rejects.toThrow();
   });
@@ -84,7 +92,12 @@ describe("saving and loading", () => {
   it("makes the saved value available to the server", async () => {
     await saveGatewaySecret("INTASEND_SECRET_KEY", KEY, USER);
     expect(gatewaySecret("INTASEND_SECRET_KEY")).toBe(KEY);
-    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({ set: true, source: "dashboard", last4: "cdef", needsReentry: false });
+    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({
+      set: true,
+      source: "dashboard",
+      last4: "cdef",
+      needsReentry: false,
+    });
   });
 
   it("saving again replaces the value instead of adding a row", async () => {
@@ -108,7 +121,11 @@ describe("dashboard vs environment", () => {
     process.env["INTASEND_SECRET_KEY"] = "ISSecretKey_live_fromenvironment99";
     await loadGatewaySecrets({ force: true });
     expect(gatewaySecret("INTASEND_SECRET_KEY")).toBe("ISSecretKey_live_fromenvironment99");
-    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({ set: true, source: "environment", last4: "nt99" });
+    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({
+      set: true,
+      source: "environment",
+      last4: "nt99",
+    });
   });
 
   it("a saved dashboard value wins over the environment", async () => {
@@ -130,21 +147,37 @@ describe("dashboard vs environment", () => {
   it("reports not set when neither exists", async () => {
     await loadGatewaySecrets({ force: true });
     expect(gatewaySecret("INTASEND_SECRET_KEY")).toBeUndefined();
-    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({ set: false, source: null, last4: null });
+    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({
+      set: false,
+      source: null,
+      last4: null,
+    });
   });
 
   it("PLATFORM_SECRETS_KEY takes precedence as key material", async () => {
     process.env["PLATFORM_SECRETS_KEY"] = "dedicated-key-material-cccccccccccc";
     await saveGatewaySecret("INTASEND_SECRET_KEY", KEY, USER);
-    expect(await decryptSecret("INTASEND_SECRET_KEY", rows()[0].ciphertext as string, "dedicated-key-material-cccccccccccc")).toBe(KEY);
-    await expect(decryptSecret("INTASEND_SECRET_KEY", rows()[0].ciphertext as string, IKM)).rejects.toThrow();
+    expect(
+      await decryptSecret(
+        "INTASEND_SECRET_KEY",
+        rows()[0].ciphertext as string,
+        "dedicated-key-material-cccccccccccc",
+      ),
+    ).toBe(KEY);
+    await expect(
+      decryptSecret("INTASEND_SECRET_KEY", rows()[0].ciphertext as string, IKM),
+    ).rejects.toThrow();
   });
 });
 
 describe("failure handling", () => {
   it("never throws if the store is unavailable, and keeps using the environment", async () => {
     process.env["INTASEND_SECRET_KEY"] = "ISSecretKey_live_fromenvironment99";
-    h.db = { from() { throw new Error("relation does not exist"); } } as unknown as FakeDb;
+    h.db = {
+      from() {
+        throw new Error("relation does not exist");
+      },
+    } as unknown as FakeDb;
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(loadGatewaySecrets({ force: true })).resolves.toBeUndefined();
     expect(gatewaySecret("INTASEND_SECRET_KEY")).toBe("ISSecretKey_live_fromenvironment99");
@@ -157,11 +190,21 @@ describe("failure handling", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     await loadGatewaySecrets({ force: true });
     expect(gatewaySecret("INTASEND_SECRET_KEY")).toBe("ISSecretKey_live_fromenvironment99");
-    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({ needsReentry: true, source: "environment" });
+    expect(gatewaySecretStatus("INTASEND_SECRET_KEY")).toMatchObject({
+      needsReentry: true,
+      source: "environment",
+    });
   });
 
   it("ignores rows with an unknown name", async () => {
-    h.db = new FakeDb().seed("platform_gateway_secrets", [{ name: "SOMETHING_ELSE", ciphertext: "v1.a.b", last4: "xxxx", updated_at: new Date().toISOString() }]);
+    h.db = new FakeDb().seed("platform_gateway_secrets", [
+      {
+        name: "SOMETHING_ELSE",
+        ciphertext: "v1.a.b",
+        last4: "xxxx",
+        updated_at: new Date().toISOString(),
+      },
+    ]);
     await loadGatewaySecrets({ force: true });
     expect(gatewaySecret("INTASEND_SECRET_KEY")).toBeUndefined();
   });

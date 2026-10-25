@@ -44,7 +44,9 @@ function Settlements() {
       const periodStart = new Date(start).toISOString();
       const periodEnd = new Date(end + "T23:59:59").toISOString();
 
-      const { data: tenants, error: tErr } = await supabase.from("tenants").select("id,name,platform_commission_pct");
+      const { data: tenants, error: tErr } = await supabase
+        .from("tenants")
+        .select("id,name,platform_commission_pct");
       if (tErr) throw tErr;
 
       const { data: pays, error: pErr } = await supabase
@@ -61,9 +63,14 @@ function Settlements() {
       }
 
       const inserts: Array<{
-        tenant_id: string; period_start: string; period_end: string;
-        gross_amount: number; commission_amount: number; net_amount: number;
-        payment_method: string; status: string;
+        tenant_id: string;
+        period_start: string;
+        period_end: string;
+        gross_amount: number;
+        commission_amount: number;
+        net_amount: number;
+        payment_method: string;
+        status: string;
       }> = [];
       for (const t of tenants ?? []) {
         const gross = totals.get(t.id) ?? 0;
@@ -85,14 +92,19 @@ function Settlements() {
       const { error: iErr } = await supabase.from("settlements").insert(inserts);
       if (iErr) throw iErr;
     },
-    onSuccess: () => { toast.success("Settlements generated"); qc.invalidateQueries({ queryKey: ["settlements"] }); },
+    onSuccess: () => {
+      toast.success("Settlements generated");
+      qc.invalidateQueries({ queryKey: ["settlements"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const markPaid = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("settlements")
-        .update({ status: "paid", paid_at: new Date().toISOString() }).eq("id", id);
+      const { error } = await supabase
+        .from("settlements")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["settlements"] }),
@@ -101,15 +113,39 @@ function Settlements() {
 
   return (
     <div>
-      <PageHeader title="Settlements" description="Per-tenant payout records — what tenants are owed after platform commission." />
+      <PageHeader
+        title="Settlements"
+        description="Per-tenant payout records — what tenants are owed after platform commission."
+      />
       <div className="rounded-xl border bg-card p-4 mb-6 flex flex-wrap items-end gap-3">
-        <div><Label>Period start</Label><Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="mt-1" /></div>
-        <div><Label>Period end</Label><Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-1" /></div>
-        <Button onClick={() => generate.mutate()} disabled={generate.isPending}>Generate for period</Button>
+        <div>
+          <Label>Period start</Label>
+          <Input
+            type="date"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label>Period end</Label>
+          <Input
+            type="date"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+          Generate for period
+        </Button>
       </div>
 
       {!rows?.length ? (
-        <EmptyState title="No settlements yet" description="Generate a settlement run for a period to see tenant payouts." />
+        <EmptyState
+          title="No settlements yet"
+          description="Generate a settlement run for a period to see tenant payouts."
+        />
       ) : (
         <div className="rounded-xl border bg-card overflow-hidden">
           <table className="w-full text-sm">
@@ -129,17 +165,26 @@ function Settlements() {
                 <tr key={r.id} className="border-t">
                   <td className="px-4 py-2.5">{r.tenant.name}</td>
                   <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                    {new Date(r.period_start).toLocaleDateString()} → {new Date(r.period_end).toLocaleDateString()}
+                    {new Date(r.period_start).toLocaleDateString()} →{" "}
+                    {new Date(r.period_end).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-2.5">KES {Number(r.gross_amount).toLocaleString()}</td>
-                  <td className="px-4 py-2.5">KES {Number(r.commission_amount).toLocaleString()}</td>
-                  <td className="px-4 py-2.5 font-medium">KES {Number(r.net_amount).toLocaleString()}</td>
                   <td className="px-4 py-2.5">
-                    <Badge variant={r.status === "paid" ? "default" : "secondary"}>{r.status}</Badge>
+                    KES {Number(r.commission_amount).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-2.5 font-medium">
+                    KES {Number(r.net_amount).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <Badge variant={r.status === "paid" ? "default" : "secondary"}>
+                      {r.status}
+                    </Badge>
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     {r.status !== "paid" && (
-                      <Button size="sm" variant="outline" onClick={() => markPaid.mutate(r.id)}>Mark paid</Button>
+                      <Button size="sm" variant="outline" onClick={() => markPaid.mutate(r.id)}>
+                        Mark paid
+                      </Button>
                     )}
                   </td>
                 </tr>

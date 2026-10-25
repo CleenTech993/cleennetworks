@@ -16,8 +16,12 @@ import { resolveProvider } from "@/lib/payment-gateway.server";
 type Ctx = { supabase: { from: (t: string) => any }; userId: string }; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 async function assertSuperAdmin(context: Ctx): Promise<void> {
-  const { data: roles } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId);
-  if (!(roles as { role: string }[] | null)?.some((r) => r.role === "super_admin")) throw new Error("Forbidden");
+  const { data: roles } = await context.supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", context.userId);
+  if (!(roles as { role: string }[] | null)?.some((r) => r.role === "super_admin"))
+    throw new Error("Forbidden");
 }
 
 /** Shape sent to the dashboard. Only yes/no, last 4 characters, test/live and where it came from: never a key. */
@@ -59,8 +63,13 @@ const KEY_RE = /^ISSecretKey_(test|live)_[A-Za-z0-9_-]{8,}$/;
 const CHALLENGE_RE = /^[\x21-\x7e]{12,128}$/;
 
 const SaveSchema = z
-  .object({ secretKey: z.string().trim().optional(), webhookChallenge: z.string().trim().optional() })
-  .refine((v) => v.secretKey || v.webhookChallenge, { message: "Enter a secret key or a webhook challenge." });
+  .object({
+    secretKey: z.string().trim().optional(),
+    webhookChallenge: z.string().trim().optional(),
+  })
+  .refine((v) => v.secretKey || v.webhookChallenge, {
+    message: "Enter a secret key or a webhook challenge.",
+  });
 
 export const saveIntasendCredentials = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
@@ -68,17 +77,23 @@ export const saveIntasendCredentials = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context as unknown as Ctx);
     if (data.secretKey && !KEY_RE.test(data.secretKey)) {
-      throw new Error("That does not look like an IntaSend secret key. It starts with ISSecretKey_test_ or ISSecretKey_live_.");
+      throw new Error(
+        "That does not look like an IntaSend secret key. It starts with ISSecretKey_test_ or ISSecretKey_live_.",
+      );
     }
     if (data.webhookChallenge && !CHALLENGE_RE.test(data.webhookChallenge)) {
       throw new Error("The webhook challenge must be 12 to 128 characters with no spaces.");
     }
-    if (data.secretKey) await saveGatewaySecret("INTASEND_SECRET_KEY", data.secretKey, context.userId);
-    if (data.webhookChallenge) await saveGatewaySecret("INTASEND_WEBHOOK_CHALLENGE", data.webhookChallenge, context.userId);
+    if (data.secretKey)
+      await saveGatewaySecret("INTASEND_SECRET_KEY", data.secretKey, context.userId);
+    if (data.webhookChallenge)
+      await saveGatewaySecret("INTASEND_WEBHOOK_CHALLENGE", data.webhookChallenge, context.userId);
     return buildStatus();
   });
 
-const RemoveSchema = z.object({ name: z.enum(["INTASEND_SECRET_KEY", "INTASEND_WEBHOOK_CHALLENGE"]) });
+const RemoveSchema = z.object({
+  name: z.enum(["INTASEND_SECRET_KEY", "INTASEND_WEBHOOK_CHALLENGE"]),
+});
 
 /** Removes the dashboard-entered value; an INTASEND_* environment variable, if any, applies again. */
 export const removeIntasendCredential = createServerFn({ method: "POST" })

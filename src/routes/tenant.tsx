@@ -1,7 +1,20 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Router, Wifi, Network, Palette, Package, Users,
-  Activity, CreditCard, MessageSquare, LifeBuoy, Settings, UserCog, Smartphone,
+  LayoutDashboard,
+  Router,
+  Wifi,
+  Network,
+  Palette,
+  Package,
+  Users,
+  Activity,
+  Boxes,
+  CreditCard,
+  MessageSquare,
+  LifeBuoy,
+  Settings,
+  UserCog,
+  Smartphone,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
@@ -17,6 +30,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant/packages", label: "Packages", icon: Package },
   { to: "/tenant/customers", label: "Customers", icon: Users },
   { to: "/tenant/sessions", label: "Sessions", icon: Activity },
+  { to: "/tenant/inventory", label: "Inventory", icon: Boxes },
   { to: "/tenant/payments", label: "Payments", icon: CreditCard },
   { to: "/tenant/sms", label: "Notifications", icon: MessageSquare },
   { to: "/tenant/tickets", label: "Support", icon: LifeBuoy },

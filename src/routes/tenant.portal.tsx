@@ -12,7 +12,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { PortalPreview } from "@/components/portal/preview";
 import { ThemePicker } from "@/components/portal/theme-picker";
-import { normalizeHex, resolveThemeId, PORTAL_THEMES, type PortalThemeId } from "@/lib/portal-themes";
+import {
+  normalizeHex,
+  resolveThemeId,
+  PORTAL_THEMES,
+  type PortalThemeId,
+} from "@/lib/portal-themes";
 
 export const Route = createFileRoute("/tenant/portal")({ component: PortalSettings });
 
@@ -23,7 +28,11 @@ function PortalSettings() {
     queryKey: ["captive-portal", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
-      const { data } = await supabase.from("captive_portals").select("*").eq("tenant_id", tenantId!).maybeSingle();
+      const { data } = await supabase
+        .from("captive_portals")
+        .select("*")
+        .eq("tenant_id", tenantId!)
+        .maybeSingle();
       return data;
     },
   });
@@ -32,7 +41,11 @@ function PortalSettings() {
     queryKey: ["tenant-name", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
-      const { data } = await supabase.from("tenants").select("name").eq("id", tenantId!).maybeSingle();
+      const { data } = await supabase
+        .from("tenants")
+        .select("name")
+        .eq("id", tenantId!)
+        .maybeSingle();
       return data;
     },
   });
@@ -86,23 +99,33 @@ function PortalSettings() {
 
   return (
     <div>
-      <PageHeader title="Captive Portal" description="Choose how your portal looks, then set your branding and login methods." />
+      <PageHeader
+        title="Captive Portal"
+        description="Choose how your portal looks, then set your branding and login methods."
+      />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
           <section className="rounded-xl border bg-card p-6">
             <h2 className="font-semibold">Theme</h2>
             <p className="mb-4 mt-1 text-sm text-muted-foreground">
-              Each theme restyles the whole portal your customers see. Your colour and logo are applied on top.
+              Each theme restyles the whole portal your customers see. Your colour and logo are
+              applied on top.
             </p>
-            <ThemePicker value={form.theme} onChange={(theme) => setForm({ ...form, theme })} brand={brand} />
+            <ThemePicker
+              value={form.theme}
+              onChange={(theme) => setForm({ ...form, theme })}
+              brand={brand}
+            />
             {form.theme === "venue" && !form.background_url && (
               <p className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                Venue shows your background image across the top. Add one below, or it falls back to your brand colour.
+                Venue shows your background image across the top. Add one below, or it falls back to
+                your brand colour.
               </p>
             )}
             {!PORTAL_THEMES[form.theme].usesImages && (form.logo_url || form.background_url) && (
               <p className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                {PORTAL_THEMES[form.theme].name} loads no images, so your logo and background image are not shown with this theme.
+                {PORTAL_THEMES[form.theme].name} loads no images, so your logo and background image
+                are not shown with this theme.
               </p>
             )}
           </section>
@@ -112,38 +135,79 @@ function PortalSettings() {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="pc-color">Brand colour</Label>
-                <Input id="pc-color" type="color" value={brand} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="mt-1 h-10 w-full p-1" />
+                <Input
+                  id="pc-color"
+                  type="color"
+                  value={brand}
+                  onChange={(e) => setForm({ ...form, primary_color: e.target.value })}
+                  className="mt-1 h-10 w-full p-1"
+                />
               </div>
               <div>
                 <Label htmlFor="pc-logo">Logo URL</Label>
-                <Input id="pc-logo" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…/logo.png" className="mt-1" />
+                <Input
+                  id="pc-logo"
+                  value={form.logo_url}
+                  onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
+                  placeholder="https://…/logo.png"
+                  className="mt-1"
+                />
               </div>
             </div>
             <div>
               <Label htmlFor="pc-bg">Background image URL</Label>
-              <Input id="pc-bg" value={form.background_url} onChange={(e) => setForm({ ...form, background_url: e.target.value })} placeholder="https://…/bg.jpg" className="mt-1" />
+              <Input
+                id="pc-bg"
+                value={form.background_url}
+                onChange={(e) => setForm({ ...form, background_url: e.target.value })}
+                placeholder="https://…/bg.jpg"
+                className="mt-1"
+              />
               <p className="mt-1 text-xs text-muted-foreground">
-                Customers open the portal before they have internet, so images must load from your portal's own address
-                or a host you've allowed on the router.
+                Customers open the portal before they have internet, so images must load from your
+                portal's own address or a host you've allowed on the router.
               </p>
             </div>
             <div>
               <Label htmlFor="pc-welcome">Welcome text</Label>
-              <Textarea id="pc-welcome" rows={2} value={form.welcome_text} onChange={(e) => setForm({ ...form, welcome_text: e.target.value })} placeholder="Welcome to FastNet Wi-Fi. Choose a plan to get online." className="mt-1" />
+              <Textarea
+                id="pc-welcome"
+                rows={2}
+                value={form.welcome_text}
+                onChange={(e) => setForm({ ...form, welcome_text: e.target.value })}
+                placeholder="Welcome to FastNet Wi-Fi. Choose a plan to get online."
+                className="mt-1"
+              />
             </div>
             <div>
               <Label htmlFor="pc-terms">Terms &amp; conditions</Label>
-              <Textarea id="pc-terms" rows={4} value={form.terms_text} onChange={(e) => setForm({ ...form, terms_text: e.target.value })} className="mt-1" />
+              <Textarea
+                id="pc-terms"
+                rows={4}
+                value={form.terms_text}
+                onChange={(e) => setForm({ ...form, terms_text: e.target.value })}
+                className="mt-1"
+              />
             </div>
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm">
-                <Switch checked={form.enable_voucher} onCheckedChange={(v) => setForm({ ...form, enable_voucher: v })} /> Voucher login
+                <Switch
+                  checked={form.enable_voucher}
+                  onCheckedChange={(v) => setForm({ ...form, enable_voucher: v })}
+                />{" "}
+                Voucher login
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <Switch checked={form.enable_otp} onCheckedChange={(v) => setForm({ ...form, enable_otp: v })} /> Phone OTP
+                <Switch
+                  checked={form.enable_otp}
+                  onCheckedChange={(v) => setForm({ ...form, enable_otp: v })}
+                />{" "}
+                Phone OTP
               </label>
             </div>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save changes"}</Button>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>
+              {save.isPending ? "Saving…" : "Save changes"}
+            </Button>
           </section>
         </div>
 
@@ -161,7 +225,9 @@ function PortalSettings() {
               />
             </div>
           </div>
-          <p className="mt-2 text-center text-xs text-muted-foreground">Sample plans. Your real plans appear on the live portal.</p>
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            Sample plans. Your real plans appear on the live portal.
+          </p>
         </aside>
       </div>
     </div>
