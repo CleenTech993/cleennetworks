@@ -66,6 +66,10 @@ export type Database = {
       }
       customers: {
         Row: {
+          last_ip: string | null
+          last_mac: string | null
+          last_router_id: string | null
+          last_seen_at: string | null
           created_at: string
           customer_type: string
           email: string | null
@@ -82,6 +86,10 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          last_ip?: string | null
+          last_mac?: string | null
+          last_router_id?: string | null
+          last_seen_at?: string | null
           created_at?: string
           customer_type?: string
           email?: string | null
@@ -98,6 +106,10 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          last_ip?: string | null
+          last_mac?: string | null
+          last_router_id?: string | null
+          last_seen_at?: string | null
           created_at?: string
           customer_type?: string
           email?: string | null
@@ -1167,6 +1179,10 @@ export type Database = {
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       rollup_router_metrics: { Args: never; Returns: undefined }
+      record_pppoe_sessions: {
+        Args: { p_router_id: string; p_sessions: Json; p_tenant_id: string }
+        Returns: number
+      }
       rotate_router_token: {
         Args: { p_revoke_device?: boolean; p_router_id: string }
         Returns: string

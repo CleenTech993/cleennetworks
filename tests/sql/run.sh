@@ -34,4 +34,7 @@ if [[ "${1:-}" != "--before" ]]; then
   build_db router_tokens_test
   (cd tests/sql && psql -d router_tokens_test -v ON_ERROR_STOP=1 -q -f router-tokens.sql)
   echo "router-tokens: all expectations passed"
+  build_db pppoe_router_test
+  (cd tests/sql && psql -d pppoe_router_test -v ON_ERROR_STOP=1 -q -f pppoe-router.sql)
+  echo "pppoe-router: all expectations passed"
 fi

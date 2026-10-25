@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
 import { buildPppoeSyncLines } from "@/lib/pppoe";
 import { buildTvSyncLines } from "@/lib/tv";
+import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import {
   buildBlockLines, buildDeviceAgentLines, buildHotspotUserLines, buildTetherLines, deviceLimitOf, type SyncVoucher,
 } from "@/lib/devices";
@@ -92,6 +93,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // Anti-tethering rules and the periodic device report.
         lines.push(...buildTetherLines(routerRow?.block_tethering !== false));
         lines.push(...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`));
+        // PPPoE session report (client MAC + connected state), installed the same way.
+        lines.push(...buildPppoeAgentLines(`https://${host}/api/public/router/pppoe/${params.token}`));
         lines.push(':log info "NetGrid: users synced"', "");
 
         return new Response(lines.join("\n"), {

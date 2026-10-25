@@ -60,6 +60,7 @@ import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './route
 import { Route as ApiPublicRouterDevicesTokenRouteImport } from './routes/api/public/router/devices.$token'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
+import { Route as ApiPublicRouterPppoeTokenRouteImport } from './routes/api/public/router/pppoe.$token'
 import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -328,6 +329,12 @@ const ApiPublicRouterInterfacesTokenRoute =
     path: '/api/public/router/interfaces/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicRouterPppoeTokenRoute =
+  ApiPublicRouterPppoeTokenRouteImport.update({
+    id: '/api/public/router/pppoe/$token',
+    path: '/api/public/router/pppoe/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicRouterSyncTokenRoute =
   ApiPublicRouterSyncTokenRouteImport.update({
     id: '/api/public/router/sync/$token',
@@ -387,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
 export interface FileRoutesByTo {
@@ -438,6 +446,7 @@ export interface FileRoutesByTo {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
 export interface FileRoutesById {
@@ -493,6 +502,7 @@ export interface FileRoutesById {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
 export interface FileRouteTypes {
@@ -549,6 +559,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -600,6 +611,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
   id:
     | '__root__'
@@ -654,6 +666,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
   fileRoutesById: FileRoutesById
 }
@@ -676,6 +689,7 @@ export interface RootRouteChildren {
   ApiPublicRouterDevicesTokenRoute: typeof ApiPublicRouterDevicesTokenRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
   ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
+  ApiPublicRouterPppoeTokenRoute: typeof ApiPublicRouterPppoeTokenRoute
   ApiPublicRouterSyncTokenRoute: typeof ApiPublicRouterSyncTokenRoute
 }
 
@@ -1038,6 +1052,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRouterInterfacesTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/router/pppoe/$token': {
+      id: '/api/public/router/pppoe/$token'
+      path: '/api/public/router/pppoe/$token'
+      fullPath: '/api/public/router/pppoe/$token'
+      preLoaderRoute: typeof ApiPublicRouterPppoeTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/router/sync/$token': {
       id: '/api/public/router/sync/$token'
       path: '/api/public/router/sync/$token'
@@ -1182,6 +1203,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicRouterDevicesTokenRoute: ApiPublicRouterDevicesTokenRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
   ApiPublicRouterInterfacesTokenRoute: ApiPublicRouterInterfacesTokenRoute,
+  ApiPublicRouterPppoeTokenRoute: ApiPublicRouterPppoeTokenRoute,
   ApiPublicRouterSyncTokenRoute: ApiPublicRouterSyncTokenRoute,
 }
 export const routeTree = rootRouteImport

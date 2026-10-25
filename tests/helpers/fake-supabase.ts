@@ -19,12 +19,23 @@ export class FakeDb {
     return this.tables[table] ?? [];
   }
   /** Make the next `op` on `table` fail with a database error. */
-  failNext(table: string, op: Query["op"], message = "boom") {
+  failNext(table: string, op: Query["op"] | string, message = "boom") {
     this.failures.push({ table, op, message });
   }
   takeFailure(table: string, op: string) {
     const i = this.failures.findIndex((f) => f.table === table && f.op === op);
     return i === -1 ? null : this.failures.splice(i, 1)[0];
+  }
+  /** Stand-ins for SQL functions called with .rpc(); register one per function a test needs. */
+  rpcs: Record<string, (args: any) => { data?: unknown; error?: { message: string } }> = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
+  rpc(name: string, args: unknown): Promise<Result> {
+    this.log.push({ table: "rpc", op: name, payload: args });
+    const fail = this.takeFailure("rpc", name);
+    if (fail) return Promise.resolve({ data: null, error: { message: fail.message } });
+    const fn = this.rpcs[name];
+    if (!fn) return Promise.resolve({ data: null, error: { message: `unknown function ${name}` } });
+    const r = fn(args);
+    return Promise.resolve({ data: r.data ?? null, error: r.error ?? null });
   }
   from(table: string) {
     return new Query(this, table);
