@@ -293,4 +293,20 @@ describe("sync script: device features", () => {
     expect(text).toContain(`https://portal.test/api/public/router/devices/${token}`);
     expect(text).not.toContain("boot".padEnd(32, "x"));
   });
+
+  it("keeps vouchers working when the bound_mac column has not been migrated yet", async () => {
+    h.db.failNext("vouchers", "select", "column vouchers.bound_mac does not exist");
+    const text = await sync(await issueDeviceToken(R1));
+    expect(text).toMatch(/add name="ONEDEV0001"[^\n]*profile=netgrid-d1 comment/);
+    expect(text).not.toContain("mac-address=AA:BB");
+  });
+
+  it("never wipes the router's vouchers when the voucher list cannot be read at all", async () => {
+    h.db.failNext("vouchers", "select", "boom");
+    h.db.failNext("vouchers", "select", "boom again");
+    const text = await sync(await issueDeviceToken(R1));
+    expect(text).not.toContain('remove [find comment="netgrid-voucher"]');
+    expect(text).not.toContain('add name="ONEDEV0001"');
+    expect(text).toContain("keeping current vouchers");
+  });
 });

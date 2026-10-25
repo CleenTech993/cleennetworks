@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { expiryFrom } from "@/lib/duration";
 import { deviceLimitOf, normalizeMac } from "@/lib/devices";
 
@@ -64,20 +65,39 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
         const mac = parsed.data.mac ? normalizeMac(parsed.data.mac) : null;
 
         // Atomic redeem: only one concurrent request can flip unused -> used.
-        const { data: redeemed } = await supabaseAdmin
-          .from("vouchers")
-          .update({
-            status: "used",
-            used_at: new Date().toISOString(),
-            used_by_mac: mac,
-            expires_at: expiresAt,
-            ...(deviceLimit === 1 && mac ? { bound_mac: mac } : {}),
-          })
-          .eq("id", v.id)
-          .eq("tenant_id", tenant.id)
-          .eq("status", "unused")
-          .select("id")
-          .maybeSingle();
+        const redeemNow = (patch: TablesUpdate<"vouchers">) =>
+          supabaseAdmin
+            .from("vouchers")
+            .update(patch)
+            .eq("id", v.id)
+            .eq("tenant_id", tenant.id)
+            .eq("status", "unused")
+            .select("id")
+            .maybeSingle();
+        const base = {
+          status: "used",
+          used_at: new Date().toISOString(),
+          used_by_mac: mac,
+          expires_at: expiresAt,
+        };
+        const pin = deviceLimit === 1 && mac ? { bound_mac: mac } : {};
+
+        let { data: redeemed, error } = await redeemNow({ ...base, ...pin });
+        // Deployed before the device-management migration was applied: redeem without the pin
+        // rather than locking every customer out.
+        if (error && pin.bound_mac && /bound_mac/.test(error.message ?? "")) {
+          console.warn("vouchers.bound_mac is missing; apply the device_management migration");
+          ({ data: redeemed, error } = await redeemNow(base));
+        }
+        // A database failure is not "already used": say so, and leave the voucher untouched so the
+        // customer can simply try again.
+        if (error) {
+          console.error("voucher redeem failed", error);
+          return Response.json(
+            { error: "Could not redeem the voucher. Please try again." },
+            { status: 500 },
+          );
+        }
         if (!redeemed) return Response.json({ error: "Voucher already used" }, { status: 400 });
 
         return Response.json({
