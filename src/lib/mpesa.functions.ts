@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
-import { loadPlatformMpesaConfig, stkPush, normalizePhone } from "./mpesa.server";
+import { loadPlatformMpesaConfig, normalizePhone } from "./mpesa.server";
+import { resolveProvider, startStkPush } from "./payment-gateway.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const StkSchema = z.object({
@@ -32,6 +33,7 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
     if (kErr || !pkg || pkg.tenant_id !== tenantId) throw new Error("Package not found");
 
     const cfg = await loadPlatformMpesaConfig();
+    const provider = resolveProvider(cfg);
 
     const host = getRequestHost();
     const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
@@ -47,31 +49,36 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
         phone: normalizePhone(data.phone),
         amount: pkg.price,
         status: "pending",
+        provider,
       })
       .select("id")
       .single();
     if (payErr || !pay) throw new Error(payErr?.message ?? "Could not create payment");
 
-    const result = await stkPush({
+    const started = await startStkPush({
+      provider,
       cfg,
       amount: Number(pkg.price),
       phone: data.phone,
       reference: pay.id,
       description: pkg.kind ?? "Internet",
       callbackUrl,
+    }).catch(async (e) => {
+      await supabaseAdmin.from("payments").delete().eq("id", pay.id);
+      throw e;
     });
 
     await supabaseAdmin
       .from("payments")
       .update({
-        checkout_request_id: result.CheckoutRequestID,
-        merchant_request_id: result.MerchantRequestID,
+        checkout_request_id: started.checkoutRef,
+        merchant_request_id: started.providerRef,
       })
       .eq("id", pay.id);
 
     return {
       paymentId: pay.id,
-      checkoutRequestId: result.CheckoutRequestID,
-      message: result.CustomerMessage,
+      checkoutRequestId: started.checkoutRef,
+      message: started.message,
     };
   });

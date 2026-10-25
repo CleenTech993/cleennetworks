@@ -34,14 +34,16 @@ export const setDeviceBlocked = createServerFn({ method: "POST" })
   .inputValidator((input) => BlockSchema.parse(input))
   .handler(async ({ data, context }): Promise<Ok | Fail> => {
     const tenantId = await tenantOf(context.userId, BLOCK_ROLES);
-    if (!tenantId) return { ok: false, error: "Only tenant admins and technicians can block devices." };
+    if (!tenantId)
+      return { ok: false, error: "Only tenant admins and technicians can block devices." };
     const mac = normalizeMac(data.mac);
     if (!mac) return { ok: false, error: "Invalid MAC address." };
 
     const { data: rows, error } = await supabaseAdmin
       .from("router_devices")
       .update({ blocked: data.blocked })
-      .eq("tenant_id", tenantId).eq("mac", mac)
+      .eq("tenant_id", tenantId)
+      .eq("mac", mac)
       .select("id");
     if (error) {
       console.error("setDeviceBlocked failed", error);
@@ -65,7 +67,8 @@ export const unbindVoucherDevice = createServerFn({ method: "POST" })
     const { data: row, error } = await supabaseAdmin
       .from("vouchers")
       .update({ bound_mac: null })
-      .eq("tenant_id", tenantId).eq("code", data.code)
+      .eq("tenant_id", tenantId)
+      .eq("code", data.code)
       .select("id")
       .maybeSingle();
     if (error) {

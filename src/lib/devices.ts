@@ -54,7 +54,10 @@ function cleanIp(raw: string | undefined): string | null {
 }
 
 function cleanHostname(raw: string | undefined): string | null {
-  const v = (raw ?? "").replace(/[^\w .\-]/g, "").trim().slice(0, 64);
+  const v = (raw ?? "")
+    .replace(/[^\w .-]/g, "")
+    .trim()
+    .slice(0, 64);
   return v || null;
 }
 
@@ -120,7 +123,8 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   lines.push("/ip hotspot user");
   for (const v of valid) {
     // Only a one-device plan can be pinned to a single MAC.
-    const mac = v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
+    const mac =
+      v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
     lines.push(
       `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={}`,
     );
@@ -220,11 +224,13 @@ export function buildDeviceAgentLines(pushUrl: string): string[] {
   if (!PUSH_URL.test(pushUrl)) return [];
   // Inside a braced script source RouterOS needs "$" written as "\$" (same as the other scripts).
   // Comment lines are for readers of this file only: keep them out of the script the router imports.
-  const code = DEVICE_SCRIPT.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+  const code = DEVICE_SCRIPT.split("\n")
+    .filter((l) => !l.trim().startsWith("#"))
+    .join("\n");
   const source = code.replace("__URL__", pushUrl).replace(/\$/g, "\\$");
   return [
     "/system script",
-    ':do { remove [find where name=netgrid-devices] } on-error={}',
+    ":do { remove [find where name=netgrid-devices] } on-error={}",
     `add name=netgrid-devices source={${source}}`,
     ':if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=2m on-event="/system script run netgrid-devices" }',
   ];

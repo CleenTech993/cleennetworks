@@ -17,12 +17,23 @@ import {
 import { formatDuration } from "../src/lib/duration";
 
 // Brand colours an ISP might pick: very light, very dark, mid-tone, saturated, and the default.
-const BRANDS = ["#facc15", "#0a2540", "#808080", "#e11d48", "#0ea5e9", "#16a34a", "#ffffff", "#000000", "#ff7a00"];
+const BRANDS = [
+  "#facc15",
+  "#0a2540",
+  "#808080",
+  "#e11d48",
+  "#0ea5e9",
+  "#16a34a",
+  "#ffffff",
+  "#000000",
+  "#ff7a00",
+];
 
 describe("resolveThemeId", () => {
   it("accepts known ids and falls back to classic for anything else", () => {
     for (const id of PORTAL_THEME_IDS) expect(resolveThemeId(id)).toBe(id);
-    for (const v of [undefined, null, "", "neon", "CLASSIC", 5, "classic; x"]) expect(resolveThemeId(v)).toBe("classic");
+    for (const v of [undefined, null, "", "neon", "CLASSIC", 5, "classic; x"])
+      expect(resolveThemeId(v)).toBe("classic");
   });
 });
 
@@ -30,7 +41,16 @@ describe("colour helpers", () => {
   it("normalizes hex and rejects anything that is not a colour", () => {
     expect(normalizeHex("#ABC")).toBe("#aabbcc");
     expect(normalizeHex("0EA5E9")).toBe("#0ea5e9");
-    for (const bad of ["red", "#12", "#12345g", "url(x)", "#fff; background:url(//evil)", "", null, undefined]) {
+    for (const bad of [
+      "red",
+      "#12",
+      "#12345g",
+      "url(x)",
+      "#fff; background:url(//evil)",
+      "",
+      null,
+      undefined,
+    ]) {
       expect(normalizeHex(bad as string)).toBe("#0ea5e9");
     }
   });
@@ -59,7 +79,14 @@ describe("colour helpers", () => {
   });
   it("only allows http(s) image urls", () => {
     expect(safeImageUrl("https://cdn.example.com/a.jpg")).toBe("https://cdn.example.com/a.jpg");
-    for (const bad of ["javascript:alert(1)", "data:image/svg+xml;base64,AAA", 'https://x.com/a.jpg"onerror="x', "//x.com/a.jpg", "", null]) {
+    for (const bad of [
+      "javascript:alert(1)",
+      "data:image/svg+xml;base64,AAA",
+      'https://x.com/a.jpg"onerror="x',
+      "//x.com/a.jpg",
+      "",
+      null,
+    ]) {
       expect(safeImageUrl(bad as string)).toBeNull();
     }
   });
@@ -73,7 +100,8 @@ describe("themeVars", () => {
         expect(k.startsWith("--")).toBe(true);
         expect(v).not.toContain("evil");
         // Everything is a hex colour, a length, a var() reference, or a constant font stack.
-        const ok = /^(#[0-9a-f]{6}|[\d.]+(rem|px)|var\(--[a-z-]+\))$/.test(v) || k.startsWith("--pt-font");
+        const ok =
+          /^(#[0-9a-f]{6}|[\d.]+(rem|px)|var\(--[a-z-]+\))$/.test(v) || k.startsWith("--pt-font");
         expect(ok, `${id} ${k}: ${v}`).toBe(true);
       }
     }
@@ -92,12 +120,30 @@ describe("themeVars", () => {
       for (const brand of BRANDS) {
         const v = themeVars(id, brand);
         const label = `${id} / ${brand}`;
-        expect(contrastRatio(v["--foreground"]!, v["--background"]!), `${label} text on page`).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(v["--muted-foreground"]!, v["--background"]!), `${label} muted on page`).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(v["--card-foreground"]!, v["--card"]!), `${label} text on card`).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(v["--muted-foreground"]!, v["--card"]!), `${label} muted on card`).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(v["--muted-foreground"]!, v["--muted"]!), `${label} muted on muted`).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(v["--pt-on-accent"]!, v["--pt-accent"]!), `${label} text on accent`).toBeGreaterThanOrEqual(4.2);
+        expect(
+          contrastRatio(v["--foreground"]!, v["--background"]!),
+          `${label} text on page`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(v["--muted-foreground"]!, v["--background"]!),
+          `${label} muted on page`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(v["--card-foreground"]!, v["--card"]!),
+          `${label} text on card`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(v["--muted-foreground"]!, v["--card"]!),
+          `${label} muted on card`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(v["--muted-foreground"]!, v["--muted"]!),
+          `${label} muted on muted`,
+        ).toBeGreaterThanOrEqual(4.5);
+        expect(
+          contrastRatio(v["--pt-on-accent"]!, v["--pt-accent"]!),
+          `${label} text on accent`,
+        ).toBeGreaterThanOrEqual(4.2);
       }
     }
   });
@@ -109,7 +155,9 @@ describe("themeVars", () => {
   });
   it("portalAccent matches the theme's accent variable", () => {
     expect(portalAccent("block", "#e11d48")).toBe("#e11d48");
-    expect(portalAccent("midnight", "#0a2540")).toBe(themeVars("midnight", "#0a2540")["--pt-accent"]);
+    expect(portalAccent("midnight", "#0a2540")).toBe(
+      themeVars("midnight", "#0a2540")["--pt-accent"],
+    );
   });
 });
 

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
+import type { TablesUpdate } from "@/integrations/supabase/types";
 import { expiryFrom } from "@/lib/duration";
 import { deviceLimitOf, normalizeMac } from "@/lib/devices";
 
@@ -11,14 +12,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
-        if (!rateLimit(`voucher:${params.slug}:${clientIp(request)}`, 10, 60_000)) return tooManyRequests();
+        if (!rateLimit(`voucher:${params.slug}:${clientIp(request)}`, 10, 60_000))
+          return tooManyRequests();
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
         if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
-          .from("tenants").select("id").eq("slug", params.slug).maybeSingle();
+          .from("tenants")
+          .select("id")
+          .eq("slug", params.slug)
+          .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
 
         const { data: v } = await supabaseAdmin
@@ -28,7 +37,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           .eq("code", parsed.data.code.trim().toUpperCase())
           .maybeSingle();
         if (!v) return Response.json({ error: "Invalid voucher" }, { status: 404 });
-        if (v.status !== "unused") return Response.json({ error: "Voucher already used" }, { status: 400 });
+        if (v.status !== "unused")
+          return Response.json({ error: "Voucher already used" }, { status: 400 });
         if (v.expires_at && new Date(v.expires_at) < new Date()) {
           return Response.json({ error: "Voucher expired" }, { status: 400 });
         }
@@ -46,7 +56,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
             .eq("tenant_id", tenant.id)
             .maybeSingle();
           deviceLimit = deviceLimitOf(pkg);
-          if (!v.payment_id && pkg?.duration_value && pkg.duration_unit) expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
+          if (!v.payment_id && pkg?.duration_value && pkg.duration_unit)
+            expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
         }
 
         // One package = one device: pin the voucher to the device that redeems it. The router
@@ -54,20 +65,47 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
         const mac = parsed.data.mac ? normalizeMac(parsed.data.mac) : null;
 
         // Atomic redeem: only one concurrent request can flip unused -> used.
-        const { data: redeemed } = await supabaseAdmin
-          .from("vouchers")
-          .update({
-            status: "used", used_at: new Date().toISOString(), used_by_mac: mac, expires_at: expiresAt,
-            ...(deviceLimit === 1 && mac ? { bound_mac: mac } : {}),
-          })
-          .eq("id", v.id)
-          .eq("tenant_id", tenant.id)
-          .eq("status", "unused")
-          .select("id")
-          .maybeSingle();
+        const redeemNow = (patch: TablesUpdate<"vouchers">) =>
+          supabaseAdmin
+            .from("vouchers")
+            .update(patch)
+            .eq("id", v.id)
+            .eq("tenant_id", tenant.id)
+            .eq("status", "unused")
+            .select("id")
+            .maybeSingle();
+        const base = {
+          status: "used",
+          used_at: new Date().toISOString(),
+          used_by_mac: mac,
+          expires_at: expiresAt,
+        };
+        const pin = deviceLimit === 1 && mac ? { bound_mac: mac } : {};
+
+        let { data: redeemed, error } = await redeemNow({ ...base, ...pin });
+        // Deployed before the device-management migration was applied: redeem without the pin
+        // rather than locking every customer out.
+        if (error && pin.bound_mac && /bound_mac/.test(error.message ?? "")) {
+          console.warn("vouchers.bound_mac is missing; apply the device_management migration");
+          ({ data: redeemed, error } = await redeemNow(base));
+        }
+        // A database failure is not "already used": say so, and leave the voucher untouched so the
+        // customer can simply try again.
+        if (error) {
+          console.error("voucher redeem failed", error);
+          return Response.json(
+            { error: "Could not redeem the voucher. Please try again." },
+            { status: 500 },
+          );
+        }
         if (!redeemed) return Response.json({ error: "Voucher already used" }, { status: 400 });
 
-        return Response.json({ ok: true, packageId: v.package_id, code: parsed.data.code.trim().toUpperCase(), expiresAt });
+        return Response.json({
+          ok: true,
+          packageId: v.package_id,
+          code: parsed.data.code.trim().toUpperCase(),
+          expiresAt,
+        });
       },
     },
   },

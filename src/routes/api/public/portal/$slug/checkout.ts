@@ -2,12 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import {
-  loadTenantBySlugAdmin,
-  loadPlatformMpesaConfig,
-  stkPush,
-  normalizePhone,
-} from "@/lib/mpesa.server";
+import { loadTenantBySlugAdmin, loadPlatformMpesaConfig, normalizePhone } from "@/lib/mpesa.server";
+import { resolveProvider, startStkPush } from "@/lib/payment-gateway.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import {
   CHECKOUT_LIMITS,
@@ -26,23 +22,38 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
     handlers: {
       POST: async ({ request, params }) => {
         // Cheap per-IP gate first (per-instance; the per-phone limit below is the durable one).
-        if (!rateLimit(`checkout:${params.slug}:${clientIp(request)}`, CHECKOUT_LIMITS.ipMax, CHECKOUT_LIMITS.ipWindowMs)) {
+        if (
+          !rateLimit(
+            `checkout:${params.slug}:${clientIp(request)}`,
+            CHECKOUT_LIMITS.ipMax,
+            CHECKOUT_LIMITS.ipWindowMs,
+          )
+        ) {
           return tooManyRequests();
         }
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
-        if (!parsed.success) return Response.json({ error: "Please fill in all fields." }, { status: 400 });
+        if (!parsed.success)
+          return Response.json({ error: "Please fill in all fields." }, { status: 400 });
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
-          return Response.json({ error: "Enter a valid M-Pesa number, e.g. 0712345678." }, { status: 400 });
+          return Response.json(
+            { error: "Enter a valid M-Pesa number, e.g. 0712345678." },
+            { status: 400 },
+          );
         }
 
         try {
           const tenant = await loadTenantBySlugAdmin(params.slug).catch(() => null);
           if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
           const cfg = await loadPlatformMpesaConfig();
+          const provider = resolveProvider(cfg);
 
           const { data: pkg } = await supabaseAdmin
             .from("packages")
@@ -61,10 +72,12 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               phone,
               amount: pkg.price,
               status: "pending",
+              provider,
             })
             .select("id,created_at,status,package_id")
             .single();
-          if (payErr || !pay) return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          if (payErr || !pay)
+            return Response.json({ error: "Could not start the payment." }, { status: 500 });
 
           // Per-phone limit, shared across server instances because it counts payment rows. The
           // row is inserted first and then ranked against earlier ones, so parallel requests
@@ -91,9 +104,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const host = getRequestHost();
           const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
-          let result: Awaited<ReturnType<typeof stkPush>>;
+          let started;
           try {
-            result = await stkPush({
+            started = await startStkPush({
+              provider,
               cfg,
               amount: Number(pkg.price),
               phone,
@@ -102,12 +116,15 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
             });
           } catch (e) {
-            // Gateway text can contain internals (URLs, account ids): log it, show a generic
-            // message, and close the attempt so it is not left "pending" for ever.
+            // Gateway text can contain internals (URLs, account ids): log it and show a generic message.
             console.error("checkout: STK push failed", e);
+            // Close the attempt so it is not left "pending" for ever. It stays on record: the checkout
+            // limiter counts every attempt, which stops failed prompts being used to spam a phone.
             await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
             return Response.json(
-              { error: "We couldn't send the M-Pesa prompt. Please check the number and try again." },
+              {
+                error: "We couldn't send the M-Pesa prompt. Please check the number and try again.",
+              },
               { status: 502 },
             );
           }
@@ -115,19 +132,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           await supabaseAdmin
             .from("payments")
             .update({
-              checkout_request_id: result.CheckoutRequestID,
-              merchant_request_id: result.MerchantRequestID,
+              checkout_request_id: started.checkoutRef,
+              merchant_request_id: started.providerRef,
             })
             .eq("id", pay.id);
 
           return Response.json({
             paymentId: pay.id,
-            checkoutRequestId: result.CheckoutRequestID,
-            message: result.CustomerMessage,
+            checkoutRequestId: started.checkoutRef,
+            message: started.message,
           });
         } catch (e) {
           console.error("checkout failed", e);
-          return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
+          return Response.json(
+            { error: "Something went wrong. Please try again." },
+            { status: 500 },
+          );
         }
       },
     },

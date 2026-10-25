@@ -6,12 +6,21 @@ import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -19,15 +28,30 @@ import type { Database } from "@/integrations/supabase/types";
 export const Route = createFileRoute("/super-admin/users")({ component: Users });
 
 type AppRole = Database["public"]["Enums"]["app_role"];
-const ROLES: AppRole[] = ["super_admin", "tenant_admin", "technician", "billing_agent", "support_staff", "end_user"];
+const ROLES: AppRole[] = [
+  "super_admin",
+  "tenant_admin",
+  "technician",
+  "billing_agent",
+  "support_staff",
+  "end_user",
+];
 
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
 }
 
 function Users() {
   const qc = useQueryClient();
-  const [approveFor, setApproveFor] = useState<{ id: string; email: string | null; full_name: string | null } | null>(null);
+  const [approveFor, setApproveFor] = useState<{
+    id: string;
+    email: string | null;
+    full_name: string | null;
+  } | null>(null);
 
   const { data: profiles } = useQuery({
     queryKey: ["all-users"],
@@ -69,9 +93,15 @@ function Users() {
 
   return (
     <div>
-      <PageHeader title="Users" description="Approve new signups and manage roles across all tenants." />
+      <PageHeader
+        title="Users"
+        description="Approve new signups and manage roles across all tenants."
+      />
       {!profiles?.length ? (
-        <EmptyState title="No users" description="Users will appear here once accounts are created." />
+        <EmptyState
+          title="No users"
+          description="Users will appear here once accounts are created."
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
@@ -94,17 +124,29 @@ function Users() {
                     <td className="px-4 py-2">{u.full_name ?? "—"}</td>
                     <td className="px-4 py-2">{u.email ?? "—"}</td>
                     <td className="px-4 py-2">
-                      {pending
-                        ? <Badge variant="secondary">Pending</Badge>
-                        : <div className="flex flex-wrap gap-1">{userRoles.map((r) => <Badge key={r.role}>{r.role}</Badge>)}</div>}
+                      {pending ? (
+                        <Badge variant="secondary">Pending</Badge>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {userRoles.map((r) => (
+                            <Badge key={r.role}>{r.role}</Badge>
+                          ))}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs text-muted-foreground">{u.tenant_id?.slice(0, 8) ?? "—"}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</td>
+                    <td className="px-4 py-2 font-mono text-xs text-muted-foreground">
+                      {u.tenant_id?.slice(0, 8) ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {new Date(u.created_at).toLocaleDateString()}
+                    </td>
                     <td className="px-4 py-2 text-right">
                       <Button
                         size="sm"
                         variant={pending ? "default" : "outline"}
-                        onClick={() => setApproveFor({ id: u.id, email: u.email, full_name: u.full_name })}
+                        onClick={() =>
+                          setApproveFor({ id: u.id, email: u.email, full_name: u.full_name })
+                        }
                       >
                         {pending ? "Approve" : "Assign role"}
                       </Button>
@@ -134,7 +176,10 @@ function Users() {
 }
 
 function ApproveDialog({
-  target, tenants, onClose, onDone,
+  target,
+  tenants,
+  onClose,
+  onDone,
 }: {
   target: { id: string; email: string | null; full_name: string | null } | null;
   tenants: { id: string; name: string; slug: string }[];
@@ -164,7 +209,8 @@ function ApproveDialog({
       if (!isSuper) {
         if (creatingNew) {
           if (!newName.trim()) throw new Error("Tenant name required");
-          const slug = newSlug.trim() || `${slugify(newName)}-${Math.random().toString(36).slice(2, 6)}`;
+          const slug =
+            newSlug.trim() || `${slugify(newName)}-${Math.random().toString(36).slice(2, 6)}`;
           args.p_new_tenant_name = newName.trim();
           args.p_new_tenant_slug = slug;
         } else {
@@ -195,9 +241,15 @@ function ApproveDialog({
           <div>
             <Label>Role</Label>
             <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
-                {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                {ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -206,10 +258,16 @@ function ApproveDialog({
             <div>
               <Label>Tenant</Label>
               <Select value={tenantId} onValueChange={setTenantId}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__new__">+ Create new tenant</SelectItem>
-                  {tenants.map((t) => <SelectItem key={t.id} value={t.id}>{t.name} ({t.slug})</SelectItem>)}
+                  {tenants.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} ({t.slug})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -219,22 +277,42 @@ function ApproveDialog({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="tname">Tenant name</Label>
-                <Input id="tname" value={newName} onChange={(e) => { setNewName(e.target.value); if (!newSlug) setNewSlug(slugify(e.target.value)); }} className="mt-1" />
+                <Input
+                  id="tname"
+                  value={newName}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    if (!newSlug) setNewSlug(slugify(e.target.value));
+                  }}
+                  className="mt-1"
+                />
               </div>
               <div>
                 <Label htmlFor="tslug">Slug</Label>
-                <Input id="tslug" value={newSlug} onChange={(e) => setNewSlug(slugify(e.target.value))} placeholder="acme-wifi" className="mt-1" />
+                <Input
+                  id="tslug"
+                  value={newSlug}
+                  onChange={(e) => setNewSlug(slugify(e.target.value))}
+                  placeholder="acme-wifi"
+                  className="mt-1"
+                />
               </div>
             </div>
           )}
 
           {isSuper && (
-            <p className="text-xs text-muted-foreground">Super admins are not attached to any tenant.</p>
+            <p className="text-xs text-muted-foreground">
+              Super admins are not attached to any tenant.
+            </p>
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={loading}>{loading ? "Approving…" : "Approve"}</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={loading}>
+            {loading ? "Approving…" : "Approve"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

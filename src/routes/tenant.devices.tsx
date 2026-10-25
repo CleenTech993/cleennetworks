@@ -7,7 +7,13 @@ import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { setDeviceBlocked, unbindVoucherDevice } from "@/lib/device.functions";
 
@@ -34,7 +40,10 @@ function Devices() {
     refetchInterval: 30_000,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("router_devices").select("*").order("last_seen_at", { ascending: false }).limit(500);
+        .from("router_devices")
+        .select("*")
+        .order("last_seen_at", { ascending: false })
+        .limit(500);
       if (error) throw error;
       return data ?? [];
     },
@@ -49,7 +58,8 @@ function Devices() {
   });
   const routerName = useMemo(() => new Map(routers.map((r) => [r.id, r.name])), [routers]);
 
-  const isOnline = (d: (typeof devices)[number]) => Date.now() - new Date(d.last_seen_at).getTime() < ONLINE_MS;
+  const isOnline = (d: (typeof devices)[number]) =>
+    Date.now() - new Date(d.last_seen_at).getTime() < ONLINE_MS;
   const counts = {
     online: devices.filter(isOnline).length,
     registered: devices.filter((d) => d.registered_kind).length,
@@ -65,7 +75,9 @@ function Devices() {
     if (filter === "tether" && !d.tether_suspected) return false;
     if (filter === "blocked" && !d.blocked) return false;
     const q = search.trim().toLowerCase();
-    return !q || [d.mac, d.ip, d.hostname, d.voucher_code].some((v) => v?.toLowerCase().includes(q));
+    return (
+      !q || [d.mac, d.ip, d.hostname, d.voucher_code].some((v) => v?.toLowerCase().includes(q))
+    );
   });
 
   const block = useMutation({
@@ -74,7 +86,11 @@ function Devices() {
       if (!res.ok) throw new Error(res.error);
     },
     onSuccess: (_r, v) => {
-      toast.success(v.blocked ? "Device blocked. The router applies it within about 2 minutes." : "Device unblocked");
+      toast.success(
+        v.blocked
+          ? "Device blocked. The router applies it within about 2 minutes."
+          : "Device unblocked",
+      );
       void qc.invalidateQueries({ queryKey: ["router-devices"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -109,9 +125,16 @@ function Devices() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
           <h3 className="font-semibold">Devices</h3>
           <div className="flex gap-2">
-            <Input placeholder="Search MAC, IP, name or code" value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 w-60" />
+            <Input
+              placeholder="Search MAC, IP, name or code"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-60"
+            />
             <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="h-8 w-44"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 w-44">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All devices</SelectItem>
                 <SelectItem value="online">Online now</SelectItem>
@@ -143,7 +166,11 @@ function Devices() {
                   <tr key={d.id} className="border-t">
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-2">
-                        {d.registered_kind === "tv" ? <Tv className="h-4 w-4 text-muted-foreground" /> : <Smartphone className="h-4 w-4 text-muted-foreground" />}
+                        {d.registered_kind === "tv" ? (
+                          <Tv className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Smartphone className="h-4 w-4 text-muted-foreground" />
+                        )}
                         <div>
                           <p className="font-medium">{d.hostname || "Unnamed device"}</p>
                           <p className="text-xs text-muted-foreground">{d.ip ?? "—"}</p>
@@ -151,33 +178,63 @@ function Devices() {
                       </div>
                     </td>
                     <td className="px-4 py-2 font-mono text-xs">{d.mac}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{routerName.get(d.router_id) ?? "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {routerName.get(d.router_id) ?? "—"}
+                    </td>
                     <td className="px-4 py-2">
-                      {d.registered_kind === "tv" ? "Smart TV" : d.voucher_code ? <code className="font-mono tracking-wider">{d.voucher_code}</code> : <span className="text-muted-foreground">—</span>}
+                      {d.registered_kind === "tv" ? (
+                        "Smart TV"
+                      ) : d.voucher_code ? (
+                        <code className="font-mono tracking-wider">{d.voucher_code}</code>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex flex-wrap gap-1">
-                        {d.blocked ? <Badge variant="destructive">Blocked</Badge>
-                          : d.registered_kind ? <Badge variant="success">Registered</Badge>
-                          : <Badge variant="secondary">Unknown</Badge>}
-                        {d.tether_suspected && <Badge variant="warning"><ShieldAlert className="mr-1 h-3 w-3" />Tethering suspected</Badge>}
+                        {d.blocked ? (
+                          <Badge variant="destructive">Blocked</Badge>
+                        ) : d.registered_kind ? (
+                          <Badge variant="success">Registered</Badge>
+                        ) : (
+                          <Badge variant="secondary">Unknown</Badge>
+                        )}
+                        {d.tether_suspected && (
+                          <Badge variant="warning">
+                            <ShieldAlert className="mr-1 h-3 w-3" />
+                            Tethering suspected
+                          </Badge>
+                        )}
                         {online && <Badge variant="outline">Online</Badge>}
                       </div>
                     </td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{ago(d.last_seen_at)}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">
+                      {ago(d.last_seen_at)}
+                    </td>
                     <td className="px-4 py-2">
                       <div className="flex justify-end gap-1">
                         {d.registered_kind === "voucher" && d.voucher_code && (
                           <Button
-                            size="sm" variant="outline" disabled={unbind.isPending}
+                            size="sm"
+                            variant="outline"
+                            disabled={unbind.isPending}
                             title="Let the customer use this voucher on a different device"
-                            onClick={() => { if (window.confirm(`Release voucher ${d.voucher_code} from this device?`)) unbind.mutate(d.voucher_code!); }}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Release voucher ${d.voucher_code} from this device?`,
+                                )
+                              )
+                                unbind.mutate(d.voucher_code!);
+                            }}
                           >
                             <RotateCcw className="h-3.5 w-3.5" /> Reset
                           </Button>
                         )}
                         <Button
-                          size="sm" variant={d.blocked ? "outline" : "destructive"} disabled={block.isPending}
+                          size="sm"
+                          variant={d.blocked ? "outline" : "destructive"}
+                          disabled={block.isPending}
                           onClick={() => block.mutate({ mac: d.mac, blocked: !d.blocked })}
                         >
                           <Ban className="h-3.5 w-3.5" /> {d.blocked ? "Unblock" : "Block"}
@@ -200,8 +257,8 @@ function Devices() {
           </table>
         </div>
         <p className="border-t px-4 py-2 text-xs text-muted-foreground">
-          Unknown = seen on the hotspot but not linked to any voucher or paid TV (for example someone browsing the login page).
-          Showing the latest 500 devices.
+          Unknown = seen on the hotspot but not linked to any voucher or paid TV (for example
+          someone browsing the login page). Showing the latest 500 devices.
         </p>
       </div>
     </div>

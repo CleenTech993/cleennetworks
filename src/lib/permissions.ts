@@ -3,12 +3,7 @@
 // Keep the two in step: a page should be reachable only by roles that can read what it needs.
 
 export type AppRole =
-  | "super_admin"
-  | "tenant_admin"
-  | "technician"
-  | "billing_agent"
-  | "support_staff"
-  | "end_user";
+  "super_admin" | "tenant_admin" | "technician" | "billing_agent" | "support_staff" | "end_user";
 
 const A: AppRole = "tenant_admin";
 const T: AppRole = "technician";
@@ -25,6 +20,7 @@ const PAGE_ROLES: Record<string, AppRole[]> = {
   "/tenant/packages": [A],
   "/tenant/customers": [A, T, B, S],
   "/tenant/sessions": [A, T, S],
+  "/tenant/inventory": [A, T, S],
   "/tenant/payments": [A, B],
   "/tenant/sms": [A, B],
   "/tenant/tickets": [A, T, S],

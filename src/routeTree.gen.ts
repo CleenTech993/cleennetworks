@@ -36,6 +36,7 @@ import { Route as TenantIndexRouteImport } from './routes/tenant.index'
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 import { Route as TenantDevicesRouteImport } from './routes/tenant.devices'
 import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
+import { Route as TenantInventoryRouteImport } from './routes/tenant.inventory'
 import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
 import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
 import { Route as TenantPortalRouteImport } from './routes/tenant.portal'
@@ -47,6 +48,7 @@ import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
 import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
+import { Route as ApiPublicIntasendWebhookRouteImport } from './routes/api/public/intasend/webhook'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
 import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
@@ -60,6 +62,7 @@ import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './route
 import { Route as ApiPublicRouterDevicesTokenRouteImport } from './routes/api/public/router/devices.$token'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
+import { Route as ApiPublicRouterInventoryTokenRouteImport } from './routes/api/public/router/inventory.$token'
 import { Route as ApiPublicRouterPppoeTokenRouteImport } from './routes/api/public/router/pppoe.$token'
 import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
 
@@ -198,6 +201,11 @@ const TenantHotspotRoute = TenantHotspotRouteImport.update({
   path: '/hotspot',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantInventoryRoute = TenantInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPackagesRoute = TenantPackagesRouteImport.update({
   id: '/packages',
   path: '/packages',
@@ -253,6 +261,12 @@ const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => TenantRoutersRoute,
 } as any)
+const ApiPublicIntasendWebhookRoute =
+  ApiPublicIntasendWebhookRouteImport.update({
+    id: '/api/public/intasend/webhook',
+    path: '/api/public/intasend/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   id: '/api/public/portal/$slug',
   path: '/api/public/portal/$slug',
@@ -329,6 +343,12 @@ const ApiPublicRouterInterfacesTokenRoute =
     path: '/api/public/router/interfaces/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicRouterInventoryTokenRoute =
+  ApiPublicRouterInventoryTokenRouteImport.update({
+    id: '/api/public/router/inventory/$token',
+    path: '/api/public/router/inventory/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicRouterPppoeTokenRoute =
   ApiPublicRouterPppoeTokenRouteImport.update({
     id: '/api/public/router/pppoe/$token',
@@ -367,6 +387,7 @@ export interface FileRoutesByFullPath {
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
@@ -381,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/intasend/webhook': typeof ApiPublicIntasendWebhookRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -394,6 +416,7 @@ export interface FileRoutesByFullPath {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
@@ -419,6 +442,7 @@ export interface FileRoutesByTo {
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
@@ -433,6 +457,7 @@ export interface FileRoutesByTo {
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/intasend/webhook': typeof ApiPublicIntasendWebhookRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -446,6 +471,7 @@ export interface FileRoutesByTo {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
@@ -475,6 +501,7 @@ export interface FileRoutesById {
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
@@ -489,6 +516,7 @@ export interface FileRoutesById {
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/intasend/webhook': typeof ApiPublicIntasendWebhookRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -502,6 +530,7 @@ export interface FileRoutesById {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
@@ -532,6 +561,7 @@ export interface FileRouteTypes {
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
+    | '/tenant/inventory'
     | '/tenant/packages'
     | '/tenant/payments'
     | '/tenant/portal'
@@ -546,6 +576,7 @@ export interface FileRouteTypes {
     | '/super-admin/'
     | '/tenant/'
     | '/tenant/routers/$id'
+    | '/api/public/intasend/webhook'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -559,6 +590,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
   fileRoutesByTo: FileRoutesByTo
@@ -584,6 +616,7 @@ export interface FileRouteTypes {
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
+    | '/tenant/inventory'
     | '/tenant/packages'
     | '/tenant/payments'
     | '/tenant/portal'
@@ -598,6 +631,7 @@ export interface FileRouteTypes {
     | '/super-admin'
     | '/tenant'
     | '/tenant/routers/$id'
+    | '/api/public/intasend/webhook'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -611,6 +645,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
   id:
@@ -639,6 +674,7 @@ export interface FileRouteTypes {
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
+    | '/tenant/inventory'
     | '/tenant/packages'
     | '/tenant/payments'
     | '/tenant/portal'
@@ -653,6 +689,7 @@ export interface FileRouteTypes {
     | '/super-admin/'
     | '/tenant/'
     | '/tenant/routers/$id'
+    | '/api/public/intasend/webhook'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -666,6 +703,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
   fileRoutesById: FileRoutesById
@@ -682,6 +720,7 @@ export interface RootRouteChildren {
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   PSlugRoute: typeof PSlugRoute
+  ApiPublicIntasendWebhookRoute: typeof ApiPublicIntasendWebhookRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
@@ -689,6 +728,7 @@ export interface RootRouteChildren {
   ApiPublicRouterDevicesTokenRoute: typeof ApiPublicRouterDevicesTokenRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
   ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
+  ApiPublicRouterInventoryTokenRoute: typeof ApiPublicRouterInventoryTokenRoute
   ApiPublicRouterPppoeTokenRoute: typeof ApiPublicRouterPppoeTokenRoute
   ApiPublicRouterSyncTokenRoute: typeof ApiPublicRouterSyncTokenRoute
 }
@@ -884,6 +924,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantHotspotRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/inventory': {
+      id: '/tenant/inventory'
+      path: '/inventory'
+      fullPath: '/tenant/inventory'
+      preLoaderRoute: typeof TenantInventoryRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/tenant/packages': {
       id: '/tenant/packages'
       path: '/packages'
@@ -960,6 +1007,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tenant/routers/$id'
       preLoaderRoute: typeof TenantRoutersIdRouteImport
       parentRoute: typeof TenantRoutersRoute
+    }
+    '/api/public/intasend/webhook': {
+      id: '/api/public/intasend/webhook'
+      path: '/api/public/intasend/webhook'
+      fullPath: '/api/public/intasend/webhook'
+      preLoaderRoute: typeof ApiPublicIntasendWebhookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/portal/$slug': {
       id: '/api/public/portal/$slug'
@@ -1052,6 +1106,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRouterInterfacesTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/router/inventory/$token': {
+      id: '/api/public/router/inventory/$token'
+      path: '/api/public/router/inventory/$token'
+      fullPath: '/api/public/router/inventory/$token'
+      preLoaderRoute: typeof ApiPublicRouterInventoryTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/router/pppoe/$token': {
       id: '/api/public/router/pppoe/$token'
       path: '/api/public/router/pppoe/$token'
@@ -1128,6 +1189,7 @@ interface TenantRouteChildren {
   TenantCustomersRoute: typeof TenantCustomersRoute
   TenantDevicesRoute: typeof TenantDevicesRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
+  TenantInventoryRoute: typeof TenantInventoryRoute
   TenantPackagesRoute: typeof TenantPackagesRoute
   TenantPaymentsRoute: typeof TenantPaymentsRoute
   TenantPortalRoute: typeof TenantPortalRoute
@@ -1145,6 +1207,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantCustomersRoute: TenantCustomersRoute,
   TenantDevicesRoute: TenantDevicesRoute,
   TenantHotspotRoute: TenantHotspotRoute,
+  TenantInventoryRoute: TenantInventoryRoute,
   TenantPackagesRoute: TenantPackagesRoute,
   TenantPaymentsRoute: TenantPaymentsRoute,
   TenantPortalRoute: TenantPortalRoute,
@@ -1194,6 +1257,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuperAdminRoute: SuperAdminRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   PSlugRoute: PSlugRoute,
+  ApiPublicIntasendWebhookRoute: ApiPublicIntasendWebhookRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
   ApiPublicProvisionTokenLoginDothtmlRoute:
@@ -1203,6 +1267,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicRouterDevicesTokenRoute: ApiPublicRouterDevicesTokenRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
   ApiPublicRouterInterfacesTokenRoute: ApiPublicRouterInterfacesTokenRoute,
+  ApiPublicRouterInventoryTokenRoute: ApiPublicRouterInventoryTokenRoute,
   ApiPublicRouterPppoeTokenRoute: ApiPublicRouterPppoeTokenRoute,
   ApiPublicRouterSyncTokenRoute: ApiPublicRouterSyncTokenRoute,
 }

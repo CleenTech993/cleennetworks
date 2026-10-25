@@ -22,7 +22,9 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
             .maybeSingle(),
           supabaseAdmin
             .from("packages")
-            .select("id,name,description,price,duration_value,duration_unit,download_kbps,upload_kbps,kind")
+            .select(
+              "id,name,description,price,duration_value,duration_unit,download_kbps,upload_kbps,kind",
+            )
             .eq("tenant_id", tenant.id)
             .eq("active", true)
             .in("kind", ["hotspot", "voucher"])
