@@ -1,8 +1,7 @@
--- Role-aware RLS checks. Plain psql, no Supabase needed beyond the stubs described below.
+-- Role-aware RLS checks, run through real Postgres RLS (SET ROLE + auth.uid()).
 --
---   createdb scratch && psql -d scratch -f <stub: roles anon/authenticated/service_role,
---                                           schema auth with users + uid()> 
---   for f in supabase/migrations/*.sql; do psql -d scratch -f "$f"; done
+-- Easiest: tests/sql/run.sh  (builds a scratch DB from the stub + all migrations and runs every suite).
+-- By hand, against a scratch DB that already has _stub_supabase.sql and all migrations applied:
 --   psql -d scratch -v ON_ERROR_STOP=1 -f tests/sql/role-aware-rls.sql
 --
 -- Everything runs inside one transaction that is rolled back, so it leaves no data behind.
