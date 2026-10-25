@@ -25,6 +25,7 @@ const PAGE_ROLES: Record<string, AppRole[]> = {
   "/tenant/packages": [A],
   "/tenant/customers": [A, T, B, S],
   "/tenant/sessions": [A, T, S],
+  "/tenant/inventory": [A, T, S],
   "/tenant/payments": [A, B],
   "/tenant/sms": [A, B],
   "/tenant/tickets": [A, T, S],

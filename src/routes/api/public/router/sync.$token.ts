@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
+import { dispatchPendingAlerts } from "@/lib/alerts.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
+import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
 import { buildPppoeSyncLines } from "@/lib/pppoe";
 import { buildTvSyncLines } from "@/lib/tv";
 import {
@@ -26,7 +28,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const router = auth.router;
 
         const now = new Date().toISOString();
-        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }, { data: hotspotPkgs }, { data: blocked }, { data: routerRow }] = await Promise.all([
+        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }, { data: hotspotPkgs }, { data: blocked }, { data: routerRow }, { data: monitored }] = await Promise.all([
           supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
           // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
           // (router_id null). Other routers' credentials are never even read for this request.
@@ -53,6 +55,11 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .select("mac")
             .eq("tenant_id", router.tenant_id).eq("blocked", true),
           supabaseAdmin.from("routers").select("block_tethering").eq("id", router.id).maybeSingle(),
+          // Inventory devices (access points, switches, ONTs, ...) this router should ping and report on.
+          supabaseAdmin.from("inventory_devices")
+            .select("id,ip_address")
+            .eq("tenant_id", router.tenant_id).eq("monitor_router_id", router.id)
+            .eq("monitor_enabled", true).not("ip_address", "is", null),
         ]);
 
         const lines: string[] = ["# NetGrid sync"];
@@ -92,7 +99,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // Anti-tethering rules and the periodic device report.
         lines.push(...buildTetherLines(routerRow?.block_tethering !== false));
         lines.push(...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`));
+        // Inventory monitoring: keep a netwatch entry per monitored device; the router reports up/down.
+        lines.push(...buildDeviceMonitorLines(monitored ?? [], `https://${host}/api/public/router/inventory/${params.token}`));
         lines.push(':log info "NetGrid: users synced"', "");
+
+        // Send any alert SMS waiting for this tenant (e.g. low stock raised by the database).
+        try { await dispatchPendingAlerts(router.tenant_id); } catch { /* never fail the router's sync */ }
 
         return new Response(lines.join("\n"), {
           headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
