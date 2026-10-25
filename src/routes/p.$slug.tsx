@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { buildHotspotLoginRedirect } from "@/lib/hotspot-redirect";
+import { buildHotspotLoginRedirect, routerParams } from "@/lib/hotspot-redirect";
 import { PortalHeader } from "@/components/portal/header";
 import { PlanOption } from "@/components/portal/plan-option";
 import { PortalThemeFrame } from "@/components/portal/theme-frame";
@@ -62,7 +62,18 @@ interface PortalData {
   }>;
 }
 
+function sessionStore(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
 function PortalPage() {
+  useEffect(() => {
+    routerParams(window.location.search, sessionStore());
+  }, []);
   const { slug } = Route.useParams();
   const { data, isLoading, error } = useQuery<PortalData>({
     queryKey: ["portal", slug],
@@ -686,17 +697,17 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
     setBusy(true);
     try {
       // The router's login page sends the customer here with ?mac=…&ip=…&login=<hotspot login URL>.
-      const params = new URLSearchParams(window.location.search);
+      const params = routerParams(window.location.search, sessionStore());
       const res = await fetch(`/api/public/portal/${slug}/voucher`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, mac: params.get("mac") || undefined }),
+        body: JSON.stringify({ code, mac: params.mac || undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       toast.success("Voucher redeemed");
       // Hand the browser to the router so the device is actually logged in.
-      const target = buildHotspotLoginRedirect(params.get("login"), json.code ?? code);
+      const target = buildHotspotLoginRedirect(params.login, json.code ?? code);
       if (target) {
         setDone("connecting");
         window.location.href = target;
