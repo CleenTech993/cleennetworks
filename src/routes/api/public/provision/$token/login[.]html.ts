@@ -2,19 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildLoginHtml } from "@/lib/hotspot-login.server";
+import { authenticateRouter } from "@/lib/router-auth.server";
+import { tooManyRequests } from "@/lib/rate-limit.server";
 
 // Served to the router itself (/tool fetch) and saved as the hotspot login.html.
 // Authenticated by the router's provision token, like the other provisioning routes.
 export const Route = createFileRoute("/api/public/provision/$token/login.html")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
-        const { data: router } = await supabaseAdmin
-          .from("routers")
-          .select("id,tenant_id")
-          .eq("provision_token", params.token)
-          .maybeSingle();
-        if (!router) return new Response("unknown token\n", { status: 404 });
+      GET: async ({ params, request }) => {
+        const auth = await authenticateRouter(request, params.token);
+        if (!auth.ok) return auth.blocked ? tooManyRequests() : new Response("unknown token\n", { status: 404 });
+        const router = auth.router;
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")

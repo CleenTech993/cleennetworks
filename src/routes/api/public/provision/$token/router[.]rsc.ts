@@ -6,34 +6,51 @@ import {
   routerosInstallLoginPage,
   ROUTEROS_PICK_HTML_DIR,
 } from "@/lib/hotspot-login.server";
+import { authenticateBootstrap, issueDeviceToken } from "@/lib/router-auth.server";
+import { tooManyRequests } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/public/provision/$token/router.rsc")({
   server: {
     handlers: {
       GET: async ({ params, request }) => {
-        const token = params.token;
-        const { data: router } = await supabaseAdmin
-          .from("routers")
-          .select("id,name,tenant_id,provision_token_expires_at")
-          .eq("provision_token", token)
-          .maybeSingle();
-
-        if (!router) {
-          return new Response("# unknown token\n", {
-            status: 404,
-            headers: { "content-type": "text/plain" },
-          });
+        // The URL carries the short-lived BOOTSTRAP token. It is only good for fetching this script;
+        // the long-lived device token that the router's scheduler uses is minted below.
+        const auth = await authenticateBootstrap(request, params.token);
+        if (!auth.ok) {
+          if (auth.blocked) return tooManyRequests();
+          const [status, msg] = auth.expired
+            ? [410, "# This provisioning command has expired. Open Routers in the platform and choose New provisioning command.\n"]
+            : [404, "# unknown token\n"];
+          return new Response(msg, { status, headers: { "content-type": "text/plain" } });
         }
-        // Token stays valid so the tenant can re-run setup (it also authenticates heartbeats).
+        const router = auth.router;
 
+        // Everything that can fail without side effects happens before the old credential is replaced.
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
           .select("id,name,slug")
           .eq("id", router.tenant_id)
           .single();
+        if (!tenant) {
+          return new Response("# could not provision this router right now, please retry\n", {
+            status: 500,
+            headers: { "content-type": "text/plain" },
+          });
+        }
+
+        let token: string;
+        try {
+          token = await issueDeviceToken(router.id);
+        } catch (e) {
+          console.error("provision: could not issue device token", e);
+          return new Response("# could not provision this router right now, please retry\n", {
+            status: 500,
+            headers: { "content-type": "text/plain" },
+          });
+        }
 
         const host = getRequestHost();
-        const portalUrl = `https://${host}/p/${encodeURIComponent(tenant?.slug ?? "")}`;
+        const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
         const callbackUrl = `https://${host}/api/public/router/heartbeat/${token}`;
         const loginUrl = `https://${host}/api/public/provision/${token}/login.html`;
         const marker = loginPageMarker({ portalUrl, routerId: router.id });
@@ -49,7 +66,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           .eq("id", router.id);
 
         const rsc = buildRsc({
-          tenantName: tenant?.name ?? "ISP",
+          tenantName: tenant.name ?? "ISP",
           portalUrl,
           callbackUrl,
           interfacesUrl: `https://${host}/api/public/router/interfaces/${token}`,
