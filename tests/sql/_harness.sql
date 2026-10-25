@@ -12,9 +12,10 @@ $f$;
 CREATE FUNCTION t.try(rolname text, uid uuid, stmt text) RETURNS text LANGUAGE plpgsql AS $$
 DECLARE n bigint;
 BEGIN
-  -- Same shape as main's rls-roles.sql: auth.uid()/auth.jwt() read request.jwt.claims; business tables need aal2.
-  PERFORM set_config('request.jwt.claims', json_build_object('sub', uid, 'aal', 'aal2', 'role', rolname)::text, true);
+  -- Real Supabase puts the user in one JSON setting (auth.uid() reads it); the per-claim setting
+  -- is kept for older stubs. aal2 = signed in AND two-step verified, which the MFA rules require.
   PERFORM set_config('request.jwt.claim.sub', coalesce(uid::text, ''), true);
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', uid, 'aal', 'aal2', 'role', rolname)::text, true);
   EXECUTE format('SET LOCAL ROLE %I', rolname);
   EXECUTE stmt;
   GET DIAGNOSTICS n = ROW_COUNT;

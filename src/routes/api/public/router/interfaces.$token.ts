@@ -11,8 +11,7 @@ export const Route = createFileRoute("/api/public/router/interfaces/$token")({
       POST: async ({ params, request }) => {
         // Authenticate before reading the body so anonymous callers cannot make us buffer uploads.
         const auth = await authenticateRouter(request, params.token);
-        if (!auth.ok)
-          return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
+        if (!auth.ok) return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
         const router = auth.router;
         const body = (await request.text()).slice(0, 64_000);
 
@@ -35,11 +34,9 @@ export const Route = createFileRoute("/api/public/router/interfaces/$token")({
           .map((line) => {
             const [name, running, disabled, rb, tb, re, te, rd, td] = line.split("|");
             if (!name || name.length > 64) return null;
-            const rx = n(rb),
-              tx = n(tb);
+            const rx = n(rb), tx = n(tb);
             const p = prevMap.get(name);
-            let rxBps = 0,
-              txBps = 0;
+            let rxBps = 0, txBps = 0;
             if (p) {
               const dt = (now - new Date(p.updated_at).getTime()) / 1000;
               if (dt > 5 && dt < 900) {
@@ -67,9 +64,7 @@ export const Route = createFileRoute("/api/public/router/interfaces/$token")({
           .filter((r): r is NonNullable<typeof r> => r !== null);
 
         if (rows.length) {
-          await supabaseAdmin
-            .from("router_interfaces")
-            .upsert(rows, { onConflict: "router_id,name" });
+          await supabaseAdmin.from("router_interfaces").upsert(rows, { onConflict: "router_id,name" });
           // Feed WAN (ether1) throughput into the latest metrics row
           const wan = rows.find((r) => r.name === "ether1");
           if (wan) {

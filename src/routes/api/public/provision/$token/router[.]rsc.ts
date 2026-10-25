@@ -19,10 +19,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
         if (!auth.ok) {
           if (auth.blocked) return tooManyRequests();
           const [status, msg] = auth.expired
-            ? [
-                410,
-                "# This provisioning command has expired. Open Routers in the platform and choose New provisioning command.\n",
-              ]
+            ? [410, "# This provisioning command has expired. Open Routers in the platform and choose New provisioning command.\n"]
             : [404, "# unknown token\n"];
           return new Response(msg, { status, headers: { "content-type": "text/plain" } });
         }
@@ -90,15 +87,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
   },
 });
 
-function buildRsc(p: {
-  tenantName: string;
-  portalUrl: string;
-  callbackUrl: string;
-  interfacesUrl: string;
-  syncUrl: string;
-  loginUrl: string;
-  marker: string;
-}) {
+function buildRsc(p: { tenantName: string; portalUrl: string; callbackUrl: string; interfacesUrl: string; syncUrl: string; loginUrl: string; marker: string }) {
   const portalHost = new URL(p.portalUrl).host;
   return `# NetGrid auto-config for ${p.tenantName}
 # Layout: ether1 = Internet (WAN, DHCP client). ether2-ether5 + Wi-Fi (wlan/wifi) = customer LAN bridge
@@ -129,8 +118,8 @@ function buildRsc(p: {
 :if ([:len [find name=netgrid-lan]] = 0) do={ add name=netgrid-lan comment="NetGrid customer LAN" }
 :foreach p in={"ether2";"ether3";"ether4";"ether5";"wlan1";"wlan2";"wifi1";"wifi2"} do={
   :do {
-    /interface bridge port remove [find interface=$p]
-    /interface bridge port add bridge=netgrid-lan interface=$p
+    /interface bridge port remove [find interface=\$p]
+    /interface bridge port add bridge=netgrid-lan interface=\$p
   } on-error={}
 }
 
@@ -194,18 +183,18 @@ add name=netgrid-wan source={
   :for i from=1 to=5 do={
     :do {
       :local res [/ping 8.8.8.8 count=1 as-value];
-      :if ([:len $res] > 0) do={
-        :local s [:tostr ($res->0->"time")];
-        :local t [:tonum [:pick $s 0 [:find $s "ms"]]];
-        :set rcv ($rcv + 1); :set sum ($sum + $t);
-        :if ($t < $mn) do={ :set mn $t }
-        :if ($t > $mx) do={ :set mx $t }
+      :if ([:len \$res] > 0) do={
+        :local s [:tostr (\$res->0->"time")];
+        :local t [:tonum [:pick \$s 0 [:find \$s "ms"]]];
+        :set rcv (\$rcv + 1); :set sum (\$sum + \$t);
+        :if (\$t < \$mn) do={ :set mn \$t }
+        :if (\$t > \$mx) do={ :set mx \$t }
       }
     } on-error={}
     :delay 1s
   }
-  :if ($rcv > 0) do={ :set ngLat ($sum / $rcv); :set ngJit ($mx - $mn) } else={ :set ngLat 0; :set ngJit 0 }
-  :set ngLoss ((5 - $rcv) * 20);
+  :if (\$rcv > 0) do={ :set ngLat (\$sum / \$rcv); :set ngJit (\$mx - \$mn) } else={ :set ngLat 0; :set ngJit 0 }
+  :set ngLoss ((5 - \$rcv) * 20);
   :set ngDns 0; :do { :resolve google.com; :set ngDns 1 } on-error={}
 }
 
@@ -214,10 +203,10 @@ remove [find name=netgrid-ifaces]
 add name=netgrid-ifaces source={
   :local d "";
   :foreach i in=[/interface find] do={
-    :local x [/interface get $i];
-    :set d ($d . ($x->"name") . "|" . ($x->"running") . "|" . ($x->"disabled") . "|" . ($x->"rx-byte") . "|" . ($x->"tx-byte") . "|" . ($x->"rx-error") . "|" . ($x->"tx-error") . "|" . ($x->"rx-drop") . "|" . ($x->"tx-drop") . ";")
+    :local x [/interface get \$i];
+    :set d (\$d . (\$x->"name") . "|" . (\$x->"running") . "|" . (\$x->"disabled") . "|" . (\$x->"rx-byte") . "|" . (\$x->"tx-byte") . "|" . (\$x->"rx-error") . "|" . (\$x->"tx-error") . "|" . (\$x->"rx-drop") . "|" . (\$x->"tx-drop") . ";")
   }
-  :do { /tool fetch url="${p.interfacesUrl}" http-method=post http-data=$d mode=https keep-result=no } on-error={ :log warning "NetGrid: interface push failed" }
+  :do { /tool fetch url="${p.interfacesUrl}" http-method=post http-data=\$d mode=https keep-result=no } on-error={ :log warning "NetGrid: interface push failed" }
 }
 
 # PPPoE secrets + voucher users sync from the platform

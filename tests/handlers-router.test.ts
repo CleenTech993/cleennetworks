@@ -3,11 +3,7 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call } from "./helpers/call";
 import { freshIp, h } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({
-  get supabaseAdmin() {
-    return h.db;
-  },
-}));
+vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
 vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
 
 import { Route as Heartbeat } from "@/routes/api/public/router/heartbeat.$token";
@@ -15,12 +11,7 @@ import { Route as Interfaces } from "@/routes/api/public/router/interfaces.$toke
 import { Route as Sync } from "@/routes/api/public/router/sync.$token";
 import { Route as LoginHtml } from "@/routes/api/public/provision/$token/login[.]html";
 import { Route as Rsc } from "@/routes/api/public/provision/$token/router[.]rsc";
-import {
-  issueDeviceToken,
-  sha256Hex,
-  mintDeviceToken,
-  TOKEN_MISS_LIMIT,
-} from "@/lib/router-auth.server";
+import { issueDeviceToken, sha256Hex, mintDeviceToken, TOKEN_MISS_LIMIT } from "@/lib/router-auth.server";
 
 const T = "11111111-1111-1111-1111-111111111111";
 const OTHER_T = "99999999-9999-9999-9999-999999999999";
@@ -30,44 +21,16 @@ const R3 = "r3000000-0000-0000-0000-000000000003";
 const BOOT1 = "bootstrap1".padEnd(32, "x");
 const LEGACY2 = "legacytoken2".padEnd(32, "y");
 
-const hb = (token: string, ip = freshIp(), qs = "") =>
-  call(Heartbeat, "GET", { url: `https://portal.test/hb${qs}`, params: { token }, ip });
+const hb = (token: string, ip = freshIp(), qs = "") => call(Heartbeat, "GET", { url: `https://portal.test/hb${qs}`, params: { token }, ip });
 const router = (id: string) => h.db.rows("routers").find((r) => r.id === id)!;
 
 beforeEach(() => {
   h.db = new FakeDb()
-    .seed("tenants", [
-      { id: T, slug: "acme", name: "Acme ISP" },
-      { id: OTHER_T, slug: "rival", name: "Rival" },
-    ])
+    .seed("tenants", [{ id: T, slug: "acme", name: "Acme ISP" }, { id: OTHER_T, slug: "rival", name: "Rival" }])
     .seed("routers", [
-      {
-        id: R1,
-        tenant_id: T,
-        name: "Tower 1",
-        status: "pending",
-        provision_token: BOOT1,
-        provision_token_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
-        legacy_token_auth: false,
-      },
-      {
-        id: R2,
-        tenant_id: T,
-        name: "Legacy box",
-        status: "online",
-        provision_token: LEGACY2,
-        provision_token_expires_at: null,
-        legacy_token_auth: true,
-      },
-      {
-        id: R3,
-        tenant_id: OTHER_T,
-        name: "Rival router",
-        status: "online",
-        provision_token: "rivaltoken".padEnd(32, "z"),
-        provision_token_expires_at: null,
-        legacy_token_auth: false,
-      },
+      { id: R1, tenant_id: T, name: "Tower 1", status: "pending", provision_token: BOOT1, provision_token_expires_at: new Date(Date.now() + 3_600_000).toISOString(), legacy_token_auth: false },
+      { id: R2, tenant_id: T, name: "Legacy box", status: "online", provision_token: LEGACY2, provision_token_expires_at: null, legacy_token_auth: true },
+      { id: R3, tenant_id: OTHER_T, name: "Rival router", status: "online", provision_token: "rivaltoken".padEnd(32, "z"), provision_token_expires_at: null, legacy_token_auth: false },
     ]);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -105,20 +68,13 @@ describe("device endpoint authentication (heartbeat)", () => {
     expect(router(R1)).toMatchObject({ status: "online", cpu_load: 12, ram_usage: 75 });
     expect(router(R2).cpu_load).toBeUndefined();
     expect(router(R3).cpu_load).toBeUndefined();
-    expect(h.db.rows("router_metrics")).toMatchObject([
-      { router_id: R1, tenant_id: T, cpu_pct: 12 },
-    ]);
+    expect(h.db.rows("router_metrics")).toMatchObject([{ router_id: R1, tenant_id: T, cpu_pct: 12 }]);
   });
 
   it("rejects unknown and malformed tokens, and malformed ones never reach the database", async () => {
     expect((await hb("x".repeat(40))).status).toBe(404);
     h.db.log.length = 0;
-    for (const bad of [
-      "short",
-      "has space in it........",
-      "semi;colon;colon;colon;",
-      "x".repeat(200),
-    ]) {
+    for (const bad of ["short", "has space in it........", "semi;colon;colon;colon;", "x".repeat(200)]) {
       expect((await hb(bad)).status).toBe(404);
     }
     expect(h.db.log).toHaveLength(0);
@@ -154,46 +110,22 @@ describe("device endpoint authentication (heartbeat)", () => {
 
 describe("interfaces endpoint", () => {
   it("authenticates before doing any work", async () => {
-    const res = await call(Interfaces, "POST", {
-      params: { token: "x".repeat(40) },
-      rawBody: "ether1|true|false|1|2|0|0|0|0",
-      ip: freshIp(),
-    });
+    const res = await call(Interfaces, "POST", { params: { token: "x".repeat(40) }, rawBody: "ether1|true|false|1|2|0|0|0|0", ip: freshIp() });
     expect(res.status).toBe(404);
     expect(h.db.rows("router_interfaces")).toHaveLength(0);
   });
   it("stores interface rows for the authenticated router", async () => {
     const token = await issueDeviceToken(R1);
-    const res = await call(Interfaces, "POST", {
-      params: { token },
-      rawBody: "ether1|true|false|1000|2000|0|0|0|0",
-      ip: freshIp(),
-    });
+    const res = await call(Interfaces, "POST", { params: { token }, rawBody: "ether1|true|false|1000|2000|0|0|0|0", ip: freshIp() });
     expect(res.status).toBe(200);
-    expect(
-      h.db.rows("router_interfaces").every((r) => r.router_id === R1 && r.tenant_id === T),
-    ).toBe(true);
+    expect(h.db.rows("router_interfaces").every((r) => r.router_id === R1 && r.tenant_id === T)).toBe(true);
     expect(h.db.rows("router_interfaces").length).toBeGreaterThan(0);
   });
 });
 
 describe("sync script scoping", () => {
-  const pppoe = (
-    u: string,
-    p: string,
-    router_id: string | null,
-    extra: Record<string, unknown> = {},
-  ) => ({
-    tenant_id: T,
-    customer_type: "pppoe",
-    status: "active",
-    pppoe_username: u,
-    pppoe_password: p,
-    router_id,
-    expires_at: null,
-    package_id: null,
-    ...extra,
-  });
+  const pppoe = (u: string, p: string, router_id: string | null, extra: Record<string, unknown> = {}) =>
+    ({ tenant_id: T, customer_type: "pppoe", status: "active", pppoe_username: u, pppoe_password: p, router_id, expires_at: null, package_id: null, ...extra });
   const sync = async (token: string) => {
     const res = await call(Sync, "GET", { params: { token }, ip: freshIp() });
     return { res, text: await res.text() };
@@ -235,12 +167,7 @@ describe("sync script scoping", () => {
     // proves the filter happens in the query, not only in post-processing
     const q = h.db.log.filter((l) => l.table === "customers" && l.op === "select");
     expect(q).toHaveLength(1);
-    const readable = h.db
-      .rows("customers")
-      .filter(
-        (c) =>
-          c.tenant_id === T && c.status === "active" && (c.router_id === R1 || c.router_id == null),
-      );
+    const readable = h.db.rows("customers").filter((c) => c.tenant_id === T && c.status === "active" && (c.router_id === R1 || c.router_id == null));
     expect(readable.map((c) => c.pppoe_username).sort()).toEqual(["alice", "carol", "dave"]);
   });
 
@@ -274,9 +201,7 @@ describe("sync script scoping", () => {
 
 describe("login.html", () => {
   it("needs a valid device token", async () => {
-    expect(
-      (await call(LoginHtml, "GET", { params: { token: "x".repeat(40) }, ip: freshIp() })).status,
-    ).toBe(404);
+    expect((await call(LoginHtml, "GET", { params: { token: "x".repeat(40) }, ip: freshIp() })).status).toBe(404);
     const token = await issueDeviceToken(R1);
     expect((await call(LoginHtml, "GET", { params: { token }, ip: freshIp() })).status).toBe(200);
   });
@@ -291,8 +216,7 @@ describe("router.rsc provisioning", () => {
     const script = await res.text();
     expect(res.status).toBe(200);
     expect(script).not.toContain(BOOT1);
-    const [, deviceToken] =
-      script.match(/api\/public\/router\/heartbeat\/([A-Za-z0-9_-]{43})/) ?? [];
+    const [, deviceToken] = script.match(/api\/public\/router\/heartbeat\/([A-Za-z0-9_-]{43})/) ?? [];
     expect(deviceToken).toBeTruthy();
     expect(script).toContain(`/router/sync/${deviceToken}`);
     expect(script).toContain(`/router/interfaces/${deviceToken}`);
@@ -308,8 +232,7 @@ describe("router.rsc provisioning", () => {
   });
 
   it("re-running within the window issues a new device token and the old one stops working", async () => {
-    const tokenOf = async () =>
-      ((await (await rsc(BOOT1)).text()).match(/heartbeat\/([A-Za-z0-9_-]{43})/) ?? [])[1];
+    const tokenOf = async () => ((await (await rsc(BOOT1)).text()).match(/heartbeat\/([A-Za-z0-9_-]{43})/) ?? [])[1];
     const first = await tokenOf();
     const second = await tokenOf();
     expect(first).not.toBe(second);

@@ -12,10 +12,7 @@ export const Route = createFileRoute("/api/public/provision/$token/login.html")(
     handlers: {
       GET: async ({ params, request }) => {
         const auth = await authenticateRouter(request, params.token);
-        if (!auth.ok)
-          return auth.blocked
-            ? tooManyRequests()
-            : new Response("unknown token\n", { status: 404 });
+        if (!auth.ok) return auth.blocked ? tooManyRequests() : new Response("unknown token\n", { status: 404 });
         const router = auth.router;
 
         const { data: tenant } = await supabaseAdmin

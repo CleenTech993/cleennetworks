@@ -26,34 +26,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
     handlers: {
       POST: async ({ request, params }) => {
         // Cheap per-IP gate first (per-instance; the per-phone limit below is the durable one).
-        if (
-          !rateLimit(
-            `checkout:${params.slug}:${clientIp(request)}`,
-            CHECKOUT_LIMITS.ipMax,
-            CHECKOUT_LIMITS.ipWindowMs,
-          )
-        ) {
+        if (!rateLimit(`checkout:${params.slug}:${clientIp(request)}`, CHECKOUT_LIMITS.ipMax, CHECKOUT_LIMITS.ipWindowMs)) {
           return tooManyRequests();
         }
         let body: unknown;
-        try {
-          body = await request.json();
-        } catch {
-          return Response.json({ error: "Bad JSON" }, { status: 400 });
-        }
+        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
         const parsed = Schema.safeParse(body);
-        if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
+        if (!parsed.success) return Response.json({ error: "Please fill in all fields." }, { status: 400 });
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
-          return Response.json(
-            { error: "Enter a valid M-Pesa number, e.g. 0712345678." },
-            { status: 400 },
-          );
+          return Response.json({ error: "Enter a valid M-Pesa number, e.g. 0712345678." }, { status: 400 });
         }
 
         try {
-          const tenant = await loadTenantBySlugAdmin(params.slug);
+          const tenant = await loadTenantBySlugAdmin(params.slug).catch(() => null);
+          if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
           const cfg = await loadPlatformMpesaConfig();
 
           const { data: pkg } = await supabaseAdmin
@@ -76,8 +64,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             })
             .select("id,created_at,status,package_id")
             .single();
-          if (payErr || !pay)
-            return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          if (payErr || !pay) return Response.json({ error: "Could not start the payment." }, { status: 500 });
 
           // Per-phone limit, shared across server instances because it counts payment rows. The
           // row is inserted first and then ranked against earlier ones, so parallel requests
@@ -104,14 +91,26 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const host = getRequestHost();
           const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
-          const result = await stkPush({
-            cfg,
-            amount: Number(pkg.price),
-            phone,
-            reference: pay.id,
-            description: pkg.kind ?? "Internet",
-            callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
-          });
+          let result: Awaited<ReturnType<typeof stkPush>>;
+          try {
+            result = await stkPush({
+              cfg,
+              amount: Number(pkg.price),
+              phone,
+              reference: pay.id,
+              description: pkg.kind ?? "Internet",
+              callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
+            });
+          } catch (e) {
+            // Gateway text can contain internals (URLs, account ids): log it, show a generic
+            // message, and close the attempt so it is not left "pending" for ever.
+            console.error("checkout: STK push failed", e);
+            await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
+            return Response.json(
+              { error: "We couldn't send the M-Pesa prompt. Please check the number and try again." },
+              { status: 502 },
+            );
+          }
 
           await supabaseAdmin
             .from("payments")
@@ -127,10 +126,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             message: result.CustomerMessage,
           });
         } catch (e) {
-          return Response.json(
-            { error: e instanceof Error ? e.message : "Failed" },
-            { status: 500 },
-          );
+          console.error("checkout failed", e);
+          return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
         }
       },
     },

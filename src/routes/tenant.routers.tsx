@@ -8,13 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,10 +27,7 @@ function RoutersPage() {
     refetchInterval: 30_000,
     queryKey: ["routers"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("routers")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("routers").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -46,14 +37,10 @@ function RoutersPage() {
     mutationFn: async () => {
       if (!tenantId) throw new Error("No tenant");
       // The database generates the provisioning token and its 24h expiry; clients cannot choose them.
-      const { data, error } = await supabase
-        .from("routers")
-        .insert({
-          tenant_id: tenantId,
-          name,
-        })
-        .select()
-        .single();
+      const { data, error } = await supabase.from("routers").insert({
+        tenant_id: tenantId,
+        name,
+      }).select().single();
       if (error) throw error;
       return data;
     },
@@ -83,18 +70,11 @@ function RoutersPage() {
   // so it stops reporting immediately until the new command is run on it (use when a token leaked).
   const rotate = useMutation({
     mutationFn: async ({ id, revoke }: { id: string; revoke: boolean }) => {
-      const { error } = await supabase.rpc("rotate_router_token", {
-        p_router_id: id,
-        p_revoke_device: revoke,
-      });
+      const { error } = await supabase.rpc("rotate_router_token", { p_router_id: id, p_revoke_device: revoke });
       if (error) throw error;
     },
     onSuccess: (_d, v) => {
-      toast.success(
-        v.revoke
-          ? "Access revoked. Run the new command on the router to reconnect it."
-          : "New command ready",
-      );
+      toast.success(v.revoke ? "Access revoked. Run the new command on the router to reconnect it." : "New command ready");
       setShowCmd((s) => ({ ...s, [v.id]: true }));
       qc.invalidateQueries({ queryKey: ["routers"] });
     },
@@ -114,25 +94,16 @@ function RoutersPage() {
         action={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4" /> Add router
-              </Button>
+              <Button><Plus className="h-4 w-4" /> Add router</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>New router</DialogTitle>
-                <DialogDescription>
-                  Give it a label. You'll get a one-line MikroTik provisioning command.
-                </DialogDescription>
+                <DialogDescription>Give it a label. You'll get a one-line MikroTik provisioning command.</DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <Label htmlFor="rname">Name</Label>
-                <Input
-                  id="rname"
-                  placeholder="Site A — Tower 1"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                <Input id="rname" placeholder="Site A — Tower 1" value={name} onChange={(e) => setName(e.target.value)} />
               </div>
               <DialogFooter>
                 <Button onClick={() => addRouter.mutate()} disabled={!name || addRouter.isPending}>
@@ -162,20 +133,9 @@ function RoutersPage() {
                   </div>
                   <div>
                     <p className="font-medium">{r.name}</p>
+                    <p className="text-xs text-muted-foreground">{r.model ?? "Model pending"} · {r.routeros_version ?? "RouterOS ?"}</p>
                     <p className="text-xs text-muted-foreground">
-                      {r.model ?? "Model pending"} · {r.routeros_version ?? "RouterOS ?"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      CPU {r.cpu_load ?? r.cpu_usage ?? "—"}% · RAM{" "}
-                      {r.total_memory_mb && r.free_memory_mb != null
-                        ? Math.round(
-                            ((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100,
-                          )
-                        : "—"}
-                      % · {r.temperature != null ? `${r.temperature}°C · ` : ""}last seen{" "}
-                      {(r.last_heartbeat_at ?? r.last_seen_at)
-                        ? new Date((r.last_heartbeat_at ?? r.last_seen_at)!).toLocaleTimeString()
-                        : "never"}
+                      CPU {r.cpu_load ?? r.cpu_usage ?? "—"}% · RAM {r.total_memory_mb && r.free_memory_mb != null ? Math.round(((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100) : "—"}% · {r.temperature != null ? `${r.temperature}°C · ` : ""}last seen {r.last_heartbeat_at ?? r.last_seen_at ? new Date((r.last_heartbeat_at ?? r.last_seen_at)!).toLocaleTimeString() : "never"}
                     </p>
                   </div>
                 </div>
@@ -187,119 +147,69 @@ function RoutersPage() {
                     return (
                       <>
                         {live && (
-                          <Badge
-                            variant={
-                              tone === "good"
-                                ? "success"
-                                : tone === "warn"
-                                  ? "warning"
-                                  : "destructive"
-                            }
-                          >
+                          <Badge variant={tone === "good" ? "success" : tone === "warn" ? "warning" : "destructive"}>
                             Health {score}%
                           </Badge>
                         )}
-                        <Badge variant={live ? "default" : "secondary"}>
-                          {r.status === "pending" ? "pending" : live ? "online" : "offline"}
-                        </Badge>
+                        <Badge variant={live ? "default" : "secondary"}>{r.status === "pending" ? "pending" : live ? "online" : "offline"}</Badge>
                       </>
                     );
                   })()}
-                  <Link
-                    to="/tenant/routers/$id"
-                    params={{ id: r.id }}
-                    className="text-xs text-primary underline"
-                  >
-                    Details
-                  </Link>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}
-                  >
-                    Setup
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label="Delete router"
-                    onClick={() => {
-                      if (confirm(`Delete router "${r.name}"? Its history will be removed.`))
-                        delRouter.mutate(r.id);
-                    }}
-                  >
+                  <Link to="/tenant/routers/$id" params={{ id: r.id }} className="text-xs text-primary underline">Details</Link>
+                  <Button size="sm" variant="ghost" onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}>Setup</Button>
+                  <Button size="sm" variant="ghost" aria-label="Delete router" onClick={() => {
+                    if (confirm(`Delete router "${r.name}"? Its history will be removed.`)) delRouter.mutate(r.id);
+                  }}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
               </div>
-              {r.provision_token &&
-                (r.status === "pending" || showCmd[r.id]) &&
-                (() => {
-                  const expired =
-                    !!r.provision_token_expires_at &&
-                    new Date(r.provision_token_expires_at).getTime() <= Date.now();
-                  return (
-                    <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
-                      {expired ? (
-                        <p className="font-sans text-xs text-muted-foreground">
-                          This provisioning command has expired. Generate a new one to set the
-                          router up again.
-                        </p>
-                      ) : (
-                        <div className="flex items-start justify-between gap-3">
-                          <code className="break-all">{provisionCommand(r.provision_token)}</code>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              navigator.clipboard.writeText(provisionCommand(r.provision_token!));
-                              toast.success("Copied");
-                            }}
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <p className="mt-2 font-sans text-[10px] text-muted-foreground">
-                        {expired
-                          ? "Commands are valid for 24 hours. A router that is already set up keeps working."
-                          : `Paste this into the MikroTik terminal. The router will auto-configure and report back. Valid until ${r.provision_token_expires_at ? new Date(r.provision_token_expires_at).toLocaleString() : "revoked"}.`}
+              {r.provision_token && (r.status === "pending" || showCmd[r.id]) && (() => {
+                const expired = !!r.provision_token_expires_at && new Date(r.provision_token_expires_at).getTime() <= Date.now();
+                return (
+                  <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
+                    {expired ? (
+                      <p className="font-sans text-xs text-muted-foreground">
+                        This provisioning command has expired. Generate a new one to set the router up again.
                       </p>
-                      {r.legacy_token_auth && (
-                        <p className="mt-1 font-sans text-[10px] text-amber-600">
-                          This router still uses an old-style key. Run a new command on it to
-                          upgrade.
-                        </p>
-                      )}
-                      <div className="mt-2 flex gap-2 font-sans">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={rotate.isPending}
-                          onClick={() => rotate.mutate({ id: r.id, revoke: false })}
-                        >
-                          New command
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={rotate.isPending}
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `Revoke access for "${r.name}"? It will stop reporting until you run the new command on it.`,
-                              )
-                            ) {
-                              rotate.mutate({ id: r.id, revoke: true });
-                            }
-                          }}
-                        >
-                          Revoke access
+                    ) : (
+                      <div className="flex items-start justify-between gap-3">
+                        <code className="break-all">{provisionCommand(r.provision_token)}</code>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          navigator.clipboard.writeText(provisionCommand(r.provision_token!));
+                          toast.success("Copied");
+                        }}>
+                          <Copy className="h-3 w-3" />
                         </Button>
                       </div>
+                    )}
+                    <p className="mt-2 font-sans text-[10px] text-muted-foreground">
+                      {expired
+                        ? "Commands are valid for 24 hours. A router that is already set up keeps working."
+                        : `Paste this into the MikroTik terminal. The router will auto-configure and report back. Valid until ${r.provision_token_expires_at ? new Date(r.provision_token_expires_at).toLocaleString() : "revoked"}.`}
+                    </p>
+                    {r.legacy_token_auth && (
+                      <p className="mt-1 font-sans text-[10px] text-amber-600">
+                        This router still uses an old-style key. Run a new command on it to upgrade.
+                      </p>
+                    )}
+                    <div className="mt-2 flex gap-2 font-sans">
+                      <Button size="sm" variant="outline" disabled={rotate.isPending}
+                        onClick={() => rotate.mutate({ id: r.id, revoke: false })}>
+                        New command
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={rotate.isPending}
+                        onClick={() => {
+                          if (confirm(`Revoke access for "${r.name}"? It will stop reporting until you run the new command on it.`)) {
+                            rotate.mutate({ id: r.id, revoke: true });
+                          }
+                        }}>
+                        Revoke access
+                      </Button>
                     </div>
-                  );
-                })()}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

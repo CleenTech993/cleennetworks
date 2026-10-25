@@ -3,9 +3,9 @@ import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
 import { buildPppoeSyncLines } from "@/lib/pppoe";
+import { buildTvSyncLines } from "@/lib/tv";
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
-import { buildTvSyncLines } from "@/lib/tv";
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
 // Routers fetch + import this every few minutes (see provisioning scheduler "netgrid-sync").
@@ -19,49 +19,29 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         if (!auth.ok) {
           return auth.blocked
             ? tooManyRequests()
-            : new Response("# unknown token\n", {
-                status: 404,
-                headers: { "content-type": "text/plain" },
-              });
+            : new Response("# unknown token\n", { status: 404, headers: { "content-type": "text/plain" } });
         }
         const router = auth.router;
 
         const now = new Date().toISOString();
-        const [
-          { data: tenant },
-          { data: customers },
-          { data: vouchers },
-          { data: packages },
-          { data: tvs },
-        ] = await Promise.all([
+        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }] = await Promise.all([
           supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
           // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
           // (router_id null). Other routers' credentials are never even read for this request.
-          supabaseAdmin
-            .from("customers")
+          supabaseAdmin.from("customers")
             .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
-            .eq("tenant_id", router.tenant_id)
-            .eq("customer_type", "pppoe")
-            .eq("status", "active")
+            .eq("tenant_id", router.tenant_id).eq("customer_type", "pppoe").eq("status", "active")
             .or(`router_id.eq.${router.id},router_id.is.null`),
-          supabaseAdmin
-            .from("vouchers")
+          supabaseAdmin.from("vouchers")
             .select("code,status,expires_at")
-            .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used"])
+            .eq("tenant_id", router.tenant_id).in("status", ["unused", "used"])
             .or(`expires_at.is.null,expires_at.gt.${now}`),
-          supabaseAdmin
-            .from("packages")
+          supabaseAdmin.from("packages")
             .select("id,download_kbps,upload_kbps")
-            .eq("tenant_id", router.tenant_id)
-            .eq("kind", "pppoe"),
-          // Smart TVs: paid MAC addresses bypass the hotspot login.
-          supabaseAdmin
-            .from("tv_devices")
+            .eq("tenant_id", router.tenant_id).eq("kind", "pppoe"),
+          supabaseAdmin.from("tv_devices")
             .select("mac_address,status,expires_at")
-            .eq("tenant_id", router.tenant_id)
-            .eq("status", "active")
-            .gt("expires_at", now),
+            .eq("tenant_id", router.tenant_id).eq("status", "active").gt("expires_at", now),
         ]);
 
         const lines: string[] = ["# NetGrid sync"];
@@ -89,15 +69,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         );
         // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
         lines.push(...buildTvSyncLines(tvs ?? []));
-        lines.push(
-          "/ip hotspot user",
-          ':do { remove [find comment="netgrid-voucher"] } on-error={}',
-        );
+        lines.push("/ip hotspot user", ':do { remove [find comment="netgrid-voucher"] } on-error={}');
         for (const v of vouchers ?? []) {
           if (!SAFE.test(v.code)) continue;
-          lines.push(
-            `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs comment="netgrid-voucher" } on-error={}`,
-          );
+          lines.push(`:do { add name="${v.code}" password="${v.code}" server=netgrid-hs comment="netgrid-voucher" } on-error={}`);
         }
         lines.push(':log info "NetGrid: users synced"', "");
 
