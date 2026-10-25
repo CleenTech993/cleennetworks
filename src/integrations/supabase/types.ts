@@ -371,6 +371,32 @@ export type Database = {
           },
         ]
       }
+      router_credentials: {
+        Row: {
+          created_at: string
+          router_id: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          router_id: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          router_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_credentials_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: true
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       router_devices: {
         Row: {
           authorized: boolean
@@ -651,6 +677,7 @@ export type Database = {
           name: string
           provision_token: string | null
           provision_token_expires_at: string | null
+          legacy_token_auth: boolean
           public_ip: string | null
           ram_usage: number | null
           routeros_version: string | null
@@ -686,6 +713,7 @@ export type Database = {
           name: string
           provision_token?: string | null
           provision_token_expires_at?: string | null
+          legacy_token_auth?: boolean
           public_ip?: string | null
           ram_usage?: number | null
           routeros_version?: string | null
@@ -721,6 +749,7 @@ export type Database = {
           name?: string
           provision_token?: string | null
           provision_token_expires_at?: string | null
+          legacy_token_auth?: boolean
           public_ip?: string | null
           ram_usage?: number | null
           routeros_version?: string | null
@@ -1138,6 +1167,10 @@ export type Database = {
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       rollup_router_metrics: { Args: never; Returns: undefined }
+      rotate_router_token: {
+        Args: { p_revoke_device?: boolean; p_router_id: string }
+        Returns: string
+      }
       user_tenant_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {

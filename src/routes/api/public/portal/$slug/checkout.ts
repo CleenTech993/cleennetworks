@@ -32,7 +32,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         let body: unknown;
         try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
         const parsed = Schema.safeParse(body);
-        if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
+        if (!parsed.success) return Response.json({ error: "Please fill in all fields." }, { status: 400 });
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
@@ -40,7 +40,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         }
 
         try {
-          const tenant = await loadTenantBySlugAdmin(params.slug);
+          const tenant = await loadTenantBySlugAdmin(params.slug).catch(() => null);
+          if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
           const cfg = await loadPlatformMpesaConfig();
 
           const { data: pkg } = await supabaseAdmin
@@ -90,14 +91,26 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const host = getRequestHost();
           const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
-          const result = await stkPush({
-            cfg,
-            amount: Number(pkg.price),
-            phone,
-            reference: pay.id,
-            description: pkg.kind ?? "Internet",
-            callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
-          });
+          let result: Awaited<ReturnType<typeof stkPush>>;
+          try {
+            result = await stkPush({
+              cfg,
+              amount: Number(pkg.price),
+              phone,
+              reference: pay.id,
+              description: pkg.kind ?? "Internet",
+              callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
+            });
+          } catch (e) {
+            // Gateway text can contain internals (URLs, account ids): log it, show a generic
+            // message, and close the attempt so it is not left "pending" for ever.
+            console.error("checkout: STK push failed", e);
+            await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
+            return Response.json(
+              { error: "We couldn't send the M-Pesa prompt. Please check the number and try again." },
+              { status: 502 },
+            );
+          }
 
           await supabaseAdmin
             .from("payments")
@@ -113,7 +126,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             message: result.CustomerMessage,
           });
         } catch (e) {
-          return Response.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
+          console.error("checkout failed", e);
+          return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
         }
       },
     },

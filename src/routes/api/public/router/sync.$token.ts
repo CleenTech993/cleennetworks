@@ -7,6 +7,8 @@ import { buildTvSyncLines } from "@/lib/tv";
 import {
   buildBlockLines, buildDeviceAgentLines, buildHotspotUserLines, buildTetherLines, deviceLimitOf, type SyncVoucher,
 } from "@/lib/devices";
+import { authenticateRouter } from "@/lib/router-auth.server";
+import { tooManyRequests } from "@/lib/rate-limit.server";
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
 // Routers fetch + import this every few minutes (see provisioning scheduler "netgrid-sync").
@@ -14,17 +16,24 @@ import {
 export const Route = createFileRoute("/api/public/router/sync/$token")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
-        const { data: router } = await supabaseAdmin
-          .from("routers").select("id,tenant_id,block_tethering").eq("provision_token", params.token).maybeSingle();
-        if (!router) return new Response("# unknown token\n", { status: 404, headers: { "content-type": "text/plain" } });
+      GET: async ({ params, request }) => {
+        const auth = await authenticateRouter(request, params.token);
+        if (!auth.ok) {
+          return auth.blocked
+            ? tooManyRequests()
+            : new Response("# unknown token\n", { status: 404, headers: { "content-type": "text/plain" } });
+        }
+        const router = auth.router;
 
         const now = new Date().toISOString();
-        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }, { data: hotspotPkgs }, { data: blocked }] = await Promise.all([
+        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }, { data: hotspotPkgs }, { data: blocked }, { data: routerRow }] = await Promise.all([
           supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
+          // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
+          // (router_id null). Other routers' credentials are never even read for this request.
           supabaseAdmin.from("customers")
             .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
-            .eq("tenant_id", router.tenant_id).eq("customer_type", "pppoe").eq("status", "active"),
+            .eq("tenant_id", router.tenant_id).eq("customer_type", "pppoe").eq("status", "active")
+            .or(`router_id.eq.${router.id},router_id.is.null`),
           supabaseAdmin.from("vouchers")
             .select("code,status,expires_at,bound_mac,package_id")
             .eq("tenant_id", router.tenant_id).in("status", ["unused", "used"])
@@ -43,6 +52,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           supabaseAdmin.from("router_devices")
             .select("mac")
             .eq("tenant_id", router.tenant_id).eq("blocked", true),
+          supabaseAdmin.from("routers").select("block_tethering").eq("id", router.id).maybeSingle(),
         ]);
 
         const lines: string[] = ["# NetGrid sync"];
@@ -80,7 +90,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         lines.push(...buildHotspotUserLines(syncVouchers));
         lines.push(...buildBlockLines((blocked ?? []).map((b) => b.mac)));
         // Anti-tethering rules and the periodic device report.
-        lines.push(...buildTetherLines(router.block_tethering !== false));
+        lines.push(...buildTetherLines(routerRow?.block_tethering !== false));
         lines.push(...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`));
         lines.push(':log info "NetGrid: users synced"', "");
 

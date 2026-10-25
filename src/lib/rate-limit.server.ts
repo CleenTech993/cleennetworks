@@ -26,6 +26,12 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
   return b.count <= limit;
 }
 
+/** True once `key` has used up `limit` hits in its current window. Does NOT count a hit. */
+export function rateLimitExceeded(key: string, limit: number): boolean {
+  const b = buckets.get(key);
+  return !!b && b.reset >= Date.now() && b.count >= limit;
+}
+
 export function tooManyRequests(): Response {
   return Response.json(
     { error: "Too many attempts. Please wait a minute and try again." },

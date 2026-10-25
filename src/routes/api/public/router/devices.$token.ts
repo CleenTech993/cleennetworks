@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { rateLimit } from "@/lib/rate-limit.server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
+import { authenticateRouter } from "@/lib/router-auth.server";
 import { deviceLimitOf, parseDeviceReport } from "@/lib/devices";
 import { expiryFrom } from "@/lib/duration";
 
@@ -16,12 +17,12 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
   server: {
     handlers: {
       POST: async ({ params, request }) => {
-        if (!rateLimit(`devices:${params.token}`, 20, 60_000)) return new Response("slow down", { status: 429 });
+        // Authenticate before reading the body so anonymous callers cannot make us buffer uploads.
+        const auth = await authenticateRouter(request, params.token);
+        if (!auth.ok) return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
+        const router = auth.router;
+        if (!rateLimit(`devices:${router.id}`, 20, 60_000)) return tooManyRequests();
         const body = (await request.text()).slice(0, 64_000);
-
-        const { data: router } = await supabaseAdmin
-          .from("routers").select("id,tenant_id").eq("provision_token", params.token).maybeSingle();
-        if (!router) return new Response("unknown", { status: 404 });
 
         const records = parseDeviceReport(body);
         if (!records.length) return new Response("ok");

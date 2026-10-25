@@ -159,9 +159,9 @@ export function buildTetherLines(blockTethering: boolean): string[] {
   if (blockTethering) {
     lines.push(
       ':do { add chain=postrouting out-interface=netgrid-lan action=change-ttl new-ttl=set:1 comment="netgrid-ttl-enforce" } on-error={}',
-      ':if ([:len [/ip firewall mangle find where comment="netgrid-ttl-enforce"]] = 0) do={ :log warning "NetGrid: anti-tethering rule is NOT installed" }',
+      ':if ([:len [/ip firewall mangle find where comment="netgrid-ttl-enforce"]] = 0) do={ :log warning "NetGrid: sharing-protection rule is NOT installed" }',
       // FastTrack skips the mangle table, so fast-tracked connections would not be covered.
-      ':if ([:len [/ip firewall filter find where action=fasttrack-connection and disabled=no]] > 0) do={ :log warning "NetGrid: FastTrack is on, anti-tethering cannot act on fast-tracked traffic" }',
+      ':if ([:len [/ip firewall filter find where action=fasttrack-connection and disabled=no]] > 0) do={ :log warning "NetGrid: FastTrack is on, sharing protection cannot act on fast-tracked traffic" }',
     );
   }
   return lines;
