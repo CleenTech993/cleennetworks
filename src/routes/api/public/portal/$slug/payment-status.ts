@@ -1,10 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/public/portal/$slug/payment-status")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
+        // The portal polls every few seconds; this only stops scripted hammering.
+        if (!rateLimit(`paystatus:${params.slug}:${clientIp(request)}`, 60, 60_000)) return tooManyRequests();
         const url = new URL(request.url);
         const id = url.searchParams.get("id");
         if (!id) return Response.json({ error: "missing id" }, { status: 400 });

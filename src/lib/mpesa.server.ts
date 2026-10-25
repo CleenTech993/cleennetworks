@@ -2,6 +2,7 @@
 // credential set, owned by Super Admin. Tenants only store receiving details
 // (paybill / till / bank) for display + settlement.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { normalizePhone } from "./phone";
 
 export interface PlatformMpesaConfig {
   mpesa_env: string;
@@ -41,14 +42,6 @@ export async function loadPlatformMpesaConfig(): Promise<PlatformMpesaConfig> {
     mpesa_env: "production", shortcode: null, consumer_key: null,
     consumer_secret: null, passkey: null, callback_base_url: null,
   }) as PlatformMpesaConfig;
-}
-
-export function normalizePhone(input: string): string {
-  const digits = input.replace(/\D/g, "");
-  if (digits.startsWith("254")) return digits;
-  if (digits.startsWith("0")) return `254${digits.slice(1)}`;
-  if (digits.startsWith("7") || digits.startsWith("1")) return `254${digits}`;
-  return digits;
 }
 
 interface StkPushParams {
@@ -140,3 +133,4 @@ export function randomVoucher(): string {
 }
 
 export { expiryFrom } from "./duration";
+export { normalizePhone, isKenyanMobile } from "./phone";
