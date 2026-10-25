@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
+import { authenticateRouter } from "@/lib/router-auth.server";
+import { tooManyRequests } from "@/lib/rate-limit.server";
 
 // Heartbeat from MikroTik routers. Optional query params push live metrics.
 // Example:
@@ -55,12 +57,9 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
         const lanIp = str("lan-ip"); if (lanIp) patch.lan_ip = lanIp;
         const model = str("model"); if (model) patch.model = model;
 
-        const { data: prev } = await supabaseAdmin
-          .from("routers")
-          .select("id,tenant_id,last_heartbeat_at,last_seen_at")
-          .eq("provision_token", params.token)
-          .maybeSingle();
-        if (!prev) return new Response("unknown", { status: 404 });
+        const auth = await authenticateRouter(request, params.token);
+        if (!auth.ok) return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
+        const prev = auth.router;
 
         await supabaseAdmin.from("routers").update(patch).eq("id", prev.id);
 
