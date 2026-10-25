@@ -11,8 +11,7 @@ export const MAX_VOUCHERS_PER_BATCH = 500;
 
 type Fail = { ok: false; error: string };
 export type GenerateVouchersResult =
-  | { ok: true; codes: string[]; packageName: string; sellBy: string | null }
-  | Fail;
+  { ok: true; codes: string[]; packageName: string; sellBy: string | null } | Fail;
 
 async function voucherTenantOf(userId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
@@ -39,7 +38,8 @@ export const generateVouchers = createServerFn({ method: "POST" })
   .inputValidator((input) => GenerateSchema.parse(input))
   .handler(async ({ data, context }): Promise<GenerateVouchersResult> => {
     const tenantId = await voucherTenantOf(context.userId);
-    if (!tenantId) return { ok: false, error: "Only tenant admins and billing agents can generate vouchers." };
+    if (!tenantId)
+      return { ok: false, error: "Only tenant admins and billing agents can generate vouchers." };
 
     const { data: pkg } = await supabaseAdmin
       .from("packages")
@@ -50,13 +50,17 @@ export const generateVouchers = createServerFn({ method: "POST" })
     if (!pkg) return { ok: false, error: "Package not found." };
     if (!pkg.active) return { ok: false, error: "That package is inactive." };
     if (pkg.kind !== "hotspot" && pkg.kind !== "voucher") {
-      return { ok: false, error: "Vouchers can only be generated for hotspot or voucher packages." };
+      return {
+        ok: false,
+        error: "Vouchers can only be generated for hotspot or voucher packages.",
+      };
     }
 
     let sellBy: string | null = null;
     if (data.sellBy) {
       const t = new Date(data.sellBy).getTime();
-      if (!Number.isFinite(t) || t <= Date.now()) return { ok: false, error: "The sell-by date must be in the future." };
+      if (!Number.isFinite(t) || t <= Date.now())
+        return { ok: false, error: "The sell-by date must be in the future." };
       sellBy = new Date(t).toISOString();
     }
 
@@ -87,7 +91,10 @@ export const generateVouchers = createServerFn({ method: "POST" })
     }
 
     if (codes.length < data.quantity) {
-      return { ok: false, error: `Only ${codes.length} of ${data.quantity} vouchers could be created. Please try again.` };
+      return {
+        ok: false,
+        error: `Only ${codes.length} of ${data.quantity} vouchers could be created. Please try again.`,
+      };
     }
     return { ok: true, codes, packageName: pkg.name, sellBy };
   });

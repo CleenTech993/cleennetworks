@@ -7,17 +7,39 @@ import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { addTeamMember, listTeam, removeTeamMember, updateTeamMemberRole } from "@/lib/team.functions";
+import {
+  addTeamMember,
+  listTeam,
+  removeTeamMember,
+  updateTeamMemberRole,
+} from "@/lib/team.functions";
 import type { TeamMember, TeamRole } from "@/lib/team.functions";
 
 export const Route = createFileRoute("/tenant/team")({ component: TeamPage });
@@ -89,9 +111,15 @@ function TeamPage() {
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : !data?.ok ? (
-        <EmptyState title="Admins only" description={data?.error ?? "Only tenant admins can manage the team."} />
+        <EmptyState
+          title="Admins only"
+          description={data?.error ?? "Only tenant admins can manage the team."}
+        />
       ) : data.members.length === 0 ? (
-        <EmptyState title="No team members yet" description="Add your first technician or staff member." />
+        <EmptyState
+          title="No team members yet"
+          description="Add your first technician or staff member."
+        />
       ) : (
         <div className="overflow-x-auto rounded-lg border bg-card">
           <table className="w-full text-sm">
@@ -109,7 +137,12 @@ function TeamPage() {
                 return (
                   <tr key={m.id} className="border-t">
                     <td className="px-4 py-2">
-                      {m.full_name ?? "—"} {self && <Badge variant="secondary" className="ml-1">You</Badge>}
+                      {m.full_name ?? "—"}{" "}
+                      {self && (
+                        <Badge variant="secondary" className="ml-1">
+                          You
+                        </Badge>
+                      )}
                     </td>
                     <td className="px-4 py-2">{m.email ?? "—"}</td>
                     <td className="px-4 py-2">
@@ -118,18 +151,31 @@ function TeamPage() {
                       ) : (
                         <Select
                           value={m.roles[0]}
-                          onValueChange={(v) => changeRole.mutate({ userId: m.id, role: v as TeamRole })}
+                          onValueChange={(v) =>
+                            changeRole.mutate({ userId: m.id, role: v as TeamRole })
+                          }
                         >
-                          <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8 w-40">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
-                            {ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>)}
+                            {ROLES.map((r) => (
+                              <SelectItem key={r} value={r}>
+                                {ROLE_LABEL[r]}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       )}
                     </td>
                     <td className="px-4 py-2 text-right">
                       {!self && (
-                        <Button size="sm" variant="ghost" onClick={() => setRemoving(m)} aria-label="Remove member">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setRemoving(m)}
+                          aria-label="Remove member"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       )}
@@ -154,7 +200,9 @@ function TeamPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => removing && remove.mutate(removing.id)}>Remove</AlertDialogAction>
+            <AlertDialogAction onClick={() => removing && remove.mutate(removing.id)}>
+              Remove
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -162,7 +210,15 @@ function TeamPage() {
   );
 }
 
-function AddMemberDialog({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: () => void }) {
+function AddMemberDialog({
+  open,
+  onClose,
+  onAdded,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<TeamRole>("technician");
@@ -192,7 +248,9 @@ function AddMemberDialog({ open, onClose, onAdded }: { open: boolean; onClose: (
       }
       onAdded();
       if (res.existing) {
-        toast.success("Added. They already had an account, so they sign in with their own password.");
+        toast.success(
+          "Added. They already had an account, so they sign in with their own password.",
+        );
         close();
       } else {
         setCreated({ email: email.trim().toLowerCase(), password });
@@ -204,7 +262,8 @@ function AddMemberDialog({ open, onClose, onAdded }: { open: boolean; onClose: (
     }
   }
 
-  const copy = (text: string) => navigator.clipboard.writeText(text).then(() => toast.success("Copied"));
+  const copy = (text: string) =>
+    navigator.clipboard.writeText(text).then(() => toast.success("Copied"));
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
@@ -222,7 +281,10 @@ function AddMemberDialog({ open, onClose, onAdded }: { open: boolean; onClose: (
               <div>Password: {created.password}</div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => copy(`Email: ${created.email}\nPassword: ${created.password}`)}>
+              <Button
+                variant="outline"
+                onClick={() => copy(`Email: ${created.email}\nPassword: ${created.password}`)}
+              >
                 <Copy className="h-4 w-4" /> Copy details
               </Button>
               <Button onClick={close}>Done</Button>
@@ -239,33 +301,66 @@ function AddMemberDialog({ open, onClose, onAdded }: { open: boolean; onClose: (
             <div className="space-y-4">
               <div>
                 <Label htmlFor="tm-name">Full name</Label>
-                <Input id="tm-name" className="mt-1" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+                <Input
+                  id="tm-name"
+                  className="mt-1"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="tm-email">Email</Label>
-                <Input id="tm-email" type="email" className="mt-1" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <Input
+                  id="tm-email"
+                  type="email"
+                  className="mt-1"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
               </div>
               <div>
                 <Label>Role</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as TeamRole)}>
-                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {ROLES.map((r) => <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>)}
+                    {ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {ROLE_LABEL[r]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="tm-pass">Temporary password</Label>
                 <div className="mt-1 flex gap-2">
-                  <Input id="tm-pass" className="font-mono" value={password} onChange={(e) => setPassword(e.target.value)} />
-                  <Button type="button" variant="outline" onClick={() => setPassword(generatePassword())}>Generate</Button>
+                  <Input
+                    id="tm-pass"
+                    className="font-mono"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setPassword(generatePassword())}
+                  >
+                    Generate
+                  </Button>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={close}>Cancel</Button>
-              <Button onClick={submit} disabled={busy || !fullName.trim() || !email.trim() || password.length < 8}>
+              <Button variant="outline" onClick={close}>
+                Cancel
+              </Button>
+              <Button
+                onClick={submit}
+                disabled={busy || !fullName.trim() || !email.trim() || password.length < 8}
+              >
                 {busy ? "Adding…" : "Add member"}
               </Button>
             </DialogFooter>

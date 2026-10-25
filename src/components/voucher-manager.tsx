@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { generateVouchers, MAX_VOUCHERS_PER_BATCH } from "@/lib/voucher.functions";
@@ -19,7 +25,10 @@ const esc = (s: string) =>
 const csvCell = (s: string) => (/[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 
 function downloadCsv(batch: Batch) {
-  const rows = ["code,package,sell_by", ...batch.codes.map((c) => [c, batch.packageName, batch.sellBy ?? ""].map(csvCell).join(","))];
+  const rows = [
+    "code,package,sell_by",
+    ...batch.codes.map((c) => [c, batch.packageName, batch.sellBy ?? ""].map(csvCell).join(",")),
+  ];
   const url = URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv" }));
   const a = document.createElement("a");
   a.href = url;
@@ -84,7 +93,11 @@ export function VoucherManager() {
     queryKey: ["tenant-name", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
-      const { data } = await supabase.from("tenants").select("name").eq("id", tenantId!).maybeSingle();
+      const { data } = await supabase
+        .from("tenants")
+        .select("name")
+        .eq("id", tenantId!)
+        .maybeSingle();
       return data?.name ?? "";
     },
   });
@@ -111,7 +124,11 @@ export function VoucherManager() {
         throw new Error(`Enter a quantity between 1 and ${MAX_VOUCHERS_PER_BATCH}.`);
       }
       const res = await generateVouchers({
-        data: { packageId, quantity: qty, sellBy: sellBy ? new Date(`${sellBy}T23:59:59`).toISOString() : null },
+        data: {
+          packageId,
+          quantity: qty,
+          sellBy: sellBy ? new Date(`${sellBy}T23:59:59`).toISOString() : null,
+        },
       });
       if (!res.ok) throw new Error(res.error);
       return res;
@@ -121,7 +138,9 @@ export function VoucherManager() {
       setBatch({
         codes: res.codes,
         packageName: res.packageName,
-        duration: pkg?.duration_value ? `${pkg.duration_value} ${pkg.duration_unit ?? ""}`.trim() : "",
+        duration: pkg?.duration_value
+          ? `${pkg.duration_value} ${pkg.duration_unit ?? ""}`.trim()
+          : "",
         sellBy: res.sellBy,
       });
       toast.success(`${res.codes.length} vouchers generated`);
@@ -144,15 +163,19 @@ export function VoucherManager() {
           <Ticket className="h-4 w-4" /> Generate vouchers
         </h3>
         <p className="mb-4 text-sm text-muted-foreground">
-          Each voucher unlocks one package. The package time starts when a customer redeems it. Routers pick up new
-          vouchers within about 2 minutes.
+          Each voucher unlocks one package. The package time starts when a customer redeems it.
+          Routers pick up new vouchers within about 2 minutes.
         </p>
         <div className="grid gap-4 md:grid-cols-4">
           <div className="md:col-span-2">
             <Label>Package</Label>
             <Select value={packageId} onValueChange={setPackageId}>
               <SelectTrigger className="mt-1">
-                <SelectValue placeholder={activePackages.length ? "Choose a package" : "No hotspot packages yet"} />
+                <SelectValue
+                  placeholder={
+                    activePackages.length ? "Choose a package" : "No hotspot packages yet"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
                 {activePackages.map((p) => (
@@ -165,14 +188,32 @@ export function VoucherManager() {
           </div>
           <div>
             <Label htmlFor="vqty">Quantity (max {MAX_VOUCHERS_PER_BATCH})</Label>
-            <Input id="vqty" type="number" min={1} max={MAX_VOUCHERS_PER_BATCH} value={quantity} onChange={(e) => setQuantity(e.target.value)} className="mt-1" />
+            <Input
+              id="vqty"
+              type="number"
+              min={1}
+              max={MAX_VOUCHERS_PER_BATCH}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className="mt-1"
+            />
           </div>
           <div>
             <Label htmlFor="vsell">Sell by (optional)</Label>
-            <Input id="vsell" type="date" value={sellBy} onChange={(e) => setSellBy(e.target.value)} className="mt-1" />
+            <Input
+              id="vsell"
+              type="date"
+              value={sellBy}
+              onChange={(e) => setSellBy(e.target.value)}
+              className="mt-1"
+            />
           </div>
         </div>
-        <Button className="mt-4" disabled={generate.isPending || !packageId} onClick={() => generate.mutate()}>
+        <Button
+          className="mt-4"
+          disabled={generate.isPending || !packageId}
+          onClick={() => generate.mutate()}
+        >
           {generate.isPending ? "Generating…" : "Generate vouchers"}
         </Button>
       </div>
@@ -204,7 +245,10 @@ export function VoucherManager() {
           </div>
           <div className="grid max-h-64 gap-2 overflow-auto sm:grid-cols-2 lg:grid-cols-4">
             {batch.codes.map((c) => (
-              <code key={c} className="rounded-md bg-muted px-3 py-1.5 text-center font-mono text-sm tracking-widest">
+              <code
+                key={c}
+                className="rounded-md bg-muted px-3 py-1.5 text-center font-mono text-sm tracking-widest"
+              >
                 {c}
               </code>
             ))}
@@ -215,10 +259,16 @@ export function VoucherManager() {
       <div className="rounded-xl border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
           <h3 className="font-semibold">
-            Recent vouchers <span className="ml-1 text-sm font-normal text-muted-foreground">{unused} unused</span>
+            Recent vouchers{" "}
+            <span className="ml-1 text-sm font-normal text-muted-foreground">{unused} unused</span>
           </h3>
           <div className="flex gap-2">
-            <Input placeholder="Search code" value={search} onChange={(e) => setSearch(e.target.value)} className="h-8 w-36" />
+            <Input
+              placeholder="Search code"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-36"
+            />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-8 w-28">
                 <SelectValue />
@@ -248,14 +298,24 @@ export function VoucherManager() {
                 return (
                   <tr key={v.id} className="border-t">
                     <td className="px-4 py-2 font-mono tracking-wider">{v.code}</td>
-                    <td className="px-4 py-2 text-muted-foreground">{(v.package_id && pkgName.get(v.package_id)) || "—"}</td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {(v.package_id && pkgName.get(v.package_id)) || "—"}
+                    </td>
                     <td className="px-4 py-2">
-                      <Badge variant={expired ? "warning" : v.status === "unused" ? "success" : "secondary"}>
+                      <Badge
+                        variant={
+                          expired ? "warning" : v.status === "unused" ? "success" : "secondary"
+                        }
+                      >
                         {expired ? "expired" : v.status}
                       </Badge>
                     </td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{new Date(v.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{v.expires_at ? new Date(v.expires_at).toLocaleString() : "—"}</td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">
+                      {new Date(v.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-muted-foreground">
+                      {v.expires_at ? new Date(v.expires_at).toLocaleString() : "—"}
+                    </td>
                   </tr>
                 );
               })}
@@ -269,7 +329,9 @@ export function VoucherManager() {
             </tbody>
           </table>
         </div>
-        <p className="border-t px-4 py-2 text-xs text-muted-foreground">Showing the latest 200 vouchers.</p>
+        <p className="border-t px-4 py-2 text-xs text-muted-foreground">
+          Showing the latest 200 vouchers.
+        </p>
       </div>
     </div>
   );

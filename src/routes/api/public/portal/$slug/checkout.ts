@@ -29,13 +29,20 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         if (!rateLimit(`checkout-ip:${ip}`, 12, 60_000)) return tooManyRequests();
 
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
         if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isKenyanMobile(phone)) {
-          return Response.json({ error: "Enter a valid Safaricom number, e.g. 0712 345 678." }, { status: 400 });
+          return Response.json(
+            { error: "Enter a valid Safaricom number, e.g. 0712 345 678." },
+            { status: 400 },
+          );
         }
 
         let tenant;
@@ -58,7 +65,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         // so only the earliest few survive (see checkout-guard.ts).
         const { data: pay, error: payErr } = await supabaseAdmin
           .from("payments")
-          .insert({ tenant_id: tenant.id, package_id: pkg.id, phone, amount: pkg.price, status: "pending" })
+          .insert({
+            tenant_id: tenant.id,
+            package_id: pkg.id,
+            phone,
+            amount: pkg.price,
+            status: "pending",
+          })
           .select("id")
           .single();
         if (payErr || !pay) {
@@ -116,7 +129,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         } catch (e) {
           // Log the real reason server-side; never hand gateway internals to an anonymous caller.
           console.error("checkout: STK push failed", e);
-          await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id).eq("status", "pending");
+          await supabaseAdmin
+            .from("payments")
+            .update({ status: "failed" })
+            .eq("id", pay.id)
+            .eq("status", "pending");
           return Response.json({ error: GENERIC_FAILURE }, { status: 502 });
         }
       },

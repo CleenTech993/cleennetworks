@@ -7,13 +7,17 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
     handlers: {
       GET: async ({ request, params }) => {
         // The portal polls every few seconds; this only stops scripted hammering.
-        if (!rateLimit(`paystatus:${params.slug}:${clientIp(request)}`, 60, 60_000)) return tooManyRequests();
+        if (!rateLimit(`paystatus:${params.slug}:${clientIp(request)}`, 60, 60_000))
+          return tooManyRequests();
         const url = new URL(request.url);
         const id = url.searchParams.get("id");
         if (!id) return Response.json({ error: "missing id" }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
-          .from("tenants").select("id").eq("slug", params.slug).maybeSingle();
+          .from("tenants")
+          .select("id")
+          .eq("slug", params.slug)
+          .maybeSingle();
         if (!tenant) return new Response("Not found", { status: 404 });
 
         const { data: pay } = await supabaseAdmin

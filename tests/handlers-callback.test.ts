@@ -3,7 +3,11 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call, json } from "./helpers/call";
 import { h, stubFetch } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
 
 import { Route } from "@/routes/api/public/mpesa/callback.$tenantId";
 
@@ -14,9 +18,16 @@ const HOTSPOT_PKG = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const PPPOE_PKG = "cccccccc-cccc-cccc-cccc-cccccccccccc";
 
 const callbackBody = (extra: Record<string, unknown> = {}) => ({
-  response: { ExternalReference: PAY, CheckoutRequestID: "ws_CO_1", MpesaReceiptNumber: "FORGED123", Amount: 1, ...extra },
+  response: {
+    ExternalReference: PAY,
+    CheckoutRequestID: "ws_CO_1",
+    MpesaReceiptNumber: "FORGED123",
+    Amount: 1,
+    ...extra,
+  },
 });
-const send = (body: unknown = callbackBody(), tenantId = TENANT) => call(Route, "POST", { body, params: { tenantId } });
+const send = (body: unknown = callbackBody(), tenantId = TENANT) =>
+  call(Route, "POST", { body, params: { tenantId } });
 const payheroSays = (status: string, receipt: string | null = "QKT1234567") =>
   stubFetch(() => Response.json({ status, provider_reference: receipt }));
 
@@ -25,14 +36,38 @@ beforeEach(() => {
   process.env.PAYHERO_API_PASSWORD = "p";
   h.db = new FakeDb()
     .seed("packages", [
-      { id: HOTSPOT_PKG, tenant_id: TENANT, kind: "hotspot", duration_value: 2, duration_unit: "hours" },
-      { id: PPPOE_PKG, tenant_id: TENANT, kind: "pppoe", duration_value: 1, duration_unit: "months" },
+      {
+        id: HOTSPOT_PKG,
+        tenant_id: TENANT,
+        kind: "hotspot",
+        duration_value: 2,
+        duration_unit: "hours",
+      },
+      {
+        id: PPPOE_PKG,
+        tenant_id: TENANT,
+        kind: "pppoe",
+        duration_value: 1,
+        duration_unit: "months",
+      },
     ])
     .seed("payments", [
-      { id: PAY, tenant_id: TENANT, package_id: HOTSPOT_PKG, phone: "254712345678", amount: 50, status: "pending", checkout_request_id: "ws_CO_1", merchant_request_id: "ref-1" },
+      {
+        id: PAY,
+        tenant_id: TENANT,
+        package_id: HOTSPOT_PKG,
+        phone: "254712345678",
+        amount: 50,
+        status: "pending",
+        checkout_request_id: "ws_CO_1",
+        merchant_request_id: "ref-1",
+      },
     ]);
 });
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 const payment = () => h.db.rows("payments").find((p) => p.id === PAY)!;
 
@@ -44,10 +79,18 @@ describe("mpesa callback", () => {
 
     const vouchers = h.db.rows("vouchers");
     expect(vouchers).toHaveLength(1);
-    expect(vouchers[0]).toMatchObject({ tenant_id: TENANT, package_id: HOTSPOT_PKG, payment_id: PAY });
+    expect(vouchers[0]).toMatchObject({
+      tenant_id: TENANT,
+      package_id: HOTSPOT_PKG,
+      payment_id: PAY,
+    });
     expect(vouchers[0].code).toMatch(/^[A-Z2-9]{10}$/);
 
-    expect(payment()).toMatchObject({ status: "success", mpesa_receipt: "QKT1234567", voucher_code: vouchers[0].code });
+    expect(payment()).toMatchObject({
+      status: "success",
+      mpesa_receipt: "QKT1234567",
+      voucher_code: vouchers[0].code,
+    });
     const hours = (new Date(String(payment().expires_at)).getTime() - Date.now()) / 3_600_000;
     expect(hours).toBeGreaterThan(1.9);
     expect(hours).toBeLessThan(2.1);
@@ -125,7 +168,9 @@ describe("mpesa callback", () => {
 
   it("acknowledges bodies with no reference, and rejects invalid JSON", async () => {
     expect((await send({ response: {} })).status).toBe(200);
-    expect((await call(Route, "POST", { rawBody: "{bad", params: { tenantId: TENANT } })).status).toBe(400);
+    expect(
+      (await call(Route, "POST", { rawBody: "{bad", params: { tenantId: TENANT } })).status,
+    ).toBe(400);
   });
 
   it("returns 502 and leaves the payment pending when verification is unreachable (so PayHero retries)", async () => {

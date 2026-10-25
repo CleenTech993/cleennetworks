@@ -6,7 +6,10 @@ import {
   routerosInstallLoginPage,
 } from "../src/lib/hotspot-login.server";
 
-const input = { portalUrl: "https://app.example.com/p/my-isp", routerId: "11111111-2222-3333-4444-555555555555" };
+const input = {
+  portalUrl: "https://app.example.com/p/my-isp",
+  routerId: "11111111-2222-3333-4444-555555555555",
+};
 
 describe("hotspot login page", () => {
   const html = buildLoginHtml(input);
@@ -27,18 +30,26 @@ describe("hotspot login page", () => {
   it("marker changes with router, portal URL, and is stable otherwise", () => {
     expect(loginPageMarker(input)).toBe(loginPageMarker({ ...input }));
     expect(loginPageMarker(input)).not.toBe(loginPageMarker({ ...input, routerId: "other" }));
-    expect(loginPageMarker(input)).not.toBe(loginPageMarker({ ...input, portalUrl: "https://x.test/p/y" }));
+    expect(loginPageMarker(input)).not.toBe(
+      loginPageMarker({ ...input, portalUrl: "https://x.test/p/y" }),
+    );
   });
 
   it("cannot be broken out of by a hostile portal URL", () => {
-    const evil = buildLoginHtml({ portalUrl: 'https://a.test/p/x"</script><script>alert(1)</script>', routerId: "r" });
+    const evil = buildLoginHtml({
+      portalUrl: 'https://a.test/p/x"</script><script>alert(1)</script>',
+      routerId: "r",
+    });
     expect(evil).not.toContain("</script><script>alert(1)");
     expect(evil).not.toContain('x"</script>');
   });
 });
 
 describe("RouterOS snippets", () => {
-  const a = { loginUrl: "https://app.example.com/api/public/provision/TOK/login.html", marker: loginPageMarker(input) };
+  const a = {
+    loginUrl: "https://app.example.com/api/public/provision/TOK/login.html",
+    marker: loginPageMarker(input),
+  };
 
   it("install: downloads, verifies by marker, retries, never uses /file add", () => {
     const s = routerosInstallLoginPage(a);

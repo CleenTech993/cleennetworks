@@ -15,17 +15,24 @@ export class FakeDb {
     (this.tables[table] ??= []).push(...rows.map((r) => ({ ...r })));
     return this;
   }
-  rows(table: string): Row[] { return this.tables[table] ?? []; }
+  rows(table: string): Row[] {
+    return this.tables[table] ?? [];
+  }
   /** Make the next `op` on `table` fail with a database error. */
-  failNext(table: string, op: Query["op"], message = "boom") { this.failures.push({ table, op, message }); }
+  failNext(table: string, op: Query["op"], message = "boom") {
+    this.failures.push({ table, op, message });
+  }
   takeFailure(table: string, op: string) {
     const i = this.failures.findIndex((f) => f.table === table && f.op === op);
     return i === -1 ? null : this.failures.splice(i, 1)[0];
   }
-  from(table: string) { return new Query(this, table); }
+  from(table: string) {
+    return new Query(this, table);
+  }
 }
 
-const eqLoose = (a: unknown, b: unknown) => a === b || (a != null && b != null && String(a) === String(b));
+const eqLoose = (a: unknown, b: unknown) =>
+  a === b || (a != null && b != null && String(a) === String(b));
 
 class Query implements PromiseLike<Result> {
   op: "select" | "insert" | "update" | "delete" | "upsert" = "select";
@@ -38,22 +45,72 @@ class Query implements PromiseLike<Result> {
   private max = Infinity;
   private orders: { col: string; asc: boolean }[] = [];
 
-  constructor(private db: FakeDb, private table: string) {}
+  constructor(
+    private db: FakeDb,
+    private table: string,
+  ) {}
 
-  select(cols = "*") { if (this.op === "select") this.cols = cols; else { this.returning = true; this.cols = cols; } return this; }
-  insert(p: unknown) { this.op = "insert"; this.payload = p; return this; }
-  update(p: unknown) { this.op = "update"; this.payload = p; return this; }
-  upsert(p: unknown, o: { onConflict?: string; ignoreDuplicates?: boolean } = {}) { this.op = "upsert"; this.payload = p; this.upsertOpts = o; return this; }
-  delete() { this.op = "delete"; return this; }
+  select(cols = "*") {
+    if (this.op === "select") this.cols = cols;
+    else {
+      this.returning = true;
+      this.cols = cols;
+    }
+    return this;
+  }
+  insert(p: unknown) {
+    this.op = "insert";
+    this.payload = p;
+    return this;
+  }
+  update(p: unknown) {
+    this.op = "update";
+    this.payload = p;
+    return this;
+  }
+  upsert(p: unknown, o: { onConflict?: string; ignoreDuplicates?: boolean } = {}) {
+    this.op = "upsert";
+    this.payload = p;
+    this.upsertOpts = o;
+    return this;
+  }
+  delete() {
+    this.op = "delete";
+    return this;
+  }
 
-  eq(c: string, v: unknown) { this.preds.push((r) => eqLoose(r[c], v)); return this; }
-  neq(c: string, v: unknown) { this.preds.push((r) => !eqLoose(r[c], v)); return this; }
-  in(c: string, vs: unknown[]) { this.preds.push((r) => vs.some((v) => eqLoose(r[c], v))); return this; }
-  is(c: string, v: null) { this.preds.push((r) => (v === null ? r[c] == null : r[c] === v)); return this; }
-  not(c: string, op: string, v: unknown) { if (op === "is") this.preds.push((r) => (v === null ? r[c] != null : r[c] !== v)); return this; }
-  gte(c: string, v: unknown) { this.preds.push((r) => String(r[c]) >= String(v)); return this; }
-  gt(c: string, v: unknown) { this.preds.push((r) => String(r[c]) > String(v)); return this; }
-  lt(c: string, v: unknown) { this.preds.push((r) => String(r[c]) < String(v)); return this; }
+  eq(c: string, v: unknown) {
+    this.preds.push((r) => eqLoose(r[c], v));
+    return this;
+  }
+  neq(c: string, v: unknown) {
+    this.preds.push((r) => !eqLoose(r[c], v));
+    return this;
+  }
+  in(c: string, vs: unknown[]) {
+    this.preds.push((r) => vs.some((v) => eqLoose(r[c], v)));
+    return this;
+  }
+  is(c: string, v: null) {
+    this.preds.push((r) => (v === null ? r[c] == null : r[c] === v));
+    return this;
+  }
+  not(c: string, op: string, v: unknown) {
+    if (op === "is") this.preds.push((r) => (v === null ? r[c] != null : r[c] !== v));
+    return this;
+  }
+  gte(c: string, v: unknown) {
+    this.preds.push((r) => String(r[c]) >= String(v));
+    return this;
+  }
+  gt(c: string, v: unknown) {
+    this.preds.push((r) => String(r[c]) > String(v));
+    return this;
+  }
+  lt(c: string, v: unknown) {
+    this.preds.push((r) => String(r[c]) < String(v));
+    return this;
+  }
   // "router_id.eq.X,router_id.is.null"
   or(expr: string) {
     const parts = expr.split(",").map((p) => {
@@ -69,10 +126,22 @@ class Query implements PromiseLike<Result> {
     this.preds.push((r) => parts.some((f) => f(r)));
     return this;
   }
-  order(col: string, o: { ascending?: boolean } = {}) { this.orders.push({ col, asc: o.ascending !== false }); return this; }
-  limit(n: number) { this.max = n; return this; }
-  maybeSingle() { this.mode = "maybe"; return this; }
-  single() { this.mode = "one"; return this; }
+  order(col: string, o: { ascending?: boolean } = {}) {
+    this.orders.push({ col, asc: o.ascending !== false });
+    return this;
+  }
+  limit(n: number) {
+    this.max = n;
+    return this;
+  }
+  maybeSingle() {
+    this.mode = "maybe";
+    return this;
+  }
+  single() {
+    this.mode = "one";
+    return this;
+  }
 
   private project(r: Row): Row {
     if (this.cols === "*") return { ...r };
@@ -84,10 +153,12 @@ class Query implements PromiseLike<Result> {
     const projected = rows.map((r) => this.project(r));
     if (this.mode === "many") return { data: projected, error: null };
     if (this.mode === "maybe") {
-      if (projected.length > 1) return { data: null, error: { message: "multiple rows returned", code: "PGRST116" } };
+      if (projected.length > 1)
+        return { data: null, error: { message: "multiple rows returned", code: "PGRST116" } };
       return { data: projected[0] ?? null, error: null };
     }
-    if (projected.length !== 1) return { data: null, error: { message: "expected exactly one row", code: "PGRST116" } };
+    if (projected.length !== 1)
+      return { data: null, error: { message: "expected exactly one row", code: "PGRST116" } };
     return { data: projected[0], error: null };
   }
 
@@ -103,7 +174,14 @@ class Query implements PromiseLike<Result> {
       case "select": {
         let rows = matches();
         for (const o of [...this.orders].reverse()) {
-          rows = [...rows].sort((a, b) => (String(a[o.col]) < String(b[o.col]) ? -1 : String(a[o.col]) > String(b[o.col]) ? 1 : 0) * (o.asc ? 1 : -1));
+          rows = [...rows].sort(
+            (a, b) =>
+              (String(a[o.col]) < String(b[o.col])
+                ? -1
+                : String(a[o.col]) > String(b[o.col])
+                  ? 1
+                  : 0) * (o.asc ? 1 : -1),
+          );
         }
         return this.shape(rows.slice(0, this.max));
       }
@@ -113,9 +191,14 @@ class Query implements PromiseLike<Result> {
         const created: Row[] = [];
         const keys = this.upsertOpts.onConflict?.split(",").map((s) => s.trim());
         for (const p of incoming) {
-          const existing = keys ? all.find((r) => keys.every((k) => eqLoose(r[k], p[k]))) : undefined;
+          const existing = keys
+            ? all.find((r) => keys.every((k) => eqLoose(r[k], p[k])))
+            : undefined;
           if (this.op === "upsert" && existing) {
-            if (!this.upsertOpts.ignoreDuplicates) { Object.assign(existing, p); created.push(existing); }
+            if (!this.upsertOpts.ignoreDuplicates) {
+              Object.assign(existing, p);
+              created.push(existing);
+            }
             continue;
           }
           const row: Row = { id: crypto.randomUUID(), created_at: new Date().toISOString(), ...p };
@@ -137,7 +220,12 @@ class Query implements PromiseLike<Result> {
     }
   }
 
-  then<R1 = Result, R2 = never>(ok?: ((v: Result) => R1 | PromiseLike<R1>) | null, bad?: ((e: unknown) => R2 | PromiseLike<R2>) | null) {
-    return Promise.resolve().then(() => this.run()).then(ok, bad);
+  then<R1 = Result, R2 = never>(
+    ok?: ((v: Result) => R1 | PromiseLike<R1>) | null,
+    bad?: ((e: unknown) => R2 | PromiseLike<R2>) | null,
+  ) {
+    return Promise.resolve()
+      .then(() => this.run())
+      .then(ok, bad);
   }
 }

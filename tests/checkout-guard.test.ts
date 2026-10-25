@@ -9,11 +9,21 @@ import {
 } from "../src/lib/checkout-guard";
 
 const T0 = Date.UTC(2026, 9, 24, 12, 0, 0);
-const at = (id: string, msAfter: number): PhoneAttempt => ({ id, created_at: new Date(T0 + msAfter).toISOString() });
+const at = (id: string, msAfter: number): PhoneAttempt => ({
+  id,
+  created_at: new Date(T0 + msAfter).toISOString(),
+});
 
 describe("normalizePhone / isKenyanMobile", () => {
   it("normalises the common ways Kenyans write a number", () => {
-    for (const raw of ["0712345678", "712345678", "+254712345678", "254712345678", "0712 345 678", "07-12-345-678"]) {
+    for (const raw of [
+      "0712345678",
+      "712345678",
+      "+254712345678",
+      "254712345678",
+      "0712 345 678",
+      "07-12-345-678",
+    ]) {
       expect(normalizePhone(raw)).toBe("254712345678");
     }
     expect(normalizePhone("0112345678")).toBe("254112345678");
@@ -42,16 +52,22 @@ describe("evaluatePhoneAttempts", () => {
   });
 
   it("allows another prompt once the minimum gap has passed", () => {
-    expect(evaluatePhoneAttempts([at("a", 0), at("b", PHONE_MIN_GAP_MS)], "b")).toEqual({ ok: true });
+    expect(evaluatePhoneAttempts([at("a", 0), at("b", PHONE_MIN_GAP_MS)], "b")).toEqual({
+      ok: true,
+    });
   });
 
   it("allows exactly PHONE_MAX_ATTEMPTS in the window and blocks the next one", () => {
     const rows = Array.from({ length: PHONE_MAX_ATTEMPTS + 1 }, (_, i) => at(`r${i}`, i * 60_000));
-    for (let i = 0; i < PHONE_MAX_ATTEMPTS; i++) expect(evaluatePhoneAttempts(rows, `r${i}`)).toEqual({ ok: true });
+    for (let i = 0; i < PHONE_MAX_ATTEMPTS; i++)
+      expect(evaluatePhoneAttempts(rows, `r${i}`)).toEqual({ ok: true });
     const v = evaluatePhoneAttempts(rows, `r${PHONE_MAX_ATTEMPTS}`);
     expect(v).toMatchObject({ ok: false, reason: "limit" });
     // retry-after = until the oldest counted attempt leaves the window
-    if (!v.ok) expect(v.retryAfterSec).toBe(Math.ceil((PHONE_WINDOW_MS - PHONE_MAX_ATTEMPTS * 60_000) / 1000));
+    if (!v.ok)
+      expect(v.retryAfterSec).toBe(
+        Math.ceil((PHONE_WINDOW_MS - PHONE_MAX_ATTEMPTS * 60_000) / 1000),
+      );
   });
 
   it("is order-independent: concurrent requests all see the same winners", () => {

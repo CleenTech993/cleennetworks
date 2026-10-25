@@ -3,7 +3,11 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call, json } from "./helpers/call";
 import { freshIp, h, stubFetch } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
 vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
 
 import { Route } from "@/routes/api/public/portal/$slug/checkout";
@@ -14,7 +18,13 @@ const PARAMS = { slug: "acme" };
 let nextRef = 0;
 
 const payhero = () =>
-  stubFetch(() => Response.json({ success: true, CheckoutRequestID: `ws_CO_${++nextRef}`, reference: `ref-${nextRef}` }));
+  stubFetch(() =>
+    Response.json({
+      success: true,
+      CheckoutRequestID: `ws_CO_${++nextRef}`,
+      reference: `ref-${nextRef}`,
+    }),
+  );
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -23,17 +33,38 @@ beforeEach(() => {
   process.env.PAYHERO_API_PASSWORD = "p";
   process.env.PAYHERO_CHANNEL_ID = "42";
   h.db = new FakeDb()
-    .seed("tenants", [{ id: TENANT, slug: "acme", name: "Acme", mpesa_paybill: null, mpesa_till: null }])
+    .seed("tenants", [
+      { id: TENANT, slug: "acme", name: "Acme", mpesa_paybill: null, mpesa_till: null },
+    ])
     .seed("packages", [
       { id: PKG, tenant_id: TENANT, name: "1 hour", price: 50, kind: "hotspot", active: true },
-      { id: "33333333-3333-3333-3333-333333333333", tenant_id: TENANT, name: "old", price: 10, kind: "hotspot", active: false },
-      { id: "44444444-4444-4444-4444-444444444444", tenant_id: "99999999-9999-9999-9999-999999999999", name: "other", price: 10, kind: "hotspot", active: true },
+      {
+        id: "33333333-3333-3333-3333-333333333333",
+        tenant_id: TENANT,
+        name: "old",
+        price: 10,
+        kind: "hotspot",
+        active: false,
+      },
+      {
+        id: "44444444-4444-4444-4444-444444444444",
+        tenant_id: "99999999-9999-9999-9999-999999999999",
+        name: "other",
+        price: 10,
+        kind: "hotspot",
+        active: true,
+      },
     ]);
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 const advance = (ms: number) => vi.setSystemTime(new Date(Date.now() + ms));
-const checkout = (body: unknown, ip = freshIp(), params = PARAMS) => call(Route, "POST", { body, ip, params });
+const checkout = (body: unknown, ip = freshIp(), params = PARAMS) =>
+  call(Route, "POST", { body, ip, params });
 
 describe("checkout", () => {
   it("records a pending payment, sends one STK push and returns the payment id", async () => {
@@ -44,11 +75,23 @@ describe("checkout", () => {
     expect(res.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const sent = JSON.parse(String(fetchSpy.mock.calls[0][1]?.body));
-    expect(sent).toMatchObject({ amount: 50, phone_number: "254712345678", channel_id: 42, external_reference: body.paymentId });
+    expect(sent).toMatchObject({
+      amount: 50,
+      phone_number: "254712345678",
+      channel_id: 42,
+      external_reference: body.paymentId,
+    });
     expect(sent.callback_url).toBe(`https://portal.test/api/public/mpesa/callback/${TENANT}`);
 
     const [pay] = h.db.rows("payments");
-    expect(pay).toMatchObject({ id: body.paymentId, tenant_id: TENANT, package_id: PKG, phone: "254712345678", amount: 50, status: "pending" });
+    expect(pay).toMatchObject({
+      id: body.paymentId,
+      tenant_id: TENANT,
+      package_id: PKG,
+      phone: "254712345678",
+      amount: 50,
+      status: "pending",
+    });
     expect(pay.checkout_request_id).toMatch(/^ws_CO_/);
     expect(pay.merchant_request_id).toMatch(/^ref-/);
   });
@@ -73,20 +116,35 @@ describe("checkout", () => {
 
   it("rejects inactive packages, other tenants' packages and unknown portals", async () => {
     const fetchSpy = payhero();
-    expect((await checkout({ packageId: "33333333-3333-3333-3333-333333333333", phone: "0712345678" })).status).toBe(400);
-    expect((await checkout({ packageId: "44444444-4444-4444-4444-444444444444", phone: "0712345678" })).status).toBe(400);
-    expect((await checkout({ packageId: PKG, phone: "0712345678" }, freshIp(), { slug: "nope" })).status).toBe(404);
+    expect(
+      (await checkout({ packageId: "33333333-3333-3333-3333-333333333333", phone: "0712345678" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await checkout({ packageId: "44444444-4444-4444-4444-444444444444", phone: "0712345678" }))
+        .status,
+    ).toBe(400);
+    expect(
+      (await checkout({ packageId: PKG, phone: "0712345678" }, freshIp(), { slug: "nope" })).status,
+    ).toBe(404);
     expect(h.db.rows("payments")).toHaveLength(0);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("rejects malformed bodies", async () => {
-    expect((await call(Route, "POST", { rawBody: "{nope", ip: freshIp(), params: PARAMS })).status).toBe(400);
+    expect(
+      (await call(Route, "POST", { rawBody: "{nope", ip: freshIp(), params: PARAMS })).status,
+    ).toBe(400);
     expect((await checkout({ packageId: "not-a-uuid", phone: "0712345678" })).status).toBe(400);
   });
 
   it("does not leak gateway internals, and marks the payment failed", async () => {
-    stubFetch(() => Response.json({ success: false, error_message: "INTERNAL: api key abc123 rejected" }, { status: 500 }));
+    stubFetch(() =>
+      Response.json(
+        { success: false, error_message: "INTERNAL: api key abc123 rejected" },
+        { status: 500 },
+      ),
+    );
     vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await checkout({ packageId: PKG, phone: "0712345678" });
     const text = JSON.stringify(await json(res));
@@ -122,7 +180,10 @@ describe("checkout", () => {
 
     it("lets the same number back in once the window has passed", async () => {
       payhero();
-      for (let i = 0; i < 3; i++) { await checkout({ packageId: PKG, phone: "0712345678" }); advance(31_000); }
+      for (let i = 0; i < 3; i++) {
+        await checkout({ packageId: PKG, phone: "0712345678" });
+        advance(31_000);
+      }
       advance(10 * 60_000);
       expect((await checkout({ packageId: PKG, phone: "0712345678" })).status).toBe(200);
     });
@@ -144,7 +205,9 @@ describe("checkout", () => {
     it("sends exactly one prompt when a burst of requests hits the same number", async () => {
       const fetchSpy = payhero();
       const ip = freshIp();
-      const results = await Promise.all(Array.from({ length: 5 }, () => checkout({ packageId: PKG, phone: "0712345678" }, ip)));
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () => checkout({ packageId: PKG, phone: "0712345678" }, ip)),
+      );
       expect(results.filter((r) => r.status === 200)).toHaveLength(1);
       expect(results.filter((r) => r.status === 429)).toHaveLength(4);
       expect(fetchSpy).toHaveBeenCalledTimes(1);

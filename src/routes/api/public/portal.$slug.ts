@@ -15,12 +15,16 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
         const [{ data: portal }, { data: packages }] = await Promise.all([
           supabaseAdmin
             .from("captive_portals")
-            .select("logo_url,background_url,primary_color,welcome_text,terms_text,enable_voucher,enable_otp")
+            .select(
+              "logo_url,background_url,primary_color,welcome_text,terms_text,enable_voucher,enable_otp",
+            )
             .eq("tenant_id", tenant.id)
             .maybeSingle(),
           supabaseAdmin
             .from("packages")
-            .select("id,name,description,price,duration_value,duration_unit,download_kbps,upload_kbps,kind")
+            .select(
+              "id,name,description,price,duration_value,duration_unit,download_kbps,upload_kbps,kind",
+            )
             .eq("tenant_id", tenant.id)
             .eq("active", true)
             .in("kind", ["hotspot", "voucher"])

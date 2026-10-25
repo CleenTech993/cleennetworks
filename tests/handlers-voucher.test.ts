@@ -3,7 +3,11 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call, json } from "./helpers/call";
 import { freshIp, h } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
 
 import { Route } from "@/routes/api/public/portal/$slug/voucher";
 
@@ -12,19 +16,63 @@ const OTHER = "99999999-9999-9999-9999-999999999999";
 const PKG = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const hoursFromNow = (iso: unknown) => (new Date(String(iso)).getTime() - Date.now()) / 3_600_000;
 
-const redeem = (body: unknown, ip = freshIp(), slug = "acme") => call(Route, "POST", { body, ip, params: { slug } });
+const redeem = (body: unknown, ip = freshIp(), slug = "acme") =>
+  call(Route, "POST", { body, ip, params: { slug } });
 const voucher = (code: string) => h.db.rows("vouchers").find((v) => v.code === code)!;
 
 beforeEach(() => {
   h.db = new FakeDb()
-    .seed("tenants", [{ id: TENANT, slug: "acme" }, { id: OTHER, slug: "rival" }])
+    .seed("tenants", [
+      { id: TENANT, slug: "acme" },
+      { id: OTHER, slug: "rival" },
+    ])
     .seed("packages", [{ id: PKG, tenant_id: TENANT, duration_value: 3, duration_unit: "hours" }])
     .seed("vouchers", [
-      { id: "v1", tenant_id: TENANT, code: "ABCD2345", status: "unused", package_id: PKG, payment_id: null, expires_at: null },
-      { id: "v2", tenant_id: TENANT, code: "USED2345", status: "used", package_id: PKG, payment_id: null, expires_at: null },
-      { id: "v3", tenant_id: TENANT, code: "OLD22345", status: "unused", package_id: PKG, payment_id: null, expires_at: "2020-01-01T00:00:00Z" },
-      { id: "v4", tenant_id: TENANT, code: "PAID2345", status: "unused", package_id: PKG, payment_id: "pay-1", expires_at: new Date(Date.now() + 5 * 3_600_000).toISOString() },
-      { id: "v5", tenant_id: OTHER, code: "RIVAL234", status: "unused", package_id: null, payment_id: null, expires_at: null },
+      {
+        id: "v1",
+        tenant_id: TENANT,
+        code: "ABCD2345",
+        status: "unused",
+        package_id: PKG,
+        payment_id: null,
+        expires_at: null,
+      },
+      {
+        id: "v2",
+        tenant_id: TENANT,
+        code: "USED2345",
+        status: "used",
+        package_id: PKG,
+        payment_id: null,
+        expires_at: null,
+      },
+      {
+        id: "v3",
+        tenant_id: TENANT,
+        code: "OLD22345",
+        status: "unused",
+        package_id: PKG,
+        payment_id: null,
+        expires_at: "2020-01-01T00:00:00Z",
+      },
+      {
+        id: "v4",
+        tenant_id: TENANT,
+        code: "PAID2345",
+        status: "unused",
+        package_id: PKG,
+        payment_id: "pay-1",
+        expires_at: new Date(Date.now() + 5 * 3_600_000).toISOString(),
+      },
+      {
+        id: "v5",
+        tenant_id: OTHER,
+        code: "RIVAL234",
+        status: "unused",
+        package_id: null,
+        payment_id: null,
+        expires_at: null,
+      },
     ]);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -51,8 +99,12 @@ describe("voucher redemption", () => {
   });
 
   it("refuses used, expired and unknown codes with distinct errors", async () => {
-    expect(await json(await redeem({ code: "USED2345" }))).toMatchObject({ error: "Voucher already used" });
-    expect(await json(await redeem({ code: "OLD22345" }))).toMatchObject({ error: "Voucher expired" });
+    expect(await json(await redeem({ code: "USED2345" }))).toMatchObject({
+      error: "Voucher already used",
+    });
+    expect(await json(await redeem({ code: "OLD22345" }))).toMatchObject({
+      error: "Voucher expired",
+    });
     const missing = await redeem({ code: "NOPE2345" });
     expect(missing.status).toBe(404);
     expect(voucher("USED2345").status).toBe("used");
@@ -68,13 +120,18 @@ describe("voucher redemption", () => {
 
   it("lets exactly one of several simultaneous redemptions win", async () => {
     const ip = freshIp();
-    const results = await Promise.all(Array.from({ length: 6 }, (_, i) => redeem({ code: "ABCD2345", mac: `mac-${i}` }, ip)));
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) => redeem({ code: "ABCD2345", mac: `mac-${i}` }, ip)),
+    );
     expect(results.filter((r) => r.status === 200)).toHaveLength(1);
     expect(results.filter((r) => r.status === 400)).toHaveLength(5);
   });
 
   it("rejects bad input and unknown portals", async () => {
-    expect((await call(Route, "POST", { rawBody: "nope", ip: freshIp(), params: { slug: "acme" } })).status).toBe(400);
+    expect(
+      (await call(Route, "POST", { rawBody: "nope", ip: freshIp(), params: { slug: "acme" } }))
+        .status,
+    ).toBe(400);
     expect((await redeem({ code: "ab" })).status).toBe(400);
     expect((await redeem({ code: "ABCD2345" }, freshIp(), "ghost")).status).toBe(404);
   });

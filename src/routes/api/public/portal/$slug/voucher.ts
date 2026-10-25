@@ -10,14 +10,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
-        if (!rateLimit(`voucher:${params.slug}:${clientIp(request)}`, 10, 60_000)) return tooManyRequests();
+        if (!rateLimit(`voucher:${params.slug}:${clientIp(request)}`, 10, 60_000))
+          return tooManyRequests();
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
         if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
-          .from("tenants").select("id").eq("slug", params.slug).maybeSingle();
+          .from("tenants")
+          .select("id")
+          .eq("slug", params.slug)
+          .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
 
         const { data: v } = await supabaseAdmin
@@ -27,7 +35,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           .eq("code", parsed.data.code.trim().toUpperCase())
           .maybeSingle();
         if (!v) return Response.json({ error: "Invalid voucher" }, { status: 404 });
-        if (v.status !== "unused") return Response.json({ error: "Voucher already used" }, { status: 400 });
+        if (v.status !== "unused")
+          return Response.json({ error: "Voucher already used" }, { status: 400 });
         if (v.expires_at && new Date(v.expires_at) < new Date()) {
           return Response.json({ error: "Voucher expired" }, { status: 400 });
         }
@@ -43,13 +52,19 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
             .eq("id", v.package_id)
             .eq("tenant_id", tenant.id)
             .maybeSingle();
-          if (pkg?.duration_value && pkg.duration_unit) expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
+          if (pkg?.duration_value && pkg.duration_unit)
+            expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
         }
 
         // Atomic redeem: only one concurrent request can flip unused -> used.
         const { data: redeemed } = await supabaseAdmin
           .from("vouchers")
-          .update({ status: "used", used_at: new Date().toISOString(), used_by_mac: parsed.data.mac ?? null, expires_at: expiresAt })
+          .update({
+            status: "used",
+            used_at: new Date().toISOString(),
+            used_by_mac: parsed.data.mac ?? null,
+            expires_at: expiresAt,
+          })
           .eq("id", v.id)
           .eq("tenant_id", tenant.id)
           .eq("status", "unused")
@@ -57,7 +72,12 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           .maybeSingle();
         if (!redeemed) return Response.json({ error: "Voucher already used" }, { status: 400 });
 
-        return Response.json({ ok: true, packageId: v.package_id, code: parsed.data.code.trim().toUpperCase(), expiresAt });
+        return Response.json({
+          ok: true,
+          packageId: v.package_id,
+          code: parsed.data.code.trim().toUpperCase(),
+          expiresAt,
+        });
       },
     },
   },

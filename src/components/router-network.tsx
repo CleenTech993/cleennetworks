@@ -1,6 +1,16 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/dashboard-shell";
@@ -15,8 +25,12 @@ export function fmtBps(v?: number | null) {
 function fmtBytes(v?: number | null) {
   const n = Number(v ?? 0);
   const u = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0, x = n;
-  while (x >= 1024 && i < u.length - 1) { x /= 1024; i++; }
+  let i = 0,
+    x = n;
+  while (x >= 1024 && i < u.length - 1) {
+    x /= 1024;
+    i++;
+  }
   return `${x.toFixed(i ? 1 : 0)} ${u[i]}`;
 }
 const t = (s: string) => new Date(s).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -25,7 +39,11 @@ function useInterfaces(routerId: string) {
   const q = useQuery({
     queryKey: ["router-ifaces", routerId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("router_interfaces").select("*").eq("router_id", routerId).order("name");
+      const { data, error } = await supabase
+        .from("router_interfaces")
+        .select("*")
+        .eq("router_id", routerId)
+        .order("name");
       if (error) throw error;
       return data;
     },
@@ -34,9 +52,20 @@ function useInterfaces(routerId: string) {
   useEffect(() => {
     const ch = supabase
       .channel(`ifaces-${routerId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "router_interfaces", filter: `router_id=eq.${routerId}` }, () => q.refetch())
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "router_interfaces",
+          filter: `router_id=eq.${routerId}`,
+        },
+        () => q.refetch(),
+      )
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      void supabase.removeChannel(ch);
+    };
   }, [routerId]); // eslint-disable-line react-hooks/exhaustive-deps
   return q;
 }
@@ -59,23 +88,45 @@ function useMetrics(routerId: string) {
   });
 }
 
-const empty = (msg: string) => <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{msg}</p>;
+const empty = (msg: string) => (
+  <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">{msg}</p>
+);
 
 export function InterfacesTab({ routerId }: { routerId: string }) {
   const { data } = useInterfaces(routerId);
-  if (!data?.length) return empty("No port data yet. It appears within 2 minutes after the router runs the latest setup file.");
+  if (!data?.length)
+    return empty(
+      "No port data yet. It appears within 2 minutes after the router runs the latest setup file.",
+    );
   return (
     <div className="overflow-x-auto rounded-xl border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
-          <tr>{["Port", "Status", "Download", "Upload", "Total in", "Total out", "Errors", "Drops"].map((h) => <th key={h} className="px-3 py-2">{h}</th>)}</tr>
+          <tr>
+            {[
+              "Port",
+              "Status",
+              "Download",
+              "Upload",
+              "Total in",
+              "Total out",
+              "Errors",
+              "Drops",
+            ].map((h) => (
+              <th key={h} className="px-3 py-2">
+                {h}
+              </th>
+            ))}
+          </tr>
         </thead>
         <tbody>
           {data.map((i) => (
             <tr key={i.id} className="border-t">
               <td className="px-3 py-2 font-mono text-xs">{i.name}</td>
               <td className="px-3 py-2">
-                <Badge variant={i.disabled ? "outline" : i.running ? "default" : "secondary"}>{i.disabled ? "disabled" : i.running ? "up" : "down"}</Badge>
+                <Badge variant={i.disabled ? "outline" : i.running ? "default" : "secondary"}>
+                  {i.disabled ? "disabled" : i.running ? "up" : "down"}
+                </Badge>
               </td>
               <td className="px-3 py-2">{fmtBps(i.rx_bps)}</td>
               <td className="px-3 py-2">{fmtBps(i.tx_bps)}</td>
@@ -96,7 +147,12 @@ export function QualityTab({ routerId }: { routerId: string }) {
   const pts = (data ?? []).filter((m) => m.wan_latency_ms != null);
   if (!pts.length) return empty("No internet quality samples yet.");
   const last = pts[pts.length - 1];
-  const rows = pts.map((m) => ({ t: t(m.ts), latency: Number(m.wan_latency_ms), jitter: Number(m.wan_jitter_ms ?? 0), loss: Number(m.wan_loss_pct ?? 0) }));
+  const rows = pts.map((m) => ({
+    t: t(m.ts),
+    latency: Number(m.wan_latency_ms),
+    jitter: Number(m.wan_jitter_ms ?? 0),
+    loss: Number(m.wan_loss_pct ?? 0),
+  }));
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-4">
@@ -113,9 +169,27 @@ export function QualityTab({ routerId }: { routerId: string }) {
             <XAxis dataKey="t" fontSize={11} />
             <YAxis fontSize={11} />
             <Tooltip />
-            <Line type="monotone" dataKey="latency" name="Ping ms" stroke="var(--primary)" dot={false} />
-            <Line type="monotone" dataKey="jitter" name="Jitter ms" stroke="var(--muted-foreground)" dot={false} />
-            <Line type="monotone" dataKey="loss" name="Loss %" stroke="var(--destructive)" dot={false} />
+            <Line
+              type="monotone"
+              dataKey="latency"
+              name="Ping ms"
+              stroke="var(--primary)"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="jitter"
+              name="Jitter ms"
+              stroke="var(--muted-foreground)"
+              dot={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="loss"
+              name="Loss %"
+              stroke="var(--destructive)"
+              dot={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -126,8 +200,12 @@ export function QualityTab({ routerId }: { routerId: string }) {
 export function TrafficTab({ routerId }: { routerId: string }) {
   const { data } = useMetrics(routerId);
   const { data: ifaces } = useInterfaces(routerId);
-  const rows = (data ?? []).filter((m) => m.rx_bps != null).map((m) => ({ t: t(m.ts), down: Number(m.rx_bps) / 1e6, up: Number(m.tx_bps ?? 0) / 1e6 }));
-  const top = [...(ifaces ?? [])].sort((a, b) => b.rx_bps + b.tx_bps - (a.rx_bps + a.tx_bps)).slice(0, 5);
+  const rows = (data ?? [])
+    .filter((m) => m.rx_bps != null)
+    .map((m) => ({ t: t(m.ts), down: Number(m.rx_bps) / 1e6, up: Number(m.tx_bps ?? 0) / 1e6 }));
+  const top = [...(ifaces ?? [])]
+    .sort((a, b) => b.rx_bps + b.tx_bps - (a.rx_bps + a.tx_bps))
+    .slice(0, 5);
   return (
     <div className="space-y-4">
       <div className="rounded-xl border bg-card p-4">
@@ -139,20 +217,40 @@ export function TrafficTab({ routerId }: { routerId: string }) {
               <XAxis dataKey="t" fontSize={11} />
               <YAxis fontSize={11} />
               <Tooltip formatter={(v: number) => `${v.toFixed(2)} Mbps`} />
-              <Area type="monotone" dataKey="down" name="Download" stroke="var(--primary)" fill="color-mix(in oklab, var(--primary) 25%, transparent)" />
-              <Area type="monotone" dataKey="up" name="Upload" stroke="var(--muted-foreground)" fill="color-mix(in oklab, var(--muted-foreground) 20%, transparent)" />
+              <Area
+                type="monotone"
+                dataKey="down"
+                name="Download"
+                stroke="var(--primary)"
+                fill="color-mix(in oklab, var(--primary) 25%, transparent)"
+              />
+              <Area
+                type="monotone"
+                dataKey="up"
+                name="Upload"
+                stroke="var(--muted-foreground)"
+                fill="color-mix(in oklab, var(--muted-foreground) 20%, transparent)"
+              />
             </AreaChart>
           </ResponsiveContainer>
-        ) : <p className="text-sm text-muted-foreground">No traffic samples yet.</p>}
+        ) : (
+          <p className="text-sm text-muted-foreground">No traffic samples yet.</p>
+        )}
       </div>
       <div className="rounded-xl border bg-card p-4">
         <h4 className="mb-2 text-sm font-medium">Busiest ports right now</h4>
-        {top.length ? top.map((i) => (
-          <div key={i.id} className="flex justify-between border-t py-2 text-sm first:border-t-0">
-            <span className="font-mono text-xs">{i.name}</span>
-            <span>↓ {fmtBps(i.rx_bps)} · ↑ {fmtBps(i.tx_bps)}</span>
-          </div>
-        )) : <p className="text-sm text-muted-foreground">No port data yet.</p>}
+        {top.length ? (
+          top.map((i) => (
+            <div key={i.id} className="flex justify-between border-t py-2 text-sm first:border-t-0">
+              <span className="font-mono text-xs">{i.name}</span>
+              <span>
+                ↓ {fmtBps(i.rx_bps)} · ↑ {fmtBps(i.tx_bps)}
+              </span>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">No port data yet.</p>
+        )}
       </div>
     </div>
   );

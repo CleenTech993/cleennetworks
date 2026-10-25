@@ -18,27 +18,38 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         if (!auth.ok) {
           return auth.blocked
             ? tooManyRequests()
-            : new Response("# unknown token\n", { status: 404, headers: { "content-type": "text/plain" } });
+            : new Response("# unknown token\n", {
+                status: 404,
+                headers: { "content-type": "text/plain" },
+              });
         }
         const router = auth.router;
 
         const now = new Date().toISOString();
-        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }] = await Promise.all([
-          supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
-          // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
-          // (router_id null). Other routers' credentials are never even read for this request.
-          supabaseAdmin.from("customers")
-            .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
-            .eq("tenant_id", router.tenant_id).eq("customer_type", "pppoe").eq("status", "active")
-            .or(`router_id.eq.${router.id},router_id.is.null`),
-          supabaseAdmin.from("vouchers")
-            .select("code,status,expires_at")
-            .eq("tenant_id", router.tenant_id).in("status", ["unused", "used"])
-            .or(`expires_at.is.null,expires_at.gt.${now}`),
-          supabaseAdmin.from("packages")
-            .select("id,download_kbps,upload_kbps")
-            .eq("tenant_id", router.tenant_id).eq("kind", "pppoe"),
-        ]);
+        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }] =
+          await Promise.all([
+            supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
+            // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
+            // (router_id null). Other routers' credentials are never even read for this request.
+            supabaseAdmin
+              .from("customers")
+              .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
+              .eq("tenant_id", router.tenant_id)
+              .eq("customer_type", "pppoe")
+              .eq("status", "active")
+              .or(`router_id.eq.${router.id},router_id.is.null`),
+            supabaseAdmin
+              .from("vouchers")
+              .select("code,status,expires_at")
+              .eq("tenant_id", router.tenant_id)
+              .in("status", ["unused", "used"])
+              .or(`expires_at.is.null,expires_at.gt.${now}`),
+            supabaseAdmin
+              .from("packages")
+              .select("id,download_kbps,upload_kbps")
+              .eq("tenant_id", router.tenant_id)
+              .eq("kind", "pppoe"),
+          ]);
 
         const lines: string[] = ["# NetGrid sync"];
 
@@ -63,10 +74,15 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             packages: packages ?? [],
           }),
         );
-        lines.push("/ip hotspot user", ':do { remove [find comment="netgrid-voucher"] } on-error={}');
+        lines.push(
+          "/ip hotspot user",
+          ':do { remove [find comment="netgrid-voucher"] } on-error={}',
+        );
         for (const v of vouchers ?? []) {
           if (!SAFE.test(v.code)) continue;
-          lines.push(`:do { add name="${v.code}" password="${v.code}" server=netgrid-hs comment="netgrid-voucher" } on-error={}`);
+          lines.push(
+            `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs comment="netgrid-voucher" } on-error={}`,
+          );
         }
         lines.push(':log info "NetGrid: users synced"', "");
 

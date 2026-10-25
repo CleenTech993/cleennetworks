@@ -22,8 +22,7 @@ export interface PhoneAttempt {
 }
 
 export type PhoneVerdict =
-  | { ok: true }
-  | { ok: false; reason: "gap" | "limit"; retryAfterSec: number; message: string };
+  { ok: true } | { ok: false; reason: "gap" | "limit"; retryAfterSec: number; message: string };
 
 const byAge = (a: PhoneAttempt, b: PhoneAttempt) =>
   new Date(a.created_at).getTime() - new Date(b.created_at).getTime() || a.id.localeCompare(b.id);
@@ -37,18 +36,27 @@ export function evaluatePhoneAttempts(attempts: PhoneAttempt[], selfId: string):
   const idx = ordered.findIndex((a) => a.id === selfId);
   // Our own row is missing (should not happen): fail closed.
   if (idx === -1) {
-    return { ok: false, reason: "limit", retryAfterSec: 60, message: "Please try again in a minute." };
+    return {
+      ok: false,
+      reason: "limit",
+      retryAfterSec: 60,
+      message: "Please try again in a minute.",
+    };
   }
 
   if (idx >= PHONE_MAX_ATTEMPTS) {
     const oldest = ordered[idx - PHONE_MAX_ATTEMPTS];
     const freeAt = new Date(oldest.created_at).getTime() + PHONE_WINDOW_MS;
-    const retryAfterSec = Math.max(1, Math.ceil((freeAt - new Date(ordered[idx].created_at).getTime()) / 1000));
+    const retryAfterSec = Math.max(
+      1,
+      Math.ceil((freeAt - new Date(ordered[idx].created_at).getTime()) / 1000),
+    );
     return {
       ok: false,
       reason: "limit",
       retryAfterSec,
-      message: "Too many payment attempts for this number. Please wait a few minutes and try again.",
+      message:
+        "Too many payment attempts for this number. Please wait a few minutes and try again.",
     };
   }
 
@@ -60,7 +68,8 @@ export function evaluatePhoneAttempts(attempts: PhoneAttempt[], selfId: string):
         ok: false,
         reason: "gap",
         retryAfterSec: Math.max(1, Math.ceil((PHONE_MIN_GAP_MS - gap) / 1000)),
-        message: "A payment prompt was just sent to this number. Please wait 30 seconds before trying again.",
+        message:
+          "A payment prompt was just sent to this number. Please wait 30 seconds before trying again.",
       };
     }
   }
