@@ -48,6 +48,7 @@ import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
 import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
+import { Route as ApiPublicIntasendWebhookRouteImport } from './routes/api/public/intasend/webhook'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
 import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
@@ -259,6 +260,12 @@ const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => TenantRoutersRoute,
 } as any)
+const ApiPublicIntasendWebhookRoute =
+  ApiPublicIntasendWebhookRouteImport.update({
+    id: '/api/public/intasend/webhook',
+    path: '/api/public/intasend/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   id: '/api/public/portal/$slug',
   path: '/api/public/portal/$slug',
@@ -388,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/intasend/webhook': typeof ApiPublicIntasendWebhookRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -441,6 +449,7 @@ export interface FileRoutesByTo {
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/intasend/webhook': typeof ApiPublicIntasendWebhookRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -498,6 +507,7 @@ export interface FileRoutesById {
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/intasend/webhook': typeof ApiPublicIntasendWebhookRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
@@ -556,6 +566,7 @@ export interface FileRouteTypes {
     | '/super-admin/'
     | '/tenant/'
     | '/tenant/routers/$id'
+    | '/api/public/intasend/webhook'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -609,6 +620,7 @@ export interface FileRouteTypes {
     | '/super-admin'
     | '/tenant'
     | '/tenant/routers/$id'
+    | '/api/public/intasend/webhook'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -665,6 +677,7 @@ export interface FileRouteTypes {
     | '/super-admin/'
     | '/tenant/'
     | '/tenant/routers/$id'
+    | '/api/public/intasend/webhook'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
@@ -694,6 +707,7 @@ export interface RootRouteChildren {
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   PSlugRoute: typeof PSlugRoute
+  ApiPublicIntasendWebhookRoute: typeof ApiPublicIntasendWebhookRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
@@ -980,6 +994,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantRoutersIdRouteImport
       parentRoute: typeof TenantRoutersRoute
     }
+    '/api/public/intasend/webhook': {
+      id: '/api/public/intasend/webhook'
+      path: '/api/public/intasend/webhook'
+      fullPath: '/api/public/intasend/webhook'
+      preLoaderRoute: typeof ApiPublicIntasendWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/portal/$slug': {
       id: '/api/public/portal/$slug'
       path: '/api/public/portal/$slug'
@@ -1215,6 +1236,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuperAdminRoute: SuperAdminRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   PSlugRoute: PSlugRoute,
+  ApiPublicIntasendWebhookRoute: ApiPublicIntasendWebhookRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
   ApiPublicProvisionTokenLoginDothtmlRoute:
@@ -1230,13 +1252,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

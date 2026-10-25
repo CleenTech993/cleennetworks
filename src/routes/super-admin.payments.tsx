@@ -6,7 +6,10 @@ import { PageHeader } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { getGatewayStatus } from "@/lib/gateway.functions";
 
 export const Route = createFileRoute("/super-admin/payments")({ component: PlatformPayments });
 
@@ -19,6 +22,7 @@ const empty = {
   callback_base_url: "",
   validation_url: "",
   confirmation_url: "",
+  active_provider: "intasend",
 };
 
 function PlatformPayments() {
@@ -31,6 +35,7 @@ function PlatformPayments() {
       return data;
     },
   });
+  const { data: gateways } = useQuery({ queryKey: ["gateway-status"], queryFn: () => getGatewayStatus() });
   const [form, setForm] = useState(empty);
   useEffect(() => {
     if (cfg) setForm({
@@ -42,6 +47,7 @@ function PlatformPayments() {
       callback_base_url: cfg.callback_base_url ?? "",
       validation_url: cfg.validation_url ?? "",
       confirmation_url: cfg.confirmation_url ?? "",
+      active_provider: cfg.active_provider ?? "intasend",
     });
   }, [cfg]);
 
@@ -66,18 +72,75 @@ function PlatformPayments() {
     );
   }
 
+  const origin = (form.callback_base_url || (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/$/, "");
+  const webhookUrl = `${origin}/api/public/intasend/webhook`;
+  const ok = (v: boolean | undefined, yes: string, no: string) => (
+    <Badge variant={v ? "default" : "secondary"}>{v ? yes : no}</Badge>
+  );
+
   return (
     <div>
-      <PageHeader title="Platform Payments" description="Centralized PayHero gateway — used by every tenant portal." />
-      <div className="rounded-xl border bg-card p-5 max-w-3xl">
-        <p className="text-xs text-muted-foreground mb-4">
-          M-Pesa prompts are sent through PayHero using the platform's saved API username, password and channel ID.
-          Tenants only provide where they want to receive payouts (Paybill / Till / bank).
-        </p>
+      <PageHeader title="Platform Payments" description="Payment gateway used by every tenant portal." />
+      <div className="rounded-xl border bg-card p-5 max-w-3xl space-y-5">
+        <div>
+          <Label>Active gateway</Label>
+          <Select value={form.active_provider} onValueChange={(v) => setForm({ ...form, active_provider: v })}>
+            <SelectTrigger className="mt-1 max-w-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="intasend">IntaSend (default)</SelectItem>
+              <SelectItem value="payhero">PayHero</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-2">
+            New payments use this gateway. Payments already started keep using the one that created them, so switching is safe.
+          </p>
+          {gateways && (
+            <p className="mt-2 text-sm">
+              Checkouts are using{" "}
+              <strong>
+                {gateways.effective === "intasend" ? "IntaSend" : gateways.effective === "payhero" ? "PayHero" : "no gateway"}
+              </strong>{" "}
+              right now.
+              {gateways.effective === null && (
+                <span className="text-destructive"> Neither gateway has its server secrets set, so customers cannot pay.</span>
+              )}
+              {gateways.effective !== null && gateways.effective !== (cfg?.active_provider ?? "intasend") && (
+                <span className="text-destructive">
+                  {" "}
+                  The selected gateway has no server secrets yet, so payments fall back to the other one.
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="rounded-lg border p-3">
+            <div className="font-medium mb-1">PayHero</div>
+            {ok(gateways?.payhero, "Server secrets set", "Not configured")}
+          </div>
+          <div className="rounded-lg border p-3">
+            <div className="font-medium mb-1">IntaSend</div>
+            <div className="flex flex-wrap gap-1">
+              {ok(gateways?.intasend.secretKey, "Secret key set", "Secret key missing")}
+              {gateways?.intasend.mode && <Badge variant="outline">{gateways.intasend.mode === "live" ? "Live keys" : "Sandbox keys"}</Badge>}
+              {ok(gateways?.intasend.webhookChallenge, "Webhook challenge set", "Webhook challenge missing")}
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border p-3 text-xs space-y-1.5">
+          <div className="text-sm font-medium">IntaSend setup</div>
+          <p>1. Add server secrets <code>INTASEND_SECRET_KEY</code> (<code>ISSecretKey_test_…</code> to try it, <code>_live_</code> to go live) and <code>INTASEND_WEBHOOK_CHALLENGE</code> (any long random string).</p>
+          <p>2. In the IntaSend dashboard: Settings → Webhooks → New. Endpoint:</p>
+          <p><code className="break-all select-all">{webhookUrl}</code></p>
+          <p>3. Set the same challenge string, subscribe to <code>collection_event</code>, then choose IntaSend above and save.</p>
+        </div>
+
         <div className="space-y-3">
           {field("callback_base_url", "Callback base URL (optional)", "https://cleennetworks.lovable.app")}
         </div>
-        <div className="mt-5"><Button onClick={() => save.mutate()} disabled={save.isPending}>Save</Button></div>
+        <div><Button onClick={() => save.mutate()} disabled={save.isPending}>Save</Button></div>
       </div>
     </div>
   );
