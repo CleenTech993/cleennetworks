@@ -123,7 +123,11 @@ export const ROUTEROS_PICK_HTML_DIR = `
  * Only writes to flash when the page is missing or stale (marker mismatch), and
  * restores the portal's walled-garden entry if it was lost.
  */
-export function routerosHealLoginPage(a: { loginUrl: string; marker: string; portalHost: string }): string {
+export function routerosHealLoginPage(a: {
+  loginUrl: string;
+  marker: string;
+  portalHost: string;
+}): string {
   return `
 # NetGrid hotspot login page self-heal
 :do {

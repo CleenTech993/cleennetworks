@@ -21,7 +21,15 @@ interface Props {
   children: ReactNode;
 }
 
-function NavList({ nav, subtitle, onNavigate }: { nav: NavItem[]; subtitle?: string; onNavigate?: () => void }) {
+function NavList({
+  nav,
+  subtitle,
+  onNavigate,
+}: {
+  nav: NavItem[];
+  subtitle?: string;
+  onNavigate?: () => void;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
 
@@ -37,11 +45,16 @@ function NavList({ nav, subtitle, onNavigate }: { nav: NavItem[]; subtitle?: str
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="border-b border-sidebar-border px-5 py-5">
         <Brand className="text-sidebar-accent-foreground" />
-        {subtitle && <p className="mt-1.5 pl-[38px] text-xs text-sidebar-foreground/60">{subtitle}</p>}
+        {subtitle && (
+          <p className="mt-1.5 pl-[38px] text-xs text-sidebar-foreground/60">{subtitle}</p>
+        )}
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="Main">
         {nav.map((item) => {
-          const active = item.to === rootTo ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
+          const active =
+            item.to === rootTo
+              ? pathname === item.to
+              : pathname === item.to || pathname.startsWith(item.to + "/");
           const Icon = item.icon;
           return (
             <Link
@@ -96,7 +109,10 @@ export function DashboardShell({ title, subtitle, nav, children }: Props) {
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-72 max-w-[85vw] border-sidebar-border bg-sidebar p-0 md:hidden [&>button]:text-sidebar-foreground">
+            <SheetContent
+              side="left"
+              className="w-72 max-w-[85vw] border-sidebar-border bg-sidebar p-0 md:hidden [&>button]:text-sidebar-foreground"
+            >
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               <NavList nav={nav} subtitle={subtitle} onNavigate={() => setOpen(false)} />
             </SheetContent>
@@ -106,18 +122,30 @@ export function DashboardShell({ title, subtitle, nav, children }: Props) {
             <ThemeToggle />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">{children}</main>
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          {children}
+        </main>
       </div>
     </div>
   );
 }
 
-export function PageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+export function PageHeader({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h2>
-        {description && <p className="mt-1 max-w-prose text-sm text-muted-foreground">{description}</p>}
+        {description && (
+          <p className="mt-1 max-w-prose text-sm text-muted-foreground">{description}</p>
+        )}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>
@@ -141,7 +169,9 @@ export function StatCard({
         <p className="text-sm text-muted-foreground">{label}</p>
         {Icon && <Icon className="h-4 w-4 text-muted-foreground/70" />}
       </div>
-      <p className="mt-3 font-display text-3xl font-semibold tabular-nums tracking-tight">{value}</p>
+      <p className="mt-3 font-display text-3xl font-semibold tabular-nums tracking-tight">
+        {value}
+      </p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
     </div>
   );

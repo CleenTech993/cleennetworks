@@ -32,10 +32,30 @@ function Inventory() {
         description="Track your routers, ONTs, access points, switches and cable: what's in stock, what's deployed, what each customer has, and whether it's online."
       />
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Server} label="Devices" value={devices ? devices.length : "—"} hint="Registered units" />
-        <StatCard icon={Users} label="With customers" value={devices ? withCustomers : "—"} hint="Equipment assigned" />
-        <StatCard icon={PackageX} label="Low stock" value={items ? low : "—"} hint="Items to reorder" />
-        <StatCard icon={Boxes} label="Offline" value={devices ? offline : "—"} hint="Monitored devices down" />
+        <StatCard
+          icon={Server}
+          label="Devices"
+          value={devices ? devices.length : "—"}
+          hint="Registered units"
+        />
+        <StatCard
+          icon={Users}
+          label="With customers"
+          value={devices ? withCustomers : "—"}
+          hint="Equipment assigned"
+        />
+        <StatCard
+          icon={PackageX}
+          label="Low stock"
+          value={items ? low : "—"}
+          hint="Items to reorder"
+        />
+        <StatCard
+          icon={Boxes}
+          label="Offline"
+          value={devices ? offline : "—"}
+          hint="Monitored devices down"
+        />
       </div>
 
       <Tabs defaultValue="devices">
@@ -45,10 +65,18 @@ function Inventory() {
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
           <TabsTrigger value="alerts">Alerts</TabsTrigger>
         </TabsList>
-        <TabsContent value="devices" className="mt-4"><DevicesTab canWrite={canWrite} /></TabsContent>
-        <TabsContent value="stock" className="mt-4"><StockTab canWrite={canWrite} /></TabsContent>
-        <TabsContent value="monitoring" className="mt-4"><MonitoringTab /></TabsContent>
-        <TabsContent value="alerts" className="mt-4"><AlertsTab canManage={isAdmin} /></TabsContent>
+        <TabsContent value="devices" className="mt-4">
+          <DevicesTab canWrite={canWrite} />
+        </TabsContent>
+        <TabsContent value="stock" className="mt-4">
+          <StockTab canWrite={canWrite} />
+        </TabsContent>
+        <TabsContent value="monitoring" className="mt-4">
+          <MonitoringTab />
+        </TabsContent>
+        <TabsContent value="alerts" className="mt-4">
+          <AlertsTab canManage={isAdmin} />
+        </TabsContent>
       </Tabs>
     </div>
   );

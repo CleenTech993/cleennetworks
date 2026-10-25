@@ -33,7 +33,9 @@ export function buildSmsRequest(
   numbers: string[],
   message: string,
 ) {
-  const base = cfg.sandbox ? "https://api.sandbox.africastalking.com" : "https://api.africastalking.com";
+  const base = cfg.sandbox
+    ? "https://api.sandbox.africastalking.com"
+    : "https://api.africastalking.com";
   const body = new URLSearchParams({
     username: cfg.username,
     to: numbers.join(","),
@@ -44,7 +46,11 @@ export function buildSmsRequest(
     url: `${base}/version1/messaging`,
     init: {
       method: "POST",
-      headers: { apiKey: cfg.apiKey, Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+      headers: {
+        apiKey: cfg.apiKey,
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
       body: body.toString(),
     },
   };
@@ -52,9 +58,17 @@ export function buildSmsRequest(
 
 /** Success when at least one recipient was accepted (status codes 100-102 are "processed/sent/queued"). */
 export function parseSmsResponse(json: unknown): SmsResult {
-  const data = (json as { SMSMessageData?: { Message?: string; Recipients?: { statusCode?: number; status?: string }[] } })?.SMSMessageData;
+  const data = (
+    json as {
+      SMSMessageData?: {
+        Message?: string;
+        Recipients?: { statusCode?: number; status?: string }[];
+      };
+    }
+  )?.SMSMessageData;
   const recipients = data?.Recipients ?? [];
-  if (recipients.some((r) => r.statusCode === 100 || r.statusCode === 101 || r.statusCode === 102)) return { ok: true };
+  if (recipients.some((r) => r.statusCode === 100 || r.statusCode === 101 || r.statusCode === 102))
+    return { ok: true };
   const reason = recipients[0]?.status ?? data?.Message ?? "SMS provider rejected the message";
   return { ok: false, error: String(reason).slice(0, 200) };
 }
@@ -62,13 +76,19 @@ export function parseSmsResponse(json: unknown): SmsResult {
 export async function sendSms(numbers: string[], message: string): Promise<SmsResult> {
   const username = process.env.AT_USERNAME;
   const apiKey = process.env.AT_API_KEY;
-  if (!username || !apiKey) return { ok: false, error: "SMS is not configured on the platform", notConfigured: true };
+  if (!username || !apiKey)
+    return { ok: false, error: "SMS is not configured on the platform", notConfigured: true };
 
   const to = [...new Set(numbers.map(toE164).filter((n): n is string => !!n))];
   if (to.length === 0) return { ok: false, error: "No valid phone numbers" };
 
   const req = buildSmsRequest(
-    { username, apiKey, senderId: process.env.AT_SENDER_ID || undefined, sandbox: process.env.AT_ENV === "sandbox" },
+    {
+      username,
+      apiKey,
+      senderId: process.env.AT_SENDER_ID || undefined,
+      sandbox: process.env.AT_ENV === "sandbox",
+    },
     to,
     message,
   );
@@ -77,6 +97,9 @@ export async function sendSms(numbers: string[], message: string): Promise<SmsRe
     if (!res.ok) return { ok: false, error: `SMS provider returned ${res.status}` };
     return parseSmsResponse(await res.json());
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message.slice(0, 200) : "SMS request failed" };
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message.slice(0, 200) : "SMS request failed",
+    };
   }
 }

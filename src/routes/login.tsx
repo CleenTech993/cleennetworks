@@ -28,10 +28,15 @@ function LoginPage() {
       return;
     }
     // Approved users must pass two-step verification (OTP) before entering a console
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-    if (!roles?.length) { navigate({ to: "/pending" }); return; }
+    if (!roles?.length) {
+      navigate({ to: "/pending" });
+      return;
+    }
     navigate({ to: "/mfa" });
   }
 
@@ -39,21 +44,46 @@ function LoginPage() {
     <AuthLayout
       title="Sign in"
       description="Welcome back. Sign in to your console."
-      footer={<>New here? <Link to="/signup" className="font-medium text-primary hover:underline">Request access</Link></>}
+      footer={
+        <>
+          New here?{" "}
+          <Link to="/signup" className="font-medium text-primary hover:underline">
+            Request access
+          </Link>
+        </>
+      }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <Link to="/forgot-password" className="text-xs text-primary hover:underline">Forgot password?</Link>
+            <Link to="/forgot-password" className="text-xs text-primary hover:underline">
+              Forgot password?
+            </Link>
           </div>
-          <Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>{loading ? "Signing in…" : "Sign in"}</Button>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Signing in…" : "Sign in"}
+        </Button>
       </form>
     </AuthLayout>
   );

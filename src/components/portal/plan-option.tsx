@@ -24,13 +24,21 @@ interface PlanOptionProps {
 function SignalBars({ kbps, accent }: { kbps: number | null; accent: string }) {
   const n = speedBars(kbps);
   return (
-    <span className="pt-bars shrink-0" style={{ color: accent }} role="img" aria-label={n ? `Speed: ${n} of 4 bars` : "Speed not set"}>
-      {[1, 2, 3, 4].map((i) => <i key={i} data-on={n >= i ? "" : undefined} />)}
+    <span
+      className="pt-bars shrink-0"
+      style={{ color: accent }}
+      role="img"
+      aria-label={n ? `Speed: ${n} of 4 bars` : "Speed not set"}
+    >
+      {[1, 2, 3, 4].map((i) => (
+        <i key={i} data-on={n >= i ? "" : undefined} />
+      ))}
     </span>
   );
 }
 
-const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background";
+const FOCUS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background";
 
 /** One selectable plan. The markup differs per theme; the data and behaviour do not. */
 export function PlanOption({ theme, plan, selected, onSelect, accent }: PlanOptionProps) {
@@ -64,13 +72,25 @@ export function PlanOption({ theme, plan, selected, onSelect, accent }: PlanOpti
       return (
         <button
           {...press}
-          className={cn("pt-surface block w-full rounded-xl border bg-card p-4 text-left transition-colors", FOCUS)}
+          className={cn(
+            "pt-surface block w-full rounded-xl border bg-card p-4 text-left transition-colors",
+            FOCUS,
+          )}
           style={selected ? { backgroundColor: accent, color: "var(--pt-on-accent)" } : undefined}
         >
           <span className="flex items-center justify-between gap-3">
             <span className="min-w-0">
-              <span className="pt-heading block break-words text-lg font-extrabold leading-tight">{plan.name}</span>
-              <span className={cn("block text-xs font-medium", selected ? "opacity-90" : "text-muted-foreground")}>{detail}</span>
+              <span className="pt-heading block break-words text-lg font-extrabold leading-tight">
+                {plan.name}
+              </span>
+              <span
+                className={cn(
+                  "block text-xs font-medium",
+                  selected ? "opacity-90" : "text-muted-foreground",
+                )}
+              >
+                {detail}
+              </span>
             </span>
             <span className="pt-heading shrink-0 text-xl font-extrabold tabular-nums">{price}</span>
           </span>
@@ -81,8 +101,12 @@ export function PlanOption({ theme, plan, selected, onSelect, accent }: PlanOpti
       return (
         <button {...press} className={cn("block w-full py-2 text-left", FOCUS)}>
           <span className="flex items-baseline gap-2">
-            <span className="pt-mono shrink-0" aria-hidden>{selected ? "[x]" : "[ ]"}</span>
-            <span className={cn("shrink-0", selected ? "font-bold" : "font-medium")}>{plan.name}</span>
+            <span className="pt-mono shrink-0" aria-hidden>
+              {selected ? "[x]" : "[ ]"}
+            </span>
+            <span className={cn("shrink-0", selected ? "font-bold" : "font-medium")}>
+              {plan.name}
+            </span>
             <span className="pt-leader" aria-hidden />
             <span className="shrink-0 font-semibold tabular-nums">{price}</span>
           </span>
@@ -94,7 +118,10 @@ export function PlanOption({ theme, plan, selected, onSelect, accent }: PlanOpti
       return (
         <button
           {...press}
-          className={cn("pt-surface flex w-full items-center gap-3 rounded-xl border bg-card p-4 text-left transition", FOCUS)}
+          className={cn(
+            "pt-surface flex w-full items-center gap-3 rounded-xl border bg-card p-4 text-left transition",
+            FOCUS,
+          )}
           style={selected ? { borderColor: accent, boxShadow: `0 0 0 1px ${accent}` } : undefined}
         >
           <SignalBars kbps={plan.download_kbps} accent={accent} />
@@ -111,7 +138,10 @@ export function PlanOption({ theme, plan, selected, onSelect, accent }: PlanOpti
       return (
         <button
           {...press}
-          className={cn("pt-surface block w-full rounded-xl border bg-card p-4 text-left transition", FOCUS)}
+          className={cn(
+            "pt-surface block w-full rounded-xl border bg-card p-4 text-left transition",
+            FOCUS,
+          )}
           style={selected ? { borderColor: accent, boxShadow: `0 0 0 2px ${accent}33` } : undefined}
         >
           <span className="flex items-center justify-between gap-3">

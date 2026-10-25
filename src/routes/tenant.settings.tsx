@@ -33,7 +33,11 @@ function Settings() {
     queryKey: ["tenant", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("tenants").select("*").eq("id", tenantId!).single();
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("*")
+        .eq("id", tenantId!)
+        .single();
       if (error) throw error;
       return data;
     },
@@ -63,26 +67,37 @@ function Settings() {
       const { error } = await supabase.from("tenants").update(form).eq("id", tenantId!);
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Saved"); qc.invalidateQueries({ queryKey: ["tenant"] }); },
+    onSuccess: () => {
+      toast.success("Saved");
+      qc.invalidateQueries({ queryKey: ["tenant"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const slug = (tenant as { slug?: string } | undefined)?.slug;
-  const portalUrl = slug && typeof window !== "undefined" ? `${window.location.origin}/p/${slug}` : "";
+  const portalUrl =
+    slug && typeof window !== "undefined" ? `${window.location.origin}/p/${slug}` : "";
 
   function field<K extends keyof typeof form>(k: K, label: string, placeholder?: string) {
     return (
       <div>
         <Label>{label}</Label>
-        <Input value={form[k]} placeholder={placeholder}
-          onChange={(e) => setForm({ ...form, [k]: e.target.value })} className="mt-1" />
+        <Input
+          value={form[k]}
+          placeholder={placeholder}
+          onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+          className="mt-1"
+        />
       </div>
     );
   }
 
   return (
     <div>
-      <PageHeader title="Settings" description="Branding, receiving details, and customer support." />
+      <PageHeader
+        title="Settings"
+        description="Branding, receiving details, and customer support."
+      />
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-xl border bg-card p-5">
           <h3 className="font-semibold mb-4">Branding</h3>
@@ -92,7 +107,14 @@ function Settings() {
             {portalUrl && (
               <div className="rounded-md bg-muted p-3 text-xs">
                 <p className="text-muted-foreground">Public captive portal</p>
-                <a href={portalUrl} target="_blank" rel="noreferrer" className="font-mono text-primary break-all">{portalUrl}</a>
+                <a
+                  href={portalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono text-primary break-all"
+                >
+                  {portalUrl}
+                </a>
               </div>
             )}
           </div>
@@ -101,8 +123,9 @@ function Settings() {
         <div className="rounded-xl border bg-card p-5">
           <h3 className="font-semibold mb-1">Receiving details</h3>
           <p className="text-xs text-muted-foreground mb-4">
-            Customers pay through the platform M-Pesa API (managed by Super Admin). These details are used for your settlement
-            records and shown to customers for manual deposits — they are <b>not</b> API credentials.
+            Customers pay through the platform M-Pesa API (managed by Super Admin). These details
+            are used for your settlement records and shown to customers for manual deposits — they
+            are <b>not</b> API credentials.
           </p>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -135,7 +158,11 @@ function Settings() {
           </div>
         </div>
       </div>
-      <div className="mt-6"><Button onClick={() => save.mutate()} disabled={save.isPending}>Save changes</Button></div>
+      <div className="mt-6">
+        <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          Save changes
+        </Button>
+      </div>
     </div>
   );
 }

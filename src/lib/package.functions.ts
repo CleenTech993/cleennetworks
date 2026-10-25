@@ -72,7 +72,10 @@ const DeleteSchema = z.object({ id: z.string().uuid() });
 
 async function archive(id: string, tenantId: string): Promise<boolean> {
   const { error } = await supabaseAdmin
-    .from("packages").update({ active: false }).eq("id", id).eq("tenant_id", tenantId);
+    .from("packages")
+    .update({ active: false })
+    .eq("id", id)
+    .eq("tenant_id", tenantId);
   return !error;
 }
 
@@ -90,17 +93,28 @@ export const deletePackage = createServerFn({ method: "POST" })
     if (!tenantId) return NOT_ADMIN;
 
     const { data: pkg } = await supabaseAdmin
-      .from("packages").select("id").eq("id", data.id).eq("tenant_id", tenantId).maybeSingle();
+      .from("packages")
+      .select("id")
+      .eq("id", data.id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
     if (!pkg) return { ok: false, error: "Package not found." };
 
     const count = (table: "payments" | "customers") =>
-      supabaseAdmin.from(table).select("id", { count: "exact", head: true })
-        .eq("package_id", data.id).eq("tenant_id", tenantId);
+      supabaseAdmin
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", data.id)
+        .eq("tenant_id", tenantId);
     const [payments, customers, redeemed] = await Promise.all([
       count("payments"),
       count("customers"),
-      supabaseAdmin.from("vouchers").select("id", { count: "exact", head: true })
-        .eq("package_id", data.id).eq("tenant_id", tenantId).neq("status", "unused"),
+      supabaseAdmin
+        .from("vouchers")
+        .select("id", { count: "exact", head: true })
+        .eq("package_id", data.id)
+        .eq("tenant_id", tenantId)
+        .neq("status", "unused"),
     ]);
 
     const inUse: string[] = [];
@@ -109,15 +123,23 @@ export const deletePackage = createServerFn({ method: "POST" })
     if ((redeemed.count ?? 0) > 0) inUse.push(`${redeemed.count} redeemed voucher(s)`);
 
     if (inUse.length > 0) {
-      if (!(await archive(data.id, tenantId))) return { ok: false, error: "Could not archive the package." };
+      if (!(await archive(data.id, tenantId)))
+        return { ok: false, error: "Could not archive the package." };
       return { ok: true, result: "archived", reason: inUse.join(", ") };
     }
 
     const { data: removed } = await supabaseAdmin
-      .from("vouchers").delete().eq("package_id", data.id).eq("tenant_id", tenantId).select("id");
+      .from("vouchers")
+      .delete()
+      .eq("package_id", data.id)
+      .eq("tenant_id", tenantId)
+      .select("id");
 
     const { error } = await supabaseAdmin
-      .from("packages").delete().eq("id", data.id).eq("tenant_id", tenantId);
+      .from("packages")
+      .delete()
+      .eq("id", data.id)
+      .eq("tenant_id", tenantId);
     if (error) {
       // Something referenced it between the check and the delete (foreign key): keep the history.
       if (error.code === "23503" && (await archive(data.id, tenantId))) {

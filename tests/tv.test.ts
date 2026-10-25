@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildTvSyncLines,
-  isRandomizedMac,
-  isTvActive,
-  normalizeMac,
-} from "../src/lib/tv";
+import { buildTvSyncLines, isRandomizedMac, isTvActive, normalizeMac } from "../src/lib/tv";
 
 const NOW = Date.parse("2026-10-24T12:00:00Z");
 const FUTURE = "2026-10-25T12:00:00Z";
@@ -12,12 +7,24 @@ const PAST = "2026-10-23T12:00:00Z";
 
 describe("normalizeMac", () => {
   it("accepts the common notations", () => {
-    for (const m of ["aa:bb:cc:dd:ee:ff", "AA-BB-CC-DD-EE-FF", "aabb.ccdd.eeff", " AABBCCDDEEFF "]) {
+    for (const m of [
+      "aa:bb:cc:dd:ee:ff",
+      "AA-BB-CC-DD-EE-FF",
+      "aabb.ccdd.eeff",
+      " AABBCCDDEEFF ",
+    ]) {
       expect(normalizeMac(m)).toBe("AA:BB:CC:DD:EE:FF");
     }
   });
   it("rejects malformed, multicast and empty addresses", () => {
-    for (const m of ["", "AA:BB:CC", "AA:BB:CC:DD:EE:GG", "01:00:5E:00:00:01", "FF:FF:FF:FF:FF:FF", "00:00:00:00:00:00"]) {
+    for (const m of [
+      "",
+      "AA:BB:CC",
+      "AA:BB:CC:DD:EE:GG",
+      "01:00:5E:00:00:01",
+      "FF:FF:FF:FF:FF:FF",
+      "00:00:00:00:00:00",
+    ]) {
       expect(normalizeMac(m)).toBeNull();
     }
   });

@@ -24,9 +24,13 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
 
         let q = supabaseAdmin
           .from("payments")
-          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id,phone,tv_device_id,expires_at")
+          .select(
+            "id,tenant_id,package_id,customer_id,status,merchant_request_id,phone,tv_device_id,expires_at",
+          )
           .eq("tenant_id", tenantId);
-        q = /^[0-9a-f-]{36}$/i.test(externalRef) ? q.eq("id", externalRef) : q.eq("checkout_request_id", checkoutId);
+        q = /^[0-9a-f-]{36}$/i.test(externalRef)
+          ? q.eq("id", externalRef)
+          : q.eq("checkout_request_id", checkoutId);
         const { data: payment } = await q.maybeSingle();
 
         if (!payment) return Response.json({ ok: true, note: "Unknown payment" });
@@ -37,7 +41,8 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
         // Verify with PayHero directly
         let verified = { status: "", receipt: null as string | null };
         try {
-          if (payment.merchant_request_id) verified = await payheroTransactionStatus(payment.merchant_request_id);
+          if (payment.merchant_request_id)
+            verified = await payheroTransactionStatus(payment.merchant_request_id);
         } catch (e) {
           console.error(e);
           return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });

@@ -117,7 +117,10 @@ export function buildDeviceMonitorLines(targets: MonitorTarget[], reportUrl: str
 export type DeviceReading = { id: string; up: boolean; latencyMs: number | null };
 
 /** Parses "<uuid>~1~12,<uuid>~0,..." from the router (the latency is optional). Malformed pieces are ignored. */
-export function parseDeviceReport(raw: string | null, max = MAX_DEVICES_PER_ROUTER): DeviceReading[] {
+export function parseDeviceReport(
+  raw: string | null,
+  max = MAX_DEVICES_PER_ROUTER,
+): DeviceReading[] {
   if (!raw) return [];
   const out: DeviceReading[] = [];
   const seen = new Set<string>();
@@ -138,7 +141,12 @@ export function parseDeviceReport(raw: string | null, max = MAX_DEVICES_PER_ROUT
  * What changes when a router reports `up` for a device whose stored state is `prev`.
  * An event is recorded on every real transition, and when the very first reading is "down".
  */
-export function planReading(prevOnline: boolean | null, up: boolean, nowIso: string, latencyMs: number | null = null) {
+export function planReading(
+  prevOnline: boolean | null,
+  up: boolean,
+  nowIso: string,
+  latencyMs: number | null = null,
+) {
   const changed = prevOnline === null ? !up : prevOnline !== up;
   return {
     patch: {

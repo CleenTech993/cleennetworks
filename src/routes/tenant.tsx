@@ -1,7 +1,20 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Router, Wifi, Network, Palette, Package, Users,
-  Activity, Boxes, CreditCard, MessageSquare, LifeBuoy, Settings, UserCog, Smartphone,
+  LayoutDashboard,
+  Router,
+  Wifi,
+  Network,
+  Palette,
+  Package,
+  Users,
+  Activity,
+  Boxes,
+  CreditCard,
+  MessageSquare,
+  LifeBuoy,
+  Settings,
+  UserCog,
+  Smartphone,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
