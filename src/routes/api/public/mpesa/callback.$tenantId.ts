@@ -24,7 +24,7 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
 
         let q = supabaseAdmin
           .from("payments")
-          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id,phone")
+          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id,phone,tv_device_id,expires_at")
           .eq("tenant_id", tenantId);
         q = /^[0-9a-f-]{36}$/i.test(externalRef) ? q.eq("id", externalRef) : q.eq("checkout_request_id", checkoutId);
         const { data: payment } = await q.maybeSingle();
@@ -55,7 +55,14 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
 
         try {
           const outcome = await settlePayment({
-            payment: { id: payment.id, tenant_id: tenantId, package_id: payment.package_id, phone: phone || null },
+            payment: {
+              id: payment.id,
+              tenant_id: tenantId,
+              package_id: payment.package_id,
+              phone: phone || null,
+              tv_device_id: payment.tv_device_id,
+              expires_at: payment.expires_at,
+            },
             receipt: receipt || null,
             raw: rawJson,
           });

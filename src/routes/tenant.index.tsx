@@ -3,18 +3,24 @@ import { Check, CreditCard, Package, Router, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { supabase } from "@/integrations/supabase/client";
+import { hasAnyRole, REVENUE_ROLES } from "@/lib/permissions";
 
 export const Route = createFileRoute("/tenant/")({ component: Overview });
 
 function Overview() {
+  const { roles } = Route.useRouteContext();
+  const showRevenue = hasAnyRole(roles, REVENUE_ROLES);
+  const isAdmin = hasAnyRole(roles, ["tenant_admin"]);
   const { data } = useQuery({
-    queryKey: ["tenant-overview"],
+    queryKey: ["tenant-overview", showRevenue],
     queryFn: async () => {
       const [routers, customers, packages, payments] = await Promise.all([
         supabase.from("routers").select("id,status", { count: "exact", head: false }),
         supabase.from("customers").select("id,status", { count: "exact", head: false }),
         supabase.from("packages").select("id", { count: "exact", head: true }),
-        supabase.from("payments").select("amount,status,created_at").eq("status", "success"),
+        showRevenue
+          ? supabase.from("payments").select("amount,status,created_at").eq("status", "success")
+          : Promise.resolve({ data: [] as { amount: number | string }[] }),
       ]);
       const revenue = (payments.data ?? []).reduce((s, p) => s + Number(p.amount), 0);
       const online = (routers.data ?? []).filter((r) => r.status === "online").length;
@@ -44,10 +50,12 @@ function Overview() {
         <StatCard icon={Router} label="Routers" value={data?.routerCount ?? "—"} hint={`${data?.online ?? 0} online`} />
         <StatCard icon={Users} label="Active customers" value={data?.activeCustomers ?? "—"} hint={`${data?.customers ?? 0} total`} />
         <StatCard icon={Package} label="Packages" value={data?.packages ?? "—"} />
-        <StatCard icon={CreditCard} label="Revenue (KES)" value={data ? data.revenue.toLocaleString() : "—"} hint="All time" />
+        {showRevenue && (
+          <StatCard icon={CreditCard} label="Revenue (KES)" value={data ? data.revenue.toLocaleString() : "—"} hint="All time" />
+        )}
       </div>
 
-      {data && remaining > 0 && (
+      {isAdmin && data && remaining > 0 && (
         <section className="mt-8 rounded-xl border bg-card">
           <div className="border-b px-5 py-4">
             <h3 className="text-base font-semibold">Get your ISP running</h3>

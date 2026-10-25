@@ -156,3 +156,68 @@
     linear-gradient(to bottom, oklch(1 0 0 / 0.045) 1px, transparent 1px);
   background-size: 36px 36px;
 }
+
+/* ==========================================================================
+   Captive portal themes (see src/lib/portal-themes.ts)
+   The wrapper element sets colour variables; these rules add the few things variables
+   cannot express: shapes, outlines and the layout of each theme's plan list.
+   ========================================================================== */
+.portal-root { font-family: var(--pt-font-body, inherit); }
+.portal-root.dark { color-scheme: dark; }
+.portal-root .pt-heading { font-family: var(--pt-font-head, inherit); }
+.portal-root .pt-mono { font-family: var(--pt-font-mono, ui-monospace, monospace); }
+
+/* Wi-Fi signal bars (Midnight plans). */
+.pt-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 1.1rem; }
+.pt-bars > i { display: block; width: 4px; border-radius: 1px; background: currentColor; opacity: 0.22; }
+.pt-bars > i:nth-child(1) { height: 28%; }
+.pt-bars > i:nth-child(2) { height: 52%; }
+.pt-bars > i:nth-child(3) { height: 76%; }
+.pt-bars > i:nth-child(4) { height: 100%; }
+.pt-bars > i[data-on] { opacity: 1; }
+
+/* Ticket: a coloured stub, a dashed tear line and two notches cut into the page colour. */
+.pt-ticket {
+  position: relative; display: flex; width: 100%; text-align: left;
+  background: var(--card); color: var(--card-foreground);
+  border-radius: var(--radius); box-shadow: 0 1px 0 color-mix(in srgb, var(--pt-accent) 25%, transparent);
+}
+.pt-ticket:focus-visible { outline: 3px solid var(--foreground); outline-offset: 3px; }
+.pt-ticket[aria-pressed="true"] { outline: 3px solid var(--foreground); outline-offset: 3px; }
+.pt-ticket__stub {
+  position: relative; flex: none; width: 6.5rem; padding: 0.85rem 0.5rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+  background: var(--pt-accent); color: var(--pt-on-accent);
+  border-radius: var(--radius) 0 0 var(--radius);
+  border-right: 2px dashed color-mix(in srgb, var(--pt-on-accent) 55%, transparent);
+}
+.pt-ticket__stub::before, .pt-ticket__stub::after {
+  content: ""; position: absolute; right: -0.45rem; width: 0.9rem; height: 0.9rem;
+  border-radius: 9999px; background: var(--background);
+}
+.pt-ticket__stub::before { top: -0.45rem; }
+.pt-ticket__stub::after { bottom: -0.45rem; }
+.pt-ticket__num { font-size: 1.85rem; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pt-ticket__unit { font-size: 0.8rem; font-weight: 600; }
+.pt-ticket__body { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.85rem 1rem; }
+
+/* Block: heavy outlines and hard, unblurred shadows. */
+[data-portal-theme="block"] .pt-surface { border-width: 2px; border-color: var(--pt-ink); box-shadow: 3px 3px 0 var(--pt-ink); }
+[data-portal-theme="block"] [role="tablist"] { border: 2px solid var(--pt-ink); background: var(--card); padding: 3px; height: auto; }
+[data-portal-theme="block"] [role="tab"][data-state="active"] { background: var(--pt-accent); color: var(--pt-on-accent); box-shadow: none; }
+[data-portal-theme="block"] input, [data-portal-theme="block"] button[role="combobox"] { border-width: 2px; background: var(--card); }
+[data-portal-theme="block"] button.pt-btn { border: 2px solid var(--pt-ink); box-shadow: 3px 3px 0 var(--pt-ink); }
+
+/* Venue: content sheet overlapping the header photo. */
+.pt-sheet { position: relative; margin-top: -1.75rem; border-radius: 1.5rem 1.5rem 0 0; background: var(--background); }
+
+/* Lite: flat, dotted, no decoration. */
+[data-portal-theme="lite"] .pt-surface { border-style: dotted; border-width: 2px; background: transparent; box-shadow: none; }
+[data-portal-theme="lite"] [role="tablist"] { background: transparent; border-bottom: 2px solid var(--foreground); border-radius: 0; padding: 0; }
+[data-portal-theme="lite"] [role="tab"] { border-radius: 0; }
+[data-portal-theme="lite"] [role="tab"][data-state="active"] { background: var(--foreground); color: var(--background); box-shadow: none; }
+.pt-leader { flex: 1; min-width: 1rem; align-self: end; margin-bottom: 0.3rem; border-bottom: 2px dotted currentColor; opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-root * { transition: none !important; animation: none !important; }
+}
