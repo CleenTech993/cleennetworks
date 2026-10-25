@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Boxes, PackageX, Server, Users } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
+import { AlertsTab } from "@/components/inventory-alerts";
 import { DevicesTab } from "@/components/inventory-devices";
 import { MonitoringTab } from "@/components/inventory-monitoring";
 import { useInventoryDevices, useInventoryItems } from "@/components/inventory-shared";
@@ -16,6 +17,7 @@ function Inventory() {
   const { roles } = Route.useRouteContext();
   // Support staff can look but not change anything (the database enforces the same rule).
   const canWrite = hasAnyRole(roles, ["tenant_admin", "technician"]);
+  const isAdmin = hasAnyRole(roles, ["tenant_admin"]);
   const { data: devices } = useInventoryDevices();
   const { data: items } = useInventoryItems();
 
@@ -41,10 +43,12 @@ function Inventory() {
           <TabsTrigger value="devices">Devices</TabsTrigger>
           <TabsTrigger value="stock">Stock</TabsTrigger>
           <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+          <TabsTrigger value="alerts">Alerts</TabsTrigger>
         </TabsList>
         <TabsContent value="devices" className="mt-4"><DevicesTab canWrite={canWrite} /></TabsContent>
         <TabsContent value="stock" className="mt-4"><StockTab canWrite={canWrite} /></TabsContent>
         <TabsContent value="monitoring" className="mt-4"><MonitoringTab /></TabsContent>
+        <TabsContent value="alerts" className="mt-4"><AlertsTab canManage={isAdmin} /></TabsContent>
       </Tabs>
     </div>
   );

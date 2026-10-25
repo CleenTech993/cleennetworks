@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_settings: {
+        Row: {
+          down_after_minutes: number
+          notify_device_down: boolean
+          notify_low_stock: boolean
+          sms_numbers: string[]
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          down_after_minutes?: number
+          notify_device_down?: boolean
+          notify_low_stock?: boolean
+          sms_numbers?: string[]
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          down_after_minutes?: number
+          notify_device_down?: boolean
+          notify_low_stock?: boolean
+          sms_numbers?: string[]
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       captive_portals: {
         Row: {
           background_url: string | null
@@ -137,6 +172,67 @@ export type Database = {
           },
         ]
       }
+      inventory_alerts: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          id: number
+          item_id: string | null
+          kind: string
+          message: string
+          sms_error: string | null
+          sms_sent_at: string | null
+          sms_status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          id?: never
+          item_id?: string | null
+          kind: string
+          message: string
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          sms_status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          id?: never
+          item_id?: string | null
+          kind?: string
+          message?: string
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          sms_status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_alerts_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_alerts_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       inventory_device_events: {
         Row: {
           at: string
@@ -178,6 +274,7 @@ export type Database = {
       }
       inventory_devices: {
         Row: {
+          alerted_at: string | null
           brand: string | null
           category: string
           created_at: string
@@ -187,6 +284,7 @@ export type Database = {
           item_id: string | null
           last_checked_at: string | null
           last_seen_at: string | null
+          latency_ms: number | null
           location: string | null
           loss_pct: number | null
           mac_address: string | null
@@ -203,6 +301,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alerted_at?: string | null
           brand?: string | null
           category: string
           created_at?: string
@@ -212,6 +311,7 @@ export type Database = {
           item_id?: string | null
           last_checked_at?: string | null
           last_seen_at?: string | null
+          latency_ms?: number | null
           location?: string | null
           loss_pct?: number | null
           mac_address?: string | null
@@ -228,6 +328,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alerted_at?: string | null
           brand?: string | null
           category?: string
           created_at?: string
@@ -237,6 +338,7 @@ export type Database = {
           item_id?: string | null
           last_checked_at?: string | null
           last_seen_at?: string | null
+          latency_ms?: number | null
           location?: string | null
           loss_pct?: number | null
           mac_address?: string | null

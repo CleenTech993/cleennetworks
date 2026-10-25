@@ -5,7 +5,7 @@
 //   * the router's sync script (every 2 min) keeps one /tool netwatch entry per monitored device
 //     (netwatch pings all hosts concurrently in the background, so many devices are no problem);
 //   * a small reporter script (every 1 min) reads each entry's up/down state and pushes
-//     "<device id>~1" (up) / "<device id>~0" (down) to /api/public/router/devices/<token>.
+//     "<device id>~1~<rtt ms>" (up) / "<device id>~0" (down) to /api/public/router/devices/<token>.
 //
 // Pure functions (no env / DB) so they can be unit-tested.
 
@@ -42,8 +42,19 @@ const REPORTER_SOURCE = [
   "  :local s [/tool netwatch get $n status]",
   '  :if ($s = "up" || $s = "down") do={',
   "    :local v 0",
-  '    :if ($s = "up") do={ :set v 1 }',
-  `    :set out ($out . [:pick $c ${NETWATCH_PREFIX.length} [:len $c]] . "~" . $v . ",")`,
+  '    :local rtt ""',
+  '    :if ($s = "up") do={',
+  "      :set v 1",
+  "      :do {",
+  "        :local h [/tool netwatch get $n host]",
+  "        :local res [/ping $h count=1 as-value]",
+  "        :if ([:len $res] > 0) do={",
+  '          :local t [:tostr ($res->0->"time")]',
+  '          :set rtt ("~" . [:tonum [:pick $t 0 [:find $t "ms"]]])',
+  "        }",
+  "      } on-error={}",
+  "    }",
+  `    :set out ($out . [:pick $c ${NETWATCH_PREFIX.length} [:len $c]] . "~" . $v . $rtt . ",")`,
   "    :if ([:len $out] > 1500) do={",
   '      :do { /tool fetch url=($ngReportUrl . "?r=" . $out) mode=https keep-result=no } on-error={}',
   '      :set out ""',
@@ -103,20 +114,21 @@ export function buildDeviceMonitorLines(targets: MonitorTarget[], reportUrl: str
   ];
 }
 
-export type DeviceReading = { id: string; up: boolean };
+export type DeviceReading = { id: string; up: boolean; latencyMs: number | null };
 
-/** Parses "<uuid>~1,<uuid>~0,..." from the router. Malformed pieces are ignored. */
+/** Parses "<uuid>~1~12,<uuid>~0,..." from the router (the latency is optional). Malformed pieces are ignored. */
 export function parseDeviceReport(raw: string | null, max = MAX_DEVICES_PER_ROUTER): DeviceReading[] {
   if (!raw) return [];
   const out: DeviceReading[] = [];
   const seen = new Set<string>();
   for (const part of raw.split(",")) {
-    const [id, v] = part.split("~");
+    const [id, v, rtt] = part.split("~");
     if (!id || !UUID.test(id) || (v !== "0" && v !== "1")) continue;
     const key = id.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ id: key, up: v === "1" });
+    const ms = v === "1" && rtt !== undefined && /^\d{1,5}$/.test(rtt) ? Number(rtt) : null;
+    out.push({ id: key, up: v === "1", latencyMs: ms !== null && ms <= 60000 ? ms : null });
     if (out.length >= max) break;
   }
   return out;
@@ -126,18 +138,48 @@ export function parseDeviceReport(raw: string | null, max = MAX_DEVICES_PER_ROUT
  * What changes when a router reports `up` for a device whose stored state is `prev`.
  * An event is recorded on every real transition, and when the very first reading is "down".
  */
-export function planReading(prevOnline: boolean | null, up: boolean, nowIso: string) {
+export function planReading(prevOnline: boolean | null, up: boolean, nowIso: string, latencyMs: number | null = null) {
   const changed = prevOnline === null ? !up : prevOnline !== up;
   return {
     patch: {
       online: up,
       loss_pct: up ? 0 : 100,
+      latency_ms: up ? latencyMs : null,
       last_checked_at: nowIso,
       ...(up ? { last_seen_at: nowIso } : {}),
       ...(prevOnline === null || prevOnline !== up ? { status_changed_at: nowIso } : {}),
     },
     event: changed ? (up ? ("up" as const) : ("down" as const)) : null,
   };
+}
+
+export const DEFAULT_DOWN_AFTER_MINUTES = 5;
+
+/**
+ * Decides whether this reading should raise an alert. An outage alerts only once it has lasted
+ * `downAfterMin` minutes (so a reboot or a brief blip never sends an SMS), at most once per outage,
+ * and a "back online" notice follows only if the outage alert was actually raised.
+ * `prev` is the device's state BEFORE this reading is applied.
+ */
+export function planAlert(args: {
+  prevOnline: boolean | null;
+  statusChangedAt: string | null;
+  alertedAt: string | null;
+  up: boolean;
+  nowMs: number;
+  downAfterMin: number;
+}): { alert: "down" | "up" | null; alertedAtPatch: "now" | "clear" | null } {
+  const { prevOnline, statusChangedAt, alertedAt, up, nowMs, downAfterMin } = args;
+  if (up) {
+    // alerted_at is only ever set while a device is down, so it is cleared on any recovery.
+    if (alertedAt) return { alert: "up", alertedAtPatch: "clear" };
+    return { alert: null, alertedAtPatch: null };
+  }
+  if (prevOnline === false && !alertedAt && statusChangedAt) {
+    const downForMs = nowMs - new Date(statusChangedAt).getTime();
+    if (downForMs >= downAfterMin * 60_000) return { alert: "down", alertedAtPatch: "now" };
+  }
+  return { alert: null, alertedAtPatch: null };
 }
 
 /** A reading older than this is shown as "unknown" (the router stopped reporting, e.g. it is offline). */

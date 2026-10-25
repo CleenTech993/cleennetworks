@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDeviceMonitorLines, deviceHealth, parseDeviceReport, planReading, safeTargets, STALE_AFTER_MS,
+  buildDeviceMonitorLines, deviceHealth, parseDeviceReport, planAlert, planReading, safeTargets, STALE_AFTER_MS,
 } from "../src/lib/inventory-monitor";
-import { describeError, formatQty, isLowStock, isValidIpv4, normalizeMac } from "../src/lib/inventory";
+import { describeError, formatQty, isLowStock, isValidIpv4, normalizeAlertNumber, normalizeMac } from "../src/lib/inventory";
 
 const A = "11111111-2222-3333-4444-555555555555";
 const B = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -49,15 +49,62 @@ describe("router monitor script", () => {
 
 describe("device report parsing", () => {
   it("parses up/down readings", () => {
-    expect(parseDeviceReport(`${A}~1,${B}~0,`)).toEqual([{ id: A, up: true }, { id: B, up: false }]);
+    expect(parseDeviceReport(`${A}~1,${B}~0,`)).toEqual([{ id: A, up: true, latencyMs: null }, { id: B, up: false, latencyMs: null }]);
   });
   it("ignores junk, duplicates and empty input", () => {
     expect(parseDeviceReport(null)).toEqual([]);
     expect(parseDeviceReport("")).toEqual([]);
-    expect(parseDeviceReport(`bad~1,${A}~7,${A}~1,${A}~0,x`)).toEqual([{ id: A, up: true }]);
+    expect(parseDeviceReport(`bad~1,${A}~7,${A}~1,${A}~0,x`)).toEqual([{ id: A, up: true, latencyMs: null }]);
   });
   it("lowercases ids so they match the database", () => {
     expect(parseDeviceReport(`${A.toUpperCase()}~1`)[0].id).toBe(A);
+  });
+});
+
+describe("latency in reports", () => {
+  it("reads the round-trip time of devices that are up", () => {
+    expect(parseDeviceReport(`${A}~1~12`)[0].latencyMs).toBe(12);
+  });
+  it("ignores latency that is missing, malformed, absurd, or attached to a down device", () => {
+    expect(parseDeviceReport(`${A}~1`)[0].latencyMs).toBeNull();
+    expect(parseDeviceReport(`${A}~1~abc`)[0].latencyMs).toBeNull();
+    expect(parseDeviceReport(`${A}~1~-5`)[0].latencyMs).toBeNull();
+    expect(parseDeviceReport(`${A}~1~99999`)[0].latencyMs).toBeNull();
+    expect(parseDeviceReport(`${B}~0~12`)[0].latencyMs).toBeNull();
+  });
+  it("is stored on the reading only while the device is up", () => {
+    const now = "2026-10-25T10:00:00.000Z";
+    expect(planReading(true, true, now, 9).patch.latency_ms).toBe(9);
+    expect(planReading(true, false, now, 9).patch.latency_ms).toBeNull();
+  });
+  it("the reporter script measures latency for devices that are up", () => {
+    const text = buildDeviceMonitorLines([{ id: A, ip_address: "10.0.0.5" }], URL).join("\n");
+    expect(text).toContain("/ping $h count=1 as-value");
+  });
+});
+
+describe("when an outage becomes an alert", () => {
+  const base = { downAfterMin: 5, nowMs: Date.parse("2026-10-25T10:10:00.000Z"), alertedAt: null as string | null };
+  const downSince = (iso: string) => ({ ...base, prevOnline: false, statusChangedAt: iso, up: false });
+
+  it("waits until the outage has lasted the chosen time", () => {
+    expect(planAlert(downSince("2026-10-25T10:07:00.000Z")).alert).toBeNull();            // 3 min
+    expect(planAlert(downSince("2026-10-25T10:05:00.000Z"))).toEqual({ alert: "down", alertedAtPatch: "now" }); // 5 min
+  });
+  it("alerts once per outage", () => {
+    expect(planAlert({ ...downSince("2026-10-25T09:00:00.000Z"), alertedAt: "2026-10-25T09:06:00.000Z" }).alert).toBeNull();
+  });
+  it("does not alert on the very first reading, or when the device was previously up", () => {
+    expect(planAlert({ ...base, prevOnline: null, statusChangedAt: null, up: false }).alert).toBeNull();
+    expect(planAlert({ ...base, prevOnline: true, statusChangedAt: "2026-10-25T09:00:00.000Z", up: false }).alert).toBeNull();
+  });
+  it("announces recovery only if an outage alert was sent", () => {
+    expect(planAlert({ ...base, prevOnline: false, statusChangedAt: "2026-10-25T10:00:00.000Z", alertedAt: "2026-10-25T10:05:00.000Z", up: true }))
+      .toEqual({ alert: "up", alertedAtPatch: "clear" });
+    expect(planAlert({ ...base, prevOnline: false, statusChangedAt: "2026-10-25T10:08:00.000Z", up: true }).alert).toBeNull(); // brief blip
+  });
+  it("a one-minute setting alerts after one minute", () => {
+    expect(planAlert({ ...downSince("2026-10-25T10:08:30.000Z"), downAfterMin: 1 }).alert).toBe("down");
   });
 });
 
@@ -100,6 +147,11 @@ describe("inventory helpers", () => {
     for (const m of ["AA:BB:CC:DD:EE:FF", "aa-bb-cc-dd-ee-ff", "aabb.ccdd.eeff", "aabbccddeeff"]) expect(normalizeMac(m)).toBe("aa:bb:cc:dd:ee:ff");
     expect(normalizeMac("nope")).toBeNull();
     expect(normalizeMac("aa:bb:cc")).toBeNull();
+  });
+  it("normalises alert phone numbers", () => {
+    for (const n of ["0712 345 678", "+254712345678", "254712345678", "712345678", "0712-345-678"]) expect(normalizeAlertNumber(n)).toBe("254712345678");
+    expect(normalizeAlertNumber("0112345678")).toBe("254112345678");
+    for (const bad of ["", "abc", "12", "0712 345 678; drop", "+2547123456789012345"]) expect(normalizeAlertNumber(bad)).toBeNull();
   });
   it("flags low stock only when a reorder level is set", () => {
     expect(isLowStock({ quantity: 2, reorder_level: 5 })).toBe(true);

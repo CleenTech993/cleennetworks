@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
+import { dispatchPendingAlerts } from "@/lib/alerts.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
 import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
@@ -76,6 +77,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           lines.push(`:do { add name="${v.code}" password="${v.code}" server=netgrid-hs comment="netgrid-voucher" } on-error={}`);
         }
         lines.push(':log info "NetGrid: users synced"', "");
+
+        // Send any alert SMS waiting for this tenant (e.g. low stock raised by the database).
+        try { await dispatchPendingAlerts(router.tenant_id); } catch { /* never fail the router's sync */ }
 
         return new Response(lines.join("\n"), {
           headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },

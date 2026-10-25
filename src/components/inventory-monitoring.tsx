@@ -68,7 +68,7 @@ export function MonitoringTab() {
             <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-2">Status</th><th className="px-4 py-2">Device</th><th className="px-4 py-2">IP</th>
-                <th className="px-4 py-2">Checked by</th><th className="px-4 py-2">Last seen online</th><th className="px-4 py-2">Last check</th>
+                <th className="px-4 py-2">Checked by</th><th className="px-4 py-2">Latency</th><th className="px-4 py-2">Last seen online</th><th className="px-4 py-2">Last check</th>
                 <th className="px-4 py-2 text-right">History</th>
               </tr>
             </thead>
@@ -82,6 +82,7 @@ export function MonitoringTab() {
                   </td>
                   <td className="px-4 py-2 font-mono text-xs">{d.ip_address}</td>
                   <td className="px-4 py-2">{d.monitor_router_id ? routerName.get(d.monitor_router_id) ?? "Router" : "—"}</td>
+                  <td className="px-4 py-2 tabular-nums">{d.online && d.latency_ms != null ? `${d.latency_ms} ms` : "—"}</td>
                   <td className="px-4 py-2">{timeAgo(d.last_seen_at)}</td>
                   <td className="px-4 py-2">{timeAgo(d.last_checked_at)}</td>
                   <td className="px-4 py-2 text-right">

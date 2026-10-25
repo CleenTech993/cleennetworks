@@ -64,3 +64,13 @@ export function describeError(e: unknown): string {
   }
   return msg;
 }
+
+/** "0712 345 678", "+254712345678" or "254712345678" -> "254712345678"; null if it isn't a plausible phone number. */
+export function normalizeAlertNumber(input: string): string | null {
+  // Only digits plus the usual separators; anything else (letters, ; etc.) is not a phone number.
+  if (!/^\+?[\d\s\-().]+$/.test(input.trim())) return null;
+  let d = input.replace(/[^\d+]/g, "").replace(/^\+/, "");
+  if (d.startsWith("0")) d = `254${d.slice(1)}`;
+  else if (/^[17]\d{8}$/.test(d)) d = `254${d}`;
+  return /^\d{9,15}$/.test(d) ? d : null;
+}

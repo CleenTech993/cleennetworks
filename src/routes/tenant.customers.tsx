@@ -17,6 +17,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { randomCode, addDuration } from "@/lib/codes";
+import { hasAnyRole } from "@/lib/permissions";
+import { CustomerEquipmentDialog, useEquipmentByCustomer } from "@/components/customer-equipment";
 
 export const Route = createFileRoute("/tenant/customers")({
   head: () => ({ meta: [{ title: "Customers — Tenant console" }, { name: "description", content: "Search, add and reconnect hotspot and PPPoE customers." }] }),
@@ -31,6 +33,11 @@ type Customer = {
 const emptyForm = { full_name: "", phone: "", customer_type: "hotspot", pppoe_username: "", pppoe_password: "", package_id: "", router_id: "" };
 
 function Customers() {
+  const { roles } = Route.useRouteContext();
+  // Equipment is visible to the roles that can see inventory (not billing agents).
+  const canSeeEquipment = hasAnyRole(roles, ["tenant_admin", "technician", "support_staff"]);
+  const equipmentByCustomer = useEquipmentByCustomer();
+  const [equipmentFor, setEquipmentFor] = useState<Customer | null>(null);
   const qc = useQueryClient();
   const { tenantId } = useAuth();
   const [open, setOpen] = useState(false);
@@ -179,7 +186,7 @@ function Customers() {
           <div className="rounded-xl border bg-card overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                <tr><th className="px-4 py-2.5 text-left">Name</th><th className="px-4 py-2.5 text-left">Phone</th><th className="px-4 py-2.5 text-left">Type</th><th className="px-4 py-2.5 text-left">Status</th><th className="px-4 py-2.5 text-left">Expires</th><th className="px-4 py-2.5" /></tr>
+                <tr><th className="px-4 py-2.5 text-left">Name</th><th className="px-4 py-2.5 text-left">Phone</th><th className="px-4 py-2.5 text-left">Type</th><th className="px-4 py-2.5 text-left">Status</th><th className="px-4 py-2.5 text-left">Expires</th>{canSeeEquipment && <th className="px-4 py-2.5 text-left">Equipment</th>}<th className="px-4 py-2.5" /></tr>
               </thead>
               <tbody>
                 {filtered.map((c) => (
@@ -189,6 +196,13 @@ function Customers() {
                     <td className="px-4 py-2.5"><Badge variant="outline">{c.customer_type}</Badge></td>
                     <td className="px-4 py-2.5"><Badge variant={c.status === "active" ? "default" : "secondary"}>{c.status}</Badge></td>
                     <td className="px-4 py-2.5 text-muted-foreground">{c.expires_at ? new Date(c.expires_at).toLocaleString() : "—"}</td>
+                    {canSeeEquipment && (
+                      <td className="px-4 py-2.5">
+                        <Button size="sm" variant="ghost" onClick={() => setEquipmentFor(c)}>
+                          {equipmentByCustomer.get(c.id)?.length ? `${equipmentByCustomer.get(c.id)!.length} device${equipmentByCustomer.get(c.id)!.length === 1 ? "" : "s"}` : "View"}
+                        </Button>
+                      </td>
+                    )}
                     <td className="px-4 py-2.5 text-right">
                       <Button size="sm" variant="outline" onClick={() => { setReconnect(c); setRcPkg(c.package_id ?? ""); setIssued(null); }}>Reconnect</Button>
                     </td>
@@ -198,6 +212,10 @@ function Customers() {
             </table>
           </div>
         )}
+
+      {equipmentFor && (
+        <CustomerEquipmentDialog customer={equipmentFor} devices={equipmentByCustomer.get(equipmentFor.id) ?? []} onClose={() => setEquipmentFor(null)} />
+      )}
 
       <Dialog open={!!reconnect} onOpenChange={(o) => !o && setReconnect(null)}>
         <DialogContent>

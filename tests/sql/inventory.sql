@@ -136,6 +136,61 @@ SELECT public.t_s('retarget monitoring', public.t_state($q$UPDATE inventory_devi
 SELECT public.t_n('stale reading cleared', (SELECT count(*) FROM inventory_devices WHERE online IS NOT NULL), 0);
 RESET ROLE;
 
+-- ===== alerts: low stock + settings =====
+INSERT INTO public.inventory_items (id, tenant_id, category, name, reorder_level)
+  VALUES ('e0000000-0000-0000-0000-000000000004','a0000000-0000-0000-0000-000000000001','ont','Low-stock ONT',10);
+SET LOCAL ROLE authenticated;
+SELECT public.t_as('b0000000-0000-0000-0000-000000000001','aal2');
+SELECT public.t_s('stock up to 20', public.t_state($q$INSERT INTO stock_movements (tenant_id,item_id,change,reason) VALUES ('a0000000-0000-0000-0000-000000000001','e0000000-0000-0000-0000-000000000004',20,'received')$q$),'ok');
+SELECT public.t_n('no alert while above the reorder level', (SELECT count(*) FROM inventory_alerts WHERE item_id='e0000000-0000-0000-0000-000000000004'), 0);
+SELECT public.t_s('issue down to 5', public.t_state($q$INSERT INTO stock_movements (tenant_id,item_id,change,reason) VALUES ('a0000000-0000-0000-0000-000000000001','e0000000-0000-0000-0000-000000000004',-15,'issued')$q$),'ok');
+SELECT public.t_n('crossing the reorder level raises ONE alert', (SELECT count(*) FROM inventory_alerts WHERE item_id='e0000000-0000-0000-0000-000000000004' AND kind='low_stock' AND sms_status='pending'), 1);
+SELECT public.t_s('issue one more', public.t_state($q$INSERT INTO stock_movements (tenant_id,item_id,change,reason) VALUES ('a0000000-0000-0000-0000-000000000001','e0000000-0000-0000-0000-000000000004',-1,'issued')$q$),'ok');
+SELECT public.t_n('already low: no duplicate alert', (SELECT count(*) FROM inventory_alerts WHERE item_id='e0000000-0000-0000-0000-000000000004'), 1);
+SELECT public.t_n('alert message names the item', (SELECT count(*) FROM inventory_alerts WHERE message LIKE 'Low stock: Low-stock ONT has 5 left%'), 1);
+SELECT public.t_s('clients cannot write alerts', public.t_state($q$INSERT INTO inventory_alerts (tenant_id,kind,message) VALUES ('a0000000-0000-0000-0000-000000000001','low_stock','fake')$q$),'42501');
+SELECT public.t_s('clients cannot edit alerts', public.t_state($q$UPDATE inventory_alerts SET sms_status='sent'$q$),'42501');
+-- settings: admin only, validated
+SELECT public.t_s('admin saves alert settings', public.t_state($q$INSERT INTO alert_settings (tenant_id,sms_numbers,down_after_minutes) VALUES ('a0000000-0000-0000-0000-000000000001',ARRAY['254712345678','+254722000111'],3)$q$),'ok');
+SELECT public.t_s('bad phone number refused', public.t_state($q$UPDATE alert_settings SET sms_numbers=ARRAY['not a number']$q$),'23514');
+SELECT public.t_s('shell characters in a number refused', public.t_state($q$UPDATE alert_settings SET sms_numbers=ARRAY['254712345678; drop table x']$q$),'23514');
+SELECT public.t_s('at most 5 numbers', public.t_state($q$UPDATE alert_settings SET sms_numbers=ARRAY['254700000001','254700000002','254700000003','254700000004','254700000005','254700000006']$q$),'23514');
+SELECT public.t_s('threshold range', public.t_state($q$UPDATE alert_settings SET down_after_minutes=0$q$),'23514');
+SELECT public.t_n('admin reads own settings', (SELECT count(*) FROM alert_settings), 1);
+RESET ROLE;
+
+SET LOCAL ROLE authenticated;
+SELECT public.t_as('b0000000-0000-0000-0000-000000000002','aal2');
+SELECT public.t_n('technician sees alerts', (SELECT count(*) FROM inventory_alerts), 1);
+SELECT public.t_n('technician cannot read alert settings (phone numbers)', (SELECT count(*) FROM alert_settings), 0);
+SELECT public.t_s('technician cannot save alert settings', public.t_state($q$INSERT INTO alert_settings (tenant_id) VALUES ('a0000000-0000-0000-0000-000000000002')$q$),'42501');
+SELECT public.t_n('technician cannot edit alert settings', public.t_rows($q$UPDATE alert_settings SET sms_numbers=ARRAY['254700000009']$q$), 0);
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT public.t_as('b0000000-0000-0000-0000-000000000003','aal2');
+SELECT public.t_n('billing sees no alerts', (SELECT count(*) FROM inventory_alerts), 0);
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT public.t_as('b0000000-0000-0000-0000-000000000004','aal2');
+SELECT public.t_n('support sees alerts', (SELECT count(*) FROM inventory_alerts), 1);
+SELECT public.t_n('support cannot read alert settings', (SELECT count(*) FROM alert_settings), 0);
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT public.t_as('b0000000-0000-0000-0000-000000000005','aal2');
+SELECT public.t_n('other tenant sees no alerts', (SELECT count(*) FROM inventory_alerts), 0);
+SELECT public.t_n('other tenant sees no settings', (SELECT count(*) FROM alert_settings), 0);
+SELECT public.t_s('other tenant cannot write settings for T1', public.t_state($q$INSERT INTO alert_settings (tenant_id) VALUES ('a0000000-0000-0000-0000-000000000001')$q$),'42501');
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT public.t_as('b0000000-0000-0000-0000-000000000001','aal1');
+SELECT public.t_n('aal1 sees no alerts', (SELECT count(*) FROM inventory_alerts), 0);
+SELECT public.t_n('aal1 sees no settings', (SELECT count(*) FROM alert_settings), 0);
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SELECT public.t_n('platform marks the SMS as sent', public.t_rows($q$UPDATE inventory_alerts SET sms_status='sent', sms_sent_at=now() WHERE sms_status='pending'$q$), 1);
+SELECT public.t_s('platform can record a device alert', public.t_state($q$INSERT INTO inventory_alerts (tenant_id,kind,device_id,message) VALUES ('a0000000-0000-0000-0000-000000000001','device_down','f0000000-0000-0000-0000-000000000001','AP-1 is offline')$q$),'ok');
+RESET ROLE;
+
 DROP FUNCTION public.t_n(text,bigint,bigint); DROP FUNCTION public.t_s(text,text,text); DROP FUNCTION public.t_state(text);
 DROP FUNCTION public.t_rows(text); DROP FUNCTION public.t_as(text,text);
 ROLLBACK;
