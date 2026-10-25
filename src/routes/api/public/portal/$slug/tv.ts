@@ -94,7 +94,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
         } else {
           const { data: created, error } = await supabaseAdmin
             .from("tv_devices")
-            .insert({ tenant_id: tenant.id, mac_address: mac, name: parsed.data.name ?? null, phone, package_id: pkg.id })
+            .insert({ tenant_id: tenant.id, mac_address: mac, name: parsed.data.name ?? null, phone, package_id: pkg.id, status: "pending" })
             .select("id")
             .single();
           if (error || !created) {
@@ -143,8 +143,12 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
             message: result.CustomerMessage,
           });
         } catch (e) {
+          console.error("tv checkout: STK push failed", e);
           await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
-          return Response.json({ error: e instanceof Error ? e.message : "Payment failed" }, { status: 502 });
+          return Response.json(
+            { error: "We couldn't send the M-Pesa prompt. Please check the number and try again." },
+            { status: 502 },
+          );
         }
       },
     },

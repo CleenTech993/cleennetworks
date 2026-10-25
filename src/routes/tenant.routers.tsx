@@ -36,12 +36,10 @@ function RoutersPage() {
   const addRouter = useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error("No tenant");
-      const token = crypto.randomUUID().replace(/-/g, "");
+      // The database generates the provisioning token and its 24h expiry; clients cannot choose them.
       const { data, error } = await supabase.from("routers").insert({
         tenant_id: tenantId,
         name,
-        provision_token: token,
-        provision_token_expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
       }).select().single();
       if (error) throw error;
       return data;
@@ -63,6 +61,21 @@ function RoutersPage() {
     },
     onSuccess: () => {
       toast.success("Router deleted");
+      qc.invalidateQueries({ queryKey: ["routers"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // New 24h provisioning command. With `revoke`, the router's current credential is destroyed too,
+  // so it stops reporting immediately until the new command is run on it (use when a token leaked).
+  const rotate = useMutation({
+    mutationFn: async ({ id, revoke }: { id: string; revoke: boolean }) => {
+      const { error } = await supabase.rpc("rotate_router_token", { p_router_id: id, p_revoke_device: revoke });
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => {
+      toast.success(v.revoke ? "Access revoked. Run the new command on the router to reconnect it." : "New command ready");
+      setShowCmd((s) => ({ ...s, [v.id]: true }));
       qc.invalidateQueries({ queryKey: ["routers"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -151,20 +164,52 @@ function RoutersPage() {
                   </Button>
                 </div>
               </div>
-              {r.provision_token && (r.status === "pending" || showCmd[r.id]) && (
-                <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
-                  <div className="flex items-start justify-between gap-3">
-                    <code className="break-all">{provisionCommand(r.provision_token)}</code>
-                    <Button size="sm" variant="ghost" onClick={() => {
-                      navigator.clipboard.writeText(provisionCommand(r.provision_token!));
-                      toast.success("Copied");
-                    }}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
+              {r.provision_token && (r.status === "pending" || showCmd[r.id]) && (() => {
+                const expired = !!r.provision_token_expires_at && new Date(r.provision_token_expires_at).getTime() <= Date.now();
+                return (
+                  <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
+                    {expired ? (
+                      <p className="font-sans text-xs text-muted-foreground">
+                        This provisioning command has expired. Generate a new one to set the router up again.
+                      </p>
+                    ) : (
+                      <div className="flex items-start justify-between gap-3">
+                        <code className="break-all">{provisionCommand(r.provision_token)}</code>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          navigator.clipboard.writeText(provisionCommand(r.provision_token!));
+                          toast.success("Copied");
+                        }}>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                    <p className="mt-2 font-sans text-[10px] text-muted-foreground">
+                      {expired
+                        ? "Commands are valid for 24 hours. A router that is already set up keeps working."
+                        : `Paste this into the MikroTik terminal. The router will auto-configure and report back. Valid until ${r.provision_token_expires_at ? new Date(r.provision_token_expires_at).toLocaleString() : "revoked"}.`}
+                    </p>
+                    {r.legacy_token_auth && (
+                      <p className="mt-1 font-sans text-[10px] text-amber-600">
+                        This router still uses an old-style key. Run a new command on it to upgrade.
+                      </p>
+                    )}
+                    <div className="mt-2 flex gap-2 font-sans">
+                      <Button size="sm" variant="outline" disabled={rotate.isPending}
+                        onClick={() => rotate.mutate({ id: r.id, revoke: false })}>
+                        New command
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={rotate.isPending}
+                        onClick={() => {
+                          if (confirm(`Revoke access for "${r.name}"? It will stop reporting until you run the new command on it.`)) {
+                            rotate.mutate({ id: r.id, revoke: true });
+                          }
+                        }}>
+                        Revoke access
+                      </Button>
+                    </div>
                   </div>
-                  <p className="mt-2 text-[10px] text-muted-foreground font-sans">Paste this into the MikroTik terminal. The router will auto-configure and report back.</p>
-                </div>
-              )}
+                );
+              })()}
             </div>
           ))}
         </div>

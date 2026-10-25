@@ -28,7 +28,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         let body: unknown;
         try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
         const parsed = Schema.safeParse(body);
-        if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
+        if (!parsed.success) return Response.json({ error: "Please fill in all fields." }, { status: 400 });
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
@@ -36,7 +36,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         }
 
         try {
-          const tenant = await loadTenantBySlugAdmin(params.slug);
+          const tenant = await loadTenantBySlugAdmin(params.slug).catch(() => null);
+          if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
           const cfg = await loadPlatformMpesaConfig();
           const provider = resolveProvider(cfg);
 
@@ -100,9 +101,15 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
             });
           } catch (e) {
-            // No prompt went out, so this attempt must not count against the customer's phone.
-            await supabaseAdmin.from("payments").delete().eq("id", pay.id);
-            throw e;
+            // Gateway text can contain internals (URLs, account ids): log it and show a generic message.
+            console.error("checkout: STK push failed", e);
+            // Close the attempt so it is not left "pending" for ever. It stays on record: the checkout
+            // limiter counts every attempt, which stops failed prompts being used to spam a phone.
+            await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
+            return Response.json(
+              { error: "We couldn't send the M-Pesa prompt. Please check the number and try again." },
+              { status: 502 },
+            );
           }
 
           await supabaseAdmin
@@ -119,7 +126,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             message: started.message,
           });
         } catch (e) {
-          return Response.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
+          console.error("checkout failed", e);
+          return Response.json({ error: "Something went wrong. Please try again." }, { status: 500 });
         }
       },
     },
