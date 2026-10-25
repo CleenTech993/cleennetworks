@@ -66,7 +66,7 @@ BEGIN
   SELECT tenant_id INTO v_tenant FROM public.routers WHERE id = p_router_id;
   IF v_tenant IS NULL
      OR NOT (public.is_super_admin(auth.uid())
-             OR public.can_in_tenant(v_tenant, ARRAY['tenant_admin','technician']::public.app_role[])) THEN
+             OR public.has_tenant_role(auth.uid(), v_tenant, ARRAY['tenant_admin','technician']::public.app_role[])) THEN
     RAISE EXCEPTION 'Router not found' USING ERRCODE = '42501';
   END IF;
 

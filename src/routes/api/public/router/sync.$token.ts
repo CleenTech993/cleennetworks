@@ -5,6 +5,7 @@ import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.serv
 import { buildPppoeSyncLines } from "@/lib/pppoe";
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
+import { buildTvSyncLines } from "@/lib/tv";
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
 // Routers fetch + import this every few minutes (see provisioning scheduler "netgrid-sync").
@@ -26,7 +27,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const router = auth.router;
 
         const now = new Date().toISOString();
-        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }] =
+        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }] =
           await Promise.all([
             supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
             // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
@@ -49,6 +50,13 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
               .select("id,download_kbps,upload_kbps")
               .eq("tenant_id", router.tenant_id)
               .eq("kind", "pppoe"),
+            // Smart TVs: paid MAC addresses bypass the hotspot login.
+            supabaseAdmin
+              .from("tv_devices")
+              .select("mac_address,status,expires_at")
+              .eq("tenant_id", router.tenant_id)
+              .eq("status", "active")
+              .gt("expires_at", now),
           ]);
 
         const lines: string[] = ["# NetGrid sync"];
@@ -74,6 +82,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             packages: packages ?? [],
           }),
         );
+        // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
+        lines.push(...buildTvSyncLines(tvs ?? []));
         lines.push(
           "/ip hotspot user",
           ':do { remove [find comment="netgrid-voucher"] } on-error={}',

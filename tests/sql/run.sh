@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-# Applies every migration to a throwaway PostgreSQL database and runs the SQL test suites.
-# Needs a local PostgreSQL 15+ and a superuser connection via the usual PG* variables:
-#   PGHOST=localhost PGUSER=postgres tests/sql/run.sh        (or:  bun run test:sql)
-# The scratch database is created and dropped automatically.
+# Role-aware RLS + MFA checks against a scratch Postgres (no Supabase needed).
+#   PGHOST/PGUSER/... must point at a superuser-capable server; the DB `rls_roles_test` is recreated.
+#   Applies supabase/migrations + drizzle/migrations in dependency order, then tests/sql/rls-roles.sql.
+#   Pass --before to stop before the role/MFA migration (shows what the test catches on the old schema).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-
-DB="netgrid_sql_test_$$"
-psql -d postgres -q -c "CREATE DATABASE $DB"
-trap 'psql -d postgres -q -c "DROP DATABASE IF EXISTS $DB" >/dev/null' EXIT
-run() { psql -d "$DB" -v ON_ERROR_STOP=1 -q "$@"; }
-
-run -f tests/sql/_stub_supabase.sql 2>&1 | grep -v "wal_level\|HINT" || true
+DB=rls_roles_test
+psql -q -d postgres -c "DROP DATABASE IF EXISTS $DB" -c "CREATE DATABASE $DB"
+P="psql -q -d $DB -v ON_ERROR_STOP=1"
+apply() { sed -E 's/CREATE EXTENSION IF NOT EXISTS pg_cron;//' "$1" | $P -f -; }   # pg_cron not needed here
+$P -f tests/sql/00_supabase_stub.sql
 for f in $(ls supabase/migrations/*.sql | sort); do
-  echo "migration: $(basename "$f")"
-  sed -E '/CREATE EXTENSION.*pg_cron/d' "$f" | run
+  case "$(basename "$f")" in 20261024*|20261025*|2026102[6-9]*|202611*|2027*) continue;; esac; apply "$f"
 done
-(cd tests/sql && for t in role-aware-rls router-tokens; do echo "suite: $t"; run -f "$t.sql" 2>&1 | grep -E "ERROR|expectations passed"; [ "${PIPESTATUS[0]}" -eq 0 ] || exit 1; done)
-echo "SQL suites passed"
+for f in drizzle/migrations/000*.sql; do apply "$f"; done           # needs routers/customers first
+for f in $(ls supabase/migrations/20261024*.sql 2>/dev/null | sort); do apply "$f"; done   # liveness needs drizzle tables
+if [[ "${1:-}" != "--before" ]]; then
+  for f in $(ls supabase/migrations/20261025*.sql | sort); do apply "$f"; done
+  # Router credential rules (bootstrap/device tokens). Self-contained: runs in a transaction and rolls back.
+  (cd tests/sql && psql -d "$DB" -v ON_ERROR_STOP=1 -q -f router-tokens.sql 2>&1 | grep -E "expectations|ERROR")
+fi
+psql -d $DB -v ON_ERROR_STOP=1 -f tests/sql/rls-roles.sql

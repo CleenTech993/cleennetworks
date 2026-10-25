@@ -52,6 +52,7 @@ import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/pu
 import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
 import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/public/portal/$slug/reconnect'
 import { Route as ApiPublicPortalSlugStatusRouteImport } from './routes/api/public/portal/$slug/status'
+import { Route as ApiPublicPortalSlugTvRouteImport } from './routes/api/public/portal/$slug/tv'
 import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
 import { Route as ApiPublicProvisionTokenLoginDothtmlRouteImport } from './routes/api/public/provision/$token/login[.]html'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
@@ -279,6 +280,11 @@ const ApiPublicPortalSlugStatusRoute =
     path: '/status',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
+const ApiPublicPortalSlugTvRoute = ApiPublicPortalSlugTvRouteImport.update({
+  id: '/tv',
+  path: '/tv',
+  getParentRoute: () => ApiPublicPortalSlugRoute,
+} as any)
 const ApiPublicPortalSlugVoucherRoute =
   ApiPublicPortalSlugVoucherRouteImport.update({
     id: '/voucher',
@@ -360,6 +366,7 @@ export interface FileRoutesByFullPath {
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
+  '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
@@ -408,6 +415,7 @@ export interface FileRoutesByTo {
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
+  '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
@@ -460,6 +468,7 @@ export interface FileRoutesById {
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
+  '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
@@ -513,6 +522,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/status'
+    | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
@@ -561,6 +571,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/status'
+    | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
@@ -612,6 +623,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/status'
+    | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
@@ -944,6 +956,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugStatusRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
+    '/api/public/portal/$slug/tv': {
+      id: '/api/public/portal/$slug/tv'
+      path: '/tv'
+      fullPath: '/api/public/portal/$slug/tv'
+      preLoaderRoute: typeof ApiPublicPortalSlugTvRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
     '/api/public/portal/$slug/voucher': {
       id: '/api/public/portal/$slug/voucher'
       path: '/voucher'
@@ -1084,6 +1103,7 @@ interface ApiPublicPortalSlugRouteChildren {
   ApiPublicPortalSlugPaymentStatusRoute: typeof ApiPublicPortalSlugPaymentStatusRoute
   ApiPublicPortalSlugReconnectRoute: typeof ApiPublicPortalSlugReconnectRoute
   ApiPublicPortalSlugStatusRoute: typeof ApiPublicPortalSlugStatusRoute
+  ApiPublicPortalSlugTvRoute: typeof ApiPublicPortalSlugTvRoute
   ApiPublicPortalSlugVoucherRoute: typeof ApiPublicPortalSlugVoucherRoute
 }
 
@@ -1092,6 +1112,7 @@ const ApiPublicPortalSlugRouteChildren: ApiPublicPortalSlugRouteChildren = {
   ApiPublicPortalSlugPaymentStatusRoute: ApiPublicPortalSlugPaymentStatusRoute,
   ApiPublicPortalSlugReconnectRoute: ApiPublicPortalSlugReconnectRoute,
   ApiPublicPortalSlugStatusRoute: ApiPublicPortalSlugStatusRoute,
+  ApiPublicPortalSlugTvRoute: ApiPublicPortalSlugTvRoute,
   ApiPublicPortalSlugVoucherRoute: ApiPublicPortalSlugVoucherRoute,
 }
 
