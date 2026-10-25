@@ -23,6 +23,19 @@ describe("hotspot login page", () => {
     for (const v of ["$(mac)", "$(ip)", "$(link-login-only)"]) expect(html).toContain(v);
   });
 
+  it("never lets the no-script fallback race the script (it dropped the router's login link)", () => {
+    const html = buildLoginHtml(input);
+    // the meta refresh exists only inside <noscript>, so it cannot fire when scripting works
+    const refreshes = html.match(/<meta http-equiv="refresh"/g) ?? [];
+    expect(refreshes).toHaveLength(1);
+    expect(html).toMatch(/<noscript><meta http-equiv="refresh"[^>]*><\/noscript>/);
+    // every path into the portal carries the router's login URL
+    const links = html.match(/url=[^"]*|href="[^"]*"/g) ?? [];
+    expect(links.length).toBeGreaterThan(0);
+    for (const l of links) expect(l).toContain("login=$(link-login-only)");
+    expect(html).toContain('"&login=" + encodeURIComponent("$(link-login-only)")');
+  });
+
   it("embeds the marker the router uses to detect stale/missing pages", () => {
     expect(html).toContain(`<meta name="generator" content="${loginPageMarker(input)}">`);
   });
