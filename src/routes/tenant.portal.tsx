@@ -10,6 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { PortalPreview } from "@/components/portal/preview";
+import { ThemePicker } from "@/components/portal/theme-picker";
+import { normalizeHex, resolveThemeId, PORTAL_THEMES, type PortalThemeId } from "@/lib/portal-themes";
 
 export const Route = createFileRoute("/tenant/portal")({ component: PortalSettings });
 
@@ -25,7 +28,17 @@ function PortalSettings() {
     },
   });
 
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-name", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data } = await supabase.from("tenants").select("name").eq("id", tenantId!).maybeSingle();
+      return data;
+    },
+  });
+
   const [form, setForm] = useState({
+    theme: "classic" as PortalThemeId,
     primary_color: "#0ea5e9",
     logo_url: "",
     background_url: "",
@@ -38,6 +51,7 @@ function PortalSettings() {
   useEffect(() => {
     if (data) {
       setForm({
+        theme: resolveThemeId(data.theme),
         primary_color: data.primary_color ?? "#0ea5e9",
         logo_url: data.logo_url ?? "",
         background_url: data.background_url ?? "",
@@ -68,56 +82,87 @@ function PortalSettings() {
     onError: (e) => toast.error((e as Error).message),
   });
 
+  const brand = normalizeHex(form.primary_color);
+
   return (
     <div>
-      <PageHeader title="Captive Portal" description="Branding, themes and login methods for your captive portal." />
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2 rounded-xl border bg-card p-6">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Primary color</Label>
-              <Input type="color" value={form.primary_color} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="mt-1 h-10 w-full p-1" />
+      <PageHeader title="Captive Portal" description="Choose how your portal looks, then set your branding and login methods." />
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="space-y-6">
+          <section className="rounded-xl border bg-card p-6">
+            <h2 className="font-semibold">Theme</h2>
+            <p className="mb-4 mt-1 text-sm text-muted-foreground">
+              Each theme restyles the whole portal your customers see. Your colour and logo are applied on top.
+            </p>
+            <ThemePicker value={form.theme} onChange={(theme) => setForm({ ...form, theme })} brand={brand} />
+            {form.theme === "venue" && !form.background_url && (
+              <p className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                Venue shows your background image across the top. Add one below, or it falls back to your brand colour.
+              </p>
+            )}
+            {!PORTAL_THEMES[form.theme].usesImages && (form.logo_url || form.background_url) && (
+              <p className="mt-3 rounded-md bg-muted p-3 text-sm text-muted-foreground">
+                {PORTAL_THEMES[form.theme].name} loads no images, so your logo and background image are not shown with this theme.
+              </p>
+            )}
+          </section>
+
+          <section className="space-y-4 rounded-xl border bg-card p-6">
+            <h2 className="font-semibold">Branding</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="pc-color">Brand colour</Label>
+                <Input id="pc-color" type="color" value={brand} onChange={(e) => setForm({ ...form, primary_color: e.target.value })} className="mt-1 h-10 w-full p-1" />
+              </div>
+              <div>
+                <Label htmlFor="pc-logo">Logo URL</Label>
+                <Input id="pc-logo" value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…/logo.png" className="mt-1" />
+              </div>
             </div>
             <div>
-              <Label>Logo URL</Label>
-              <Input value={form.logo_url} onChange={(e) => setForm({ ...form, logo_url: e.target.value })} placeholder="https://…/logo.png" className="mt-1" />
+              <Label htmlFor="pc-bg">Background image URL</Label>
+              <Input id="pc-bg" value={form.background_url} onChange={(e) => setForm({ ...form, background_url: e.target.value })} placeholder="https://…/bg.jpg" className="mt-1" />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Customers open the portal before they have internet, so images must load from your portal's own address
+                or a host you've allowed on the router.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="pc-welcome">Welcome text</Label>
+              <Textarea id="pc-welcome" rows={2} value={form.welcome_text} onChange={(e) => setForm({ ...form, welcome_text: e.target.value })} placeholder="Welcome to FastNet Wi-Fi. Choose a plan to get online." className="mt-1" />
+            </div>
+            <div>
+              <Label htmlFor="pc-terms">Terms &amp; conditions</Label>
+              <Textarea id="pc-terms" rows={4} value={form.terms_text} onChange={(e) => setForm({ ...form, terms_text: e.target.value })} className="mt-1" />
+            </div>
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={form.enable_voucher} onCheckedChange={(v) => setForm({ ...form, enable_voucher: v })} /> Voucher login
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={form.enable_otp} onCheckedChange={(v) => setForm({ ...form, enable_otp: v })} /> Phone OTP
+              </label>
+            </div>
+            <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save changes"}</Button>
+          </section>
+        </div>
+
+        <aside className="xl:sticky xl:top-6 xl:self-start">
+          <p className="mb-2 text-sm font-medium">Preview</p>
+          <div className="mx-auto w-[24rem] max-w-full overflow-hidden rounded-[2rem] border-[6px] border-foreground/80 bg-background shadow-sm">
+            <div className="h-[34rem] overflow-y-auto">
+              <PortalPreview
+                themeId={form.theme}
+                brand={brand}
+                name={tenant?.name ?? "Your business"}
+                logoUrl={form.logo_url}
+                backgroundUrl={form.background_url}
+                welcomeText={form.welcome_text}
+              />
             </div>
           </div>
-          <div>
-            <Label>Background image URL</Label>
-            <Input value={form.background_url} onChange={(e) => setForm({ ...form, background_url: e.target.value })} placeholder="https://…/bg.jpg" className="mt-1" />
-          </div>
-          <div>
-            <Label>Welcome text</Label>
-            <Textarea rows={2} value={form.welcome_text} onChange={(e) => setForm({ ...form, welcome_text: e.target.value })} placeholder="Welcome to FastNet Wi-Fi. Choose a plan to get online." className="mt-1" />
-          </div>
-          <div>
-            <Label>Terms &amp; conditions</Label>
-            <Textarea rows={4} value={form.terms_text} onChange={(e) => setForm({ ...form, terms_text: e.target.value })} className="mt-1" />
-          </div>
-          <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={form.enable_voucher} onCheckedChange={(v) => setForm({ ...form, enable_voucher: v })} /> Voucher login
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Switch checked={form.enable_otp} onCheckedChange={(v) => setForm({ ...form, enable_otp: v })} /> Phone OTP
-            </label>
-          </div>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save changes"}</Button>
-        </div>
-        <div className="rounded-xl border bg-card p-6">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Live preview</p>
-          <div className="mt-3 overflow-hidden rounded-md border" style={{ background: form.background_url ? `url(${form.background_url}) center/cover` : "#0f172a" }}>
-            <div className="bg-black/40 p-6 text-white">
-              {form.logo_url && <img src={form.logo_url} alt="logo" className="mb-3 h-8" />}
-              <h3 className="text-lg font-semibold" style={{ color: form.primary_color }}>Connect to Wi-Fi</h3>
-              <p className="mt-1 text-sm opacity-80">{form.welcome_text || "Welcome — buy a plan to get online."}</p>
-              <button className="mt-4 rounded-md px-3 py-1.5 text-sm font-medium text-white" style={{ background: form.primary_color }}>
-                Buy with M-Pesa
-              </button>
-            </div>
-          </div>
-        </div>
+          <p className="mt-2 text-center text-xs text-muted-foreground">Sample plans. Your real plans appear on the live portal.</p>
+        </aside>
       </div>
     </div>
   );

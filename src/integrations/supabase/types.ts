@@ -24,6 +24,7 @@ export type Database = {
           primary_color: string | null
           tenant_id: string
           terms_text: string | null
+          theme: string
           updated_at: string
           welcome_text: string | null
         }
@@ -36,6 +37,7 @@ export type Database = {
           primary_color?: string | null
           tenant_id: string
           terms_text?: string | null
+          theme?: string
           updated_at?: string
           welcome_text?: string | null
         }
@@ -48,6 +50,7 @@ export type Database = {
           primary_color?: string | null
           tenant_id?: string
           terms_text?: string | null
+          theme?: string
           updated_at?: string
           welcome_text?: string | null
         }
