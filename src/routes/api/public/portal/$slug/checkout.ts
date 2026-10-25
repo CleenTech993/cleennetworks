@@ -2,12 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import {
-  loadTenantBySlugAdmin,
-  loadPlatformMpesaConfig,
-  stkPush,
-  normalizePhone,
-} from "@/lib/mpesa.server";
+import { loadTenantBySlugAdmin, loadPlatformMpesaConfig, normalizePhone } from "@/lib/mpesa.server";
+import { resolveProvider, startStkPush } from "@/lib/payment-gateway.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import {
   CHECKOUT_LIMITS,
@@ -42,6 +38,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         try {
           const tenant = await loadTenantBySlugAdmin(params.slug);
           const cfg = await loadPlatformMpesaConfig();
+          const provider = resolveProvider(cfg);
 
           const { data: pkg } = await supabaseAdmin
             .from("packages")
@@ -60,6 +57,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               phone,
               amount: pkg.price,
               status: "pending",
+              provider,
             })
             .select("id,created_at,status,package_id")
             .single();
@@ -90,27 +88,35 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const host = getRequestHost();
           const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
-          const result = await stkPush({
-            cfg,
-            amount: Number(pkg.price),
-            phone,
-            reference: pay.id,
-            description: pkg.kind ?? "Internet",
-            callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
-          });
+          let started;
+          try {
+            started = await startStkPush({
+              provider,
+              cfg,
+              amount: Number(pkg.price),
+              phone,
+              reference: pay.id,
+              description: pkg.kind ?? "Internet",
+              callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
+            });
+          } catch (e) {
+            // No prompt went out, so this attempt must not count against the customer's phone.
+            await supabaseAdmin.from("payments").delete().eq("id", pay.id);
+            throw e;
+          }
 
           await supabaseAdmin
             .from("payments")
             .update({
-              checkout_request_id: result.CheckoutRequestID,
-              merchant_request_id: result.MerchantRequestID,
+              checkout_request_id: started.checkoutRef,
+              merchant_request_id: started.providerRef,
             })
             .eq("id", pay.id);
 
           return Response.json({
             paymentId: pay.id,
-            checkoutRequestId: result.CheckoutRequestID,
-            message: result.CustomerMessage,
+            checkoutRequestId: started.checkoutRef,
+            message: started.message,
           });
         } catch (e) {
           return Response.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });

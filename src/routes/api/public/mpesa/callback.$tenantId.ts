@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { randomVoucher, expiryFrom, payheroTransactionStatus } from "@/lib/mpesa.server";
+import { payheroTransactionStatus } from "@/lib/mpesa.server";
+import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 
 // PayHero payment callback. The callback body is NOT trusted: we look up the
 // payment by its external_reference and re-verify the status with PayHero.
@@ -43,67 +44,25 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
         }
 
         if (verified.status === "FAILED") {
-          await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: rawJson }).eq("id", payment.id);
+          await markPaymentFailed(payment.id, rawJson);
           return Response.json({ ok: true, note: "Recorded failure" });
         }
         if (verified.status !== "SUCCESS") return Response.json({ ok: true, note: "Pending" });
-
-        // Atomically claim the payment so concurrent/retried callbacks cannot each
-        // issue a voucher. Only the request that flips pending|failed -> processing proceeds.
-        const { data: claimed } = await supabaseAdmin
-          .from("payments")
-          .update({ status: "processing" })
-          .eq("id", payment.id)
-          .in("status", ["pending", "failed"])
-          .select("id")
-          .maybeSingle();
-        if (!claimed) return Response.json({ ok: true, note: "Already processing" });
 
         const receipt = String(verified.receipt ?? r.MpesaReceiptNumber ?? "");
         // Keep the amount recorded at STK-push time; the callback body is untrusted.
         const phone = payment.phone ?? String(r.Phone ?? "").replace(/\D/g, "");
 
         try {
-          let voucherCode: string | null = null;
-          let expiresAt: string | null = null;
-          if (payment.package_id) {
-            const { data: pkg } = await supabaseAdmin
-              .from("packages")
-              .select("kind,duration_value,duration_unit")
-              .eq("id", payment.package_id)
-              .maybeSingle();
-            if (pkg?.duration_value && pkg?.duration_unit) {
-              expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
-            }
-            if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
-              voucherCode = randomVoucher();
-              const { error: vErr } = await supabaseAdmin.from("vouchers").insert({
-                tenant_id: tenantId,
-                package_id: payment.package_id,
-                code: voucherCode,
-                payment_id: payment.id,
-                expires_at: expiresAt,
-              });
-              if (vErr) throw vErr;
-            }
-          }
-
-          const { error: uErr } = await supabaseAdmin
-            .from("payments")
-            .update({
-              status: "success",
-              mpesa_receipt: receipt || null,
-              phone: phone || undefined,
-              raw_callback: rawJson,
-              voucher_code: voucherCode,
-              expires_at: expiresAt,
-            })
-            .eq("id", payment.id);
-          if (uErr) throw uErr;
+          const outcome = await settlePayment({
+            payment: { id: payment.id, tenant_id: tenantId, package_id: payment.package_id, phone: phone || null },
+            receipt: receipt || null,
+            raw: rawJson,
+          });
+          if (outcome === "already") return Response.json({ ok: true, note: "Already processing" });
         } catch (e) {
-          // Release the claim so PayHero's retry can reprocess instead of losing the payment.
+          // settlePayment released the claim so PayHero's retry can reprocess.
           console.error("callback processing failed", e);
-          await supabaseAdmin.from("payments").update({ status: "pending" }).eq("id", payment.id);
           return Response.json({ ok: false, error: "Processing failed" }, { status: 500 });
         }
 

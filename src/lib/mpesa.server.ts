@@ -10,6 +10,8 @@ export interface PlatformMpesaConfig {
   consumer_secret: string | null;
   passkey: string | null;
   callback_base_url: string | null;
+  /** Which gateway new payments use: "payhero" (default) or "intasend". */
+  active_provider: string;
 }
 
 export interface TenantReceiving {
@@ -32,14 +34,15 @@ export function payheroAuthHeader(): string {
 }
 
 export async function loadPlatformMpesaConfig(): Promise<PlatformMpesaConfig> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("platform_mpesa_config")
-    .select("mpesa_env,shortcode,consumer_key,consumer_secret,passkey,callback_base_url")
+    .select("mpesa_env,shortcode,consumer_key,consumer_secret,passkey,callback_base_url,active_provider")
     .eq("id", 1)
     .maybeSingle();
+  if (error) console.error("loadPlatformMpesaConfig failed", error.message);
   return (data ?? {
     mpesa_env: "production", shortcode: null, consumer_key: null,
-    consumer_secret: null, passkey: null, callback_base_url: null,
+    consumer_secret: null, passkey: null, callback_base_url: null, active_provider: "payhero",
   }) as PlatformMpesaConfig;
 }
 

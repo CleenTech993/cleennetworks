@@ -213,6 +213,7 @@ export type Database = {
       }
       payments: {
         Row: {
+          provider: string
           amount: number
           checkout_request_id: string | null
           created_at: string
@@ -229,6 +230,7 @@ export type Database = {
           voucher_code: string | null
         }
         Insert: {
+          provider?: string
           amount: number
           checkout_request_id?: string | null
           created_at?: string
@@ -245,6 +247,7 @@ export type Database = {
           voucher_code?: string | null
         }
         Update: {
+          provider?: string
           amount?: number
           checkout_request_id?: string | null
           created_at?: string
@@ -286,6 +289,7 @@ export type Database = {
       }
       platform_mpesa_config: {
         Row: {
+          active_provider: string
           callback_base_url: string | null
           confirmation_url: string | null
           consumer_key: string | null
@@ -298,6 +302,7 @@ export type Database = {
           validation_url: string | null
         }
         Insert: {
+          active_provider?: string
           callback_base_url?: string | null
           confirmation_url?: string | null
           consumer_key?: string | null
@@ -310,6 +315,7 @@ export type Database = {
           validation_url?: string | null
         }
         Update: {
+          active_provider?: string
           callback_base_url?: string | null
           confirmation_url?: string | null
           consumer_key?: string | null
