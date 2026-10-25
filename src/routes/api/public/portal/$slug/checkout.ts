@@ -8,6 +8,13 @@ import {
   stkPush,
   normalizePhone,
 } from "@/lib/mpesa.server";
+import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
+import {
+  CHECKOUT_LIMITS,
+  isValidKenyanMobile,
+  throttleMessage,
+  throttleVerdict,
+} from "@/lib/checkout-throttle";
 
 const Schema = z.object({
   packageId: z.string().uuid(),
@@ -18,10 +25,19 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
+        // Cheap per-IP gate first (per-instance; the per-phone limit below is the durable one).
+        if (!rateLimit(`checkout:${params.slug}:${clientIp(request)}`, CHECKOUT_LIMITS.ipMax, CHECKOUT_LIMITS.ipWindowMs)) {
+          return tooManyRequests();
+        }
         let body: unknown;
         try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
         const parsed = Schema.safeParse(body);
         if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
+
+        const phone = normalizePhone(parsed.data.phone);
+        if (!isValidKenyanMobile(phone)) {
+          return Response.json({ error: "Enter a valid M-Pesa number, e.g. 0712345678." }, { status: 400 });
+        }
 
         try {
           const tenant = await loadTenantBySlugAdmin(params.slug);
@@ -41,20 +57,43 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             .insert({
               tenant_id: tenant.id,
               package_id: pkg.id,
-              phone: normalizePhone(parsed.data.phone),
+              phone,
               amount: pkg.price,
               status: "pending",
             })
-            .select("id")
+            .select("id,created_at,status,package_id")
             .single();
-          if (payErr || !pay) return Response.json({ error: payErr?.message }, { status: 500 });
+          if (payErr || !pay) return Response.json({ error: "Could not start the payment." }, { status: 500 });
+
+          // Per-phone limit, shared across server instances because it counts payment rows. The
+          // row is inserted first and then ranked against earlier ones, so parallel requests
+          // cannot all pass. A refused attempt is deleted so it does not count against the phone.
+          const { data: others, error: othersErr } = await supabaseAdmin
+            .from("payments")
+            .select("id,created_at,status,package_id")
+            .eq("tenant_id", tenant.id)
+            .eq("phone", phone)
+            .neq("id", pay.id)
+            .gte("created_at", new Date(Date.now() - CHECKOUT_LIMITS.phoneWindowMs).toISOString());
+          if (othersErr) {
+            await supabaseAdmin.from("payments").delete().eq("id", pay.id);
+            return Response.json({ error: "Please try again in a moment." }, { status: 503 });
+          }
+          const verdict = throttleVerdict(pay, others ?? []);
+          if (!verdict.ok) {
+            await supabaseAdmin.from("payments").delete().eq("id", pay.id);
+            return Response.json(
+              { error: throttleMessage(verdict) },
+              { status: 429, headers: { "retry-after": String(verdict.retryAfterSec) } },
+            );
+          }
 
           const host = getRequestHost();
           const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
           const result = await stkPush({
             cfg,
             amount: Number(pkg.price),
-            phone: parsed.data.phone,
+            phone,
             reference: pay.id,
             description: pkg.kind ?? "Internet",
             callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,

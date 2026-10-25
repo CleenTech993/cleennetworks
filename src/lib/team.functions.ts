@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAal2 } from "@/lib/require-aal2";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // Tenant admins manage their own team here; super admins no longer have to approve
@@ -48,7 +48,7 @@ async function isMemberOf(tenantId: string, userId: string) {
 }
 
 export const listTeam = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .handler(async ({ context }): Promise<{ ok: true; members: TeamMember[] } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
@@ -89,7 +89,7 @@ const AddSchema = z.object({
 });
 
 export const addTeamMember = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => AddSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true; existing: boolean } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
@@ -153,7 +153,7 @@ export const addTeamMember = createServerFn({ method: "POST" })
 const RoleSchema = z.object({ userId: z.string().uuid(), role: z.enum(TEAM_ROLES) });
 
 export const updateTeamMemberRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => RoleSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
@@ -178,7 +178,7 @@ export const updateTeamMemberRole = createServerFn({ method: "POST" })
 const RemoveSchema = z.object({ userId: z.string().uuid() });
 
 export const removeTeamMember = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => RemoveSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
