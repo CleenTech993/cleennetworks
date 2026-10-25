@@ -137,6 +137,208 @@ export type Database = {
           },
         ]
       }
+      inventory_device_events: {
+        Row: {
+          at: string
+          device_id: string
+          event: string
+          id: number
+          tenant_id: string
+        }
+        Insert: {
+          at?: string
+          device_id: string
+          event: string
+          id?: never
+          tenant_id: string
+        }
+        Update: {
+          at?: string
+          device_id?: string
+          event?: string
+          id?: never
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_device_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_device_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      inventory_devices: {
+        Row: {
+          brand: string | null
+          category: string
+          created_at: string
+          customer_id: string | null
+          id: string
+          ip_address: string | null
+          item_id: string | null
+          last_checked_at: string | null
+          last_seen_at: string | null
+          location: string | null
+          loss_pct: number | null
+          mac_address: string | null
+          model: string | null
+          monitor_enabled: boolean
+          monitor_router_id: string | null
+          name: string
+          notes: string | null
+          online: boolean | null
+          serial_number: string | null
+          status: string
+          status_changed_at: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          ip_address?: string | null
+          item_id?: string | null
+          last_checked_at?: string | null
+          last_seen_at?: string | null
+          location?: string | null
+          loss_pct?: number | null
+          mac_address?: string | null
+          model?: string | null
+          monitor_enabled?: boolean
+          monitor_router_id?: string | null
+          name: string
+          notes?: string | null
+          online?: boolean | null
+          serial_number?: string | null
+          status?: string
+          status_changed_at?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string
+          created_at?: string
+          customer_id?: string | null
+          id?: string
+          ip_address?: string | null
+          item_id?: string | null
+          last_checked_at?: string | null
+          last_seen_at?: string | null
+          location?: string | null
+          loss_pct?: number | null
+          mac_address?: string | null
+          model?: string | null
+          monitor_enabled?: boolean
+          monitor_router_id?: string | null
+          name?: string
+          notes?: string | null
+          online?: boolean | null
+          serial_number?: string | null
+          status?: string
+          status_changed_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_devices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_devices_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_devices_monitor_router_id_fkey"
+            columns: ["monitor_router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_devices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      inventory_items: {
+        Row: {
+          brand: string | null
+          category: string
+          created_at: string
+          id: string
+          model: string | null
+          name: string
+          notes: string | null
+          quantity: number
+          reorder_level: number
+          tenant_id: string
+          unit: string
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          name: string
+          notes?: string | null
+          quantity?: number
+          reorder_level?: number
+          tenant_id: string
+          unit?: string
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          name?: string
+          notes?: string | null
+          quantity?: number
+          reorder_level?: number
+          tenant_id?: string
+          unit?: string
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       packages: {
         Row: {
           active: boolean | null
@@ -789,6 +991,64 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: []
+      }
+      stock_movements: {
+        Row: {
+          change: number
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          id: string
+          item_id: string
+          note: string | null
+          reason: string
+          tenant_id: string
+        }
+        Insert: {
+          change: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          item_id: string
+          note?: string | null
+          reason: string
+          tenant_id: string
+        }
+        Update: {
+          change?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          item_id?: string
+          note?: string | null
+          reason?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_movements_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_movements_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       support_tickets: {
         Row: {

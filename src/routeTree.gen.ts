@@ -35,6 +35,7 @@ import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
+import { Route as TenantInventoryRouteImport } from './routes/tenant.inventory'
 import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
 import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
 import { Route as TenantPortalRouteImport } from './routes/tenant.portal'
@@ -56,6 +57,7 @@ import { Route as ApiPublicPortalSlugTvRouteImport } from './routes/api/public/p
 import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
 import { Route as ApiPublicProvisionTokenLoginDothtmlRouteImport } from './routes/api/public/provision/$token/login[.]html'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
+import { Route as ApiPublicRouterDevicesTokenRouteImport } from './routes/api/public/router/devices.$token'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
 import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
@@ -190,6 +192,11 @@ const TenantHotspotRoute = TenantHotspotRouteImport.update({
   path: '/hotspot',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantInventoryRoute = TenantInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantPackagesRoute = TenantPackagesRouteImport.update({
   id: '/packages',
   path: '/packages',
@@ -303,6 +310,12 @@ const ApiPublicProvisionTokenRouterDotrscRoute =
     path: '/api/public/provision/$token/router.rsc',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicRouterDevicesTokenRoute =
+  ApiPublicRouterDevicesTokenRouteImport.update({
+    id: '/api/public/router/devices/$token',
+    path: '/api/public/router/devices/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicRouterHeartbeatTokenRoute =
   ApiPublicRouterHeartbeatTokenRouteImport.update({
     id: '/api/public/router/heartbeat/$token',
@@ -346,6 +359,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
@@ -370,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
@@ -395,6 +410,7 @@ export interface FileRoutesByTo {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
@@ -419,6 +435,7 @@ export interface FileRoutesByTo {
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
@@ -448,6 +465,7 @@ export interface FileRoutesById {
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
@@ -472,6 +490,7 @@ export interface FileRoutesById {
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
@@ -502,6 +521,7 @@ export interface FileRouteTypes {
     | '/super-admin/users'
     | '/tenant/customers'
     | '/tenant/hotspot'
+    | '/tenant/inventory'
     | '/tenant/packages'
     | '/tenant/payments'
     | '/tenant/portal'
@@ -526,6 +546,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
     | '/api/public/router/sync/$token'
@@ -551,6 +572,7 @@ export interface FileRouteTypes {
     | '/super-admin/users'
     | '/tenant/customers'
     | '/tenant/hotspot'
+    | '/tenant/inventory'
     | '/tenant/packages'
     | '/tenant/payments'
     | '/tenant/portal'
@@ -575,6 +597,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
     | '/api/public/router/sync/$token'
@@ -603,6 +626,7 @@ export interface FileRouteTypes {
     | '/super-admin/users'
     | '/tenant/customers'
     | '/tenant/hotspot'
+    | '/tenant/inventory'
     | '/tenant/packages'
     | '/tenant/payments'
     | '/tenant/portal'
@@ -627,6 +651,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/voucher'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
     | '/api/public/router/sync/$token'
@@ -648,6 +673,7 @@ export interface RootRouteChildren {
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
+  ApiPublicRouterDevicesTokenRoute: typeof ApiPublicRouterDevicesTokenRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
   ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
   ApiPublicRouterSyncTokenRoute: typeof ApiPublicRouterSyncTokenRoute
@@ -837,6 +863,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantHotspotRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/inventory': {
+      id: '/tenant/inventory'
+      path: '/inventory'
+      fullPath: '/tenant/inventory'
+      preLoaderRoute: typeof TenantInventoryRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/tenant/packages': {
       id: '/tenant/packages'
       path: '/packages'
@@ -984,6 +1017,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicProvisionTokenRouterDotrscRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/router/devices/$token': {
+      id: '/api/public/router/devices/$token'
+      path: '/api/public/router/devices/$token'
+      fullPath: '/api/public/router/devices/$token'
+      preLoaderRoute: typeof ApiPublicRouterDevicesTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/router/heartbeat/$token': {
       id: '/api/public/router/heartbeat/$token'
       path: '/api/public/router/heartbeat/$token'
@@ -1066,6 +1106,7 @@ const TenantRoutersRouteWithChildren = TenantRoutersRoute._addFileChildren(
 interface TenantRouteChildren {
   TenantCustomersRoute: typeof TenantCustomersRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
+  TenantInventoryRoute: typeof TenantInventoryRoute
   TenantPackagesRoute: typeof TenantPackagesRoute
   TenantPaymentsRoute: typeof TenantPaymentsRoute
   TenantPortalRoute: typeof TenantPortalRoute
@@ -1082,6 +1123,7 @@ interface TenantRouteChildren {
 const TenantRouteChildren: TenantRouteChildren = {
   TenantCustomersRoute: TenantCustomersRoute,
   TenantHotspotRoute: TenantHotspotRoute,
+  TenantInventoryRoute: TenantInventoryRoute,
   TenantPackagesRoute: TenantPackagesRoute,
   TenantPaymentsRoute: TenantPaymentsRoute,
   TenantPortalRoute: TenantPortalRoute,
@@ -1137,6 +1179,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicProvisionTokenLoginDothtmlRoute,
   ApiPublicProvisionTokenRouterDotrscRoute:
     ApiPublicProvisionTokenRouterDotrscRoute,
+  ApiPublicRouterDevicesTokenRoute: ApiPublicRouterDevicesTokenRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
   ApiPublicRouterInterfacesTokenRoute: ApiPublicRouterInterfacesTokenRoute,
   ApiPublicRouterSyncTokenRoute: ApiPublicRouterSyncTokenRoute,
