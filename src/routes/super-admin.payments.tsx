@@ -22,7 +22,7 @@ const empty = {
   callback_base_url: "",
   validation_url: "",
   confirmation_url: "",
-  active_provider: "payhero",
+  active_provider: "intasend",
 };
 
 function PlatformPayments() {
@@ -47,15 +47,12 @@ function PlatformPayments() {
       callback_base_url: cfg.callback_base_url ?? "",
       validation_url: cfg.validation_url ?? "",
       confirmation_url: cfg.confirmation_url ?? "",
-      active_provider: cfg.active_provider ?? "payhero",
+      active_provider: cfg.active_provider ?? "intasend",
     });
   }, [cfg]);
 
   const save = useMutation({
     mutationFn: async () => {
-      if (form.active_provider === "intasend" && !gateways?.intasend.secretKey) {
-        throw new Error("IntaSend isn't configured on the server yet: set INTASEND_SECRET_KEY first.");
-      }
       const { error } = await supabase.from("platform_mpesa_config")
         .update({ ...form, updated_at: new Date().toISOString() })
         .eq("id", 1);
@@ -90,13 +87,31 @@ function PlatformPayments() {
           <Select value={form.active_provider} onValueChange={(v) => setForm({ ...form, active_provider: v })}>
             <SelectTrigger className="mt-1 max-w-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="intasend">IntaSend (default)</SelectItem>
               <SelectItem value="payhero">PayHero</SelectItem>
-              <SelectItem value="intasend">IntaSend</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground mt-2">
             New payments use this gateway. Payments already started keep using the one that created them, so switching is safe.
           </p>
+          {gateways && (
+            <p className="mt-2 text-sm">
+              Checkouts are using{" "}
+              <strong>
+                {gateways.effective === "intasend" ? "IntaSend" : gateways.effective === "payhero" ? "PayHero" : "no gateway"}
+              </strong>{" "}
+              right now.
+              {gateways.effective === null && (
+                <span className="text-destructive"> Neither gateway has its server secrets set, so customers cannot pay.</span>
+              )}
+              {gateways.effective !== null && gateways.effective !== (cfg?.active_provider ?? "intasend") && (
+                <span className="text-destructive">
+                  {" "}
+                  The selected gateway has no server secrets yet, so payments fall back to the other one.
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="grid gap-2 text-sm sm:grid-cols-2">

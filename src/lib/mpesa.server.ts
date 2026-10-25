@@ -10,7 +10,7 @@ export interface PlatformMpesaConfig {
   consumer_secret: string | null;
   passkey: string | null;
   callback_base_url: string | null;
-  /** Which gateway new payments use: "payhero" (default) or "intasend". */
+  /** Which gateway new payments use: "intasend" (default) or "payhero". */
   active_provider: string;
 }
 
@@ -25,6 +25,15 @@ export interface TenantReceiving {
 // Payment gateway: PayHero (https://payhero.co.ke). Credentials live in
 // server secrets PAYHERO_API_USERNAME / PAYHERO_API_PASSWORD / PAYHERO_CHANNEL_ID.
 export const PAYHERO_BASE = "https://backend.payhero.co.ke/api/v2";
+
+/** True when the PayHero server secrets are all present. */
+export function payheroConfigured(): boolean {
+  return !!(
+    process.env["PAYHERO_API_USERNAME"] &&
+    process.env["PAYHERO_API_PASSWORD"] &&
+    process.env["PAYHERO_CHANNEL_ID"]
+  );
+}
 
 export function payheroAuthHeader(): string {
   const user = process.env["PAYHERO_API_USERNAME"];
@@ -42,7 +51,7 @@ export async function loadPlatformMpesaConfig(): Promise<PlatformMpesaConfig> {
   if (error) console.error("loadPlatformMpesaConfig failed", error.message);
   return (data ?? {
     mpesa_env: "production", shortcode: null, consumer_key: null,
-    consumer_secret: null, passkey: null, callback_base_url: null, active_provider: "payhero",
+    consumer_secret: null, passkey: null, callback_base_url: null, active_provider: "intasend",
   }) as PlatformMpesaConfig;
 }
 

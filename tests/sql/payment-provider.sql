@@ -32,6 +32,15 @@ BEGIN
   INSERT INTO public.payments (tenant_id, amount, provider, merchant_request_id) VALUES (t, 10, 'payhero', 'INV1');
   INSERT INTO public.payments (tenant_id, amount, provider) VALUES (t, 10, 'intasend'), (t, 10, 'intasend');
 
-  UPDATE public.platform_mpesa_config SET active_provider = 'intasend' WHERE id = 1;
+  -- IntaSend is the default gateway: the existing row was switched, and a fresh row defaults to it
+  IF EXISTS (SELECT 1 FROM public.platform_mpesa_config WHERE active_provider <> 'intasend') THEN
+    RAISE EXCEPTION 'existing platform config should have been switched to intasend';
+  END IF;
+  IF (SELECT column_default FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'platform_mpesa_config' AND column_name = 'active_provider')
+     NOT LIKE '%intasend%' THEN
+    RAISE EXCEPTION 'platform_mpesa_config.active_provider should default to intasend';
+  END IF;
+
   RAISE NOTICE 'payment provider checks passed';
 END $$;

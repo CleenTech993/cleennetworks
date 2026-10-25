@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { loadPlatformMpesaConfig, normalizePhone, stkPush } from "@/lib/mpesa.server";
+import { loadPlatformMpesaConfig, normalizePhone } from "@/lib/mpesa.server";
+import { resolveProvider, startStkPush } from "@/lib/payment-gateway.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { isRandomizedMac, normalizeMac } from "@/lib/tv";
 
@@ -104,6 +105,17 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           deviceId = created.id;
         }
 
+        // Same gateway switch as the card checkout (IntaSend by default).
+        let cfg;
+        let provider;
+        try {
+          cfg = await loadPlatformMpesaConfig();
+          provider = resolveProvider(cfg);
+        } catch (e) {
+          console.error("tv checkout: no payment gateway available", e);
+          return Response.json({ error: "Payments are temporarily unavailable. Please try again later." }, { status: 503 });
+        }
+
         const { data: pay, error: payErr } = await supabaseAdmin
           .from("payments")
           .insert({
@@ -113,6 +125,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
             amount: pkg.price,
             status: "pending",
             tv_device_id: deviceId,
+            provider,
           })
           .select("id")
           .single();
@@ -122,9 +135,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
         }
 
         try {
-          const cfg = await loadPlatformMpesaConfig();
           const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${getRequestHost()}`;
-          const result = await stkPush({
+          const started = await startStkPush({
+            provider,
             cfg,
             amount: Number(pkg.price),
             phone,
@@ -134,13 +147,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           });
           await supabaseAdmin
             .from("payments")
-            .update({ checkout_request_id: result.CheckoutRequestID, merchant_request_id: result.MerchantRequestID })
+            .update({ checkout_request_id: started.checkoutRef, merchant_request_id: started.providerRef })
             .eq("id", pay.id);
           return Response.json({
             paymentId: pay.id,
             mac,
             randomizedMac: isRandomizedMac(mac),
-            message: result.CustomerMessage,
+            message: started.message,
           });
         } catch (e) {
           console.error("tv checkout: STK push failed", e);
