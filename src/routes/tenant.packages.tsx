@@ -30,12 +30,12 @@ type Pkg = Tables<"packages">;
 type FormState = {
   name: string; price: string; kind: string;
   duration_value: string; duration_unit: string;
-  download_kbps: string; upload_kbps: string; active: boolean;
+  download_kbps: string; upload_kbps: string; device_limit: string; active: boolean;
 };
 const EMPTY_FORM: FormState = {
   name: "", price: "", kind: "hotspot",
   duration_value: "1", duration_unit: "hours",
-  download_kbps: "5000", upload_kbps: "2000", active: true,
+  download_kbps: "5000", upload_kbps: "2000", device_limit: "1", active: true,
 };
 
 function PackageFields({ form, setForm, kindLocked, showActive }: {
@@ -78,6 +78,15 @@ function PackageFields({ form, setForm, kindLocked, showActive }: {
         <div><Label>Download (kbps)</Label><Input type="number" min={0} value={form.download_kbps} onChange={(e) => setForm({ ...form, download_kbps: e.target.value })} /></div>
         <div><Label>Upload (kbps)</Label><Input type="number" min={0} value={form.upload_kbps} onChange={(e) => setForm({ ...form, upload_kbps: e.target.value })} /></div>
       </div>
+      {form.kind !== "pppoe" && (
+        <div>
+          <Label>Devices allowed</Label>
+          <Input type="number" min={1} max={10} value={form.device_limit} onChange={(e) => setForm({ ...form, device_limit: e.target.value })} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            1 = one package, one device: a voucher is pinned to the first device that uses it. More than 1 lets that many devices use it at the same time.
+          </p>
+        </div>
+      )}
       {showActive && (
         <div className="flex items-center justify-between rounded-md border p-3">
           <div>
@@ -121,6 +130,7 @@ function Packages() {
         duration_unit: form.duration_unit,
         download_kbps: Number(form.download_kbps),
         upload_kbps: Number(form.upload_kbps),
+        device_limit: Math.min(10, Math.max(1, Math.trunc(Number(form.device_limit)) || 1)),
       });
       if (error) throw error;
     },
@@ -139,6 +149,7 @@ function Packages() {
       name: p.name, price: String(p.price), kind: p.kind,
       duration_value: String(p.duration_value ?? 1), duration_unit: p.duration_unit ?? "hours",
       download_kbps: String(p.download_kbps ?? 0), upload_kbps: String(p.upload_kbps ?? 0),
+      device_limit: String(p.device_limit ?? 1),
       active: p.active ?? true,
     });
   }
@@ -155,6 +166,7 @@ function Packages() {
           duration_unit: editForm.duration_unit as (typeof PACKAGE_UNITS)[number],
           download_kbps: Number(editForm.download_kbps),
           upload_kbps: Number(editForm.upload_kbps),
+          device_limit: Math.min(10, Math.max(1, Math.trunc(Number(editForm.device_limit)) || 1)),
           active: editForm.active,
         },
       });
@@ -224,7 +236,7 @@ function Packages() {
                   </div>
                 </div>
                 <p className="mt-2 text-2xl font-bold text-primary">KES {Number(p.price).toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">{p.duration_value} {p.duration_unit} · {p.download_kbps}/{p.upload_kbps} kbps</p>
+                <p className="text-xs text-muted-foreground">{p.duration_value} {p.duration_unit} · {p.download_kbps}/{p.upload_kbps} kbps{p.kind !== "pppoe" ? ` · ${p.device_limit ?? 1} device${(p.device_limit ?? 1) === 1 ? "" : "s"}` : ""}</p>
                 <div className="mt-4 flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => startEdit(p)}><Pencil className="h-3.5 w-3.5" /> Edit</Button>
                   <Button size="sm" variant="outline" className="text-destructive" onClick={() => setDeleting(p)}><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
