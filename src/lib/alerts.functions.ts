@@ -26,9 +26,20 @@ export const sendTestAlert = createServerFn({ method: "POST" })
     if (!role?.tenant_id) return { ok: false, error: "Only tenant admins can send a test alert." };
 
     const settings = await loadAlertSettings(role.tenant_id);
-    if (!settings || settings.sms_numbers.length === 0) return { ok: false, error: "Add at least one phone number and save first." };
-    if (!smsConfigured()) return { ok: false, error: "SMS isn't set up on the platform yet. Ask the platform owner to add the SMS credentials." };
+    if (!settings || settings.sms_numbers.length === 0)
+      return { ok: false, error: "Add at least one phone number and save first." };
+    if (!smsConfigured())
+      return {
+        ok: false,
+        error:
+          "SMS isn't set up on the platform yet. Ask the platform owner to add the SMS credentials.",
+      };
 
-    const res = await sendSms(settings.sms_numbers, "NetGrid: test alert. You will get device-offline and low-stock alerts on this number.");
-    return res.ok ? { ok: true, sentTo: settings.sms_numbers.length } : { ok: false, error: res.error };
+    const res = await sendSms(
+      settings.sms_numbers,
+      "NetGrid: test alert. You will get device-offline and low-stock alerts on this number.",
+    );
+    return res.ok
+      ? { ok: true, sentTo: settings.sms_numbers.length }
+      : { ok: false, error: res.error };
   });

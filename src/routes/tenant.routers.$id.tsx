@@ -15,7 +15,12 @@ import { healthScore } from "@/lib/router-health";
 import { InterfacesTab, QualityTab, TrafficTab } from "@/components/router-network";
 
 export const Route = createFileRoute("/tenant/routers/$id")({
-  head: () => ({ meta: [{ title: "Router details — NetGrid" }, { name: "description", content: "Live router health, ports, internet quality and traffic." }] }),
+  head: () => ({
+    meta: [
+      { title: "Router details — NetGrid" },
+      { name: "description", content: "Live router health, ports, internet quality and traffic." },
+    ],
+  }),
   component: RouterDetail,
 });
 
@@ -72,7 +77,7 @@ function RouterDetail() {
   const ramPct =
     r.total_memory_mb && r.free_memory_mb != null
       ? Math.round(((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100)
-      : r.ram_usage ?? null;
+      : (r.ram_usage ?? null);
 
   return (
     <div>
@@ -85,14 +90,24 @@ function RouterDetail() {
       <PageHeader
         title={r.name}
         description={`${r.board_name ?? r.model ?? "Router"} · RouterOS ${r.routeros_version ?? "?"} · ${r.architecture ?? ""}`}
-        action={<Badge variant={live ? "default" : "secondary"}>{live ? "online" : "offline"}</Badge>}
+        action={
+          <Badge variant={live ? "default" : "secondary"}>{live ? "online" : "offline"}</Badge>
+        }
       />
 
-      <div className={`mb-6 flex items-center gap-3 rounded-lg border p-3 text-sm ${live ? "bg-primary/5" : "bg-destructive/5"}`}>
-        <span className={`h-2.5 w-2.5 rounded-full ${live ? "bg-primary animate-pulse" : "bg-destructive"}`} />
-        <span className="font-medium">{live ? "Router is reachable" : "Router is not responding"}</span>
+      <div
+        className={`mb-6 flex items-center gap-3 rounded-lg border p-3 text-sm ${live ? "bg-primary/5" : "bg-destructive/5"}`}
+      >
+        <span
+          className={`h-2.5 w-2.5 rounded-full ${live ? "bg-primary animate-pulse" : "bg-destructive"}`}
+        />
+        <span className="font-medium">
+          {live ? "Router is reachable" : "Router is not responding"}
+        </span>
         <span className="text-muted-foreground">
-          {last ? `last check-in ${Math.round((Date.now() - new Date(last).getTime()) / 1000)}s ago` : "never checked in"}
+          {last
+            ? `last check-in ${Math.round((Date.now() - new Date(last).getTime()) / 1000)}s ago`
+            : "never checked in"}
           {" · "}health score {healthScore(r)}/100
         </span>
         <Button size="sm" variant="outline" className="ml-auto" onClick={() => refetch()}>
@@ -107,87 +122,122 @@ function RouterDetail() {
           <TabsTrigger value="quality">Internet quality</TabsTrigger>
           <TabsTrigger value="traffic">Traffic</TabsTrigger>
         </TabsList>
-        <TabsContent value="interfaces"><InterfacesTab routerId={r.id} /></TabsContent>
-        <TabsContent value="quality"><QualityTab routerId={r.id} /></TabsContent>
-        <TabsContent value="traffic"><TrafficTab routerId={r.id} /></TabsContent>
+        <TabsContent value="interfaces">
+          <InterfacesTab routerId={r.id} />
+        </TabsContent>
+        <TabsContent value="quality">
+          <QualityTab routerId={r.id} />
+        </TabsContent>
+        <TabsContent value="traffic">
+          <TrafficTab routerId={r.id} />
+        </TabsContent>
         <TabsContent value="overview">
-
-      <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <StatCard
-          label="CPU"
-          value={r.cpu_load != null || r.cpu_usage != null ? `${r.cpu_load ?? r.cpu_usage}%` : "—"}
-        />
-        <StatCard label="RAM" value={ramPct != null ? `${ramPct}%` : "—"} hint={r.total_memory_mb ? `${r.total_memory_mb} MB total` : undefined} />
-        <StatCard label="Disk free" value={r.hdd_free_mb != null ? `${r.hdd_free_mb} MB` : "—"} />
-        <StatCard label="Uptime" value={fmtUptime(r.uptime_seconds ?? null)} />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-card p-5">
-          <h3 className="mb-3 font-semibold">Identity</h3>
-          <dl className="space-y-2 text-sm">
-            <Row label="Model" value={r.model ?? r.board_name ?? "—"} />
-            <Row label="Serial" value={r.serial ?? "—"} />
-            <Row label="RouterOS" value={r.routeros_version ?? "—"} />
-            <Row label="Architecture" value={r.architecture ?? "—"} />
-            <Row label="MAC" value={r.mac_address ?? "—"} mono />
-          </dl>
-        </div>
-        <div className="rounded-xl border bg-card p-5">
-          <h3 className="mb-3 font-semibold">Network &amp; health</h3>
-          <dl className="space-y-2 text-sm">
-            <Row label="WAN IP" value={r.wan_ip ?? r.public_ip ?? "—"} mono />
-            <Row label="LAN IP" value={r.lan_ip ?? "—"} mono />
-            <Row label="Status" value={r.status} />
-            <Row
-              label="Temperature"
-              value={r.temperature != null ? `${r.temperature}°C` : "—"}
-              icon={<Thermometer className="h-3.5 w-3.5" />}
+          <div className="grid gap-4 md:grid-cols-4 mb-6">
+            <StatCard
+              label="CPU"
+              value={
+                r.cpu_load != null || r.cpu_usage != null ? `${r.cpu_load ?? r.cpu_usage}%` : "—"
+              }
             />
-            <Row
-              label="Voltage"
-              value={r.voltage != null ? `${r.voltage} V` : "—"}
-              icon={<Zap className="h-3.5 w-3.5" />}
+            <StatCard
+              label="RAM"
+              value={ramPct != null ? `${ramPct}%` : "—"}
+              hint={r.total_memory_mb ? `${r.total_memory_mb} MB total` : undefined}
             />
-            <Row label="Last heartbeat" value={last ? new Date(last).toLocaleString() : "never"} />
-          </dl>
-        </div>
-      </div>
+            <StatCard
+              label="Disk free"
+              value={r.hdd_free_mb != null ? `${r.hdd_free_mb} MB` : "—"}
+            />
+            <StatCard label="Uptime" value={fmtUptime(r.uptime_seconds ?? null)} />
+          </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <Gauge label="CPU load" value={r.cpu_load ?? r.cpu_usage ?? null} icon={<Cpu className="h-4 w-4" />} />
-        <Gauge label="Memory" value={ramPct} icon={<HardDrive className="h-4 w-4" />} />
-      </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border bg-card p-5">
+              <h3 className="mb-3 font-semibold">Identity</h3>
+              <dl className="space-y-2 text-sm">
+                <Row label="Model" value={r.model ?? r.board_name ?? "—"} />
+                <Row label="Serial" value={r.serial ?? "—"} />
+                <Row label="RouterOS" value={r.routeros_version ?? "—"} />
+                <Row label="Architecture" value={r.architecture ?? "—"} />
+                <Row label="MAC" value={r.mac_address ?? "—"} mono />
+              </dl>
+            </div>
+            <div className="rounded-xl border bg-card p-5">
+              <h3 className="mb-3 font-semibold">Network &amp; health</h3>
+              <dl className="space-y-2 text-sm">
+                <Row label="WAN IP" value={r.wan_ip ?? r.public_ip ?? "—"} mono />
+                <Row label="LAN IP" value={r.lan_ip ?? "—"} mono />
+                <Row label="Status" value={r.status} />
+                <Row
+                  label="Temperature"
+                  value={r.temperature != null ? `${r.temperature}°C` : "—"}
+                  icon={<Thermometer className="h-3.5 w-3.5" />}
+                />
+                <Row
+                  label="Voltage"
+                  value={r.voltage != null ? `${r.voltage} V` : "—"}
+                  icon={<Zap className="h-3.5 w-3.5" />}
+                />
+                <Row
+                  label="Last heartbeat"
+                  value={last ? new Date(last).toLocaleString() : "never"}
+                />
+              </dl>
+            </div>
+          </div>
 
-      <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border bg-card p-5">
-        <div>
-          <h3 className="font-semibold">Block tethering and hotspot sharing</h3>
-          <p className="text-sm text-muted-foreground">
-            Stops customers sharing one package through a phone hotspot or their own router. Takes effect within about 2 minutes.
-            Turn it off only if a customer legitimately needs their own router behind this one.
-          </p>
-        </div>
-        <Switch
-          checked={r.block_tethering}
-          onCheckedChange={async (on) => {
-            const { error } = await supabase.from("routers").update({ block_tethering: on }).eq("id", r.id);
-            if (error) toast.error("Could not change the setting");
-            else {
-              toast.success(on ? "Tethering will be blocked" : "Tethering allowed");
-              void refetch();
-            }
-          }}
-        />
-      </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Gauge
+              label="CPU load"
+              value={r.cpu_load ?? r.cpu_usage ?? null}
+              icon={<Cpu className="h-4 w-4" />}
+            />
+            <Gauge label="Memory" value={ramPct} icon={<HardDrive className="h-4 w-4" />} />
+          </div>
 
-      <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />
+          <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border bg-card p-5">
+            <div>
+              <h3 className="font-semibold">Block tethering and hotspot sharing</h3>
+              <p className="text-sm text-muted-foreground">
+                Stops customers sharing one package through a phone hotspot or their own router.
+                Takes effect within about 2 minutes. Turn it off only if a customer legitimately
+                needs their own router behind this one.
+              </p>
+            </div>
+            <Switch
+              checked={r.block_tethering}
+              onCheckedChange={async (on) => {
+                const { error } = await supabase
+                  .from("routers")
+                  .update({ block_tethering: on })
+                  .eq("id", r.id);
+                if (error) toast.error("Could not change the setting");
+                else {
+                  toast.success(on ? "Tethering will be blocked" : "Tethering allowed");
+                  void refetch();
+                }
+              }}
+            />
+          </div>
+
+          <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function Row({ label, value, mono, icon }: { label: string; value: string | number; mono?: boolean; icon?: React.ReactNode }) {
+function Row({
+  label,
+  value,
+  mono,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  mono?: boolean;
+  icon?: React.ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between gap-3">
       <dt className="flex items-center gap-1.5 text-muted-foreground">
@@ -199,7 +249,15 @@ function Row({ label, value, mono, icon }: { label: string; value: string | numb
   );
 }
 
-function Gauge({ label, value, icon }: { label: string; value: number | null; icon: React.ReactNode }) {
+function Gauge({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number | null;
+  icon: React.ReactNode;
+}) {
   const pct = value ?? 0;
   const color = pct > 80 ? "bg-destructive" : pct > 60 ? "bg-amber-500" : "bg-primary";
   return (

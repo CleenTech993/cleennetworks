@@ -8,8 +8,12 @@ export async function requireConsole(opts: { superAdmin?: boolean } = {}): Promi
   if (!data.user) throw redirect({ to: "/login" });
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.currentLevel !== "aal2") throw redirect({ to: "/mfa" });
-  const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", data.user.id);
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", data.user.id);
   if (!roles || roles.length === 0) throw redirect({ to: "/pending" });
-  if (opts.superAdmin && !roles.some((r) => r.role === "super_admin")) throw redirect({ to: "/tenant" });
+  if (opts.superAdmin && !roles.some((r) => r.role === "super_admin"))
+    throw redirect({ to: "/tenant" });
   return roles.map((r) => r.role as AppRole);
 }

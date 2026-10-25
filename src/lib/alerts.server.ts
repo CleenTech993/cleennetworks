@@ -5,7 +5,12 @@ import { sendSms, smsConfigured } from "@/lib/sms.server";
 export const DAILY_SMS_CAP = 50;
 const BATCH = 10;
 
-type Settings = { sms_numbers: string[]; notify_device_down: boolean; notify_low_stock: boolean; down_after_minutes: number };
+type Settings = {
+  sms_numbers: string[];
+  notify_device_down: boolean;
+  notify_low_stock: boolean;
+  down_after_minutes: number;
+};
 
 export async function loadAlertSettings(tenantId: string): Promise<Settings | null> {
   const { data } = await supabaseAdmin
@@ -51,12 +56,20 @@ export async function dispatchPendingAlerts(tenantId: string): Promise<void> {
       .select("id");
     if (!claimed?.length) continue; // another request took it
 
-    const wanted = alert.kind === "low_stock" ? settings?.notify_low_stock : settings?.notify_device_down;
+    const wanted =
+      alert.kind === "low_stock" ? settings?.notify_low_stock : settings?.notify_device_down;
     const numbers = settings?.sms_numbers ?? [];
-    let patch: { sms_status: "sent" | "failed" | "skipped"; sms_sent_at?: string; sms_error: string | null };
+    let patch: {
+      sms_status: "sent" | "failed" | "skipped";
+      sms_sent_at?: string;
+      sms_error: string | null;
+    };
 
     if (!settings || !wanted || numbers.length === 0) {
-      patch = { sms_status: "skipped", sms_error: numbers.length === 0 ? "No SMS numbers set up" : "Turned off in alert settings" };
+      patch = {
+        sms_status: "skipped",
+        sms_error: numbers.length === 0 ? "No SMS numbers set up" : "Turned off in alert settings",
+      };
     } else if (!smsConfigured()) {
       patch = { sms_status: "skipped", sms_error: "SMS is not configured on the platform" };
     } else if (budget <= 0) {

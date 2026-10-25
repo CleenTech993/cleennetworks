@@ -36,21 +36,32 @@ export const isValidIpv4 = (s: string) => IPV4.test(s.trim());
 
 /** "AA-BB-CC-DD-EE-FF", "aabb.ccdd.eeff" or "aabbccddeeff" -> "aa:bb:cc:dd:ee:ff"; null if not a MAC. */
 export function normalizeMac(input: string): string | null {
-  const hex = input.trim().toLowerCase().replace(/[:\-.\s]/g, "");
+  const hex = input
+    .trim()
+    .toLowerCase()
+    .replace(/[:\-.\s]/g, "");
   if (!/^[0-9a-f]{12}$/.test(hex)) return null;
   return hex.match(/.{2}/g)!.join(":");
 }
 
 export type StockLike = { quantity: number | string; reorder_level: number | string };
-export const isLowStock = (i: StockLike) => Number(i.reorder_level) > 0 && Number(i.quantity) <= Number(i.reorder_level);
+export const isLowStock = (i: StockLike) =>
+  Number(i.reorder_level) > 0 && Number(i.quantity) <= Number(i.reorder_level);
 
 export function formatQty(quantity: number | string, unit: string): string {
   const n = Number(quantity);
-  const text = Number.isInteger(n) ? n.toLocaleString() : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const text = Number.isInteger(n)
+    ? n.toLocaleString()
+    : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return unit === "m" ? `${text} m` : `${text}`;
 }
 
-export function customerLabel(c: { full_name: string | null; phone: string | null; pppoe_username: string | null; id: string }): string {
+export function customerLabel(c: {
+  full_name: string | null;
+  phone: string | null;
+  pppoe_username: string | null;
+  id: string;
+}): string {
   return c.full_name?.trim() || c.phone || c.pppoe_username || `Customer ${c.id.slice(0, 6)}`;
 }
 
@@ -58,7 +69,8 @@ export function customerLabel(c: { full_name: string | null; phone: string | nul
 export function describeError(e: unknown): string {
   const err = e as { message?: string; code?: string } | null;
   const msg = err?.message ?? "Something went wrong";
-  if (err?.code === "23505" || /duplicate key/i.test(msg)) return "That serial number is already registered.";
+  if (err?.code === "23505" || /duplicate key/i.test(msg))
+    return "That serial number is already registered.";
   if (err?.code === "42501" || /row-level security|permission denied/i.test(msg)) {
     return "You don't have permission to do that.";
   }

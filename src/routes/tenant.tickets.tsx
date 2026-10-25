@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -33,7 +39,9 @@ function Tickets() {
   const create = useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error("No tenant");
-      const { error } = await supabase.from("support_tickets").insert({ tenant_id: tenantId, ...form });
+      const { error } = await supabase
+        .from("support_tickets")
+        .insert({ tenant_id: tenantId, ...form });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -60,13 +68,37 @@ function Tickets() {
         description="Customer tickets and internal notes."
         action={
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button>New ticket</Button></DialogTrigger>
+            <DialogTrigger asChild>
+              <Button>New ticket</Button>
+            </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>New ticket</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>New ticket</DialogTitle>
+              </DialogHeader>
               <div className="space-y-3">
-                <div><Label>Subject</Label><Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} className="mt-1" /></div>
-                <div><Label>Details</Label><Textarea rows={4} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} className="mt-1" /></div>
-                <Button onClick={() => create.mutate()} disabled={!form.subject || create.isPending}>{create.isPending ? "Creating…" : "Create"}</Button>
+                <div>
+                  <Label>Subject</Label>
+                  <Input
+                    value={form.subject}
+                    onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Details</Label>
+                  <Textarea
+                    rows={4}
+                    value={form.body}
+                    onChange={(e) => setForm({ ...form, body: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <Button
+                  onClick={() => create.mutate()}
+                  disabled={!form.subject || create.isPending}
+                >
+                  {create.isPending ? "Creating…" : "Create"}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -82,7 +114,9 @@ function Tickets() {
                 <div className="min-w-0">
                   <h3 className="font-medium">{t.subject}</h3>
                   <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{t.body}</p>
-                  <p className="mt-2 text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {new Date(t.created_at).toLocaleString()}
+                  </p>
                 </div>
                 <select
                   value={t.status}

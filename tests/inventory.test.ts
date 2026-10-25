@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDeviceMonitorLines, deviceHealth, parseDeviceReport, planAlert, planReading, safeTargets, STALE_AFTER_MS,
+  buildDeviceMonitorLines,
+  deviceHealth,
+  parseDeviceReport,
+  planAlert,
+  planReading,
+  safeTargets,
+  STALE_AFTER_MS,
 } from "../src/lib/inventory-monitor";
-import { describeError, formatQty, isLowStock, isValidIpv4, normalizeAlertNumber, normalizeMac } from "../src/lib/inventory";
+import {
+  describeError,
+  formatQty,
+  isLowStock,
+  isValidIpv4,
+  normalizeAlertNumber,
+  normalizeMac,
+} from "../src/lib/inventory";
 
 const A = "11111111-2222-3333-4444-555555555555";
 const B = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -10,7 +23,13 @@ const URL = "https://app.example.com/api/public/router/devices/TOKEN";
 
 describe("router monitor script", () => {
   it("emits a device list, reporter script, scheduler and netwatch sync", () => {
-    const text = buildDeviceMonitorLines([{ id: A, ip_address: "10.0.0.5" }, { id: B, ip_address: "10.0.0.6" }], URL).join("\n");
+    const text = buildDeviceMonitorLines(
+      [
+        { id: A, ip_address: "10.0.0.5" },
+        { id: B, ip_address: "10.0.0.6" },
+      ],
+      URL,
+    ).join("\n");
     expect(text).toContain(`:global ngInvIds [:toarray "${A},${B}"]`);
     expect(text).toContain(':global ngInvIps [:toarray "10.0.0.5,10.0.0.6"]');
     expect(text).toContain(`:global ngInvUrl "${URL}"`);
@@ -41,20 +60,33 @@ describe("router monitor script", () => {
   });
 
   it("de-duplicates devices and caps the list", () => {
-    expect(safeTargets([{ id: A, ip_address: "10.0.0.1" }, { id: A, ip_address: "10.0.0.2" }])).toHaveLength(1);
-    const many = Array.from({ length: 400 }, (_, i) => ({ id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`, ip_address: "10.0.0.1" }));
+    expect(
+      safeTargets([
+        { id: A, ip_address: "10.0.0.1" },
+        { id: A, ip_address: "10.0.0.2" },
+      ]),
+    ).toHaveLength(1);
+    const many = Array.from({ length: 400 }, (_, i) => ({
+      id: `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+      ip_address: "10.0.0.1",
+    }));
     expect(safeTargets(many).length).toBe(150);
   });
 });
 
 describe("device report parsing", () => {
   it("parses up/down readings", () => {
-    expect(parseDeviceReport(`${A}~1,${B}~0,`)).toEqual([{ id: A, up: true, latencyMs: null }, { id: B, up: false, latencyMs: null }]);
+    expect(parseDeviceReport(`${A}~1,${B}~0,`)).toEqual([
+      { id: A, up: true, latencyMs: null },
+      { id: B, up: false, latencyMs: null },
+    ]);
   });
   it("ignores junk, duplicates and empty input", () => {
     expect(parseDeviceReport(null)).toEqual([]);
     expect(parseDeviceReport("")).toEqual([]);
-    expect(parseDeviceReport(`bad~1,${A}~7,${A}~1,${A}~0,x`)).toEqual([{ id: A, up: true, latencyMs: null }]);
+    expect(parseDeviceReport(`bad~1,${A}~7,${A}~1,${A}~0,x`)).toEqual([
+      { id: A, up: true, latencyMs: null },
+    ]);
   });
   it("lowercases ids so they match the database", () => {
     expect(parseDeviceReport(`${A.toUpperCase()}~1`)[0].id).toBe(A);
@@ -84,34 +116,75 @@ describe("latency in reports", () => {
 });
 
 describe("when an outage becomes an alert", () => {
-  const base = { downAfterMin: 5, nowMs: Date.parse("2026-10-25T10:10:00.000Z"), alertedAt: null as string | null };
-  const downSince = (iso: string) => ({ ...base, prevOnline: false, statusChangedAt: iso, up: false });
+  const base = {
+    downAfterMin: 5,
+    nowMs: Date.parse("2026-10-25T10:10:00.000Z"),
+    alertedAt: null as string | null,
+  };
+  const downSince = (iso: string) => ({
+    ...base,
+    prevOnline: false,
+    statusChangedAt: iso,
+    up: false,
+  });
 
   it("waits until the outage has lasted the chosen time", () => {
-    expect(planAlert(downSince("2026-10-25T10:07:00.000Z")).alert).toBeNull();            // 3 min
-    expect(planAlert(downSince("2026-10-25T10:05:00.000Z"))).toEqual({ alert: "down", alertedAtPatch: "now" }); // 5 min
+    expect(planAlert(downSince("2026-10-25T10:07:00.000Z")).alert).toBeNull(); // 3 min
+    expect(planAlert(downSince("2026-10-25T10:05:00.000Z"))).toEqual({
+      alert: "down",
+      alertedAtPatch: "now",
+    }); // 5 min
   });
   it("alerts once per outage", () => {
-    expect(planAlert({ ...downSince("2026-10-25T09:00:00.000Z"), alertedAt: "2026-10-25T09:06:00.000Z" }).alert).toBeNull();
+    expect(
+      planAlert({ ...downSince("2026-10-25T09:00:00.000Z"), alertedAt: "2026-10-25T09:06:00.000Z" })
+        .alert,
+    ).toBeNull();
   });
   it("does not alert on the very first reading, or when the device was previously up", () => {
-    expect(planAlert({ ...base, prevOnline: null, statusChangedAt: null, up: false }).alert).toBeNull();
-    expect(planAlert({ ...base, prevOnline: true, statusChangedAt: "2026-10-25T09:00:00.000Z", up: false }).alert).toBeNull();
+    expect(
+      planAlert({ ...base, prevOnline: null, statusChangedAt: null, up: false }).alert,
+    ).toBeNull();
+    expect(
+      planAlert({
+        ...base,
+        prevOnline: true,
+        statusChangedAt: "2026-10-25T09:00:00.000Z",
+        up: false,
+      }).alert,
+    ).toBeNull();
   });
   it("announces recovery only if an outage alert was sent", () => {
-    expect(planAlert({ ...base, prevOnline: false, statusChangedAt: "2026-10-25T10:00:00.000Z", alertedAt: "2026-10-25T10:05:00.000Z", up: true }))
-      .toEqual({ alert: "up", alertedAtPatch: "clear" });
-    expect(planAlert({ ...base, prevOnline: false, statusChangedAt: "2026-10-25T10:08:00.000Z", up: true }).alert).toBeNull(); // brief blip
+    expect(
+      planAlert({
+        ...base,
+        prevOnline: false,
+        statusChangedAt: "2026-10-25T10:00:00.000Z",
+        alertedAt: "2026-10-25T10:05:00.000Z",
+        up: true,
+      }),
+    ).toEqual({ alert: "up", alertedAtPatch: "clear" });
+    expect(
+      planAlert({
+        ...base,
+        prevOnline: false,
+        statusChangedAt: "2026-10-25T10:08:00.000Z",
+        up: true,
+      }).alert,
+    ).toBeNull(); // brief blip
   });
   it("a one-minute setting alerts after one minute", () => {
-    expect(planAlert({ ...downSince("2026-10-25T10:08:30.000Z"), downAfterMin: 1 }).alert).toBe("down");
+    expect(planAlert({ ...downSince("2026-10-25T10:08:30.000Z"), downAfterMin: 1 }).alert).toBe(
+      "down",
+    );
   });
 });
 
 describe("state changes", () => {
   const now = "2026-10-25T10:00:00.000Z";
   it("first reading up: no event", () => expect(planReading(null, true, now).event).toBeNull());
-  it("first reading down: records an outage", () => expect(planReading(null, false, now).event).toBe("down"));
+  it("first reading down: records an outage", () =>
+    expect(planReading(null, false, now).event).toBe("down"));
   it("up -> down and down -> up are recorded", () => {
     expect(planReading(true, false, now).event).toBe("down");
     expect(planReading(false, true, now).event).toBe("up");
@@ -122,7 +195,8 @@ describe("state changes", () => {
     expect(p.patch).not.toHaveProperty("status_changed_at");
     expect(p.patch.last_seen_at).toBe(now);
   });
-  it("down readings do not refresh last_seen_at", () => expect(planReading(true, false, now).patch).not.toHaveProperty("last_seen_at"));
+  it("down readings do not refresh last_seen_at", () =>
+    expect(planReading(true, false, now).patch).not.toHaveProperty("last_seen_at"));
 });
 
 describe("device health", () => {
@@ -133,25 +207,35 @@ describe("device health", () => {
   });
   it("is unknown before the first reading and when the readings go stale", () => {
     expect(deviceHealth({ ...base, online: null, last_checked_at: null })).toBe("unknown");
-    expect(deviceHealth({ ...base, last_checked_at: new Date(Date.now() - STALE_AFTER_MS - 1000).toISOString() })).toBe("unknown");
+    expect(
+      deviceHealth({
+        ...base,
+        last_checked_at: new Date(Date.now() - STALE_AFTER_MS - 1000).toISOString(),
+      }),
+    ).toBe("unknown");
   });
-  it("not monitored when switched off", () => expect(deviceHealth({ ...base, monitor_enabled: false })).toBe("not_monitored"));
+  it("not monitored when switched off", () =>
+    expect(deviceHealth({ ...base, monitor_enabled: false })).toBe("not_monitored"));
 });
 
 describe("inventory helpers", () => {
   it("validates IPs", () => {
     expect(isValidIpv4("192.168.88.20")).toBe(true);
-    for (const bad of ["192.168.88", "256.1.1.1", "a.b.c.d", "1.1.1.1/24", ""]) expect(isValidIpv4(bad)).toBe(false);
+    for (const bad of ["192.168.88", "256.1.1.1", "a.b.c.d", "1.1.1.1/24", ""])
+      expect(isValidIpv4(bad)).toBe(false);
   });
   it("normalises MAC addresses", () => {
-    for (const m of ["AA:BB:CC:DD:EE:FF", "aa-bb-cc-dd-ee-ff", "aabb.ccdd.eeff", "aabbccddeeff"]) expect(normalizeMac(m)).toBe("aa:bb:cc:dd:ee:ff");
+    for (const m of ["AA:BB:CC:DD:EE:FF", "aa-bb-cc-dd-ee-ff", "aabb.ccdd.eeff", "aabbccddeeff"])
+      expect(normalizeMac(m)).toBe("aa:bb:cc:dd:ee:ff");
     expect(normalizeMac("nope")).toBeNull();
     expect(normalizeMac("aa:bb:cc")).toBeNull();
   });
   it("normalises alert phone numbers", () => {
-    for (const n of ["0712 345 678", "+254712345678", "254712345678", "712345678", "0712-345-678"]) expect(normalizeAlertNumber(n)).toBe("254712345678");
+    for (const n of ["0712 345 678", "+254712345678", "254712345678", "712345678", "0712-345-678"])
+      expect(normalizeAlertNumber(n)).toBe("254712345678");
     expect(normalizeAlertNumber("0112345678")).toBe("254112345678");
-    for (const bad of ["", "abc", "12", "0712 345 678; drop", "+2547123456789012345"]) expect(normalizeAlertNumber(bad)).toBeNull();
+    for (const bad of ["", "abc", "12", "0712 345 678; drop", "+2547123456789012345"])
+      expect(normalizeAlertNumber(bad)).toBeNull();
   });
   it("flags low stock only when a reorder level is set", () => {
     expect(isLowStock({ quantity: 2, reorder_level: 5 })).toBe(true);
@@ -165,7 +249,11 @@ describe("inventory helpers", () => {
   });
   it("explains common database errors", () => {
     expect(describeError({ code: "23505", message: "duplicate key" })).toMatch(/serial/i);
-    expect(describeError({ code: "42501", message: "new row violates row-level security policy" })).toMatch(/permission/i);
-    expect(describeError({ message: "Not enough stock: 3 in stock, 10 requested" })).toMatch(/Not enough stock/);
+    expect(
+      describeError({ code: "42501", message: "new row violates row-level security policy" }),
+    ).toMatch(/permission/i);
+    expect(describeError({ message: "Not enough stock: 3 in stock, 10 requested" })).toMatch(
+      /Not enough stock/,
+    );
   });
 });

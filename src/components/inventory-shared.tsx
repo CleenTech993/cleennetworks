@@ -25,7 +25,10 @@ export function useInventoryDevices(refetchMs?: number) {
     queryKey: ["inventory-devices"],
     refetchInterval: refetchMs,
     queryFn: async () => {
-      const { data, error } = await supabase.from("inventory_devices").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("inventory_devices")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -65,11 +68,20 @@ const HEALTH_LABEL: Record<DeviceHealth, string> = {
   not_monitored: "Not monitored",
 };
 
-export function HealthBadge({ device }: { device: Pick<InventoryDevice, "monitor_enabled" | "online" | "last_checked_at"> }) {
+export function HealthBadge({
+  device,
+}: {
+  device: Pick<InventoryDevice, "monitor_enabled" | "online" | "last_checked_at">;
+}) {
   const h = deviceHealth(device);
-  if (h === "up") return <Badge className="bg-success text-success-foreground">{HEALTH_LABEL[h]}</Badge>;
+  if (h === "up")
+    return <Badge className="bg-success text-success-foreground">{HEALTH_LABEL[h]}</Badge>;
   if (h === "down") return <Badge variant="destructive">{HEALTH_LABEL[h]}</Badge>;
-  return <Badge variant="outline" className="text-muted-foreground">{HEALTH_LABEL[h]}</Badge>;
+  return (
+    <Badge variant="outline" className="text-muted-foreground">
+      {HEALTH_LABEL[h]}
+    </Badge>
+  );
 }
 
 export function timeAgo(iso: string | null): string {

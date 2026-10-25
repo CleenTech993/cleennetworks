@@ -28,7 +28,9 @@ function ResetPasswordPage() {
       setReady(true);
       return;
     }
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") setReady(true);
     });
     // If a recovery session already exists, allow the form too.
@@ -63,11 +65,17 @@ function ResetPasswordPage() {
   return (
     <AuthLayout
       title="Set a new password"
-      footer={<Link to="/login" className="font-medium text-primary hover:underline">Back to sign in</Link>}
+      footer={
+        <Link to="/login" className="font-medium text-primary hover:underline">
+          Back to sign in
+        </Link>
+      }
     >
       {invalid ? (
         <>
-          <p className="text-sm text-muted-foreground">This reset link is invalid or has expired. Request a new one.</p>
+          <p className="text-sm text-muted-foreground">
+            This reset link is invalid or has expired. Request a new one.
+          </p>
           <Button asChild className="mt-5 w-full">
             <Link to="/forgot-password">Request new link</Link>
           </Button>
@@ -78,11 +86,27 @@ function ResetPasswordPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="password">New password</Label>
-            <Input id="password" type="password" autoComplete="new-password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="confirm">Confirm new password</Label>
-            <Input id="confirm" type="password" autoComplete="new-password" required minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            <Input
+              id="confirm"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Updating…" : "Update password"}
