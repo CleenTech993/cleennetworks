@@ -371,6 +371,69 @@ export type Database = {
           },
         ]
       }
+      router_devices: {
+        Row: {
+          authorized: boolean
+          blocked: boolean
+          first_seen_at: string
+          hostname: string | null
+          id: string
+          ip: string | null
+          last_seen_at: string
+          mac: string
+          registered_kind: string | null
+          router_id: string
+          tenant_id: string
+          tether_suspected: boolean
+          voucher_code: string | null
+        }
+        Insert: {
+          authorized?: boolean
+          blocked?: boolean
+          first_seen_at?: string
+          hostname?: string | null
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          mac: string
+          registered_kind?: string | null
+          router_id: string
+          tenant_id: string
+          tether_suspected?: boolean
+          voucher_code?: string | null
+        }
+        Update: {
+          authorized?: boolean
+          blocked?: boolean
+          first_seen_at?: string
+          hostname?: string | null
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          mac?: string
+          registered_kind?: string | null
+          router_id?: string
+          tenant_id?: string
+          tether_suspected?: boolean
+          voucher_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_devices_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "router_devices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       router_interfaces: {
         Row: {
           disabled: boolean
@@ -571,6 +634,7 @@ export type Database = {
       routers: {
         Row: {
           architecture: string | null
+          block_tethering: boolean
           board_name: string | null
           cpu_load: number | null
           cpu_usage: number | null
@@ -605,6 +669,7 @@ export type Database = {
         }
         Insert: {
           architecture?: string | null
+          block_tethering?: boolean
           board_name?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
@@ -639,6 +704,7 @@ export type Database = {
         }
         Update: {
           architecture?: string | null
+          block_tethering?: boolean
           board_name?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
@@ -1004,6 +1070,7 @@ export type Database = {
       }
       vouchers: {
         Row: {
+          bound_mac: string | null
           code: string
           created_at: string
           expires_at: string | null
@@ -1016,6 +1083,7 @@ export type Database = {
           used_by_mac: string | null
         }
         Insert: {
+          bound_mac?: string | null
           code: string
           created_at?: string
           expires_at?: string | null
@@ -1028,6 +1096,7 @@ export type Database = {
           used_by_mac?: string | null
         }
         Update: {
+          bound_mac?: string | null
           code?: string
           created_at?: string
           expires_at?: string | null
