@@ -675,6 +675,95 @@ export type Database = {
           },
         ]
       }
+      router_credentials: {
+        Row: {
+          created_at: string
+          router_id: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          router_id: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          router_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_credentials_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: true
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      router_devices: {
+        Row: {
+          authorized: boolean
+          blocked: boolean
+          first_seen_at: string
+          hostname: string | null
+          id: string
+          ip: string | null
+          last_seen_at: string
+          mac: string
+          registered_kind: string | null
+          router_id: string
+          tenant_id: string
+          tether_suspected: boolean
+          voucher_code: string | null
+        }
+        Insert: {
+          authorized?: boolean
+          blocked?: boolean
+          first_seen_at?: string
+          hostname?: string | null
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          mac: string
+          registered_kind?: string | null
+          router_id: string
+          tenant_id: string
+          tether_suspected?: boolean
+          voucher_code?: string | null
+        }
+        Update: {
+          authorized?: boolean
+          blocked?: boolean
+          first_seen_at?: string
+          hostname?: string | null
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          mac?: string
+          registered_kind?: string | null
+          router_id?: string
+          tenant_id?: string
+          tether_suspected?: boolean
+          voucher_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_devices_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "router_devices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       router_interfaces: {
         Row: {
           disabled: boolean
@@ -875,6 +964,7 @@ export type Database = {
       routers: {
         Row: {
           architecture: string | null
+          block_tethering: boolean
           board_name: string | null
           cpu_load: number | null
           cpu_usage: number | null
@@ -891,6 +981,7 @@ export type Database = {
           name: string
           provision_token: string | null
           provision_token_expires_at: string | null
+          legacy_token_auth: boolean
           public_ip: string | null
           ram_usage: number | null
           routeros_version: string | null
@@ -909,6 +1000,7 @@ export type Database = {
         }
         Insert: {
           architecture?: string | null
+          block_tethering?: boolean
           board_name?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
@@ -925,6 +1017,7 @@ export type Database = {
           name: string
           provision_token?: string | null
           provision_token_expires_at?: string | null
+          legacy_token_auth?: boolean
           public_ip?: string | null
           ram_usage?: number | null
           routeros_version?: string | null
@@ -943,6 +1036,7 @@ export type Database = {
         }
         Update: {
           architecture?: string | null
+          block_tethering?: boolean
           board_name?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
@@ -959,6 +1053,7 @@ export type Database = {
           name?: string
           provision_token?: string | null
           provision_token_expires_at?: string | null
+          legacy_token_auth?: boolean
           public_ip?: string | null
           ram_usage?: number | null
           routeros_version?: string | null
@@ -1366,6 +1461,7 @@ export type Database = {
       }
       vouchers: {
         Row: {
+          bound_mac: string | null
           code: string
           created_at: string
           expires_at: string | null
@@ -1378,6 +1474,7 @@ export type Database = {
           used_by_mac: string | null
         }
         Insert: {
+          bound_mac?: string | null
           code: string
           created_at?: string
           expires_at?: string | null
@@ -1390,6 +1487,7 @@ export type Database = {
           used_by_mac?: string | null
         }
         Update: {
+          bound_mac?: string | null
           code?: string
           created_at?: string
           expires_at?: string | null
@@ -1431,6 +1529,10 @@ export type Database = {
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       rollup_router_metrics: { Args: never; Returns: undefined }
+      rotate_router_token: {
+        Args: { p_revoke_device?: boolean; p_router_id: string }
+        Returns: string
+      }
       user_tenant_id: { Args: { _user_id: string }; Returns: string }
     }
     Enums: {

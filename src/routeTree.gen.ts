@@ -34,6 +34,7 @@ import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tena
 import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
+import { Route as TenantDevicesRouteImport } from './routes/tenant.devices'
 import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
 import { Route as TenantInventoryRouteImport } from './routes/tenant.inventory'
 import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
@@ -60,6 +61,7 @@ import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './route
 import { Route as ApiPublicRouterDevicesTokenRouteImport } from './routes/api/public/router/devices.$token'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
+import { Route as ApiPublicRouterInventoryTokenRouteImport } from './routes/api/public/router/inventory.$token'
 import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
 
 const IndexRoute = IndexRouteImport.update({
@@ -185,6 +187,11 @@ const TenantIndexRoute = TenantIndexRouteImport.update({
 const TenantCustomersRoute = TenantCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantDevicesRoute = TenantDevicesRouteImport.update({
+  id: '/devices',
+  path: '/devices',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantHotspotRoute = TenantHotspotRouteImport.update({
@@ -328,6 +335,12 @@ const ApiPublicRouterInterfacesTokenRoute =
     path: '/api/public/router/interfaces/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicRouterInventoryTokenRoute =
+  ApiPublicRouterInventoryTokenRouteImport.update({
+    id: '/api/public/router/inventory/$token',
+    path: '/api/public/router/inventory/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicRouterSyncTokenRoute =
   ApiPublicRouterSyncTokenRouteImport.update({
     id: '/api/public/router/sync/$token',
@@ -358,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
@@ -387,6 +401,7 @@ export interface FileRoutesByFullPath {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
 export interface FileRoutesByTo {
@@ -409,6 +424,7 @@ export interface FileRoutesByTo {
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
@@ -438,6 +454,7 @@ export interface FileRoutesByTo {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
 export interface FileRoutesById {
@@ -464,6 +481,7 @@ export interface FileRoutesById {
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/customers': typeof TenantCustomersRoute
+  '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/packages': typeof TenantPackagesRoute
@@ -493,6 +511,7 @@ export interface FileRoutesById {
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
+  '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
 }
 export interface FileRouteTypes {
@@ -520,6 +539,7 @@ export interface FileRouteTypes {
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/customers'
+    | '/tenant/devices'
     | '/tenant/hotspot'
     | '/tenant/inventory'
     | '/tenant/packages'
@@ -549,6 +569,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/inventory/$token'
     | '/api/public/router/sync/$token'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -571,6 +592,7 @@ export interface FileRouteTypes {
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/customers'
+    | '/tenant/devices'
     | '/tenant/hotspot'
     | '/tenant/inventory'
     | '/tenant/packages'
@@ -600,6 +622,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/inventory/$token'
     | '/api/public/router/sync/$token'
   id:
     | '__root__'
@@ -625,6 +648,7 @@ export interface FileRouteTypes {
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/customers'
+    | '/tenant/devices'
     | '/tenant/hotspot'
     | '/tenant/inventory'
     | '/tenant/packages'
@@ -654,6 +678,7 @@ export interface FileRouteTypes {
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
+    | '/api/public/router/inventory/$token'
     | '/api/public/router/sync/$token'
   fileRoutesById: FileRoutesById
 }
@@ -676,6 +701,7 @@ export interface RootRouteChildren {
   ApiPublicRouterDevicesTokenRoute: typeof ApiPublicRouterDevicesTokenRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
   ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
+  ApiPublicRouterInventoryTokenRoute: typeof ApiPublicRouterInventoryTokenRoute
   ApiPublicRouterSyncTokenRoute: typeof ApiPublicRouterSyncTokenRoute
 }
 
@@ -854,6 +880,13 @@ declare module '@tanstack/react-router' {
       path: '/customers'
       fullPath: '/tenant/customers'
       preLoaderRoute: typeof TenantCustomersRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/devices': {
+      id: '/tenant/devices'
+      path: '/devices'
+      fullPath: '/tenant/devices'
+      preLoaderRoute: typeof TenantDevicesRouteImport
       parentRoute: typeof TenantRoute
     }
     '/tenant/hotspot': {
@@ -1038,6 +1071,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRouterInterfacesTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/router/inventory/$token': {
+      id: '/api/public/router/inventory/$token'
+      path: '/api/public/router/inventory/$token'
+      fullPath: '/api/public/router/inventory/$token'
+      preLoaderRoute: typeof ApiPublicRouterInventoryTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/router/sync/$token': {
       id: '/api/public/router/sync/$token'
       path: '/api/public/router/sync/$token'
@@ -1105,6 +1145,7 @@ const TenantRoutersRouteWithChildren = TenantRoutersRoute._addFileChildren(
 
 interface TenantRouteChildren {
   TenantCustomersRoute: typeof TenantCustomersRoute
+  TenantDevicesRoute: typeof TenantDevicesRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
   TenantInventoryRoute: typeof TenantInventoryRoute
   TenantPackagesRoute: typeof TenantPackagesRoute
@@ -1122,6 +1163,7 @@ interface TenantRouteChildren {
 
 const TenantRouteChildren: TenantRouteChildren = {
   TenantCustomersRoute: TenantCustomersRoute,
+  TenantDevicesRoute: TenantDevicesRoute,
   TenantHotspotRoute: TenantHotspotRoute,
   TenantInventoryRoute: TenantInventoryRoute,
   TenantPackagesRoute: TenantPackagesRoute,
@@ -1182,6 +1224,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicRouterDevicesTokenRoute: ApiPublicRouterDevicesTokenRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
   ApiPublicRouterInterfacesTokenRoute: ApiPublicRouterInterfacesTokenRoute,
+  ApiPublicRouterInventoryTokenRoute: ApiPublicRouterInventoryTokenRoute,
   ApiPublicRouterSyncTokenRoute: ApiPublicRouterSyncTokenRoute,
 }
 export const routeTree = rootRouteImport

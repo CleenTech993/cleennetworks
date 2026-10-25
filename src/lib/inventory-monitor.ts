@@ -11,7 +11,7 @@
 
 export const MONITOR_SCRIPT_VERSION = "v1";
 /** Each device is tagged on the router with this prefix in the netwatch comment. */
-export const NETWATCH_PREFIX = "ngdev:";
+export const NETWATCH_PREFIX = "nginv:";
 /** More than this per router is cut off (one report URL must stay short enough for RouterOS). */
 export const MAX_DEVICES_PER_ROUTER = 150;
 
@@ -35,7 +35,7 @@ export function safeTargets(targets: MonitorTarget[]): { id: string; ip: string 
 
 // Reporter script body (stored on the router). Written for RouterOS 6.4x/7.x.
 const REPORTER_SOURCE = [
-  ":global ngReportUrl",
+  ":global ngInvUrl",
   ':local out ""',
   `:foreach n in=[/tool netwatch find where comment~"^${NETWATCH_PREFIX}"] do={`,
   "  :local c [/tool netwatch get $n comment]",
@@ -56,13 +56,13 @@ const REPORTER_SOURCE = [
   "    }",
   `    :set out ($out . [:pick $c ${NETWATCH_PREFIX.length} [:len $c]] . "~" . $v . $rtt . ",")`,
   "    :if ([:len $out] > 1500) do={",
-  '      :do { /tool fetch url=($ngReportUrl . "?r=" . $out) mode=https keep-result=no } on-error={}',
+  '      :do { /tool fetch url=($ngInvUrl . "?r=" . $out) mode=https keep-result=no } on-error={}',
   '      :set out ""',
   "    }",
   "  }",
   "}",
   ":if ([:len $out] > 0) do={",
-  '  :do { /tool fetch url=($ngReportUrl . "?r=" . $out) mode=https keep-result=no } on-error={ :log warning "NetGrid: device report failed" }',
+  '  :do { /tool fetch url=($ngInvUrl . "?r=" . $out) mode=https keep-result=no } on-error={ :log warning "NetGrid: device report failed" }',
   "}",
 ];
 
@@ -79,35 +79,35 @@ export function buildDeviceMonitorLines(targets: MonitorTarget[], reportUrl: str
   return [
     "# Inventory device monitoring",
     ":do {",
-    `  :global ngReportUrl "${reportUrl}"`,
-    `  :global ngIds [:toarray "${ids}"]`,
-    `  :global ngIps [:toarray "${ips}"]`,
+    `  :global ngInvUrl "${reportUrl}"`,
+    `  :global ngInvIds [:toarray "${ids}"]`,
+    `  :global ngInvIps [:toarray "${ips}"]`,
     // reporter script + scheduler (recreated when the version changes)
-    `  :if ([:len [/system script find where name=netgrid-devices comment="${MONITOR_SCRIPT_VERSION}"]] = 0) do={`,
-    "    :do { /system script remove [find where name=netgrid-devices] } on-error={}",
-    `    /system script add name=netgrid-devices comment="${MONITOR_SCRIPT_VERSION}" source={`,
+    `  :if ([:len [/system script find where name=netgrid-inventory comment="${MONITOR_SCRIPT_VERSION}"]] = 0) do={`,
+    "    :do { /system script remove [find where name=netgrid-inventory] } on-error={}",
+    `    /system script add name=netgrid-inventory comment="${MONITOR_SCRIPT_VERSION}" source={`,
     ...REPORTER_SOURCE.map((l) => `      ${l}`),
     "    }",
     "  }",
-    "  :if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={",
-    '    /system scheduler add name=netgrid-devices interval=1m on-event="/system script run netgrid-devices"',
+    "  :if ([:len [/system scheduler find where name=netgrid-inventory]] = 0) do={",
+    '    /system scheduler add name=netgrid-inventory interval=1m on-event="/system script run netgrid-inventory"',
     "  }",
     // netwatch entries: drop stale ones, fix changed IPs, add missing ones
     `  :foreach n in=[/tool netwatch find where comment~"^${NETWATCH_PREFIX}"] do={`,
     "    :local c [/tool netwatch get $n comment]",
     `    :local id [:pick $c ${NETWATCH_PREFIX.length} [:len $c]]`,
-    "    :local pos [:find $ngIds $id]",
+    "    :local pos [:find $ngInvIds $id]",
     '    :if ([:typeof $pos] = "nil") do={',
     "      /tool netwatch remove $n",
     "    } else={",
-    "      :local want ($ngIps->$pos)",
+    "      :local want ($ngInvIps->$pos)",
     "      :if ([:tostr [/tool netwatch get $n host]] != [:tostr $want]) do={ /tool netwatch set $n host=$want }",
     "    }",
     "  }",
-    "  :foreach id in=$ngIds do={",
+    "  :foreach id in=$ngInvIds do={",
     `    :if ([:len [/tool netwatch find where comment=("${NETWATCH_PREFIX}" . $id)]] = 0) do={`,
-    "      :local pos [:find $ngIds $id]",
-    `      /tool netwatch add host=($ngIps->$pos) interval=30s timeout=2s comment=("${NETWATCH_PREFIX}" . $id)`,
+    "      :local pos [:find $ngInvIds $id]",
+    `      /tool netwatch add host=($ngInvIps->$pos) interval=30s timeout=2s comment=("${NETWATCH_PREFIX}" . $id)`,
     "    }",
     "  }",
     '} on-error={ :log warning "NetGrid: device monitor sync failed" }',

@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { authenticateRouter } from "@/lib/router-auth.server";
+import { tooManyRequests } from "@/lib/rate-limit.server";
 
 // Interface stats pushed by the MikroTik scheduler.
 // Body: one line per interface: name|running|disabled|rx-byte|tx-byte|rx-err|tx-err|rx-drop|tx-drop
@@ -7,13 +9,11 @@ export const Route = createFileRoute("/api/public/router/interfaces/$token")({
   server: {
     handlers: {
       POST: async ({ params, request }) => {
+        // Authenticate before reading the body so anonymous callers cannot make us buffer uploads.
+        const auth = await authenticateRouter(request, params.token);
+        if (!auth.ok) return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
+        const router = auth.router;
         const body = (await request.text()).slice(0, 64_000);
-        const { data: router } = await supabaseAdmin
-          .from("routers")
-          .select("id,tenant_id")
-          .eq("provision_token", params.token)
-          .maybeSingle();
-        if (!router) return new Response("unknown", { status: 404 });
 
         const { data: prev } = await supabaseAdmin
           .from("router_interfaces")

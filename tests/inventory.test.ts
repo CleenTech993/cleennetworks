@@ -11,19 +11,19 @@ const URL = "https://app.example.com/api/public/router/devices/TOKEN";
 describe("router monitor script", () => {
   it("emits a device list, reporter script, scheduler and netwatch sync", () => {
     const text = buildDeviceMonitorLines([{ id: A, ip_address: "10.0.0.5" }, { id: B, ip_address: "10.0.0.6" }], URL).join("\n");
-    expect(text).toContain(`:global ngIds [:toarray "${A},${B}"]`);
-    expect(text).toContain(':global ngIps [:toarray "10.0.0.5,10.0.0.6"]');
-    expect(text).toContain(`:global ngReportUrl "${URL}"`);
-    expect(text).toContain("/system script add name=netgrid-devices");
-    expect(text).toContain("/system scheduler add name=netgrid-devices interval=1m");
-    expect(text).toContain("/tool netwatch add host=($ngIps->$pos)");
+    expect(text).toContain(`:global ngInvIds [:toarray "${A},${B}"]`);
+    expect(text).toContain(':global ngInvIps [:toarray "10.0.0.5,10.0.0.6"]');
+    expect(text).toContain(`:global ngInvUrl "${URL}"`);
+    expect(text).toContain("/system script add name=netgrid-inventory");
+    expect(text).toContain("/system scheduler add name=netgrid-inventory interval=1m");
+    expect(text).toContain("/tool netwatch add host=($ngInvIps->$pos)");
     expect(text).toContain("/tool netwatch remove $n");
   });
 
   it("an empty list clears every NetGrid netwatch entry", () => {
     const text = buildDeviceMonitorLines([], URL).join("\n");
-    expect(text).toContain(':global ngIds [:toarray ""]');
-    expect(text).toContain(':global ngIps [:toarray ""]');
+    expect(text).toContain(':global ngInvIds [:toarray ""]');
+    expect(text).toContain(':global ngInvIps [:toarray ""]');
   });
 
   it("never lets unsafe values reach RouterOS code", () => {

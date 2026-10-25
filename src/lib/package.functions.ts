@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAal2 } from "@/lib/require-aal2";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // Editing / deleting packages is limited to tenant admins (price and speeds are business
@@ -31,6 +31,8 @@ const UpdateSchema = z.object({
   duration_unit: z.enum(PACKAGE_UNITS),
   download_kbps: z.number().int().min(0).max(10_000_000),
   upload_kbps: z.number().int().min(0).max(10_000_000),
+  // How many devices may use one voucher of this package (1 = pinned to a single device).
+  device_limit: z.number().int().min(1).max(10),
   active: z.boolean(),
 });
 
@@ -39,7 +41,7 @@ const UpdateSchema = z.object({
  * depend on it. Changes affect new sales and future syncs only; time already sold is unchanged.
  */
 export const updatePackage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => UpdateSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
@@ -81,7 +83,7 @@ async function archive(id: string, tenantId: string): Promise<boolean> {
  * together with its unused vouchers.
  */
 export const deletePackage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseAal2])
   .inputValidator((input) => DeleteSchema.parse(input))
   .handler(async ({ data, context }): Promise<DeletePackageResult> => {
     const tenantId = await adminTenantOf(context.userId);

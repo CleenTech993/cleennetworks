@@ -19,6 +19,7 @@ const S: AppRole = "support_staff";
 const PAGE_ROLES: Record<string, AppRole[]> = {
   "/tenant/routers": [A, T],
   "/tenant/hotspot": [A, T],
+  "/tenant/devices": [A, T, S],
   "/tenant/pppoe": [A, T],
   "/tenant/portal": [A],
   "/tenant/packages": [A],

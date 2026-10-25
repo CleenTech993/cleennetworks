@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import {
   LayoutDashboard, Router, Wifi, Network, Palette, Package, Users,
-  Activity, Boxes, CreditCard, MessageSquare, LifeBuoy, Settings, UserCog,
+  Activity, Boxes, CreditCard, MessageSquare, LifeBuoy, Settings, UserCog, Smartphone,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
@@ -11,6 +11,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
   { to: "/tenant/routers", label: "Routers", icon: Router },
   { to: "/tenant/hotspot", label: "Hotspot", icon: Wifi },
+  { to: "/tenant/devices", label: "Devices", icon: Smartphone },
   { to: "/tenant/pppoe", label: "PPPoE", icon: Network },
   { to: "/tenant/portal", label: "Captive Portal", icon: Palette },
   { to: "/tenant/packages", label: "Packages", icon: Package },
