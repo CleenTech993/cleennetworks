@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { resolveThemeId } from "@/lib/portal-themes";
 
 export const Route = createFileRoute("/api/public/portal/$slug")({
   server: {
@@ -15,7 +16,8 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
         const [{ data: portal }, { data: packages }] = await Promise.all([
           supabaseAdmin
             .from("captive_portals")
-            .select("logo_url,background_url,primary_color,welcome_text,terms_text,enable_voucher,enable_otp")
+            // "*" (fields picked below) so branding keeps working even before the theme column exists.
+            .select("*")
             .eq("tenant_id", tenant.id)
             .maybeSingle(),
           supabaseAdmin
@@ -27,7 +29,20 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
             .order("price"),
         ]);
 
-        return Response.json({ tenant, portal: portal ?? null, packages: packages ?? [] });
+        const publicPortal = portal
+          ? {
+              logo_url: portal.logo_url,
+              background_url: portal.background_url,
+              primary_color: portal.primary_color,
+              welcome_text: portal.welcome_text,
+              terms_text: portal.terms_text,
+              enable_voucher: portal.enable_voucher,
+              enable_otp: portal.enable_otp,
+              theme: resolveThemeId((portal as { theme?: unknown }).theme),
+            }
+          : null;
+
+        return Response.json({ tenant, portal: publicPortal, packages: packages ?? [] });
       },
     },
   },
