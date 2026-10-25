@@ -5,6 +5,8 @@ import { ArrowLeft, Cpu, HardDrive, RefreshCw, Thermometer, Zap } from "lucide-r
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -155,6 +157,27 @@ function RouterDetail() {
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Gauge label="CPU load" value={r.cpu_load ?? r.cpu_usage ?? null} icon={<Cpu className="h-4 w-4" />} />
         <Gauge label="Memory" value={ramPct} icon={<HardDrive className="h-4 w-4" />} />
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border bg-card p-5">
+        <div>
+          <h3 className="font-semibold">Block tethering and hotspot sharing</h3>
+          <p className="text-sm text-muted-foreground">
+            Stops customers sharing one package through a phone hotspot or their own router. Takes effect within about 2 minutes.
+            Turn it off only if a customer legitimately needs their own router behind this one.
+          </p>
+        </div>
+        <Switch
+          checked={r.block_tethering}
+          onCheckedChange={async (on) => {
+            const { error } = await supabase.from("routers").update({ block_tethering: on }).eq("id", r.id);
+            if (error) toast.error("Could not change the setting");
+            else {
+              toast.success(on ? "Tethering will be blocked" : "Tethering allowed");
+              void refetch();
+            }
+          }}
+        />
       </div>
 
       <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />

@@ -31,6 +31,8 @@ const UpdateSchema = z.object({
   duration_unit: z.enum(PACKAGE_UNITS),
   download_kbps: z.number().int().min(0).max(10_000_000),
   upload_kbps: z.number().int().min(0).max(10_000_000),
+  // How many devices may use one voucher of this package (1 = pinned to a single device).
+  device_limit: z.number().int().min(1).max(10),
   active: z.boolean(),
 });
 

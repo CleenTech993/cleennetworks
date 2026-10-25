@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { expiryFrom } from "@/lib/duration";
+import { deviceLimitOf, normalizeMac } from "@/lib/devices";
 
 const Schema = z.object({ code: z.string().min(4).max(40), mac: z.string().optional() });
 
@@ -36,20 +37,29 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
         // optional "redeem by" date, so the usage clock starts now. (Vouchers bought through the
         // portal already got their expiry when the payment succeeded.)
         let expiresAt = v.expires_at;
-        if (!v.payment_id && v.package_id) {
+        let deviceLimit = 1;
+        if (v.package_id) {
           const { data: pkg } = await supabaseAdmin
             .from("packages")
-            .select("duration_value,duration_unit")
+            .select("duration_value,duration_unit,device_limit")
             .eq("id", v.package_id)
             .eq("tenant_id", tenant.id)
             .maybeSingle();
-          if (pkg?.duration_value && pkg.duration_unit) expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
+          deviceLimit = deviceLimitOf(pkg);
+          if (!v.payment_id && pkg?.duration_value && pkg.duration_unit) expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
         }
+
+        // One package = one device: pin the voucher to the device that redeems it. The router
+        // refuses the code from any other device (written to the router on the next sync).
+        const mac = parsed.data.mac ? normalizeMac(parsed.data.mac) : null;
 
         // Atomic redeem: only one concurrent request can flip unused -> used.
         const { data: redeemed } = await supabaseAdmin
           .from("vouchers")
-          .update({ status: "used", used_at: new Date().toISOString(), used_by_mac: parsed.data.mac ?? null, expires_at: expiresAt })
+          .update({
+            status: "used", used_at: new Date().toISOString(), used_by_mac: mac, expires_at: expiresAt,
+            ...(deviceLimit === 1 && mac ? { bound_mac: mac } : {}),
+          })
           .eq("id", v.id)
           .eq("tenant_id", tenant.id)
           .eq("status", "unused")
