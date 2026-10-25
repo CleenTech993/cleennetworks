@@ -6,6 +6,7 @@ import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.serv
 import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
 import { buildPppoeSyncLines } from "@/lib/pppoe";
 import { buildTvSyncLines } from "@/lib/tv";
+import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import {
   buildBlockLines,
   buildDeviceAgentLines,
@@ -158,6 +159,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         lines.push(...buildTetherLines(routerRow?.block_tethering !== false));
         lines.push(
           ...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`),
+        );
+        // PPPoE session report (client MAC + connected state), installed the same way.
+        lines.push(
+          ...buildPppoeAgentLines(`https://${host}/api/public/router/pppoe/${params.token}`),
         );
         // Inventory monitoring: keep a netwatch entry per monitored device; the router reports up/down.
         lines.push(
