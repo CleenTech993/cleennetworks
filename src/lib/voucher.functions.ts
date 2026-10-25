@@ -103,7 +103,9 @@ export const generateVouchers = createServerFn({ method: "POST" })
 // Delete / edit existing vouchers
 // ---------------------------------------------------------------------------
 
-const DeleteSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(MAX_VOUCHERS_PER_BATCH) });
+const DeleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(MAX_VOUCHERS_PER_BATCH),
+});
 
 /**
  * Delete vouchers. The router sync rebuilds its voucher hotspot users from this table every
@@ -114,7 +116,8 @@ export const deleteVouchers = createServerFn({ method: "POST" })
   .inputValidator((input) => DeleteSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true; deleted: number } | Fail> => {
     const tenantId = await voucherTenantOf(context.userId);
-    if (!tenantId) return { ok: false, error: "Only tenant admins and billing agents can delete vouchers." };
+    if (!tenantId)
+      return { ok: false, error: "Only tenant admins and billing agents can delete vouchers." };
 
     const { data: removed, error } = await supabaseAdmin
       .from("vouchers")
@@ -142,7 +145,8 @@ export const updateVoucher = createServerFn({ method: "POST" })
   .inputValidator((input) => UpdateSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await voucherTenantOf(context.userId);
-    if (!tenantId) return { ok: false, error: "Only tenant admins and billing agents can edit vouchers." };
+    if (!tenantId)
+      return { ok: false, error: "Only tenant admins and billing agents can edit vouchers." };
 
     const { data: v } = await supabaseAdmin
       .from("vouchers")
@@ -155,7 +159,8 @@ export const updateVoucher = createServerFn({ method: "POST" })
     const patch: { package_id?: string; expires_at?: string | null } = {};
 
     if (data.packageId && data.packageId !== v.package_id) {
-      if (v.status !== "unused") return { ok: false, error: "A redeemed voucher can't be moved to another package." };
+      if (v.status !== "unused")
+        return { ok: false, error: "A redeemed voucher can't be moved to another package." };
       const { data: pkg } = await supabaseAdmin
         .from("packages")
         .select("id,kind")
@@ -170,11 +175,13 @@ export const updateVoucher = createServerFn({ method: "POST" })
 
     if (data.expiresAt !== undefined) {
       if (data.expiresAt === null) {
-        if (v.status !== "unused") return { ok: false, error: "A redeemed voucher must keep an expiry date." };
+        if (v.status !== "unused")
+          return { ok: false, error: "A redeemed voucher must keep an expiry date." };
         patch.expires_at = null;
       } else {
         const t = new Date(data.expiresAt).getTime();
-        if (!Number.isFinite(t) || t <= Date.now()) return { ok: false, error: "The date must be in the future." };
+        if (!Number.isFinite(t) || t <= Date.now())
+          return { ok: false, error: "The date must be in the future." };
         patch.expires_at = new Date(t).toISOString();
       }
     }
@@ -182,7 +189,10 @@ export const updateVoucher = createServerFn({ method: "POST" })
     if (Object.keys(patch).length === 0) return { ok: false, error: "Nothing to change." };
 
     const { error } = await supabaseAdmin
-      .from("vouchers").update(patch).eq("id", v.id).eq("tenant_id", tenantId);
+      .from("vouchers")
+      .update(patch)
+      .eq("id", v.id)
+      .eq("tenant_id", tenantId);
     if (error) {
       console.error("updateVoucher failed", error);
       return { ok: false, error: "Could not save the voucher. Please try again." };

@@ -27,37 +27,42 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const router = auth.router;
 
         const now = new Date().toISOString();
-        const [{ data: tenant }, { data: customers }, { data: vouchers }, { data: packages }, { data: tvs }] =
-          await Promise.all([
-            supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
-            // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
-            // (router_id null). Other routers' credentials are never even read for this request.
-            supabaseAdmin
-              .from("customers")
-              .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
-              .eq("tenant_id", router.tenant_id)
-              .eq("customer_type", "pppoe")
-              .eq("status", "active")
-              .or(`router_id.eq.${router.id},router_id.is.null`),
-            supabaseAdmin
-              .from("vouchers")
-              .select("code,status,expires_at")
-              .eq("tenant_id", router.tenant_id)
-              .in("status", ["unused", "used"])
-              .or(`expires_at.is.null,expires_at.gt.${now}`),
-            supabaseAdmin
-              .from("packages")
-              .select("id,download_kbps,upload_kbps")
-              .eq("tenant_id", router.tenant_id)
-              .eq("kind", "pppoe"),
-            // Smart TVs: paid MAC addresses bypass the hotspot login.
-            supabaseAdmin
-              .from("tv_devices")
-              .select("mac_address,status,expires_at")
-              .eq("tenant_id", router.tenant_id)
-              .eq("status", "active")
-              .gt("expires_at", now),
-          ]);
+        const [
+          { data: tenant },
+          { data: customers },
+          { data: vouchers },
+          { data: packages },
+          { data: tvs },
+        ] = await Promise.all([
+          supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
+          // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
+          // (router_id null). Other routers' credentials are never even read for this request.
+          supabaseAdmin
+            .from("customers")
+            .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
+            .eq("tenant_id", router.tenant_id)
+            .eq("customer_type", "pppoe")
+            .eq("status", "active")
+            .or(`router_id.eq.${router.id},router_id.is.null`),
+          supabaseAdmin
+            .from("vouchers")
+            .select("code,status,expires_at")
+            .eq("tenant_id", router.tenant_id)
+            .in("status", ["unused", "used"])
+            .or(`expires_at.is.null,expires_at.gt.${now}`),
+          supabaseAdmin
+            .from("packages")
+            .select("id,download_kbps,upload_kbps")
+            .eq("tenant_id", router.tenant_id)
+            .eq("kind", "pppoe"),
+          // Smart TVs: paid MAC addresses bypass the hotspot login.
+          supabaseAdmin
+            .from("tv_devices")
+            .select("mac_address,status,expires_at")
+            .eq("tenant_id", router.tenant_id)
+            .eq("status", "active")
+            .gt("expires_at", now),
+        ]);
 
         const lines: string[] = ["# NetGrid sync"];
 

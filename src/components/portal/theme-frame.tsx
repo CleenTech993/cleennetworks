@@ -8,8 +8,16 @@ import { PORTAL_THEMES, themeVars, type PortalThemeId } from "@/lib/portal-theme
  * themes next to the admin UI) is re-skinned.
  */
 export function PortalThemeFrame({
-  themeId, brand, className, children,
-}: { themeId: PortalThemeId; brand: string | null | undefined; className?: string; children: ReactNode }) {
+  themeId,
+  brand,
+  className,
+  children,
+}: {
+  themeId: PortalThemeId;
+  brand: string | null | undefined;
+  className?: string;
+  children: ReactNode;
+}) {
   const theme = PORTAL_THEMES[themeId];
   return (
     <div

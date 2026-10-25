@@ -24,7 +24,9 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
 
         let q = supabaseAdmin
           .from("payments")
-          .select("id,tenant_id,package_id,customer_id,status,merchant_request_id,phone,tv_device_id,expires_at")
+          .select(
+            "id,tenant_id,package_id,customer_id,status,merchant_request_id,phone,tv_device_id,expires_at",
+          )
           .eq("tenant_id", tenantId);
         q = /^[0-9a-f-]{36}$/i.test(externalRef)
           ? q.eq("id", externalRef)
@@ -86,7 +88,8 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
               // Smart TV: extend the device's access instead of minting a voucher. The new
               // expiry is remembered on the payment first so a retried callback reuses it
               // rather than extending the device a second time.
-              if (!pkg?.duration_value || !pkg?.duration_unit) throw new Error("TV package has no duration");
+              if (!pkg?.duration_value || !pkg?.duration_unit)
+                throw new Error("TV package has no duration");
               const { data: dev } = await supabaseAdmin
                 .from("tv_devices")
                 .select("id,status,expires_at")
@@ -94,14 +97,24 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
                 .eq("tenant_id", tenantId)
                 .maybeSingle();
               if (!dev) throw new Error("TV device not found");
-              expiresAt = payment.expires_at ?? renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
+              expiresAt =
+                payment.expires_at ??
+                renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
               if (!payment.expires_at) {
-                await supabaseAdmin.from("payments").update({ expires_at: expiresAt }).eq("id", payment.id);
+                await supabaseAdmin
+                  .from("payments")
+                  .update({ expires_at: expiresAt })
+                  .eq("id", payment.id);
               }
               if (dev.status !== "blocked") {
                 const { error: dErr } = await supabaseAdmin
                   .from("tv_devices")
-                  .update({ status: "active", expires_at: expiresAt, package_id: payment.package_id, updated_at: new Date().toISOString() })
+                  .update({
+                    status: "active",
+                    expires_at: expiresAt,
+                    package_id: payment.package_id,
+                    updated_at: new Date().toISOString(),
+                  })
                   .eq("id", dev.id);
                 if (dErr) throw dErr;
               }

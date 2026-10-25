@@ -10,7 +10,14 @@
 //   - no web fonts beyond the two the app already bundles, plus system stacks;
 //   - images are optional and never required for the page to make sense.
 
-export const PORTAL_THEME_IDS = ["classic", "midnight", "ticket", "block", "venue", "lite"] as const;
+export const PORTAL_THEME_IDS = [
+  "classic",
+  "midnight",
+  "ticket",
+  "block",
+  "venue",
+  "lite",
+] as const;
 export type PortalThemeId = (typeof PORTAL_THEME_IDS)[number];
 export const DEFAULT_PORTAL_THEME: PortalThemeId = "classic";
 
@@ -33,32 +40,68 @@ export interface PortalThemeDef {
 
 export const PORTAL_THEMES: Record<PortalThemeId, PortalThemeDef> = {
   classic: {
-    id: "classic", name: "Classic", dark: false, header: "centered", plan: "card", sheet: false, usesImages: true,
+    id: "classic",
+    name: "Classic",
+    dark: false,
+    header: "centered",
+    plan: "card",
+    sheet: false,
+    usesImages: true,
     tagline: "Clean and familiar, tinted with your brand colour.",
     bestFor: "Any business. This is how portals looked before themes.",
   },
   midnight: {
-    id: "midnight", name: "Midnight", dark: true, header: "left", plan: "bars", sheet: false, usesImages: true,
+    id: "midnight",
+    name: "Midnight",
+    dark: true,
+    header: "left",
+    plan: "bars",
+    sheet: false,
+    usesImages: true,
     tagline: "Dark and easy on the eyes, with signal bars showing each plan's speed.",
     bestFor: "Bars, lounges and hotels used in the evening.",
   },
   ticket: {
-    id: "ticket", name: "Ticket", dark: false, header: "centered", plan: "ticket", sheet: false, usesImages: true,
+    id: "ticket",
+    name: "Ticket",
+    dark: false,
+    header: "centered",
+    plan: "ticket",
+    sheet: false,
+    usesImages: true,
     tagline: "Plans look like tear-off prepaid tickets in your brand colour.",
     bestFor: "Kiosks and shops that sell printed vouchers.",
   },
   block: {
-    id: "block", name: "Block", dark: false, header: "block", plan: "block", sheet: false, usesImages: true,
+    id: "block",
+    name: "Block",
+    dark: false,
+    header: "block",
+    plan: "block",
+    sheet: false,
+    usesImages: true,
     tagline: "Flat colour, heavy outlines and hard shadows.",
     bestFor: "Students, cyber cafés and youth-focused networks.",
   },
   venue: {
-    id: "venue", name: "Venue", dark: false, header: "photo", plan: "card", sheet: true, usesImages: true,
+    id: "venue",
+    name: "Venue",
+    dark: false,
+    header: "photo",
+    plan: "card",
+    sheet: true,
+    usesImages: true,
     tagline: "Your photo fills the top; plans slide up over it.",
     bestFor: "Hotels, restaurants and estates with a good photo. Set a background image.",
   },
   lite: {
-    id: "lite", name: "Lite", dark: false, header: "plain", plan: "leader", sheet: false, usesImages: false,
+    id: "lite",
+    name: "Lite",
+    dark: false,
+    header: "plain",
+    plan: "leader",
+    sheet: false,
+    usesImages: false,
     tagline: "A plain receipt-style list. No images, system fonts, loads fast.",
     bestFor: "Slow connections and older phones.",
   },
@@ -82,11 +125,18 @@ const DARK_TEXT = "#0f141a";
 const WHITE = "#ffffff";
 
 /** "#abc" / "abc" / "#AABBCC" -> "#aabbcc". Anything else -> fallback. Always safe to embed in CSS. */
-export function normalizeHex(input: string | null | undefined, fallback: string = DEFAULT_BRAND): string {
+export function normalizeHex(
+  input: string | null | undefined,
+  fallback: string = DEFAULT_BRAND,
+): string {
   const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec((input ?? "").trim());
   if (!m) return fallback;
   let h = m[1]!.toLowerCase();
-  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length === 3)
+    h = h
+      .split("")
+      .map((c) => c + c)
+      .join("");
   return `#${h}`;
 }
 
@@ -96,7 +146,10 @@ function toRgb(hex: string): [number, number, number] {
 }
 
 function toHex([r, g, b]: [number, number, number]): string {
-  const c = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  const c = (n: number) =>
+    Math.max(0, Math.min(255, Math.round(n)))
+      .toString(16)
+      .padStart(2, "0");
   return `#${c(r)}${c(g)}${c(b)}`;
 }
 
@@ -137,13 +190,17 @@ export function readableOn(bg: string, whiteMin?: number): string {
 
 function toHsl(hex: string): [number, number, number] {
   const [r8, g8, b8] = toRgb(hex);
-  const r = r8 / 255, g = g8 / 255, b = b8 / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const r = r8 / 255,
+    g = g8 / 255,
+    b = b8 / 255;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
   const l = (max + min) / 2;
   if (max === min) return [0, 0, l];
   const d = max - min;
   const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const h =
+    max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
   return [h * 60, s, l];
 }
 
@@ -196,18 +253,37 @@ export function speedBars(kbps: number | null | undefined): 0 | 1 | 2 | 3 | 4 {
 // Theme variables
 // ---------------------------------------------------------------------------
 
-const SYSTEM_SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+const SYSTEM_SANS =
+  'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 const SYSTEM_SERIF = 'ui-serif, Georgia, Cambria, "Times New Roman", serif';
-const SYSTEM_MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const SYSTEM_MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 // Fixed palettes. Text pairs were chosen (and are tested) to meet WCAG AA, 4.5:1.
 const MIDNIGHT = {
-  page: "#0e1a26", card: "#162636", fg: "#e6edf3", muted: "#1c3044", mutedFg: "#9fb2c4",
-  border: "#263c52", input: "#2c455e",
+  page: "#0e1a26",
+  card: "#162636",
+  fg: "#e6edf3",
+  muted: "#1c3044",
+  mutedFg: "#9fb2c4",
+  border: "#263c52",
+  input: "#2c455e",
 };
 const BLOCK_INK = "#1a1a1a";
-const VENUE = { page: "#ffffff", card: "#f4f5f7", fg: "#14181f", muted: "#eceef2", mutedFg: "#566170", border: "#dfe3e8" };
-const LITE = { page: "#ffffff", fg: "#1a1a1a", muted: "#f1f1f1", mutedFg: "#444444", border: "#1a1a1a" };
+const VENUE = {
+  page: "#ffffff",
+  card: "#f4f5f7",
+  fg: "#14181f",
+  muted: "#eceef2",
+  mutedFg: "#566170",
+  border: "#dfe3e8",
+};
+const LITE = {
+  page: "#ffffff",
+  fg: "#1a1a1a",
+  muted: "#f1f1f1",
+  mutedFg: "#444444",
+  border: "#1a1a1a",
+};
 
 function accentVars(fill: string, whiteMin?: number): Record<string, string> {
   const on = readableOn(fill, whiteMin);
@@ -222,7 +298,14 @@ function accentVars(fill: string, whiteMin?: number): Record<string, string> {
 
 /** Maps for the shadcn variables a theme overrides. */
 function surface(v: {
-  page: string; fg: string; card: string; cardFg?: string; muted: string; mutedFg: string; border: string; input?: string;
+  page: string;
+  fg: string;
+  card: string;
+  cardFg?: string;
+  muted: string;
+  mutedFg: string;
+  border: string;
+  input?: string;
 }): Record<string, string> {
   return {
     "--background": v.page,
@@ -246,14 +329,25 @@ function surface(v: {
  * CSS custom properties to set on the portal wrapper for `id`, derived from the ISP's brand
  * colour. Values only ever come from validated hex colours and constants, never raw input.
  */
-export function themeVars(id: PortalThemeId, brandInput: string | null | undefined): Record<string, string> {
+export function themeVars(
+  id: PortalThemeId,
+  brandInput: string | null | undefined,
+): Record<string, string> {
   const brand = normalizeHex(brandInput);
 
   switch (id) {
     case "midnight": {
       const fill = ensureContrast(brand, MIDNIGHT.card, 3);
       return {
-        ...surface({ page: MIDNIGHT.page, fg: MIDNIGHT.fg, card: MIDNIGHT.card, muted: MIDNIGHT.muted, mutedFg: MIDNIGHT.mutedFg, border: MIDNIGHT.border, input: MIDNIGHT.input }),
+        ...surface({
+          page: MIDNIGHT.page,
+          fg: MIDNIGHT.fg,
+          card: MIDNIGHT.card,
+          muted: MIDNIGHT.muted,
+          mutedFg: MIDNIGHT.mutedFg,
+          border: MIDNIGHT.border,
+          input: MIDNIGHT.input,
+        }),
         ...accentVars(fill),
         "--radius": "0.75rem",
       };
@@ -261,7 +355,14 @@ export function themeVars(id: PortalThemeId, brandInput: string | null | undefin
     case "ticket": {
       const page = mix(brand, WHITE, 0.86);
       return {
-        ...surface({ page, fg: "#1b2430", card: WHITE, muted: mix(brand, WHITE, 0.78), mutedFg: "#475160", border: mix(brand, WHITE, 0.62) }),
+        ...surface({
+          page,
+          fg: "#1b2430",
+          card: WHITE,
+          muted: mix(brand, WHITE, 0.78),
+          mutedFg: "#475160",
+          border: mix(brand, WHITE, 0.62),
+        }),
         ...accentVars(brand),
         "--radius": "0.75rem",
         "--pt-font-head": SYSTEM_SERIF,
@@ -271,7 +372,14 @@ export function themeVars(id: PortalThemeId, brandInput: string | null | undefin
     case "block": {
       const page = mix(brand, WHITE, 0.9);
       return {
-        ...surface({ page, fg: BLOCK_INK, card: WHITE, muted: mix(brand, WHITE, 0.8), mutedFg: "#40444c", border: BLOCK_INK }),
+        ...surface({
+          page,
+          fg: BLOCK_INK,
+          card: WHITE,
+          muted: mix(brand, WHITE, 0.8),
+          mutedFg: "#40444c",
+          border: BLOCK_INK,
+        }),
         ...accentVars(brand),
         "--radius": "0.25rem",
         "--pt-ink": BLOCK_INK,
@@ -280,14 +388,28 @@ export function themeVars(id: PortalThemeId, brandInput: string | null | undefin
     }
     case "venue":
       return {
-        ...surface({ page: VENUE.page, fg: VENUE.fg, card: VENUE.card, muted: VENUE.muted, mutedFg: VENUE.mutedFg, border: VENUE.border }),
+        ...surface({
+          page: VENUE.page,
+          fg: VENUE.fg,
+          card: VENUE.card,
+          muted: VENUE.muted,
+          mutedFg: VENUE.mutedFg,
+          border: VENUE.border,
+        }),
         ...accentVars(brand),
         "--radius": "1rem",
         "--pt-font-head": "var(--font-display)",
       };
     case "lite":
       return {
-        ...surface({ page: LITE.page, fg: LITE.fg, card: LITE.page, muted: LITE.muted, mutedFg: LITE.mutedFg, border: LITE.border }),
+        ...surface({
+          page: LITE.page,
+          fg: LITE.fg,
+          card: LITE.page,
+          muted: LITE.muted,
+          mutedFg: LITE.mutedFg,
+          border: LITE.border,
+        }),
         ...accentVars(brand),
         "--radius": "0px",
         "--pt-font-body": SYSTEM_SANS,

@@ -26,17 +26,30 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
     handlers: {
       POST: async ({ request, params }) => {
         // Cheap per-IP gate first (per-instance; the per-phone limit below is the durable one).
-        if (!rateLimit(`checkout:${params.slug}:${clientIp(request)}`, CHECKOUT_LIMITS.ipMax, CHECKOUT_LIMITS.ipWindowMs)) {
+        if (
+          !rateLimit(
+            `checkout:${params.slug}:${clientIp(request)}`,
+            CHECKOUT_LIMITS.ipMax,
+            CHECKOUT_LIMITS.ipWindowMs,
+          )
+        ) {
           return tooManyRequests();
         }
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
         if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
-          return Response.json({ error: "Enter a valid M-Pesa number, e.g. 0712345678." }, { status: 400 });
+          return Response.json(
+            { error: "Enter a valid M-Pesa number, e.g. 0712345678." },
+            { status: 400 },
+          );
         }
 
         try {
@@ -63,7 +76,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             })
             .select("id,created_at,status,package_id")
             .single();
-          if (payErr || !pay) return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          if (payErr || !pay)
+            return Response.json({ error: "Could not start the payment." }, { status: 500 });
 
           // Per-phone limit, shared across server instances because it counts payment rows. The
           // row is inserted first and then ranked against earlier ones, so parallel requests
@@ -113,7 +127,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             message: result.CustomerMessage,
           });
         } catch (e) {
-          return Response.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
+          return Response.json(
+            { error: e instanceof Error ? e.message : "Failed" },
+            { status: 500 },
+          );
         }
       },
     },
