@@ -23,13 +23,14 @@ build_db() {
   for f in drizzle/migrations/000*.sql; do apply "$f"; done           # needs routers/customers first
   for f in $(ls supabase/migrations/20261024*.sql 2>/dev/null | sort); do apply "$f"; done   # liveness needs drizzle tables
   if [[ "${2:-}" != "--before" ]]; then
-    for f in $(ls supabase/migrations/20261025*.sql supabase/migrations/20261026*.sql supabase/migrations/20261027*.sql 2>/dev/null | sort); do apply "$f"; done
+    for f in $(ls supabase/migrations/2026102[5-9]*.sql  2>/dev/null | sort); do apply "$f"; done
   fi
 }
 
 build_db rls_roles_test "${1:-}"
 psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/rls-roles.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/payment-provider.sql
+[[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/gateway-secrets.sql
 
 if [[ "${1:-}" != "--before" ]]; then
   build_db router_tokens_test

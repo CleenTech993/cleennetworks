@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { gatewaySecret, loadGatewaySecrets } from "@/lib/gateway-secrets.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { parseInvoice, safeEqual } from "@/lib/intasend";
 import { reconcileIntasendPayment } from "@/lib/intasend-reconcile.server";
@@ -16,7 +17,8 @@ export const Route = createFileRoute("/api/public/intasend/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected = process.env["INTASEND_WEBHOOK_CHALLENGE"];
+        await loadGatewaySecrets();
+        const expected = gatewaySecret("INTASEND_WEBHOOK_CHALLENGE");
         if (!expected) return new Response("Webhook not configured", { status: 503 });
 
         let body: Record<string, unknown>;

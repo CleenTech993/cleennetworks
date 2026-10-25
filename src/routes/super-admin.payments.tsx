@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { IntasendCredentials } from "@/components/intasend-credentials";
 import { getGatewayStatus } from "@/lib/gateway.functions";
 
 export const Route = createFileRoute("/super-admin/payments")({ component: PlatformPayments });
@@ -102,12 +103,12 @@ function PlatformPayments() {
               </strong>{" "}
               right now.
               {gateways.effective === null && (
-                <span className="text-destructive"> Neither gateway has its server secrets set, so customers cannot pay.</span>
+                <span className="text-destructive"> Neither gateway has its credentials set, so customers cannot pay.</span>
               )}
               {gateways.effective !== null && gateways.effective !== (cfg?.active_provider ?? "intasend") && (
                 <span className="text-destructive">
                   {" "}
-                  The selected gateway has no server secrets yet, so payments fall back to the other one.
+                  The selected gateway has no credentials yet, so payments fall back to the other one.
                 </span>
               )}
             </p>
@@ -129,13 +130,7 @@ function PlatformPayments() {
           </div>
         </div>
 
-        <div className="rounded-lg border p-3 text-xs space-y-1.5">
-          <div className="text-sm font-medium">IntaSend setup</div>
-          <p>1. Add server secrets <code>INTASEND_SECRET_KEY</code> (<code>ISSecretKey_test_…</code> to try it, <code>_live_</code> to go live) and <code>INTASEND_WEBHOOK_CHALLENGE</code> (any long random string).</p>
-          <p>2. In the IntaSend dashboard: Settings → Webhooks → New. Endpoint:</p>
-          <p><code className="break-all select-all">{webhookUrl}</code></p>
-          <p>3. Set the same challenge string, subscribe to <code>collection_event</code>, then choose IntaSend above and save.</p>
-        </div>
+        <IntasendCredentials status={gateways?.intasend} webhookUrl={webhookUrl} />
 
         <div className="space-y-3">
           {field("callback_base_url", "Callback base URL (optional)", "https://cleennetworks.lovable.app")}

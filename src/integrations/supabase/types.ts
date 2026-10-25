@@ -300,6 +300,30 @@ export type Database = {
           },
         ]
       }
+      platform_gateway_secrets: {
+        Row: {
+          ciphertext: string
+          last4: string | null
+          name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ciphertext: string
+          last4?: string | null
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ciphertext?: string
+          last4?: string | null
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       platform_mpesa_config: {
         Row: {
           active_provider: string
