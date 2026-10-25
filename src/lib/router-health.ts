@@ -39,3 +39,18 @@ export type HealthTone = "good" | "warn" | "bad";
 export function healthTone(score: number): HealthTone {
   return score >= 80 ? "good" : score >= 50 ? "warn" : "bad";
 }
+
+/**
+ * RouterOS reports uptime as a duration such as "2d04:05:06", "1w2d03:04:05" or "00:12:30", not as
+ * seconds. Accepts that format (or a plain number of seconds) and returns seconds, or null.
+ */
+export function parseRouterOsDuration(v: string | null | undefined): number | null {
+  if (v == null) return null;
+  const s = v.trim();
+  if (s === "") return null;
+  if (/^\d+(\.\d+)?$/.test(s)) return Math.round(Number(s));
+  const m = /^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+):(\d{1,2}):(\d{1,2})(?:\.\d+)?)?$/.exec(s);
+  if (!m || (m[1] == null && m[2] == null && m[3] == null)) return null;
+  const [w, d, h, mi, se] = [m[1], m[2], m[3], m[4], m[5]].map((x) => (x == null ? 0 : Number(x)));
+  return w * 604800 + d * 86400 + h * 3600 + mi * 60 + se;
+}
