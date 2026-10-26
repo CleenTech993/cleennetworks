@@ -177,16 +177,21 @@ function PlatformPayments() {
                   {gateways.intasend.mode === "live" ? "Live keys" : "Sandbox keys"}
                 </Badge>
               )}
-              {ok(
-                gateways?.intasend.webhookChallenge,
-                "Webhook challenge set",
-                "Webhook challenge missing",
+              {gateways?.intasend.pub.set ? (
+                <Badge variant="success">API key set</Badge>
+              ) : (
+                <Badge variant="outline">API key not set</Badge>
+              )}
+              {gateways?.intasend.webhookChallenge ? (
+                <Badge variant="success">Webhook on</Badge>
+              ) : (
+                <Badge variant="outline">Webhook off (optional)</Badge>
               )}
             </div>
           </div>
         </div>
 
-        <IntasendCredentials status={gateways?.intasend} webhookUrl={webhookUrl} />
+        <IntasendCredentials status={gateways?.intasend} storage={gateways?.storage} webhookUrl={webhookUrl} />
 
         <div className="space-y-3">
           {field(

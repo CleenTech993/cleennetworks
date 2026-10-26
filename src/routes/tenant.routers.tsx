@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Plus, Copy, Router as RouterIcon, Trash2 } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
@@ -41,6 +41,30 @@ function RoutersPage() {
       return data;
     },
   });
+
+  // Live updates: the heartbeat endpoint updates the router row every minute, so refetch the moment it
+  // changes instead of waiting for the next poll (polling stays as a fallback if the socket drops).
+  useEffect(() => {
+    if (!tenantId) return;
+    const ch = supabase
+      .channel(`routers-${tenantId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "routers", filter: `tenant_id=eq.${tenantId}` },
+        () => void qc.invalidateQueries({ queryKey: ["routers"] }),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [tenantId, qc]);
+
+  // "Online" is time-based (last check-in within 3 min), so re-evaluate it as time passes even when no new data arrives.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => setTick((t) => t + 1), 20_000);
+    return () => clearInterval(i);
+  }, []);
 
   const addRouter = useMutation({
     mutationFn: async () => {
@@ -103,7 +127,7 @@ function RoutersPage() {
 
   function provisionCommand(token: string) {
     const base = typeof window !== "undefined" ? window.location.origin : "";
-    return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; /import file-name=auto-config.rsc`;
+    return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; :delay 1s; :execute {/import file-name=auto-config.rsc}`;
   }
 
   return (

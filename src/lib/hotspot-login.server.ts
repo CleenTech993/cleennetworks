@@ -48,7 +48,11 @@ function renderBody({ portalUrl, routerId }: LoginPageInput): string {
   const base = `${portalUrl}${portalUrl.includes("?") ? "&" : "?"}router=${encodeURIComponent(routerId)}`;
   // The portal needs `login` (the router's own login URL) to connect a customer after they redeem
   // a voucher, so every path into the portal must carry it. The no-script fallback includes it too.
-  const noJsUrl = `${base}&mac=$(mac)&ip=$(ip)&login=$(link-login-only)`;
+  // $(if error)…$(endif) is the router's own template conditional: it is non-empty only when the
+  // router just refused a login. Only a fixed flag is passed on, never the error text itself, so
+  // nothing the customer typed can be reflected into the page.
+  const failed = "$(if error)&failed=1$(endif)";
+  const noJsUrl = `${base}&mac=$(mac)&ip=$(ip)&login=$(link-login-only)${failed}`;
   return [
     // Only for browsers with scripting off. A plain meta refresh here used to race the script below:
     // after 1 second it re-navigated to a URL WITHOUT the login link and cancelled the real one.
@@ -61,7 +65,8 @@ function renderBody({ portalUrl, routerId }: LoginPageInput): string {
     `location.replace(${jsString(base)}`,
     `  + "&mac=" + encodeURIComponent("$(mac)")`,
     `  + "&ip=" + encodeURIComponent("$(ip)")`,
-    `  + "&login=" + encodeURIComponent("$(link-login-only)"));`,
+    `  + "&login=" + encodeURIComponent("$(link-login-only)")`,
+    `  + "${failed}");`,
     `</script>`,
     `</body></html>`,
   ].join("\n");

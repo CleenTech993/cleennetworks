@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import { expiryFrom } from "../src/lib/duration";
 import {
   buildHotspotLoginRedirect,
+  LOGIN_RETRY_WINDOW_MS,
   parseHotspotLoginUrl,
+  recallVoucher,
+  rememberVoucher,
+  routerLoginFailed,
   routerParams,
 } from "../src/lib/hotspot-redirect";
 
@@ -116,5 +120,50 @@ describe("routerParams", () => {
     const store = memory();
     routerParams("?login=http%3A%2F%2Fevil.example%2Flogin", store);
     expect(buildHotspotLoginRedirect(routerParams("", store).login, "CODE")).toBeNull();
+  });
+});
+
+describe("router login retry", () => {
+  const memory = () => {
+    const m = new Map<string, string>();
+    return {
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => void m.set(k, v),
+    };
+  };
+
+  it("knows when the router sent the customer back after refusing a login", () => {
+    expect(routerLoginFailed("?router=r1&login=x&failed=1")).toBe(true);
+    expect(routerLoginFailed("?router=r1&login=x")).toBe(false);
+    expect(routerLoginFailed("?failed=0")).toBe(false);
+    expect(routerLoginFailed("")).toBe(false);
+  });
+
+  it("remembers the redeemed code, and keeps retrying only within the sync window", () => {
+    const store = memory();
+    rememberVoucher(store, "ABCD2345", 1_000);
+    expect(recallVoucher(store, 1_000 + 60_000)).toEqual({ code: "ABCD2345", retry: true });
+    expect(recallVoucher(store, 1_000 + LOGIN_RETRY_WINDOW_MS + 1)).toEqual({
+      code: "ABCD2345",
+      retry: false,
+    });
+  });
+
+  it("forgets nothing it was never given, and ignores unsafe or broken storage", () => {
+    expect(recallVoucher(memory())).toBeNull();
+    expect(recallVoucher(null)).toBeNull();
+    const store = memory();
+    rememberVoucher(store, 'bad"code');
+    expect(recallVoucher(store)).toBeNull();
+    const broken = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    expect(() => rememberVoucher(broken, "ABCD2345")).not.toThrow();
+    expect(recallVoucher(broken)).toBeNull();
   });
 });

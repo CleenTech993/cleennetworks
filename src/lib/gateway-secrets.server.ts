@@ -10,8 +10,13 @@
 // the service key is rotated) stored values stop decrypting: they are reported as "needs re-entering"
 // and the environment fallback keeps working, rather than the app failing.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { classifyStoreError, storeProblemMessage, type StoreProblem } from "./gateway-secrets-errors";
 
-export const GATEWAY_SECRET_NAMES = ["INTASEND_SECRET_KEY", "INTASEND_WEBHOOK_CHALLENGE"] as const;
+export const GATEWAY_SECRET_NAMES = [
+  "INTASEND_SECRET_KEY",
+  "INTASEND_PUBLISHABLE_KEY",
+  "INTASEND_WEBHOOK_CHALLENGE",
+] as const;
 export type GatewaySecretName = (typeof GATEWAY_SECRET_NAMES)[number];
 
 const SALT = new TextEncoder().encode("netgrid/platform-secrets/v1");
@@ -173,14 +178,29 @@ export async function saveGatewaySecret(
     },
     { onConflict: "name" },
   );
-  if (error) throw new Error("Could not save the credential.");
+  if (error) {
+    // The real reason goes to the server log and, in plain words, to the person saving.
+    console.error(`saveGatewaySecret(${name}) failed: [${error.code}] ${error.message}`);
+    throw new Error(storeProblemMessage(classifyStoreError(error), error.code));
+  }
   await loadGatewaySecrets({ force: true });
 }
 
 export async function deleteGatewaySecret(name: GatewaySecretName): Promise<void> {
   const { error } = await supabaseAdmin.from("platform_gateway_secrets").delete().eq("name", name);
-  if (error) throw new Error("Could not remove the credential.");
+  if (error) {
+    console.error(`deleteGatewaySecret(${name}) failed: [${error.code}] ${error.message}`);
+    throw new Error(storeProblemMessage(classifyStoreError(error), error.code).replace("save the credential", "remove the credential"));
+  }
   await loadGatewaySecrets({ force: true });
+}
+
+/** Can the server use the credentials table? Lets the dashboard warn before anyone tries to save. */
+export async function checkSecretStore(): Promise<"ok" | StoreProblem> {
+  const { error } = await supabaseAdmin.from("platform_gateway_secrets").select("name", { head: true, count: "exact" });
+  if (!error) return "ok";
+  console.error(`platform_gateway_secrets check failed: [${error.code}] ${error.message}`);
+  return classifyStoreError(error);
 }
 
 /** Test helper. */

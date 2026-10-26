@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
+import { sweepIntasendIfDue } from "@/lib/intasend-reconcile.server";
 import { authenticateRouter } from "@/lib/router-auth.server";
+import { parseRouterOsDuration } from "@/lib/router-health";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
 // Heartbeat from MikroTik routers. Optional query params push live metrics.
@@ -42,8 +44,8 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
         if (memTotal != null) patch.total_memory_mb = Math.round(memTotal);
         const hddFree = num("hdd-free");
         if (hddFree != null) patch.hdd_free_mb = Math.round(hddFree);
-        const uptime = num("uptime");
-        if (uptime != null) patch.uptime_seconds = Math.round(uptime);
+        const uptime = parseRouterOsDuration(q.get("uptime"));
+        if (uptime != null) patch.uptime_seconds = uptime;
         const temp = num("temp");
         if (temp != null) patch.temperature = temp;
         const voltage = num("voltage");
@@ -116,6 +118,10 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
           dns_ok: q.get("dns") === "1" ? true : q.get("dns") === "0" ? false : null,
           temp,
         });
+
+        // Routers check in every minute, which gives a free, steady clock for confirming IntaSend payments
+        // whose webhook never arrived. Throttled, time-boxed and never allowed to fail the heartbeat.
+        await sweepIntasendIfDue();
 
         return new Response("ok", { headers: { "content-type": "text/plain" } });
       },

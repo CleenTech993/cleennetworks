@@ -43,6 +43,54 @@ export function buildHotspotLoginRedirect(
 // them, so they are remembered for the tab as soon as the page loads.
 // ---------------------------------------------------------------------------------------------
 
+/** True when the router's login page sent the customer back because it refused a login (?failed=1). */
+export function routerLoginFailed(search: string): boolean {
+  return new URLSearchParams(search).get("failed") === "1";
+}
+
+// ---------------------------------------------------------------------------------------------
+// Redeeming a voucher only marks it used in the database; the router learns about new vouchers on
+// its next sync (every couple of minutes). A login attempted straight after redeeming can therefore
+// be refused. The code is remembered for the tab so the portal can retry the router login by itself
+// until the router has the voucher, instead of leaving the customer stuck.
+// ---------------------------------------------------------------------------------------------
+
+export const LOGIN_RETRY_DELAY_MS = 10_000;
+/** A little longer than two sync intervals. */
+export const LOGIN_RETRY_WINDOW_MS = 4 * 60_000;
+const VOUCHER_KEYS = { code: "ng_voucher", at: "ng_voucher_at" } as const;
+const REMEMBERABLE_CODE = /^[A-Za-z0-9._@-]{1,64}$/;
+
+export function rememberVoucher(store: ParamStore | null, code: string, now = Date.now()): void {
+  if (!REMEMBERABLE_CODE.test(code)) return;
+  try {
+    store?.setItem(VOUCHER_KEYS.code, code);
+    store?.setItem(VOUCHER_KEYS.at, String(now));
+  } catch {
+    // Blocked storage only costs the automatic retry; entering the code again still works.
+  }
+}
+
+export interface RememberedVoucher {
+  code: string;
+  /** Retrying is still worthwhile (the router should learn the voucher within the window). */
+  retry: boolean;
+}
+
+export function recallVoucher(
+  store: ParamStore | null,
+  now = Date.now(),
+): RememberedVoucher | null {
+  try {
+    const code = store?.getItem(VOUCHER_KEYS.code);
+    if (!code || !REMEMBERABLE_CODE.test(code)) return null;
+    const at = Number(store?.getItem(VOUCHER_KEYS.at));
+    return { code, retry: Number.isFinite(at) && now - at < LOGIN_RETRY_WINDOW_MS };
+  } catch {
+    return null;
+  }
+}
+
 export interface RouterParams {
   login: string | null;
   mac: string | null;

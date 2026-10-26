@@ -48,6 +48,16 @@ describe("hotspot login page", () => {
     );
   });
 
+  it("tells the portal when the router refused a login, without reflecting any error text", () => {
+    // $(if error)…$(endif) is evaluated by the router; only a fixed flag follows.
+    expect(html).toContain("$(if error)&failed=1$(endif)");
+    expect(html).not.toContain("$(error)");
+    const links = html.match(/url=[^"]*|href="[^"]*"/g) ?? [];
+    // inside an HTML attribute "&" is written "&amp;"; the browser decodes it back
+    for (const l of links)
+      expect(l.replace(/&amp;/g, "&")).toContain("$(if error)&failed=1$(endif)");
+  });
+
   it("cannot be broken out of by a hostile portal URL", () => {
     const evil = buildLoginHtml({
       portalUrl: 'https://a.test/p/x"</script><script>alert(1)</script>',
