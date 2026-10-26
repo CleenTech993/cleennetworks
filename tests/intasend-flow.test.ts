@@ -92,7 +92,7 @@ describe("reconcileIntasendPayment", () => {
 
     // it asked IntaSend (server-side, with the secret key) rather than trusting anything it was told
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe("https://api.intasend.com/api/v1/payment/status/");
+    expect(calls[0].url).toBe("https://sandbox.intasend.com/api/v1/payment/status/");
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe(
       "Bearer ISSecretKey_test_abc",
     );
