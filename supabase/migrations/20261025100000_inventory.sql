@@ -20,7 +20,7 @@
 -- ---------------------------------------------------------------------------------------------
 -- Tables
 -- ---------------------------------------------------------------------------------------------
-CREATE TABLE public.inventory_items (
+CREATE TABLE IF NOT EXISTS public.inventory_items (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id     uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   category      text NOT NULL CHECK (category IN ('router','ont','access_point','switch','cable','other')),
@@ -35,9 +35,9 @@ CREATE TABLE public.inventory_items (
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX inventory_items_tenant_idx ON public.inventory_items (tenant_id, category);
+CREATE INDEX IF NOT EXISTS inventory_items_tenant_idx ON public.inventory_items (tenant_id, category);
 
-CREATE TABLE public.inventory_devices (
+CREATE TABLE IF NOT EXISTS public.inventory_devices (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id          uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   item_id            uuid REFERENCES public.inventory_items(id) ON DELETE SET NULL,
@@ -68,12 +68,12 @@ CREATE TABLE public.inventory_devices (
   CONSTRAINT inventory_devices_customer_not_in_stock CHECK (customer_id IS NULL OR status <> 'in_stock'),
   CONSTRAINT inventory_devices_monitor_needs_target CHECK (NOT monitor_enabled OR (ip_address IS NOT NULL AND monitor_router_id IS NOT NULL))
 );
-CREATE UNIQUE INDEX inventory_devices_serial_uniq ON public.inventory_devices (tenant_id, lower(serial_number)) WHERE serial_number IS NOT NULL AND btrim(serial_number) <> '';
-CREATE INDEX inventory_devices_tenant_idx   ON public.inventory_devices (tenant_id, category);
-CREATE INDEX inventory_devices_customer_idx ON public.inventory_devices (customer_id) WHERE customer_id IS NOT NULL;
-CREATE INDEX inventory_devices_monitor_idx  ON public.inventory_devices (monitor_router_id) WHERE monitor_enabled;
+CREATE UNIQUE INDEX IF NOT EXISTS inventory_devices_serial_uniq ON public.inventory_devices (tenant_id, lower(serial_number)) WHERE serial_number IS NOT NULL AND btrim(serial_number) <> '';
+CREATE INDEX IF NOT EXISTS inventory_devices_tenant_idx   ON public.inventory_devices (tenant_id, category);
+CREATE INDEX IF NOT EXISTS inventory_devices_customer_idx ON public.inventory_devices (customer_id) WHERE customer_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS inventory_devices_monitor_idx  ON public.inventory_devices (monitor_router_id) WHERE monitor_enabled;
 
-CREATE TABLE public.stock_movements (
+CREATE TABLE IF NOT EXISTS public.stock_movements (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id   uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   item_id     uuid NOT NULL REFERENCES public.inventory_items(id) ON DELETE CASCADE,
@@ -84,19 +84,19 @@ CREATE TABLE public.stock_movements (
   created_by  uuid,
   created_at  timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX stock_movements_item_idx   ON public.stock_movements (item_id, created_at DESC);
-CREATE INDEX stock_movements_tenant_idx ON public.stock_movements (tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS stock_movements_item_idx   ON public.stock_movements (item_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS stock_movements_tenant_idx ON public.stock_movements (tenant_id, created_at DESC);
 
-CREATE TABLE public.inventory_device_events (
+CREATE TABLE IF NOT EXISTS public.inventory_device_events (
   id        bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   device_id uuid NOT NULL REFERENCES public.inventory_devices(id) ON DELETE CASCADE,
   event     text NOT NULL CHECK (event IN ('up','down')),
   at        timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX inventory_device_events_idx ON public.inventory_device_events (device_id, at DESC);
+CREATE INDEX IF NOT EXISTS inventory_device_events_idx ON public.inventory_device_events (device_id, at DESC);
 
-CREATE TABLE public.inventory_alerts (
+CREATE TABLE IF NOT EXISTS public.inventory_alerts (
   id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_id   uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
   kind        text NOT NULL CHECK (kind IN ('device_down','device_up','low_stock')),
@@ -108,10 +108,10 @@ CREATE TABLE public.inventory_alerts (
   sms_sent_at timestamptz,
   sms_error   text
 );
-CREATE INDEX inventory_alerts_tenant_idx  ON public.inventory_alerts (tenant_id, created_at DESC);
-CREATE INDEX inventory_alerts_pending_idx ON public.inventory_alerts (tenant_id) WHERE sms_status = 'pending';
+CREATE INDEX IF NOT EXISTS inventory_alerts_tenant_idx  ON public.inventory_alerts (tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS inventory_alerts_pending_idx ON public.inventory_alerts (tenant_id) WHERE sms_status = 'pending';
 
-CREATE TABLE public.alert_settings (
+CREATE TABLE IF NOT EXISTS public.alert_settings (
   tenant_id           uuid PRIMARY KEY REFERENCES public.tenants(id) ON DELETE CASCADE,
   sms_numbers         text[] NOT NULL DEFAULT '{}' CHECK (cardinality(sms_numbers) <= 5),
   notify_device_down  boolean NOT NULL DEFAULT true,
@@ -136,6 +136,7 @@ BEGIN
   NEW.updated_at := now();
   RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS alert_settings_guard ON public.alert_settings;
 CREATE TRIGGER alert_settings_guard BEFORE INSERT OR UPDATE ON public.alert_settings
   FOR EACH ROW EXECUTE FUNCTION public.alert_settings_guard();
 
@@ -165,6 +166,7 @@ BEGIN
   NEW.updated_at := now();
   RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS inventory_items_guard ON public.inventory_items;
 CREATE TRIGGER inventory_items_guard BEFORE INSERT OR UPDATE ON public.inventory_items
   FOR EACH ROW EXECUTE FUNCTION public.inventory_items_guard();
 
@@ -190,6 +192,7 @@ BEGIN
   NEW.updated_at := now();
   RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS inventory_devices_guard ON public.inventory_devices;
 CREATE TRIGGER inventory_devices_guard BEFORE INSERT OR UPDATE ON public.inventory_devices
   FOR EACH ROW EXECUTE FUNCTION public.inventory_devices_guard();
 
@@ -238,6 +241,7 @@ BEGIN
   NEW.created_by := auth.uid();
   RETURN NEW;
 END $$;
+DROP TRIGGER IF EXISTS stock_movements_apply ON public.stock_movements;
 CREATE TRIGGER stock_movements_apply BEFORE INSERT ON public.stock_movements
   FOR EACH ROW EXECUTE FUNCTION public.stock_movements_apply();
 
@@ -249,22 +253,27 @@ DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['inventory_items','inventory_devices','stock_movements','inventory_device_events','inventory_alerts'] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS "%1$s require aal2" ON public.%1$I', t);
     EXECUTE format(
       'CREATE POLICY "%1$s require aal2" ON public.%1$I AS RESTRICTIVE FOR ALL TO authenticated '
       'USING (public.is_aal2()) WITH CHECK (public.is_aal2())', t);
+    EXECUTE format('DROP POLICY IF EXISTS "%1$s select by role" ON public.%1$I', t);
     EXECUTE format(
       'CREATE POLICY "%1$s select by role" ON public.%1$I FOR SELECT TO authenticated USING ('
       'public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY[''tenant_admin'',''technician'',''support_staff'']::public.app_role[]))', t);
   END LOOP;
 
   FOREACH t IN ARRAY ARRAY['inventory_items','inventory_devices'] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS "%1$s insert by role" ON public.%1$I', t);
     EXECUTE format(
       'CREATE POLICY "%1$s insert by role" ON public.%1$I FOR INSERT TO authenticated WITH CHECK ('
       'public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY[''tenant_admin'',''technician'']::public.app_role[]))', t);
+    EXECUTE format('DROP POLICY IF EXISTS "%1$s update by role" ON public.%1$I', t);
     EXECUTE format(
       'CREATE POLICY "%1$s update by role" ON public.%1$I FOR UPDATE TO authenticated USING ('
       'public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY[''tenant_admin'',''technician'']::public.app_role[])) WITH CHECK ('
       'public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY[''tenant_admin'',''technician'']::public.app_role[]))', t);
+    EXECUTE format('DROP POLICY IF EXISTS "%1$s delete by role" ON public.%1$I', t);
     EXECUTE format(
       'CREATE POLICY "%1$s delete by role" ON public.%1$I FOR DELETE TO authenticated USING ('
       'public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY[''tenant_admin'',''technician'']::public.app_role[]))', t);
@@ -272,17 +281,22 @@ BEGIN
 END $$;
 
 -- The ledger is append-only: insert, but never update or delete.
+DROP POLICY IF EXISTS "stock_movements insert by role" ON public.stock_movements;
 CREATE POLICY "stock_movements insert by role" ON public.stock_movements FOR INSERT TO authenticated
   WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician']::public.app_role[]));
 
 -- Alert settings: tenant admins only (they hold the phone numbers alerts are sent to).
 ALTER TABLE public.alert_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "alert_settings require aal2" ON public.alert_settings;
 CREATE POLICY "alert_settings require aal2" ON public.alert_settings AS RESTRICTIVE FOR ALL TO authenticated
   USING (public.is_aal2()) WITH CHECK (public.is_aal2());
+DROP POLICY IF EXISTS "alert_settings select by role" ON public.alert_settings;
 CREATE POLICY "alert_settings select by role" ON public.alert_settings FOR SELECT TO authenticated
   USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]));
+DROP POLICY IF EXISTS "alert_settings insert by role" ON public.alert_settings;
 CREATE POLICY "alert_settings insert by role" ON public.alert_settings FOR INSERT TO authenticated
   WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]));
+DROP POLICY IF EXISTS "alert_settings update by role" ON public.alert_settings;
 CREATE POLICY "alert_settings update by role" ON public.alert_settings FOR UPDATE TO authenticated
   USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]))
   WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]));
