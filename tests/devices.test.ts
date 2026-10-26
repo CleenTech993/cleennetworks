@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBlockLines,
+  canResumeVoucher,
   buildDeviceAgentLines,
   buildHotspotUserLines,
   buildTetherLines,
@@ -254,5 +255,22 @@ describe("buildDeviceAgentLines", () => {
     expect(plain).toContain(`/tool fetch url="${URL_OK}" http-method=post http-data=$d`);
     // the record layout the script builds is the one parseDeviceReport reads
     expect(plain).toContain('$mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt');
+  });
+});
+
+describe("canResumeVoucher", () => {
+  const MAC = "AA:BB:CC:DD:EE:01";
+  it("lets the device that redeemed a one-device voucher present it again", () => {
+    expect(canResumeVoucher(1, MAC, MAC)).toBe(true);
+  });
+  it("never lets another device, or an unidentified one, take over a one-device voucher", () => {
+    expect(canResumeVoucher(1, "AA:BB:CC:DD:EE:02", MAC)).toBe(false);
+    expect(canResumeVoucher(1, null, MAC)).toBe(false);
+    expect(canResumeVoucher(1, MAC, null)).toBe(false);
+    expect(canResumeVoucher(1, null, null)).toBe(false);
+  });
+  it("lets any device use a multi-device voucher (the router enforces the limit)", () => {
+    expect(canResumeVoucher(3, "AA:BB:CC:DD:EE:02", MAC)).toBe(true);
+    expect(canResumeVoucher(3, null, null)).toBe(true);
   });
 });

@@ -127,6 +127,53 @@ describe("voucher redemption", () => {
     expect(results.filter((r) => r.status === 400)).toHaveLength(5);
   });
 
+  it("lets the device that redeemed a voucher present it again (router login can fail at first)", async () => {
+    const MAC = "AA:BB:CC:DD:EE:0A";
+    expect((await redeem({ code: "ABCD2345", mac: MAC })).status).toBe(200);
+    const again = await redeem({ code: "abcd2345", mac: MAC.toLowerCase() });
+    expect(again.status).toBe(200);
+    expect(await json(again)).toMatchObject({ ok: true, resumed: true, code: "ABCD2345" });
+    expect(voucher("ABCD2345").status).toBe("used");
+  });
+
+  it("does not hand a one-device voucher to a different device", async () => {
+    expect((await redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0A" })).status).toBe(200);
+    const other = await redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0B" });
+    expect(other.status).toBe(400);
+    expect((await json(other)).error).toMatch(/already used/i);
+  });
+
+  it("does not resume a voucher that has since expired", async () => {
+    const MAC = "AA:BB:CC:DD:EE:0A";
+    expect((await redeem({ code: "ABCD2345", mac: MAC })).status).toBe(200);
+    voucher("ABCD2345").expires_at = "2020-01-01T00:00:00Z";
+    const again = await redeem({ code: "ABCD2345", mac: MAC });
+    expect(again.status).toBe(400);
+    expect((await json(again)).error).toMatch(/expired/i);
+  });
+
+  it("lets every device of a multi-device package present the code", async () => {
+    const MULTI = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+    h.db.seed("packages", [
+      { id: MULTI, tenant_id: TENANT, duration_value: 3, duration_unit: "hours", device_limit: 3 },
+    ]);
+    h.db.seed("vouchers", [
+      {
+        id: "v6",
+        tenant_id: TENANT,
+        code: "MULTI234",
+        status: "unused",
+        package_id: MULTI,
+        payment_id: null,
+        expires_at: null,
+      },
+    ]);
+    expect((await redeem({ code: "MULTI234", mac: "AA:BB:CC:DD:EE:0A" })).status).toBe(200);
+    const second = await redeem({ code: "MULTI234", mac: "AA:BB:CC:DD:EE:0B" });
+    expect(second.status).toBe(200);
+    expect(await json(second)).toMatchObject({ resumed: true });
+  });
+
   it("rejects bad input and unknown portals", async () => {
     expect(
       (await call(Route, "POST", { rawBody: "nope", ip: freshIp(), params: { slug: "acme" } }))
