@@ -124,15 +124,9 @@ function buildRsc(p: {
 # --- DNS ---
 /ip dns set servers=8.8.8.8,1.1.1.1 allow-remote-requests=yes
 
-# --- LAN bridge with ether2-ether5 ---
+# --- LAN bridge (the ports join it at the very end of this script) ---
 /interface bridge
 :if ([:len [find name=netgrid-lan]] = 0) do={ add name=netgrid-lan comment="NetGrid customer LAN" }
-:foreach p in={"ether2";"ether3";"ether4";"ether5";"wlan1";"wlan2";"wifi1";"wifi2"} do={
-  :do {
-    /interface bridge port remove [find interface=$p]
-    /interface bridge port add bridge=netgrid-lan interface=$p
-  } on-error={}
-}
 
 # --- Addresses ---
 /ip address
@@ -237,6 +231,18 @@ add name=netgrid-ifaces interval=1m on-event="/system script run netgrid-ifaces"
 add name=netgrid-sync interval=2m on-event="/system script run netgrid-sync"
 # Heartbeat every minute with live metrics (CPU/RAM/uptime/temp/voltage/version/board/arch/wan-ip + WAN quality)
 add name=netgrid-heartbeat interval=1m on-event=":global hbUrl \\"${p.callbackUrl}\\"; :global ngLat; :global ngLoss; :global ngJit; :global ngDns; :local r [/system resource get]; :local cpu (\\$r->\\"cpu-load\\"); :local mf ((\\$r->\\"free-memory\\")/1048576); :local mt ((\\$r->\\"total-memory\\")/1048576); :local up (\\$r->\\"uptime\\"); :local ver (\\$r->\\"version\\"); :local board (\\$r->\\"board-name\\"); :local arch (\\$r->\\"architecture-name\\"); :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={}; :local wan \\"\\"; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={}; :local volt 0; :do { :set volt [/system health get voltage] } on-error={}; :local temp 0; :do { :set temp [/system health get temperature] } on-error={}; /tool fetch url=(\\$hbUrl . \\"?cpu=\\" . \\$cpu . \\"&mem-free=\\" . \\$mf . \\"&mem-total=\\" . \\$mt . \\"&hdd-free=\\" . \\$hf . \\"&uptime=\\" . \\$up . \\"&temp=\\" . \\$temp . \\"&voltage=\\" . \\$volt . \\"&version=\\" . \\$ver . \\"&board=\\" . \\$board . \\"&arch=\\" . \\$arch . \\"&wan-ip=\\" . \\$wan . \\"&latency=\\" . \\$ngLat . \\"&loss=\\" . \\$ngLoss . \\"&jitter=\\" . \\$ngJit . \\"&dns=\\" . \\$ngDns) mode=https keep-result=no"
+
+# --- LAN ports join the hotspot bridge LAST ---
+# Moving the port you are connected through (cable, Wi-Fi or MAC-Winbox) into a new bridge can cut
+# your session, and a cut session ends a running /import. Everything above is already applied by now,
+# so even if this is the point where the connection drops, the router is fully configured.
+:log info "NetGrid: moving LAN ports into the hotspot bridge"
+:foreach p in={"ether2";"ether3";"ether4";"ether5";"wlan1";"wlan2";"wifi1";"wifi2"} do={
+  :do {
+    /interface bridge port remove [find interface=$p]
+    /interface bridge port add bridge=netgrid-lan interface=$p
+  } on-error={}
+}
 
 :log info "NetGrid: auto-config complete"
 :put "NetGrid auto-config applied. Portal: ${p.portalUrl}"

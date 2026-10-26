@@ -127,7 +127,7 @@ function RoutersPage() {
 
   function provisionCommand(token: string) {
     const base = typeof window !== "undefined" ? window.location.origin : "";
-    return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; /import file-name=auto-config.rsc`;
+    return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; :delay 1s; :execute {/import file-name=auto-config.rsc}`;
   }
 
   return (
