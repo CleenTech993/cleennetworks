@@ -46,15 +46,17 @@ export function buildHotspotLoginRedirect(
 export interface RouterParams {
   login: string | null;
   mac: string | null;
+  /** routers.id, added by the router's login page; lets the portal know which router to wait for. */
+  router: string | null;
 }
 type ParamStore = Pick<Storage, "getItem" | "setItem">;
-const STORE_KEYS = { login: "ng_login", mac: "ng_mac" } as const;
+const STORE_KEYS = { login: "ng_login", mac: "ng_mac", router: "ng_router" } as const;
 
 /** Reads the router's parameters from the URL query, saving them; falls back to what was saved. */
 export function routerParams(search: string, store: ParamStore | null): RouterParams {
   const q = new URLSearchParams(search);
-  const out: RouterParams = { login: q.get("login"), mac: q.get("mac") };
-  for (const k of ["login", "mac"] as const) {
+  const out: RouterParams = { login: q.get("login"), mac: q.get("mac"), router: q.get("router") };
+  for (const k of ["login", "mac", "router"] as const) {
     try {
       const present = out[k];
       if (present) store?.setItem(STORE_KEYS[k], present);

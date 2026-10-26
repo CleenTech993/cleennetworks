@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -688,10 +688,61 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
   );
 }
 
+const ACTIVATION_POLL_MS = 3_000;
+const ACTIVATION_MAX_WAIT_MS = 150_000; // a little longer than the router's 2-minute sync
+const NAVIGATION_STUCK_MS = 12_000;
+const VOUCHER_KEY = "ng_voucher";
+
+/** Waits until the router has received the voucher (it learns of new vouchers on its next sync). */
+async function waitForRouter(
+  slug: string,
+  code: string,
+  router: string | null,
+  isCancelled: () => boolean,
+): Promise<void> {
+  const started = Date.now();
+  while (!isCancelled() && Date.now() - started < ACTIVATION_MAX_WAIT_MS) {
+    try {
+      const qs = new URLSearchParams({ code });
+      if (router) qs.set("router", router);
+      const res = await fetch(`/api/public/portal/${slug}/voucher-status?${qs}`);
+      if (res.ok && (await res.json()).ready) return;
+      if (res.status === 404) return; // nothing to wait for
+    } catch {
+      // network hiccup on a captive-portal browser: keep trying
+    }
+    await new Promise((r) => setTimeout(r, ACTIVATION_POLL_MS));
+  }
+}
+
 function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
   const [code, setCode] = useState("");
-  const [done, setDone] = useState<"connecting" | "accepted" | null>(null);
+  const [phase, setPhase] = useState<"form" | "activating" | "connecting" | "accepted">("form");
+  const [target, setTarget] = useState<string | null>(null);
+  const [stuck, setStuck] = useState(false);
   const [busy, setBusy] = useState(false);
+  const cancelled = useRef(false);
+
+  // Bring back the code if the router's login page bounced the customer back here.
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(VOUCHER_KEY);
+      if (saved) setCode(saved);
+    } catch {
+      /* storage blocked */
+    }
+    return () => {
+      cancelled.current = true;
+    };
+  }, []);
+
+  function connect(loginTarget: string) {
+    setPhase("connecting");
+    setStuck(false);
+    window.location.href = loginTarget;
+    // If the browser stays on this page the hand-over didn't work: offer a manual way through.
+    window.setTimeout(() => setStuck(true), NAVIGATION_STUCK_MS);
+  }
 
   async function redeem() {
     setBusy(true);
@@ -705,38 +756,82 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
-      toast.success("Voucher redeemed");
-      // Hand the browser to the router so the device is actually logged in.
-      const target = buildHotspotLoginRedirect(params.login, json.code ?? code);
-      if (target) {
-        setDone("connecting");
-        window.location.href = target;
-      } else {
-        setDone("accepted");
+      const redeemed: string = json.code ?? code;
+      try {
+        sessionStorage.setItem(VOUCHER_KEY, redeemed);
+      } catch {
+        /* storage blocked */
       }
+      toast.success(json.resumed ? "Voucher found" : "Voucher redeemed");
+
+      // Hand the browser to the router so the device is actually logged in.
+      const loginTarget = buildHotspotLoginRedirect(params.login, redeemed);
+      if (!loginTarget) {
+        setPhase("accepted");
+        return;
+      }
+      setTarget(loginTarget);
+      setPhase("activating");
+      await waitForRouter(slug, redeemed, params.router, () => cancelled.current);
+      if (!cancelled.current) connect(loginTarget);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
+      setPhase("form");
     } finally {
       setBusy(false);
     }
   }
 
-  if (done) {
+  if (phase === "activating") {
+    return (
+      <div className="pt-surface rounded-xl border bg-card p-6 text-center">
+        <Loader2 className="mx-auto h-10 w-10 animate-spin" style={{ color: primary }} />
+        <p className="mt-3 font-medium">Activating your voucher…</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          The Wi-Fi is registering it. This can take up to 2 minutes the first time. Keep this page
+          open and you'll be connected automatically.
+        </p>
+        {target && (
+          <Button variant="outline" className="mt-4" onClick={() => connect(target)}>
+            Try connecting now
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  if (phase === "connecting" || phase === "accepted") {
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
         <p className="mt-3 font-medium">
-          {done === "connecting" ? "Connecting you to the internet…" : "Voucher accepted"}
+          {phase === "connecting" ? "Connecting you to the internet…" : "Voucher accepted"}
         </p>
-        {done === "accepted" && (
+        {phase === "accepted" && (
           <p className="mt-1 text-sm text-muted-foreground">
             Open this page from the Wi-Fi network's sign-in screen to connect, or reconnect to the
             Wi-Fi.
           </p>
         )}
+        {phase === "connecting" && stuck && target && (
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Taking longer than expected. Tap below to connect. If it still doesn't work, switch
+              the Wi-Fi off and on, then open this page again and enter the same code. Your voucher
+              stays valid on this device.
+            </p>
+            <Button className="pt-btn w-full" style={{ backgroundColor: primary }} asChild>
+              <a href={target}>Connect now</a>
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => setPhase("form")}>
+              Back
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
+
   return (
     <div>
       <Label htmlFor="vcode">Voucher code</Label>

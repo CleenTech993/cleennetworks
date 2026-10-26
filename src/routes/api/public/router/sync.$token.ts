@@ -37,6 +37,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const router = auth.router;
 
         const now = new Date().toISOString();
+        // The database snapshot below is taken after this instant, so any voucher created before it is on the router.
+        const syncStartedAt = now;
         const [
           { data: tenant },
           { data: customers },
@@ -179,6 +181,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         } catch {
           /* never fail the router's sync */
         }
+
+        // Let the portal know vouchers up to this moment are on the router (see voucher-ready.ts).
+        // Before the migration is applied this just fails quietly and the portal falls back to waiting.
+        await supabaseAdmin.from("routers").update({ last_sync_at: syncStartedAt }).eq("id", router.id);
 
         return new Response(lines.join("\n"), {
           headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },

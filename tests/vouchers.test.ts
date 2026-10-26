@@ -86,6 +86,7 @@ describe("routerParams", () => {
     expect(routerParams(q, memory())).toEqual({
       login: "http://hotspot.netgrid/login",
       mac: "AA:BB:CC:DD:EE:02",
+      router: "r1",
     });
   });
 
@@ -95,6 +96,7 @@ describe("routerParams", () => {
     expect(routerParams("", store)).toEqual({
       login: "http://hotspot.netgrid/login",
       mac: "AA:BB:CC:DD:EE:02",
+      router: "r1",
     });
   });
 
@@ -109,7 +111,7 @@ describe("routerParams", () => {
       },
     };
     expect(routerParams(q, broken).login).toBe("http://hotspot.netgrid/login");
-    expect(routerParams("", broken)).toEqual({ login: null, mac: null });
+    expect(routerParams("", broken)).toEqual({ login: null, mac: null, router: null });
   });
 
   it("a remembered link is still validated before anything is sent to it", () => {
