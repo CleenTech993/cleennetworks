@@ -186,7 +186,7 @@ function PlatformPayments() {
           </div>
         </div>
 
-        <IntasendCredentials status={gateways?.intasend} webhookUrl={webhookUrl} />
+        <IntasendCredentials status={gateways?.intasend} storage={gateways?.storage} webhookUrl={webhookUrl} />
 
         <div className="space-y-3">
           {field(
