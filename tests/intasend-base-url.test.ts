@@ -66,21 +66,47 @@ describe("requests go to the server that matches the saved key", () => {
   it("a test key is checked against the sandbox, and the result says so", async () => {
     await saveGatewaySecret("INTASEND_SECRET_KEY", TEST_KEY, USER);
     stub(404);
-    expect(await intasendCheckKey()).toEqual({ result: "accepted", environment: "sandbox" });
+    expect(await intasendCheckKey()).toMatchObject({
+      result: "accepted",
+      environment: "sandbox",
+      httpStatus: 404,
+    });
     expect(urls).toEqual(["https://sandbox.intasend.com/api/v1/payment/status/"]);
   });
 
   it("a live key is checked against the live server", async () => {
     await saveGatewaySecret("INTASEND_SECRET_KEY", LIVE_KEY, USER);
     stub(404);
-    expect(await intasendCheckKey()).toEqual({ result: "accepted", environment: "live" });
+    expect(await intasendCheckKey()).toMatchObject({
+      result: "accepted",
+      environment: "live",
+      httpStatus: 404,
+    });
     expect(urls).toEqual(["https://payment.intasend.com/api/v1/payment/status/"]);
   });
 
   it("a refused key reports which server refused it", async () => {
     await saveGatewaySecret("INTASEND_SECRET_KEY", TEST_KEY, USER);
     stub(401);
-    expect(await intasendCheckKey()).toEqual({ result: "rejected", environment: "sandbox" });
+    expect(await intasendCheckKey()).toEqual({
+      result: "rejected",
+      environment: "sandbox",
+      host: "https://sandbox.intasend.com",
+      httpStatus: 401,
+    });
+  });
+
+  it("reports the live server and HTTP status for a live key, but never the response text", async () => {
+    await saveGatewaySecret("INTASEND_SECRET_KEY", LIVE_KEY, USER);
+    stub(403, { detail: "secret account detail" });
+    const r = await intasendCheckKey();
+    expect(r).toEqual({
+      result: "rejected",
+      environment: "live",
+      host: "https://payment.intasend.com",
+      httpStatus: 403,
+    });
+    expect(JSON.stringify(r)).not.toContain("secret account detail");
   });
 
   it("the STK prompt goes to the same server as the key", async () => {

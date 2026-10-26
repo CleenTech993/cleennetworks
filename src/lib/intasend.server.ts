@@ -87,6 +87,10 @@ export type KeyCheck = {
   result: "accepted" | "rejected" | "unreachable" | "not_set";
   /** Which IntaSend server the key was tried against: sandbox for test keys, live for live keys. */
   environment?: IntasendEnvironment;
+  /** The HTTP status IntaSend answered with (never the body, which can contain account details). */
+  httpStatus?: number;
+  /** The server that was contacted, for example https://payment.intasend.com. */
+  host?: string;
 };
 
 /**
@@ -99,12 +103,14 @@ export async function intasendCheckKey(): Promise<KeyCheck> {
   const key = gatewaySecret("INTASEND_SECRET_KEY");
   if (!key) return { result: "not_set" };
   const environment = intasendEnvironment(key);
+  const host = baseUrl();
   try {
     const r = await post("/api/v1/payment/status/", { invoice_id: "00000000-connection-test" });
-    if (r.status === 401 || r.status === 403) return { result: "rejected", environment };
-    if (r.status >= 500) return { result: "unreachable", environment };
-    return { result: "accepted", environment };
+    const base = { environment, host, httpStatus: r.status };
+    if (r.status === 401 || r.status === 403) return { result: "rejected", ...base };
+    if (r.status >= 500) return { result: "unreachable", ...base };
+    return { result: "accepted", ...base };
   } catch {
-    return { result: "unreachable", environment };
+    return { result: "unreachable", environment, host };
   }
 }

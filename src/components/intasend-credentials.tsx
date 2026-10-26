@@ -75,18 +75,27 @@ export function IntasendCredentials({
 
   const test = useMutation({
     mutationFn: () => testIntasendConnection(),
-    onSuccess: ({ result, environment }) => {
+    onSuccess: ({ result, environment, httpStatus, host }) => {
       const where = environment === "sandbox" ? "IntaSend sandbox" : "IntaSend";
-      if (result === "accepted")
-        toast.success(`${where} accepted the key${environment ? ` (${environment})` : ""}`);
-      else if (result === "rejected") {
+      // Never the response text, only which server was asked and the HTTP status it gave back.
+      const detail = [host?.replace(/^https?:\/\//, ""), httpStatus ? `HTTP ${httpStatus}` : null]
+        .filter(Boolean)
+        .join(", ");
+      const suffix = detail ? ` (${detail})` : "";
+      if (result === "accepted") {
+        toast.success(`${where} accepted the key${suffix}`);
+      } else if (result === "rejected") {
         toast.error(
-          environment === "sandbox"
-            ? "The IntaSend sandbox rejected the key. Check you copied the whole secret key from sandbox.intasend.com (test keys do not work on the live site)."
-            : "IntaSend rejected the key. Check you copied the whole secret key from payment.intasend.com (live keys do not work in the sandbox).",
+          `${where} rejected the key${suffix}. ` +
+            (environment === "sandbox"
+              ? "Check you copied the whole secret key from sandbox.intasend.com (test keys do not work on the live site)."
+              : "Check you copied the whole secret key from payment.intasend.com, that your IntaSend account is verified for live payments, and that no INTASEND_BASE_URL override is set on the server."),
         );
-      } else if (result === "not_set") toast.error("No secret key is set yet.");
-      else toast.error("Could not reach IntaSend. Try again in a moment.");
+      } else if (result === "not_set") {
+        toast.error("No secret key is set yet.");
+      } else {
+        toast.error(`Could not reach IntaSend${suffix}. Try again in a moment.`);
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
