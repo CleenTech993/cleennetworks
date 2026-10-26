@@ -46,9 +46,13 @@ export function loginPageMarker(input: LoginPageInput): string {
 // by the router when it serves the page. They must reach the router untouched.
 function renderBody({ portalUrl, routerId }: LoginPageInput): string {
   const base = `${portalUrl}${portalUrl.includes("?") ? "&" : "?"}router=${encodeURIComponent(routerId)}`;
-  const noJsUrl = `${base}&mac=$(mac)&ip=$(ip)`;
+  // The portal needs `login` (the router's own login URL) to connect a customer after they redeem
+  // a voucher, so every path into the portal must carry it. The no-script fallback includes it too.
+  const noJsUrl = `${base}&mac=$(mac)&ip=$(ip)&login=$(link-login-only)`;
   return [
-    `<meta http-equiv="refresh" content="1; url=${escapeHtml(noJsUrl)}">`,
+    // Only for browsers with scripting off. A plain meta refresh here used to race the script below:
+    // after 1 second it re-navigated to a URL WITHOUT the login link and cancelled the real one.
+    `<noscript><meta http-equiv="refresh" content="1; url=${escapeHtml(noJsUrl)}"></noscript>`,
     `<title>Connecting…</title>`,
     `</head><body style="font-family:sans-serif;text-align:center;padding:2rem">`,
     `<p>Taking you to the Wi-Fi portal…</p>`,
@@ -123,7 +127,11 @@ export const ROUTEROS_PICK_HTML_DIR = `
  * Only writes to flash when the page is missing or stale (marker mismatch), and
  * restores the portal's walled-garden entry if it was lost.
  */
-export function routerosHealLoginPage(a: { loginUrl: string; marker: string; portalHost: string }): string {
+export function routerosHealLoginPage(a: {
+  loginUrl: string;
+  marker: string;
+  portalHost: string;
+}): string {
   return `
 # NetGrid hotspot login page self-heal
 :do {

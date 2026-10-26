@@ -57,7 +57,11 @@ export async function authenticateRouter(request: Request, token: string): Promi
     .eq("token_hash", await sha256Hex(token))
     .maybeSingle();
   if (cred) {
-    const { data: router } = await supabaseAdmin.from("routers").select(ROUTER_COLS).eq("id", cred.router_id).maybeSingle();
+    const { data: router } = await supabaseAdmin
+      .from("routers")
+      .select(ROUTER_COLS)
+      .eq("id", cred.router_id)
+      .maybeSingle();
     if (router) return { ok: true, router: { ...router, via: "device" } };
   }
 
@@ -79,9 +83,13 @@ export type BootstrapAuth =
   | { ok: false; blocked: boolean; expired: boolean };
 
 /** router.rsc: the 24h bootstrap token. */
-export async function authenticateBootstrap(request: Request, token: string): Promise<BootstrapAuth> {
+export async function authenticateBootstrap(
+  request: Request,
+  token: string,
+): Promise<BootstrapAuth> {
   const missKey = `rtoken-miss:${clientIp(request)}`;
-  if (rateLimitExceeded(missKey, TOKEN_MISS_LIMIT)) return { ok: false, blocked: true, expired: false };
+  if (rateLimitExceeded(missKey, TOKEN_MISS_LIMIT))
+    return { ok: false, blocked: true, expired: false };
   const miss = (): BootstrapAuth => {
     rateLimit(missKey, TOKEN_MISS_LIMIT, TOKEN_MISS_WINDOW_MS);
     return { ok: false, blocked: false, expired: false };
@@ -94,7 +102,10 @@ export async function authenticateBootstrap(request: Request, token: string): Pr
     .eq("provision_token", token)
     .maybeSingle();
   if (!router) return miss();
-  if (router.provision_token_expires_at && new Date(router.provision_token_expires_at).getTime() <= Date.now()) {
+  if (
+    router.provision_token_expires_at &&
+    new Date(router.provision_token_expires_at).getTime() <= Date.now()
+  ) {
     return { ok: false, blocked: false, expired: true };
   }
   return { ok: true, router: { id: router.id, name: router.name, tenant_id: router.tenant_id } };
@@ -106,11 +117,19 @@ export async function authenticateBootstrap(request: Request, token: string): Pr
  */
 export async function issueDeviceToken(routerId: string): Promise<string> {
   const token = mintDeviceToken();
-  const { error } = await supabaseAdmin
-    .from("router_credentials")
-    .upsert({ router_id: routerId, token_hash: await sha256Hex(token), created_at: new Date().toISOString() }, { onConflict: "router_id" });
+  const { error } = await supabaseAdmin.from("router_credentials").upsert(
+    {
+      router_id: routerId,
+      token_hash: await sha256Hex(token),
+      created_at: new Date().toISOString(),
+    },
+    { onConflict: "router_id" },
+  );
   if (error) throw new Error(`could not store device credential: ${error.message}`);
-  const { error: legacyErr } = await supabaseAdmin.from("routers").update({ legacy_token_auth: false }).eq("id", routerId);
+  const { error: legacyErr } = await supabaseAdmin
+    .from("routers")
+    .update({ legacy_token_auth: false })
+    .eq("id", routerId);
   if (legacyErr) throw new Error(`could not retire legacy auth: ${legacyErr.message}`);
   return token;
 }

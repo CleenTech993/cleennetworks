@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { expiryFrom } from "../src/lib/duration";
-import { buildHotspotLoginRedirect, parseHotspotLoginUrl } from "../src/lib/hotspot-redirect";
+import {
+  buildHotspotLoginRedirect,
+  parseHotspotLoginUrl,
+  routerParams,
+} from "../src/lib/hotspot-redirect";
 
 describe("expiryFrom", () => {
   const t0 = Date.UTC(2026, 9, 24, 12, 0, 0);
-  const hoursAhead = (value: number, unit: string) => (new Date(expiryFrom(value, unit, t0)).getTime() - t0) / 3_600_000;
+  const hoursAhead = (value: number, unit: string) =>
+    (new Date(expiryFrom(value, unit, t0)).getTime() - t0) / 3_600_000;
 
   it("understands the plural units the package form saves", () => {
     expect(hoursAhead(30, "minutes")).toBe(0.5);
@@ -63,5 +68,53 @@ describe("hotspot login redirect", () => {
   it("returns null when there is no safe login link", () => {
     expect(buildHotspotLoginRedirect("http://evil.example/login", "X")).toBeNull();
     expect(buildHotspotLoginRedirect(null, "X")).toBeNull();
+  });
+});
+
+describe("routerParams", () => {
+  const memory = () => {
+    const m = new Map<string, string>();
+    return {
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => void m.set(k, v),
+    };
+  };
+  const q =
+    "?router=r1&mac=AA%3ABB%3ACC%3ADD%3AEE%3A02&ip=10.5.50.20&login=http%3A%2F%2Fhotspot.netgrid%2Flogin";
+
+  it("reads the router's parameters from the URL", () => {
+    expect(routerParams(q, memory())).toEqual({
+      login: "http://hotspot.netgrid/login",
+      mac: "AA:BB:CC:DD:EE:02",
+    });
+  });
+
+  it("still has them after the address bar loses its query string", () => {
+    const store = memory();
+    routerParams(q, store); // page load
+    expect(routerParams("", store)).toEqual({
+      login: "http://hotspot.netgrid/login",
+      mac: "AA:BB:CC:DD:EE:02",
+    });
+  });
+
+  it("works without storage, and when storage throws", () => {
+    expect(routerParams(q, null).login).toBe("http://hotspot.netgrid/login");
+    const broken = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    expect(routerParams(q, broken).login).toBe("http://hotspot.netgrid/login");
+    expect(routerParams("", broken)).toEqual({ login: null, mac: null });
+  });
+
+  it("a remembered link is still validated before anything is sent to it", () => {
+    const store = memory();
+    routerParams("?login=http%3A%2F%2Fevil.example%2Flogin", store);
+    expect(buildHotspotLoginRedirect(routerParams("", store).login, "CODE")).toBeNull();
   });
 });

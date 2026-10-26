@@ -24,13 +24,19 @@ function NocPage() {
     queryKey: ["noc-routers"],
     queryFn: async () => {
       const [routersRes, tenantsRes] = await Promise.all([
-        supabase.from("routers").select("*").order("last_heartbeat_at", { ascending: false, nullsFirst: false }),
+        supabase
+          .from("routers")
+          .select("*")
+          .order("last_heartbeat_at", { ascending: false, nullsFirst: false }),
         supabase.from("tenants").select("id,name"),
       ]);
       if (routersRes.error) throw routersRes.error;
       if (tenantsRes.error) throw tenantsRes.error;
       const tmap = new Map((tenantsRes.data ?? []).map((t) => [t.id, t.name]));
-      return (routersRes.data ?? []).map((r) => ({ ...r, tenantName: tmap.get(r.tenant_id) ?? null })) as RouterRow[];
+      return (routersRes.data ?? []).map((r) => ({
+        ...r,
+        tenantName: tmap.get(r.tenant_id) ?? null,
+      })) as RouterRow[];
     },
     refetchInterval: 30_000,
   });
@@ -73,7 +79,11 @@ function NocPage() {
       />
       <div className="grid gap-4 md:grid-cols-4 mb-6">
         <StatCard label="Total routers" value={routers.length} />
-        <StatCard label="Online" value={online} hint={`${routers.length ? Math.round((online / routers.length) * 100) : 0}%`} />
+        <StatCard
+          label="Online"
+          value={online}
+          hint={`${routers.length ? Math.round((online / routers.length) * 100) : 0}%`}
+        />
         <StatCard label="Offline" value={offline} />
         <StatCard label="Avg CPU" value={`${avgCpu}%`} />
       </div>
@@ -98,7 +108,7 @@ function NocPage() {
               const ramPct =
                 r.total_memory_mb && r.free_memory_mb != null
                   ? Math.round(((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100)
-                  : r.ram_usage ?? null;
+                  : (r.ram_usage ?? null);
               return (
                 <tr key={r.id} className="border-t hover:bg-muted/30">
                   <td className="px-4 py-3">
@@ -114,7 +124,9 @@ function NocPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.tenantName ?? "—"}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={live ? "default" : "secondary"}>{live ? "online" : "offline"}</Badge>
+                    <Badge variant={live ? "default" : "secondary"}>
+                      {live ? "online" : "offline"}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3">{live ? `${healthScore(r)}%` : "—"}</td>
                   <td className="px-4 py-3">
@@ -132,7 +144,7 @@ function NocPage() {
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{r.wan_ip ?? r.public_ip ?? "—"}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {r.last_heartbeat_at ?? r.last_seen_at
+                    {(r.last_heartbeat_at ?? r.last_seen_at)
                       ? new Date((r.last_heartbeat_at ?? r.last_seen_at)!).toLocaleString()
                       : "never"}
                   </td>
@@ -154,7 +166,9 @@ function NocPage() {
       <p className="mt-4 text-xs text-muted-foreground">
         <Activity className="mr-1 inline h-3 w-3" />
         Live — updates push automatically on each router heartbeat.{" "}
-        <Link to="/super-admin/tenants" className="underline">Manage tenants</Link>
+        <Link to="/super-admin/tenants" className="underline">
+          Manage tenants
+        </Link>
       </p>
     </div>
   );

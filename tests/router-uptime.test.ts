@@ -5,7 +5,11 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call } from "./helpers/call";
 import { freshIp, h } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
 vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
 
 import { Route as Heartbeat } from "@/routes/api/public/router/heartbeat.$token";
@@ -23,8 +27,9 @@ describe("parseRouterOsDuration", () => {
     ["  86400  ", 86400],
   ])("%s -> %s seconds", (input, secs) => expect(parseRouterOsDuration(input)).toBe(secs));
 
-  it.each([[null], [undefined], [""], ["   "], ["soon"], ["12:30"], ["1d2h"], ["-5"]])("rejects %j", (input) =>
-    expect(parseRouterOsDuration(input as string | null | undefined)).toBeNull(),
+  it.each([[null], [undefined], [""], ["   "], ["soon"], ["12:30"], ["1d2h"], ["-5"]])(
+    "rejects %j",
+    (input) => expect(parseRouterOsDuration(input as string | null | undefined)).toBeNull(),
   );
 });
 
@@ -33,18 +38,30 @@ const R = "r1000000-0000-0000-0000-000000000001";
 const LEGACY = "legacytoken".padEnd(32, "y");
 
 beforeEach(() => {
-  h.db = new FakeDb()
-    .seed("tenants", [{ id: T, slug: "acme", name: "Acme" }])
-    .seed("routers", [
-      { id: R, tenant_id: T, name: "Tower", status: "offline", provision_token: LEGACY, provision_token_expires_at: null, legacy_token_auth: true, last_heartbeat_at: null },
-    ]);
+  h.db = new FakeDb().seed("tenants", [{ id: T, slug: "acme", name: "Acme" }]).seed("routers", [
+    {
+      id: R,
+      tenant_id: T,
+      name: "Tower",
+      status: "offline",
+      provision_token: LEGACY,
+      provision_token_expires_at: null,
+      legacy_token_auth: true,
+      last_heartbeat_at: null,
+    },
+  ]);
 });
 afterEach(() => vi.restoreAllMocks());
 
 describe("heartbeat with the exact query a router sends", () => {
   it("stores uptime, marks the router online and records health metrics", async () => {
-    const qs = "?cpu=23&mem-free=412&mem-total=1024&hdd-free=90&uptime=2d04:05:06&temp=41&voltage=24&version=7.14&board=hAP&arch=arm&wan-ip=10.0.0.2/24&latency=18&loss=0&jitter=2&dns=1";
-    const res = await call(Heartbeat, "GET", { url: `https://portal.test/hb${qs}`, params: { token: LEGACY }, ip: freshIp() });
+    const qs =
+      "?cpu=23&mem-free=412&mem-total=1024&hdd-free=90&uptime=2d04:05:06&temp=41&voltage=24&version=7.14&board=hAP&arch=arm&wan-ip=10.0.0.2/24&latency=18&loss=0&jitter=2&dns=1";
+    const res = await call(Heartbeat, "GET", {
+      url: `https://portal.test/hb${qs}`,
+      params: { token: LEGACY },
+      ip: freshIp(),
+    });
     expect(res.status).toBe(200);
     const r = h.db.rows("routers").find((x) => x.id === R)!;
     expect(r.status).toBe("online");
@@ -56,7 +73,11 @@ describe("heartbeat with the exact query a router sends", () => {
   });
 
   it("still goes online when uptime is missing or unreadable", async () => {
-    const res = await call(Heartbeat, "GET", { url: "https://portal.test/hb?cpu=5&uptime=whenever", params: { token: LEGACY }, ip: freshIp() });
+    const res = await call(Heartbeat, "GET", {
+      url: "https://portal.test/hb?cpu=5&uptime=whenever",
+      params: { token: LEGACY },
+      ip: freshIp(),
+    });
     expect(res.status).toBe(200);
     const r = h.db.rows("routers").find((x) => x.id === R)!;
     expect(r.status).toBe("online");

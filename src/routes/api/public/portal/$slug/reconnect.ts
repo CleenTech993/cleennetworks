@@ -15,14 +15,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
-        if (!rateLimit(`reconnect:${params.slug}:${clientIp(request)}`, 10, 60_000)) return tooManyRequests();
+        if (!rateLimit(`reconnect:${params.slug}:${clientIp(request)}`, 10, 60_000))
+          return tooManyRequests();
         let body: unknown;
-        try { body = await request.json(); } catch { return Response.json({ error: "Bad JSON" }, { status: 400 }); }
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json({ error: "Bad JSON" }, { status: 400 });
+        }
         const parsed = Schema.safeParse(body);
         if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
-          .from("tenants").select("id").eq("slug", params.slug).maybeSingle();
+          .from("tenants")
+          .select("id")
+          .eq("slug", params.slug)
+          .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
 
         let q = supabaseAdmin
@@ -46,7 +54,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
         }
 
         const { data: pkg } = pay.package_id
-          ? await supabaseAdmin.from("packages").select("name,duration_value,duration_unit").eq("id", pay.package_id).maybeSingle()
+          ? await supabaseAdmin
+              .from("packages")
+              .select("name,duration_value,duration_unit")
+              .eq("id", pay.package_id)
+              .maybeSingle()
           : { data: null };
 
         return Response.json({

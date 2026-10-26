@@ -20,7 +20,10 @@ export function expiryFrom(value: number, unit: string, from: number = Date.now(
 }
 
 /** "1 hour", "3 hours", "1 day": singular when the value is 1. Plans store plural units. */
-export function formatDuration(value: number | null | undefined, unit: string | null | undefined): string {
+export function formatDuration(
+  value: number | null | undefined,
+  unit: string | null | undefined,
+): string {
   if (!value || !unit) return "";
   const u = unit.trim().toLowerCase().replace(/s$/, "");
   return `${value} ${value === 1 ? u : `${u}s`}`;

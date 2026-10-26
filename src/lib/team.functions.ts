@@ -77,7 +77,9 @@ export const listTeam = createServerFn({ method: "POST" })
         roles: (roleRows ?? []).filter((r) => r.user_id === id).map((r) => r.role as TeamRole),
       };
     });
-    members.sort((a, b) => (a.full_name ?? a.email ?? "").localeCompare(b.full_name ?? b.email ?? ""));
+    members.sort((a, b) =>
+      (a.full_name ?? a.email ?? "").localeCompare(b.full_name ?? b.email ?? ""),
+    );
     return { ok: true, members };
   });
 
@@ -111,7 +113,10 @@ export const addTeamMember = createServerFn({ method: "POST" })
         .select("user_id", { count: "exact", head: true })
         .eq("user_id", existing.id);
       if ((count ?? 0) > 0) {
-        return { ok: false, error: "That email already belongs to another account on the platform." };
+        return {
+          ok: false,
+          error: "That email already belongs to another account on the platform.",
+        };
       }
       userId = existing.id; // pending self-signup: attach them, keep their own password
     } else {
@@ -121,7 +126,8 @@ export const addTeamMember = createServerFn({ method: "POST" })
         email_confirm: true,
         user_metadata: { full_name: data.fullName },
       });
-      if (error || !res.user) return { ok: false, error: error?.message ?? "Could not create the account." };
+      if (error || !res.user)
+        return { ok: false, error: error?.message ?? "Could not create the account." };
       userId = res.user.id;
       created = true;
     }
@@ -133,7 +139,10 @@ export const addTeamMember = createServerFn({ method: "POST" })
     // The signup trigger creates the profile; make sure it exists, then attach it to the tenant.
     const { error: pErr } = await supabaseAdmin
       .from("profiles")
-      .upsert({ id: userId, email: data.email, full_name: data.fullName, tenant_id: tenantId }, { onConflict: "id" });
+      .upsert(
+        { id: userId, email: data.email, full_name: data.fullName, tenant_id: tenantId },
+        { onConflict: "id" },
+      );
     if (pErr) {
       await rollback();
       return { ok: false, error: pErr.message };
@@ -158,8 +167,10 @@ export const updateTeamMemberRole = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
-    if (data.userId === context.userId) return { ok: false, error: "You can't change your own role." };
-    if (!(await isMemberOf(tenantId, data.userId))) return { ok: false, error: "Member not found." };
+    if (data.userId === context.userId)
+      return { ok: false, error: "You can't change your own role." };
+    if (!(await isMemberOf(tenantId, data.userId)))
+      return { ok: false, error: "Member not found." };
 
     const { error: dErr } = await supabaseAdmin
       .from("user_roles")
@@ -184,7 +195,8 @@ export const removeTeamMember = createServerFn({ method: "POST" })
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
     if (data.userId === context.userId) return { ok: false, error: "You can't remove yourself." };
-    if (!(await isMemberOf(tenantId, data.userId))) return { ok: false, error: "Member not found." };
+    if (!(await isMemberOf(tenantId, data.userId)))
+      return { ok: false, error: "Member not found." };
 
     const { error } = await supabaseAdmin
       .from("user_roles")
@@ -194,6 +206,10 @@ export const removeTeamMember = createServerFn({ method: "POST" })
     if (error) return { ok: false, error: error.message };
 
     // Detach from the tenant; with no roles left they land on the "pending" page if they sign in.
-    await supabaseAdmin.from("profiles").update({ tenant_id: null }).eq("id", data.userId).eq("tenant_id", tenantId);
+    await supabaseAdmin
+      .from("profiles")
+      .update({ tenant_id: null })
+      .eq("id", data.userId)
+      .eq("tenant_id", tenantId);
     return { ok: true };
   });

@@ -14,12 +14,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const URL =
-  process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+const URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
 const ANON =
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
-  process.env.SUPABASE_PUBLISHABLE_KEY ??
-  "";
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
 const SERVICE = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY ?? "";
 
 if (!URL || !ANON || !SERVICE) {
@@ -65,9 +62,7 @@ async function makeUser(label: string): Promise<Ctx> {
   if (sErr) throw sErr;
 
   // Ensure profile row exists (trigger might not have fired in some envs).
-  await admin
-    .from("profiles")
-    .upsert({ id: userId, email }, { onConflict: "id" });
+  await admin.from("profiles").upsert({ id: userId, email }, { onConflict: "id" });
 
   const slug = `t-${label}-${stamp}`.toLowerCase().slice(0, 60);
   const { data: tenantId, error: bErr } = await client.rpc("bootstrap_tenant", {
@@ -107,11 +102,7 @@ async function seed(ctx: Ctx) {
   if (cust.error) throw new Error(`customers insert: ${cust.error.message}`);
   ctx.ids.customer = cust.data.id;
 
-  const router = await c
-    .from("routers")
-    .insert({ tenant_id: t, name: "R" })
-    .select("id")
-    .single();
+  const router = await c.from("routers").insert({ tenant_id: t, name: "R" }).select("id").single();
   if (router.error) throw new Error(`routers insert: ${router.error.message}`);
   ctx.ids.router = router.data.id;
 
@@ -224,11 +215,7 @@ describe("RLS tenant isolation", () => {
       it("cannot SELECT a specific row owned by another tenant by id", async () => {
         const otherId = B.ids[KEY[table]];
         expect(otherId).toBeTruthy();
-        const { data } = await A.client
-          .from(table)
-          .select("id")
-          .eq("id", otherId)
-          .maybeSingle();
+        const { data } = await A.client.from(table).select("id").eq("id", otherId).maybeSingle();
         expect(data).toBeNull();
       });
 
@@ -252,11 +239,7 @@ describe("RLS tenant isolation", () => {
 
       it("cannot DELETE another tenant's row", async () => {
         const otherId = B.ids[KEY[table]];
-        const { data } = await A.client
-          .from(table)
-          .delete()
-          .eq("id", otherId)
-          .select("id");
+        const { data } = await A.client.from(table).delete().eq("id", otherId).select("id");
         expect(data ?? []).toHaveLength(0);
 
         const { data: still } = await admin
@@ -271,11 +254,15 @@ describe("RLS tenant isolation", () => {
         const payload: Record<string, unknown> = { tenant_id: B.tenantId };
         // Provide minimum required fields per table.
         if (table === "packages") Object.assign(payload, { name: "X", price: 1, kind: "hotspot" });
-        if (table === "customers") Object.assign(payload, { full_name: "X", customer_type: "hotspot" });
+        if (table === "customers")
+          Object.assign(payload, { full_name: "X", customer_type: "hotspot" });
         if (table === "routers") Object.assign(payload, { name: "X" });
         if (table === "payments") Object.assign(payload, { amount: 1, status: "pending" });
         if (table === "sessions") Object.assign(payload, { status: "active" });
-        if (table === "vouchers") Object.assign(payload, { code: `X-${Math.random().toString(36).slice(2, 8)}`.toUpperCase() });
+        if (table === "vouchers")
+          Object.assign(payload, {
+            code: `X-${Math.random().toString(36).slice(2, 8)}`.toUpperCase(),
+          });
         if (table === "support_tickets") Object.assign(payload, { subject: "X" });
         if (table === "captive_portals") Object.assign(payload, { welcome_text: "x" });
 
@@ -307,10 +294,7 @@ describe("RLS tenant isolation", () => {
 
   describe("user_roles table", () => {
     it("user A cannot read user B's role rows", async () => {
-      const { data } = await A.client
-        .from("user_roles")
-        .select("user_id")
-        .eq("user_id", B.userId);
+      const { data } = await A.client.from("user_roles").select("user_id").eq("user_id", B.userId);
       expect(data ?? []).toHaveLength(0);
     });
 
@@ -328,17 +312,25 @@ describe("RLS tenant isolation", () => {
       const { data } = await admin.from("profiles").select("tenant_id").eq("id", A.userId).single();
       expect(data?.tenant_id).toBe(A.tenantId);
       // ...and therefore still cannot see tenant B's rows
-      const { data: rows } = await A.client.from("routers").select("id").eq("tenant_id", B.tenantId);
+      const { data: rows } = await A.client
+        .from("routers")
+        .select("id")
+        .eq("tenant_id", B.tenantId);
       expect(rows ?? []).toHaveLength(0);
     });
 
     it("user A can still update their own full_name", async () => {
-      const { error } = await A.client.from("profiles").update({ full_name: "Renamed A" }).eq("id", A.userId);
+      const { error } = await A.client
+        .from("profiles")
+        .update({ full_name: "Renamed A" })
+        .eq("id", A.userId);
       expect(error).toBeNull();
     });
 
     it("user A cannot insert a profile row for another user", async () => {
-      const { error } = await A.client.from("profiles").insert({ id: crypto.randomUUID(), tenant_id: B.tenantId });
+      const { error } = await A.client
+        .from("profiles")
+        .insert({ id: crypto.randomUUID(), tenant_id: B.tenantId });
       expect(error).not.toBeNull();
     });
     it("user A cannot read user B's profile", async () => {

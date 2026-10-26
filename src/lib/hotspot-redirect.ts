@@ -25,11 +25,43 @@ export function parseHotspotLoginUrl(raw: string | null | undefined): URL | null
 }
 
 /** Voucher codes are the hotspot username AND password (see the router sync script). */
-export function buildHotspotLoginRedirect(raw: string | null | undefined, code: string): string | null {
+export function buildHotspotLoginRedirect(
+  raw: string | null | undefined,
+  code: string,
+): string | null {
   const u = parseHotspotLoginUrl(raw);
   if (!u) return null;
   const out = new URL(`${u.origin}/login`);
   out.searchParams.set("username", code);
   out.searchParams.set("password", code);
   return out.toString();
+}
+
+// ---------------------------------------------------------------------------------------------
+// The router's login page sends the customer to the portal with ?mac=…&ip=…&login=…. Anything that
+// rewrites or reloads the page later (a payment flow, a captive-portal mini browser) would lose
+// them, so they are remembered for the tab as soon as the page loads.
+// ---------------------------------------------------------------------------------------------
+
+export interface RouterParams {
+  login: string | null;
+  mac: string | null;
+}
+type ParamStore = Pick<Storage, "getItem" | "setItem">;
+const STORE_KEYS = { login: "ng_login", mac: "ng_mac" } as const;
+
+/** Reads the router's parameters from the URL query, saving them; falls back to what was saved. */
+export function routerParams(search: string, store: ParamStore | null): RouterParams {
+  const q = new URLSearchParams(search);
+  const out: RouterParams = { login: q.get("login"), mac: q.get("mac") };
+  for (const k of ["login", "mac"] as const) {
+    try {
+      const present = out[k];
+      if (present) store?.setItem(STORE_KEYS[k], present);
+      else out[k] = store?.getItem(STORE_KEYS[k]) ?? null;
+    } catch {
+      // Storage can be blocked in captive-portal browsers; the URL values still work.
+    }
+  }
+  return out;
 }

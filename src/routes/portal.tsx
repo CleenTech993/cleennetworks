@@ -15,5 +15,9 @@ export const Route = createFileRoute("/portal")({
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/login" });
   },
-  component: () => <DashboardShell title="My Internet" subtitle="Self-service" nav={nav}><Outlet /></DashboardShell>,
+  component: () => (
+    <DashboardShell title="My Internet" subtitle="Self-service" nav={nav}>
+      <Outlet />
+    </DashboardShell>
+  ),
 });

@@ -3,7 +3,11 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call } from "./helpers/call";
 import { freshIp, h } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
 vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
 
 import { Route as Devices } from "@/routes/api/public/router/devices.$token";
@@ -22,27 +26,106 @@ const MAC_TV = "AA:BB:CC:DD:EE:70";
 
 const rec = (mac: string, ip: string, host: string, user: string, auth: boolean, tether = 0) =>
   `${mac}|${ip}|${host}|${user}|${auth}|${tether};`;
-const send = (token: string, body: string) => call(Devices, "POST", { params: { token }, rawBody: body, ip: freshIp() });
+const send = (token: string, body: string) =>
+  call(Devices, "POST", { params: { token }, rawBody: body, ip: freshIp() });
 const voucher = (code: string) => h.db.rows("vouchers").find((v) => v.code === code)!;
 const devices = () => h.db.rows("router_devices");
 
 beforeEach(() => {
   h.db = new FakeDb()
-    .seed("tenants", [{ id: T, slug: "acme", name: "Acme ISP" }, { id: OTHER_T, slug: "rival", name: "Rival" }])
+    .seed("tenants", [
+      { id: T, slug: "acme", name: "Acme ISP" },
+      { id: OTHER_T, slug: "rival", name: "Rival" },
+    ])
     .seed("routers", [
-      { id: R1, tenant_id: T, name: "Tower 1", status: "online", provision_token: "boot".padEnd(32, "x"), legacy_token_auth: false, block_tethering: true },
-      { id: R3, tenant_id: OTHER_T, name: "Rival", status: "online", provision_token: "rival".padEnd(32, "z"), legacy_token_auth: false, block_tethering: true },
+      {
+        id: R1,
+        tenant_id: T,
+        name: "Tower 1",
+        status: "online",
+        provision_token: "boot".padEnd(32, "x"),
+        legacy_token_auth: false,
+        block_tethering: true,
+      },
+      {
+        id: R3,
+        tenant_id: OTHER_T,
+        name: "Rival",
+        status: "online",
+        provision_token: "rival".padEnd(32, "z"),
+        legacy_token_auth: false,
+        block_tethering: true,
+      },
     ])
     .seed("packages", [
-      { id: P1, tenant_id: T, kind: "hotspot", device_limit: 1, duration_value: 1, duration_unit: "hours" },
-      { id: P3, tenant_id: T, kind: "voucher", device_limit: 3, duration_value: 1, duration_unit: "days" },
+      {
+        id: P1,
+        tenant_id: T,
+        kind: "hotspot",
+        device_limit: 1,
+        duration_value: 1,
+        duration_unit: "hours",
+      },
+      {
+        id: P3,
+        tenant_id: T,
+        kind: "voucher",
+        device_limit: 3,
+        duration_value: 1,
+        duration_unit: "days",
+      },
     ])
     .seed("vouchers", [
-      { id: "v1", tenant_id: T, package_id: P1, code: "ONEDEV0001", status: "unused", payment_id: null, expires_at: null, bound_mac: null },
-      { id: "v2", tenant_id: T, package_id: P1, code: "USEDFREE01", status: "used", payment_id: null, expires_at: null, bound_mac: null },
-      { id: "v3", tenant_id: T, package_id: P3, code: "FAMILY0003", status: "unused", payment_id: null, expires_at: null, bound_mac: null },
-      { id: "v4", tenant_id: T, package_id: P1, code: "PINNED0001", status: "used", payment_id: null, expires_at: null, bound_mac: MAC_B },
-      { id: "v5", tenant_id: OTHER_T, package_id: null, code: "RIVALCODE2", status: "unused", payment_id: null, expires_at: null, bound_mac: null },
+      {
+        id: "v1",
+        tenant_id: T,
+        package_id: P1,
+        code: "ONEDEV0001",
+        status: "unused",
+        payment_id: null,
+        expires_at: null,
+        bound_mac: null,
+      },
+      {
+        id: "v2",
+        tenant_id: T,
+        package_id: P1,
+        code: "USEDFREE01",
+        status: "used",
+        payment_id: null,
+        expires_at: null,
+        bound_mac: null,
+      },
+      {
+        id: "v3",
+        tenant_id: T,
+        package_id: P3,
+        code: "FAMILY0003",
+        status: "unused",
+        payment_id: null,
+        expires_at: null,
+        bound_mac: null,
+      },
+      {
+        id: "v4",
+        tenant_id: T,
+        package_id: P1,
+        code: "PINNED0001",
+        status: "used",
+        payment_id: null,
+        expires_at: null,
+        bound_mac: MAC_B,
+      },
+      {
+        id: "v5",
+        tenant_id: OTHER_T,
+        package_id: null,
+        code: "RIVALCODE2",
+        status: "unused",
+        payment_id: null,
+        expires_at: null,
+        bound_mac: null,
+      },
     ])
     .seed("tv_devices", [{ id: "tv1", tenant_id: T, mac_address: MAC_TV, status: "active" }]);
 });
@@ -57,7 +140,11 @@ describe("device report endpoint", () => {
 
   it("stores devices against the authenticated router and its tenant only", async () => {
     const token = await issueDeviceToken(R1);
-    const res = await send(token, rec(MAC_A, "10.5.50.20", "Johns-iPhone", "", false) + rec(MAC_B, "10.5.50.21", "tablet", "", false, 1));
+    const res = await send(
+      token,
+      rec(MAC_A, "10.5.50.20", "Johns-iPhone", "", false) +
+        rec(MAC_B, "10.5.50.21", "tablet", "", false, 1),
+    );
     expect(res.status).toBe(200);
     expect(devices()).toHaveLength(2);
     expect(devices().every((d) => d.router_id === R1 && d.tenant_id === T)).toBe(true);
@@ -93,7 +180,9 @@ describe("device report endpoint", () => {
     expect(v.bound_mac).toBe(MAC_A);
     expect(v.used_by_mac).toBe(MAC_A);
     // the usage clock started now: 1 hour package
-    expect(Math.abs(new Date(v.expires_at as string).getTime() - Date.now() - 3_600_000)).toBeLessThan(5_000);
+    expect(
+      Math.abs(new Date(v.expires_at as string).getTime() - Date.now() - 3_600_000),
+    ).toBeLessThan(5_000);
     const d = devices()[0]!;
     expect(d.registered_kind).toBe("voucher");
     expect(d.voucher_code).toBe("ONEDEV0001");
@@ -123,7 +212,11 @@ describe("device report endpoint", () => {
 
   it("ignores sessions that are not authorised and vouchers of other tenants", async () => {
     const token = await issueDeviceToken(R1);
-    await send(token, rec(MAC_A, "10.5.50.20", "phone", "ONEDEV0001", false) + rec(MAC_B, "10.5.50.21", "x", "RIVALCODE2", true));
+    await send(
+      token,
+      rec(MAC_A, "10.5.50.20", "phone", "ONEDEV0001", false) +
+        rec(MAC_B, "10.5.50.21", "x", "RIVALCODE2", true),
+    );
     expect(voucher("ONEDEV0001").status).toBe("unused");
     expect(voucher("RIVALCODE2").status).toBe("unused");
     expect(voucher("RIVALCODE2").bound_mac).toBeNull();
@@ -141,7 +234,13 @@ describe("device report endpoint", () => {
     const old = new Date(Date.now() - 40 * 86_400_000).toISOString();
     h.db.seed("router_devices", [
       { id: "d-old", tenant_id: T, router_id: R1, mac: "AA:BB:CC:00:00:01", last_seen_at: old },
-      { id: "d-old-other", tenant_id: OTHER_T, router_id: R3, mac: "AA:BB:CC:00:00:02", last_seen_at: old },
+      {
+        id: "d-old-other",
+        tenant_id: OTHER_T,
+        router_id: R3,
+        mac: "AA:BB:CC:00:00:02",
+        last_seen_at: old,
+      },
     ]);
     const token = await issueDeviceToken(R1);
     await send(token, rec(MAC_A, "10.5.50.20", "phone", "", false));
@@ -153,11 +252,14 @@ describe("device report endpoint", () => {
 });
 
 describe("sync script: device features", () => {
-  const sync = async (token: string) => (await call(Sync, "GET", { params: { token }, ip: freshIp() })).text();
+  const sync = async (token: string) =>
+    (await call(Sync, "GET", { params: { token }, ip: freshIp() })).text();
 
   it("pins one-device vouchers to their MAC and caps shared ones", async () => {
     const text = await sync(await issueDeviceToken(R1));
-    expect(text).toContain(`add name="PINNED0001" password="PINNED0001" server=netgrid-hs profile=netgrid-d1 mac-address=${MAC_B}`);
+    expect(text).toContain(
+      `add name="PINNED0001" password="PINNED0001" server=netgrid-hs profile=netgrid-d1 mac-address=${MAC_B}`,
+    );
     expect(text).toMatch(/add name="ONEDEV0001"[^\n]*profile=netgrid-d1 comment/);
     expect(text).toMatch(/add name="FAMILY0003"[^\n]*profile=netgrid-d3 comment/);
     expect(text).toContain("add name=netgrid-d3 shared-users=3");
@@ -190,5 +292,21 @@ describe("sync script: device features", () => {
     const text = await sync(token);
     expect(text).toContain(`https://portal.test/api/public/router/devices/${token}`);
     expect(text).not.toContain("boot".padEnd(32, "x"));
+  });
+
+  it("keeps vouchers working when the bound_mac column has not been migrated yet", async () => {
+    h.db.failNext("vouchers", "select", "column vouchers.bound_mac does not exist");
+    const text = await sync(await issueDeviceToken(R1));
+    expect(text).toMatch(/add name="ONEDEV0001"[^\n]*profile=netgrid-d1 comment/);
+    expect(text).not.toContain("mac-address=AA:BB");
+  });
+
+  it("never wipes the router's vouchers when the voucher list cannot be read at all", async () => {
+    h.db.failNext("vouchers", "select", "boom");
+    h.db.failNext("vouchers", "select", "boom again");
+    const text = await sync(await issueDeviceToken(R1));
+    expect(text).not.toContain('remove [find comment="netgrid-voucher"]');
+    expect(text).not.toContain('add name="ONEDEV0001"');
+    expect(text).toContain("keeping current vouchers");
   });
 });

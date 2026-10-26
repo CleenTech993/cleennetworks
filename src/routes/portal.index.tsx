@@ -42,11 +42,26 @@ function PortalHome() {
   const { customer, pkg } = data;
   return (
     <div>
-      <PageHeader title={`Hi ${customer.full_name ?? "there"}`} description="Your active package and renewal." />
+      <PageHeader
+        title={`Hi ${customer.full_name ?? "there"}`}
+        description="Your active package and renewal."
+      />
       <div className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Active package" value={pkg?.name ?? "—"} hint={pkg ? `KES ${Number(pkg.price).toLocaleString()}` : undefined} />
-        <StatCard label="Speed" value={pkg ? `${pkg.download_kbps ?? "—"}/${pkg.upload_kbps ?? "—"} kbps` : "—"} hint="Down / Up" />
-        <StatCard label="Expires" value={customer.expires_at ? new Date(customer.expires_at).toLocaleDateString() : "—"} hint={customer.status} />
+        <StatCard
+          label="Active package"
+          value={pkg?.name ?? "—"}
+          hint={pkg ? `KES ${Number(pkg.price).toLocaleString()}` : undefined}
+        />
+        <StatCard
+          label="Speed"
+          value={pkg ? `${pkg.download_kbps ?? "—"}/${pkg.upload_kbps ?? "—"} kbps` : "—"}
+          hint="Down / Up"
+        />
+        <StatCard
+          label="Expires"
+          value={customer.expires_at ? new Date(customer.expires_at).toLocaleDateString() : "—"}
+          hint={customer.status}
+        />
       </div>
     </div>
   );

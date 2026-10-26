@@ -30,7 +30,11 @@ function Overview() {
         <StatCard icon={Building2} label="Tenants" value={data?.tenants ?? "—"} />
         <StatCard icon={Router} label="Routers" value={data?.routers ?? "—"} />
         <StatCard icon={Users} label="Customers" value={data?.customers ?? "—"} />
-        <StatCard icon={CreditCard} label="Payments processed (KES)" value={data ? data.gmv.toLocaleString() : "—"} />
+        <StatCard
+          icon={CreditCard}
+          label="Payments processed (KES)"
+          value={data ? data.gmv.toLocaleString() : "—"}
+        />
       </div>
     </div>
   );

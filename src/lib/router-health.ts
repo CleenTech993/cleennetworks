@@ -1,15 +1,17 @@
 import type { Tables } from "@/integrations/supabase/types";
 
 type RouterRow = Tables<"routers">;
+/** The only fields liveness needs, so callers that select just these columns can use it too. */
+type CheckIn = Pick<RouterRow, "last_heartbeat_at" | "last_seen_at">;
 
 /** A router counts as live if it checked in within this window (it heartbeats every minute). */
 export const LIVE_WINDOW_MS = 3 * 60 * 1000;
 
-export function lastCheckIn(r: RouterRow): string | null {
+export function lastCheckIn(r: CheckIn): string | null {
   return r.last_heartbeat_at ?? r.last_seen_at ?? null;
 }
 
-export function isRouterLive(r: RouterRow, now = Date.now()): boolean {
+export function isRouterLive(r: CheckIn, now = Date.now()): boolean {
   const last = lastCheckIn(r);
   return last ? now - new Date(last).getTime() < LIVE_WINDOW_MS : false;
 }
