@@ -144,3 +144,34 @@ describe("voucher redemption", () => {
     expect(voucher("ABCD2345").status).toBe("unused");
   });
 });
+
+describe("when the database misbehaves", () => {
+  const MAC = "AA:BB:CC:DD:EE:02";
+
+  it("reports a database error as an error, never as 'already used'", async () => {
+    h.db.failNext("vouchers", "update", "connection reset");
+    const res = await redeem({ code: "ABCD2345" });
+    expect(res.status).toBe(500);
+    expect((await json(res)).error).not.toMatch(/already used/i);
+    expect(voucher("ABCD2345").status).toBe("unused"); // nothing was consumed, the customer can retry
+  });
+
+  it("still redeems when the bound_mac column has not been migrated yet", async () => {
+    h.db.failNext(
+      "vouchers",
+      "update",
+      "Could not find the 'bound_mac' column of 'vouchers' in the schema cache",
+    );
+    const res = await redeem({ code: "ABCD2345", mac: MAC });
+    expect(res.status).toBe(200);
+    expect(voucher("ABCD2345").status).toBe("used");
+    expect(voucher("ABCD2345").bound_mac).toBeUndefined(); // could not pin, but the customer is not locked out
+  });
+
+  it("a genuinely used voucher is still reported as already used", async () => {
+    expect((await redeem({ code: "ABCD2345" })).status).toBe(200);
+    const again = await redeem({ code: "ABCD2345" });
+    expect(again.status).toBe(400);
+    expect((await json(again)).error).toMatch(/already used/i);
+  });
+});

@@ -6,6 +6,7 @@ import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.serv
 import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
 import { buildPppoeSyncLines } from "@/lib/pppoe";
 import { buildTvSyncLines } from "@/lib/tv";
+import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import {
   buildBlockLines,
   buildDeviceAgentLines,
@@ -39,7 +40,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const [
           { data: tenant },
           { data: customers },
-          { data: vouchers },
+          { data: vouchers, error: vouchersError },
           { data: packages },
           { data: tvs },
           { data: hotspotPkgs },
@@ -123,18 +124,45 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
         lines.push(...buildTvSyncLines(tvs ?? []));
         // Hotspot vouchers: one package = one device (shared-users limit + MAC pinned from the database).
-        const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
-        const syncVouchers: SyncVoucher[] = (vouchers ?? []).map((v) => ({
-          code: v.code,
-          bound_mac: v.bound_mac,
-          limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
-        }));
-        lines.push(...buildHotspotUserLines(syncVouchers));
+        // If the voucher list cannot be read, the router must KEEP its current voucher users: an empty
+        // list would delete every one of them. A missing bound_mac column (migration not applied yet)
+        // is retried without it, so vouchers keep working, just without the device pin.
+        type VoucherRow = { code: string; bound_mac?: string | null; package_id: string | null };
+        let voucherRows: VoucherRow[] | null = vouchers;
+        if (vouchersError) {
+          console.warn(
+            "sync: voucher query failed, retrying without bound_mac:",
+            vouchersError.message,
+          );
+          const retry = await supabaseAdmin
+            .from("vouchers")
+            .select("code,status,expires_at,package_id")
+            .eq("tenant_id", router.tenant_id)
+            .in("status", ["unused", "used"])
+            .or(`expires_at.is.null,expires_at.gt.${now}`);
+          if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
+          voucherRows = retry.error ? null : retry.data;
+        }
+        if (voucherRows) {
+          const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
+          const syncVouchers: SyncVoucher[] = voucherRows.map((v) => ({
+            code: v.code,
+            bound_mac: v.bound_mac ?? null,
+            limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
+          }));
+          lines.push(...buildHotspotUserLines(syncVouchers));
+        } else {
+          lines.push(':log warning "NetGrid: voucher list unavailable, keeping current vouchers"');
+        }
         lines.push(...buildBlockLines((blocked ?? []).map((b) => b.mac)));
         // Anti-tethering rules and the periodic device report.
         lines.push(...buildTetherLines(routerRow?.block_tethering !== false));
         lines.push(
           ...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`),
+        );
+        // PPPoE session report (client MAC + connected state), installed the same way.
+        lines.push(
+          ...buildPppoeAgentLines(`https://${host}/api/public/router/pppoe/${params.token}`),
         );
         // Inventory monitoring: keep a netwatch entry per monitored device; the router reports up/down.
         lines.push(

@@ -12,7 +12,13 @@ BEGIN
   IF n <> 1 THEN RAISE EXCEPTION 'service_role should see its row'; END IF;
   RESET ROLE;
 
-  -- Only the two known names are allowed.
+  -- The API (publishable) key name is allowed too: this is what the follow-up migration adds.
+  SET LOCAL ROLE service_role;
+  INSERT INTO public.platform_gateway_secrets (name, ciphertext, last4) VALUES ('INTASEND_PUBLISHABLE_KEY', 'v1.cccc.dddd', '0002');
+  DELETE FROM public.platform_gateway_secrets WHERE name = 'INTASEND_PUBLISHABLE_KEY';
+  RESET ROLE;
+
+  -- Only the known names are allowed.
   BEGIN
     INSERT INTO public.platform_gateway_secrets (name, ciphertext) VALUES ('ANYTHING_ELSE', 'v1.a.b');
     RAISE EXCEPTION 'unknown secret name was accepted';
