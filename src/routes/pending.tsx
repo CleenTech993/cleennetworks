@@ -16,10 +16,18 @@ function PendingPage() {
   useEffect(() => {
     let alive = true;
     async function check() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate({ to: "/login" }); return; }
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        navigate({ to: "/login" });
+        return;
+      }
       if (alive) setEmail(user.email ?? null);
-      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
       if (!alive) return;
       if (roles && roles.length > 0) {
         const isSuper = roles.some((r) => r.role === "super_admin");
@@ -28,7 +36,10 @@ function PendingPage() {
     }
     check();
     const id = setInterval(check, 5000);
-    return () => { alive = false; clearInterval(id); };
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, [navigate]);
 
   async function signOut() {
@@ -41,7 +52,9 @@ function PendingPage() {
       title="Awaiting approval"
       description={`Your account${email ? ` (${email})` : ""} is waiting for a super admin to review it. You'll be taken to your console automatically once access is granted.`}
     >
-      <Button variant="outline" onClick={signOut}>Sign out</Button>
+      <Button variant="outline" onClick={signOut}>
+        Sign out
+      </Button>
     </AuthLayout>
   );
 }

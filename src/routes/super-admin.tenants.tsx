@@ -61,9 +61,7 @@ function Tenants() {
     if (!/^[a-z0-9-]{3,60}$/.test(slug))
       return toast.error("Slug must be 3–60 chars: lowercase letters, digits, hyphens");
     setSaving(true);
-    const { error } = await supabase
-      .from("tenants")
-      .insert({ name: trimmedName, slug });
+    const { error } = await supabase.from("tenants").insert({ name: trimmedName, slug });
     setSaving(false);
     if (error) return toast.error(error.message);
     toast.success("Tenant created");

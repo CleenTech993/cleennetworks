@@ -12,7 +12,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
         if (!id) return Response.json({ error: "missing id" }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
-          .from("tenants").select("id").eq("slug", params.slug).maybeSingle();
+          .from("tenants")
+          .select("id")
+          .eq("slug", params.slug)
+          .maybeSingle();
         if (!tenant) return new Response("Not found", { status: 404 });
 
         const { data: pay } = await supabaseAdmin
@@ -25,8 +28,12 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
 
         // Safety net for a missed IntaSend webhook: while a payment is still pending, ask IntaSend
         // for its real state (at most once per 8 s per payment, per server instance).
-        if (pay.status === "pending" && pay.provider === "intasend" && pay.merchant_request_id
-            && rateLimit(`intasend-recon:${pay.id}`, 1, 8_000)) {
+        if (
+          pay.status === "pending" &&
+          pay.provider === "intasend" &&
+          pay.merchant_request_id &&
+          rateLimit(`intasend-recon:${pay.id}`, 1, 8_000)
+        ) {
           try {
             await reconcileIntasendPayment(pay.id);
             const { data: fresh } = await supabaseAdmin

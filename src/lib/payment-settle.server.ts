@@ -53,7 +53,8 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
       if (payment.tv_device_id) {
         // Smart TV: extend the device's access instead of minting a voucher. The new expiry is
         // remembered on the payment first so a retried callback reuses it rather than extending twice.
-        if (!pkg?.duration_value || !pkg?.duration_unit) throw new Error("TV package has no duration");
+        if (!pkg?.duration_value || !pkg?.duration_unit)
+          throw new Error("TV package has no duration");
         const { data: dev } = await supabaseAdmin
           .from("tv_devices")
           .select("id,status,expires_at")
@@ -61,9 +62,14 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
           .eq("tenant_id", payment.tenant_id)
           .maybeSingle();
         if (!dev) throw new Error("TV device not found");
-        expiresAt = payment.expires_at ?? renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
+        expiresAt =
+          payment.expires_at ??
+          renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
         if (!payment.expires_at) {
-          await supabaseAdmin.from("payments").update({ expires_at: expiresAt }).eq("id", payment.id);
+          await supabaseAdmin
+            .from("payments")
+            .update({ expires_at: expiresAt })
+            .eq("id", payment.id);
         }
         if (dev.status !== "blocked") {
           const { error: dErr } = await supabaseAdmin

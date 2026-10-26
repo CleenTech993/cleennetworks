@@ -25,7 +25,10 @@ export function parseHotspotLoginUrl(raw: string | null | undefined): URL | null
 }
 
 /** Voucher codes are the hotspot username AND password (see the router sync script). */
-export function buildHotspotLoginRedirect(raw: string | null | undefined, code: string): string | null {
+export function buildHotspotLoginRedirect(
+  raw: string | null | undefined,
+  code: string,
+): string | null {
   const u = parseHotspotLoginUrl(raw);
   if (!u) return null;
   const out = new URL(`${u.origin}/login`);

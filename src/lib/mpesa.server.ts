@@ -48,13 +48,20 @@ export async function loadPlatformMpesaConfig(): Promise<PlatformMpesaConfig> {
   await loadGatewaySecrets();
   const { data, error } = await supabaseAdmin
     .from("platform_mpesa_config")
-    .select("mpesa_env,shortcode,consumer_key,consumer_secret,passkey,callback_base_url,active_provider")
+    .select(
+      "mpesa_env,shortcode,consumer_key,consumer_secret,passkey,callback_base_url,active_provider",
+    )
     .eq("id", 1)
     .maybeSingle();
   if (error) console.error("loadPlatformMpesaConfig failed", error.message);
   return (data ?? {
-    mpesa_env: "production", shortcode: null, consumer_key: null,
-    consumer_secret: null, passkey: null, callback_base_url: null, active_provider: "intasend",
+    mpesa_env: "production",
+    shortcode: null,
+    consumer_key: null,
+    consumer_secret: null,
+    passkey: null,
+    callback_base_url: null,
+    active_provider: "intasend",
   }) as PlatformMpesaConfig;
 }
 
@@ -102,10 +109,16 @@ export async function stkPush(p: StkPushParams): Promise<StkPushResult> {
   });
   const text = await res.text();
   let json: Record<string, unknown> = {};
-  try { json = JSON.parse(text); } catch { /* keep raw */ }
+  try {
+    json = JSON.parse(text);
+  } catch {
+    /* keep raw */
+  }
   if (!res.ok || json.success === false) {
     console.error(`PayHero STK failed [${res.status}]: ${text}`);
-    throw new Error((json.error_message as string) ?? (json.message as string) ?? "Could not send M-Pesa prompt");
+    throw new Error(
+      (json.error_message as string) ?? (json.message as string) ?? "Could not send M-Pesa prompt",
+    );
   }
   return {
     CheckoutRequestID: String(json.CheckoutRequestID ?? ""),
@@ -115,10 +128,15 @@ export async function stkPush(p: StkPushParams): Promise<StkPushResult> {
 }
 
 /** Ask PayHero directly for the true status of a transaction. */
-export async function payheroTransactionStatus(reference: string): Promise<{ status: string; receipt: string | null; raw: unknown }> {
-  const res = await fetch(`${PAYHERO_BASE}/transaction-status?reference=${encodeURIComponent(reference)}`, {
-    headers: { Authorization: payheroAuthHeader() },
-  });
+export async function payheroTransactionStatus(
+  reference: string,
+): Promise<{ status: string; receipt: string | null; raw: unknown }> {
+  const res = await fetch(
+    `${PAYHERO_BASE}/transaction-status?reference=${encodeURIComponent(reference)}`,
+    {
+      headers: { Authorization: payheroAuthHeader() },
+    },
+  );
   const text = await res.text();
   if (!res.ok) throw new Error(`PayHero status failed [${res.status}]: ${text}`);
   const json = JSON.parse(text) as Record<string, unknown>;

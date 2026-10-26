@@ -21,11 +21,12 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <p className="font-display text-8xl font-semibold tracking-tight text-primary/80">404</p>
         <h1 className="mt-4 text-2xl font-semibold">Page not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          This page doesn't exist or has moved.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">This page doesn't exist or has moved.</p>
         <div className="mt-6">
-          <Link to="/" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
             Back to home
           </Link>
         </div>
@@ -36,17 +37,32 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
-  useEffect(() => { reportLovableError(error, { boundary: "tanstack_root_error_component" }); }, [error]);
+  useEffect(() => {
+    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+  }, [error]);
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight">Something went wrong</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error instanceof Error ? error.message : String(error)}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {error instanceof Error ? error.message : String(error)}
+        </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button onClick={() => { router.invalidate(); reset(); }} className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+          <button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
             Try again
           </button>
-          <a href="/" className="inline-flex items-center rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent">Back to home</a>
+          <a
+            href="/"
+            className="inline-flex items-center rounded-md border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            Back to home
+          </a>
         </div>
       </div>
     </div>
@@ -59,15 +75,35 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "NetGrid: run your ISP and hotspot business" },
-      { name: "description", content: "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments." },
+      {
+        name: "description",
+        content:
+          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
+      },
       { property: "og:title", content: "NetGrid: run your ISP and hotspot business" },
-      { property: "og:description", content: "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments." },
+      {
+        property: "og:description",
+        content:
+          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:title", content: "NetGrid: run your ISP and hotspot business" },
-      { name: "twitter:description", content: "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703" },
+      {
+        name: "twitter:description",
+        content:
+          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703",
+      },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
     scripts: [
@@ -86,8 +122,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        {children}
+        <Scripts />
+      </body>
     </html>
   );
 }

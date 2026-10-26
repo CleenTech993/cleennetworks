@@ -22,9 +22,15 @@ function Sessions() {
 
   return (
     <div>
-      <PageHeader title="Sessions" description="Live and historical user sessions across all routers." />
+      <PageHeader
+        title="Sessions"
+        description="Live and historical user sessions across all routers."
+      />
       {!data?.length ? (
-        <EmptyState title="No sessions yet" description="Sessions will appear here once routers start reporting." />
+        <EmptyState
+          title="No sessions yet"
+          description="Sessions will appear here once routers start reporting."
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
@@ -44,9 +50,15 @@ function Sessions() {
                   <td className="px-4 py-2 font-mono text-xs">{s.mac_address ?? "—"}</td>
                   <td className="px-4 py-2 font-mono text-xs">{s.ip_address ?? "—"}</td>
                   <td className="px-4 py-2">
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${s.status === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}>{s.status}</span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${s.status === "active" ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"}`}
+                    >
+                      {s.status}
+                    </span>
                   </td>
-                  <td className="px-4 py-2 text-muted-foreground">{new Date(s.started_at).toLocaleString()}</td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {new Date(s.started_at).toLocaleString()}
+                  </td>
                   <td className="px-4 py-2">{fmtMB(s.bytes_in)}</td>
                   <td className="px-4 py-2">{fmtMB(s.bytes_out)}</td>
                 </tr>

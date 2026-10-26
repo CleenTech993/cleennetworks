@@ -19,7 +19,8 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
       POST: async ({ params, request }) => {
         // Authenticate before reading the body so anonymous callers cannot make us buffer uploads.
         const auth = await authenticateRouter(request, params.token);
-        if (!auth.ok) return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
+        if (!auth.ok)
+          return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
         const router = auth.router;
         if (!rateLimit(`devices:${router.id}`, 20, 60_000)) return tooManyRequests();
         const body = (await request.text()).slice(0, 64_000);
@@ -33,17 +34,25 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
         const users = [...new Set(records.flatMap((r) => (r.user ? [r.user] : [])))];
 
         const sessionVouchers = users.length
-          ? ((await supabaseAdmin
-              .from("vouchers")
-              .select("id,code,status,bound_mac,expires_at,package_id,payment_id")
-              .eq("tenant_id", tenantId).in("code", users)).data ?? [])
+          ? ((
+              await supabaseAdmin
+                .from("vouchers")
+                .select("id,code,status,bound_mac,expires_at,package_id,payment_id")
+                .eq("tenant_id", tenantId)
+                .in("code", users)
+            ).data ?? [])
           : [];
-        const pkgIds = [...new Set(sessionVouchers.flatMap((v) => (v.package_id ? [v.package_id] : [])))];
+        const pkgIds = [
+          ...new Set(sessionVouchers.flatMap((v) => (v.package_id ? [v.package_id] : []))),
+        ];
         const pkgs = pkgIds.length
-          ? ((await supabaseAdmin
-              .from("packages")
-              .select("id,device_limit,duration_value,duration_unit")
-              .eq("tenant_id", tenantId).in("id", pkgIds)).data ?? [])
+          ? ((
+              await supabaseAdmin
+                .from("packages")
+                .select("id,device_limit,duration_value,duration_unit")
+                .eq("tenant_id", tenantId)
+                .in("id", pkgIds)
+            ).data ?? [])
           : [];
         const pkgById = new Map(pkgs.map((p) => [p.id, p]));
         const voucherByCode = new Map(sessionVouchers.map((v) => [v.code, v]));
@@ -62,28 +71,59 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
             if (!v.payment_id && pkg?.duration_value && pkg.duration_unit) {
               expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
             }
-            const patch: { status: string; used_at: string; used_by_mac: string; expires_at: string | null; bound_mac?: string } = {
-              status: "used", used_at: now, used_by_mac: r.mac, expires_at: expiresAt,
+            const patch: {
+              status: string;
+              used_at: string;
+              used_by_mac: string;
+              expires_at: string | null;
+              bound_mac?: string;
+            } = {
+              status: "used",
+              used_at: now,
+              used_by_mac: r.mac,
+              expires_at: expiresAt,
             };
             if (oneDevice && !v.bound_mac) patch.bound_mac = r.mac;
             const { data: claimed } = await supabaseAdmin
-              .from("vouchers").update(patch).eq("id", v.id).eq("tenant_id", tenantId).eq("status", "unused")
-              .select("id").maybeSingle();
+              .from("vouchers")
+              .update(patch)
+              .eq("id", v.id)
+              .eq("tenant_id", tenantId)
+              .eq("status", "unused")
+              .select("id")
+              .maybeSingle();
             if (claimed && patch.bound_mac) pinned.set(r.mac, v.code);
           } else if (oneDevice && !v.bound_mac) {
             const { data: bound } = await supabaseAdmin
-              .from("vouchers").update({ bound_mac: r.mac }).eq("id", v.id).eq("tenant_id", tenantId).is("bound_mac", null)
-              .select("id").maybeSingle();
+              .from("vouchers")
+              .update({ bound_mac: r.mac })
+              .eq("id", v.id)
+              .eq("tenant_id", tenantId)
+              .is("bound_mac", null)
+              .select("id")
+              .maybeSingle();
             if (bound) pinned.set(r.mac, v.code);
           }
         }
 
         // Which devices are "registered": pinned to a voucher, or a paid smart TV.
         const [{ data: byMac }, { data: tvs }] = await Promise.all([
-          supabaseAdmin.from("vouchers").select("code,bound_mac").eq("tenant_id", tenantId).in("bound_mac", macs),
-          supabaseAdmin.from("tv_devices").select("mac_address").eq("tenant_id", tenantId).in("mac_address", macs),
+          supabaseAdmin
+            .from("vouchers")
+            .select("code,bound_mac")
+            .eq("tenant_id", tenantId)
+            .in("bound_mac", macs),
+          supabaseAdmin
+            .from("tv_devices")
+            .select("mac_address")
+            .eq("tenant_id", tenantId)
+            .in("mac_address", macs),
         ]);
-        const codeByMac = new Map<string, string>((byMac ?? []).flatMap((v) => (v.bound_mac ? [[v.bound_mac, v.code] as [string, string]] : [])));
+        const codeByMac = new Map<string, string>(
+          (byMac ?? []).flatMap((v) =>
+            v.bound_mac ? [[v.bound_mac, v.code] as [string, string]] : [],
+          ),
+        );
         for (const [mac, code] of pinned) codeByMac.set(mac, code);
         const tvMacs = new Set((tvs ?? []).map((t) => t.mac_address));
 
@@ -103,7 +143,9 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
           };
         });
         // "blocked" and "first_seen_at" are deliberately not in the payload: they keep their values.
-        const { error } = await supabaseAdmin.from("router_devices").upsert(rows, { onConflict: "router_id,mac" });
+        const { error } = await supabaseAdmin
+          .from("router_devices")
+          .upsert(rows, { onConflict: "router_id,mac" });
         if (error) {
           console.error("device report upsert failed", error);
           return new Response("error", { status: 500 });
@@ -111,7 +153,11 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
 
         // Forget devices not seen for 30 days so the table does not grow forever.
         const cutoff = new Date(Date.now() - 30 * 86_400_000).toISOString();
-        await supabaseAdmin.from("router_devices").delete().eq("router_id", router.id).lt("last_seen_at", cutoff);
+        await supabaseAdmin
+          .from("router_devices")
+          .delete()
+          .eq("router_id", router.id)
+          .lt("last_seen_at", cutoff);
 
         return new Response("ok");
       },

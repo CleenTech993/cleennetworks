@@ -4,7 +4,8 @@ import { buildHotspotLoginRedirect, parseHotspotLoginUrl } from "../src/lib/hots
 
 describe("expiryFrom", () => {
   const t0 = Date.UTC(2026, 9, 24, 12, 0, 0);
-  const hoursAhead = (value: number, unit: string) => (new Date(expiryFrom(value, unit, t0)).getTime() - t0) / 3_600_000;
+  const hoursAhead = (value: number, unit: string) =>
+    (new Date(expiryFrom(value, unit, t0)).getTime() - t0) / 3_600_000;
 
   it("understands the plural units the package form saves", () => {
     expect(hoursAhead(30, "minutes")).toBe(0.5);

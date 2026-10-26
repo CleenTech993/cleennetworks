@@ -12,7 +12,11 @@ function Usage() {
     queryKey: ["portal-usage", user?.email],
     enabled: !!user?.email,
     queryFn: async () => {
-      const { data: customer } = await supabase.from("customers").select("id").eq("email", user!.email!).maybeSingle();
+      const { data: customer } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("email", user!.email!)
+        .maybeSingle();
       if (!customer) return [];
       const { data } = await supabase
         .from("sessions")
@@ -30,7 +34,10 @@ function Usage() {
     <div>
       <PageHeader title="Usage" description="Your session history and data consumed." />
       {!data?.length ? (
-        <EmptyState title="No sessions yet" description="Connect to the network to start your first session." />
+        <EmptyState
+          title="No sessions yet"
+          description="Connect to the network to start your first session."
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
@@ -46,7 +53,9 @@ function Usage() {
             <tbody>
               {data.map((s) => (
                 <tr key={s.id} className="border-t">
-                  <td className="px-4 py-2 text-muted-foreground">{new Date(s.started_at).toLocaleString()}</td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {new Date(s.started_at).toLocaleString()}
+                  </td>
                   <td className="px-4 py-2 font-mono text-xs">{s.mac_address ?? "—"}</td>
                   <td className="px-4 py-2">{fmt(s.bytes_in)}</td>
                   <td className="px-4 py-2">{fmt(s.bytes_out)}</td>
