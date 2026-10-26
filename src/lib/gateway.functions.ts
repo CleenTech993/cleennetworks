@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
 import {
+  checkSecretStore,
   deleteGatewaySecret,
   gatewaySecret,
   gatewaySecretStatus,
@@ -40,6 +41,8 @@ async function buildStatus() {
   const challenge = gatewaySecretStatus("INTASEND_WEBHOOK_CHALLENGE");
   return {
     effective,
+    /** "ok", or why saving credentials will fail (table missing / not permitted). */
+    storage: await checkSecretStore(),
     payhero: payheroConfigured(),
     intasend: {
       secretKey: key.set,

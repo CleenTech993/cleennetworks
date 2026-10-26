@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MIGRATION_FILE } from "@/lib/gateway-secrets-errors";
 import {
   checkPendingIntasendPayments,
   removeIntasendCredential,
@@ -26,9 +27,11 @@ function generateChallenge(): string {
 
 export function IntasendCredentials({
   status,
+  storage,
   webhookUrl,
 }: {
   status: GatewayStatus["intasend"] | undefined;
+  storage: GatewayStatus["storage"] | undefined;
   webhookUrl: string;
 }) {
   const qc = useQueryClient();
@@ -126,6 +129,18 @@ export function IntasendCredentials({
           </Badge>
         )}
       </div>
+      {storage && storage !== "ok" && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm">
+          <p className="font-medium">Saving isn't possible yet</p>
+          <p className="mt-1 text-xs">
+            {storage === "missing"
+              ? `The database table that stores payment credentials doesn't exist. Apply the migration ${MIGRATION_FILE} (Supabase → SQL editor), then reload this page.`
+              : storage === "denied"
+                ? `The server isn't allowed to use the credentials table. Re-run the grants at the end of the migration ${MIGRATION_FILE}.`
+                : "The server can't reach the credentials table. Check the server log for the database error."}
+          </p>
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">
         Stored encrypted on the server and never shown again. This page only ever sees the last 4
         characters.
@@ -252,7 +267,11 @@ export function IntasendCredentials({
       <div className="flex flex-wrap gap-2">
         <Button
           onClick={() => save.mutate()}
-          disabled={save.isPending || (!secretKey && !publicKey && !challenge)}
+          disabled={
+            save.isPending ||
+            (!secretKey && !publicKey && !challenge) ||
+            (storage !== undefined && storage !== "ok")
+          }
         >
           {save.isPending ? "Saving…" : "Save credentials"}
         </Button>
