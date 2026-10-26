@@ -11,7 +11,11 @@
 // and the environment fallback keeps working, rather than the app failing.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-export const GATEWAY_SECRET_NAMES = ["INTASEND_SECRET_KEY", "INTASEND_WEBHOOK_CHALLENGE"] as const;
+export const GATEWAY_SECRET_NAMES = [
+  "INTASEND_SECRET_KEY",
+  "INTASEND_PUBLISHABLE_KEY",
+  "INTASEND_WEBHOOK_CHALLENGE",
+] as const;
 export type GatewaySecretName = (typeof GATEWAY_SECRET_NAMES)[number];
 
 const SALT = new TextEncoder().encode("netgrid/platform-secrets/v1");
@@ -31,7 +35,9 @@ const b64u = {
 };
 
 async function deriveKey(name: string, ikm: string): Promise<CryptoKey> {
-  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(ikm), "HKDF", false, ["deriveKey"]);
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(ikm), "HKDF", false, [
+    "deriveKey",
+  ]);
   return crypto.subtle.deriveKey(
     { name: "HKDF", hash: "SHA-256", salt: SALT, info: new TextEncoder().encode(name) },
     base,
@@ -48,7 +54,11 @@ function keyMaterial(): string {
 }
 
 /** "v1.<iv>.<ciphertext+tag>", all base64url. `ikm` is only passed by tests. */
-export async function encryptSecret(name: string, plaintext: string, ikm = keyMaterial()): Promise<string> {
+export async function encryptSecret(
+  name: string,
+  plaintext: string,
+  ikm = keyMaterial(),
+): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv, additionalData: new TextEncoder().encode(name) },
@@ -58,11 +68,19 @@ export async function encryptSecret(name: string, plaintext: string, ikm = keyMa
   return `v1.${b64u.enc(iv)}.${b64u.enc(new Uint8Array(ct))}`;
 }
 
-export async function decryptSecret(name: string, stored: string, ikm = keyMaterial()): Promise<string> {
+export async function decryptSecret(
+  name: string,
+  stored: string,
+  ikm = keyMaterial(),
+): Promise<string> {
   const [v, iv, ct] = stored.split(".");
   if (v !== "v1" || !iv || !ct) throw new Error("Unrecognised secret format.");
   const pt = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: b64u.dec(iv) as BufferSource, additionalData: new TextEncoder().encode(name) },
+    {
+      name: "AES-GCM",
+      iv: b64u.dec(iv) as BufferSource,
+      additionalData: new TextEncoder().encode(name),
+    },
     await deriveKey(name, ikm),
     b64u.dec(ct) as BufferSource,
   );
@@ -71,7 +89,10 @@ export async function decryptSecret(name: string, stored: string, ikm = keyMater
 
 interface Loaded {
   values: Map<GatewaySecretName, string>;
-  meta: Map<GatewaySecretName, { last4: string | null; updatedAt: string | null; unreadable: boolean }>;
+  meta: Map<
+    GatewaySecretName,
+    { last4: string | null; updatedAt: string | null; unreadable: boolean }
+  >;
   at: number;
 }
 let cache: Loaded | null = null;
@@ -90,15 +111,24 @@ export async function loadGatewaySecrets(opts: { force?: boolean } = {}): Promis
       if (!GATEWAY_SECRET_NAMES.includes(name)) continue;
       try {
         next.values.set(name, await decryptSecret(name, row.ciphertext as string));
-        next.meta.set(name, { last4: (row.last4 as string | null) ?? null, updatedAt: row.updated_at as string, unreadable: false });
+        next.meta.set(name, {
+          last4: (row.last4 as string | null) ?? null,
+          updatedAt: row.updated_at as string,
+          unreadable: false,
+        });
       } catch {
         // Wrong/rotated key or corrupt value: fall back to the environment and flag it for re-entry.
-        console.error(`gateway secret ${name} could not be decrypted; falling back to the environment`);
+        console.error(
+          `gateway secret ${name} could not be decrypted; falling back to the environment`,
+        );
         next.meta.set(name, { last4: null, updatedAt: row.updated_at as string, unreadable: true });
       }
     }
   } catch (e) {
-    console.error("loadGatewaySecrets failed; using environment variables only", e instanceof Error ? e.message : e);
+    console.error(
+      "loadGatewaySecrets failed; using environment variables only",
+      e instanceof Error ? e.message : e,
+    );
   }
   cache = next;
 }
@@ -132,7 +162,11 @@ export function gatewaySecretStatus(name: GatewaySecretName): SecretStatus {
   };
 }
 
-export async function saveGatewaySecret(name: GatewaySecretName, value: string, userId: string): Promise<void> {
+export async function saveGatewaySecret(
+  name: GatewaySecretName,
+  value: string,
+  userId: string,
+): Promise<void> {
   const { error } = await supabaseAdmin.from("platform_gateway_secrets").upsert(
     {
       name,

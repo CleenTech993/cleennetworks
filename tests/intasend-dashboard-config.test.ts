@@ -4,7 +4,11 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call } from "./helpers/call";
 import { freshIp, h } from "./helpers/setup";
 
-vi.mock("@/integrations/supabase/client.server", () => ({ get supabaseAdmin() { return h.db; } }));
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
 vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
 
 import { Route as Webhook } from "@/routes/api/public/intasend/webhook";
@@ -28,7 +32,9 @@ const hook = (challenge: string | undefined, topic = "collection_event") =>
 beforeEach(() => {
   h.db = new FakeDb()
     .seed("platform_gateway_secrets", [])
-    .seed("platform_mpesa_config", [{ id: 1, active_provider: "intasend", mpesa_env: "production" }]);
+    .seed("platform_mpesa_config", [
+      { id: 1, active_provider: "intasend", mpesa_env: "production" },
+    ]);
   resetGatewaySecretCache();
   process.env["SUPABASE_SERVICE_ROLE_KEY"] = "test-key-material-aaaaaaaaaaaaaaaa";
   delete process.env["INTASEND_SECRET_KEY"];
@@ -98,7 +104,12 @@ describe("Test connection", () => {
 
   it("unreachable when the network fails", async () => {
     await saveGatewaySecret("INTASEND_SECRET_KEY", KEY, USER);
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("ECONNRESET"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("ECONNRESET");
+      }),
+    );
     expect(await intasendCheckKey()).toEqual({ result: "unreachable" });
   });
 });

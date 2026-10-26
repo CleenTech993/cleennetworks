@@ -8,7 +8,7 @@
 -- An INTASEND_* environment variable still works as a fallback when nothing is stored here.
 
 CREATE TABLE IF NOT EXISTS public.platform_gateway_secrets (
-  name        text PRIMARY KEY CHECK (name IN ('INTASEND_SECRET_KEY', 'INTASEND_WEBHOOK_CHALLENGE')),
+  name        text PRIMARY KEY CHECK (name IN ('INTASEND_SECRET_KEY', 'INTASEND_PUBLISHABLE_KEY', 'INTASEND_WEBHOOK_CHALLENGE')),
   ciphertext  text NOT NULL,
   last4       text,
   updated_at  timestamptz NOT NULL DEFAULT now(),

@@ -111,6 +111,10 @@ class Query implements PromiseLike<Result> {
     this.preds.push((r) => String(r[c]) < String(v));
     return this;
   }
+  lte(c: string, v: unknown) {
+    this.preds.push((r) => String(r[c]) <= String(v));
+    return this;
+  }
   // "router_id.eq.X,router_id.is.null"
   or(expr: string) {
     const parts = expr.split(",").map((p) => {
