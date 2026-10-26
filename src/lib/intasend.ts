@@ -149,3 +149,26 @@ export function checkIntasendCredentials(
   }
   return null;
 }
+
+export type IntasendEnvironment = "sandbox" | "live";
+
+/**
+ * IntaSend runs two completely separate servers and a key only works on its own:
+ *   test keys (ISSecretKey_test_…)  -> https://sandbox.intasend.com
+ *   live keys (ISSecretKey_live_…)  -> https://payment.intasend.com
+ * A test key sent to the live server (or the reverse) is simply refused. `override` (the optional
+ * INTASEND_BASE_URL setting) wins when set, for proxies or future endpoint changes.
+ */
+export function intasendEnvironment(secretKey: string | undefined | null): IntasendEnvironment {
+  return intasendKeyMode(secretKey) === "test" ? "sandbox" : "live";
+}
+
+export function intasendBaseUrl(
+  secretKey: string | undefined | null,
+  override?: string | null,
+): string {
+  if (override) return override.replace(/\/$/, "");
+  return intasendEnvironment(secretKey) === "sandbox"
+    ? "https://sandbox.intasend.com"
+    : "https://payment.intasend.com";
+}

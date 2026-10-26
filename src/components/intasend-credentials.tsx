@@ -75,12 +75,17 @@ export function IntasendCredentials({
 
   const test = useMutation({
     mutationFn: () => testIntasendConnection(),
-    onSuccess: ({ result }) => {
+    onSuccess: ({ result, environment }) => {
+      const where = environment === "sandbox" ? "IntaSend sandbox" : "IntaSend";
       if (result === "accepted")
-        toast.success(`IntaSend accepted the key${status?.mode ? ` (${status.mode} mode)` : ""}`);
-      else if (result === "rejected")
-        toast.error("IntaSend rejected the key. Check you copied the whole secret key.");
-      else if (result === "not_set") toast.error("No secret key is set yet.");
+        toast.success(`${where} accepted the key${environment ? ` (${environment})` : ""}`);
+      else if (result === "rejected") {
+        toast.error(
+          environment === "sandbox"
+            ? "The IntaSend sandbox rejected the key. Check you copied the whole secret key from sandbox.intasend.com (test keys do not work on the live site)."
+            : "IntaSend rejected the key. Check you copied the whole secret key from payment.intasend.com (live keys do not work in the sandbox).",
+        );
+      } else if (result === "not_set") toast.error("No secret key is set yet.");
       else toast.error("Could not reach IntaSend. Try again in a moment.");
     },
     onError: (e: Error) => toast.error(e.message),

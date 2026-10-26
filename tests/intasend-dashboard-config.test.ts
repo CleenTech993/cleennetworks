@@ -98,7 +98,7 @@ describe("Test connection", () => {
     await saveGatewaySecret("INTASEND_SECRET_KEY", KEY, USER);
     stubFetch(status as number, { detail: "private account data" });
     const r = await intasendCheckKey();
-    expect(r).toEqual({ result: expected });
+    expect(r).toMatchObject({ result: expected });
     expect(JSON.stringify(r)).not.toContain("private account data");
   });
 
@@ -110,6 +110,6 @@ describe("Test connection", () => {
         throw new Error("ECONNRESET");
       }),
     );
-    expect(await intasendCheckKey()).toEqual({ result: "unreachable" });
+    expect(await intasendCheckKey()).toMatchObject({ result: "unreachable" });
   });
 });
