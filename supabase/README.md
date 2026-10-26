@@ -37,8 +37,14 @@ It matches objects by **name**. If one of the old June migrations (the ones that
 `PARTIAL` for an auto-generated name such as a `_pkey` or `_fkey`, don't re-run it: open that table in the Table Editor
 and compare first, because the table may have been created through the dashboard and named differently.
 
-It does **not** check row data, column defaults, function bodies, grants or scheduled jobs. For the scheduled job
-run `select jobname, schedule from cron.job;` and expect the router liveness check.
+It does **not** check row data, column defaults, grants or scheduled jobs. For the scheduled job run
+`select jobname, schedule from cron.job;` and expect the router liveness check.
+
+Function bodies and check constraints are compared by definition only where a later migration **redefines one under
+the same name** (today: the `admin_approve_user` function and the `platform_gateway_secrets_name_check` constraint).
+Those show up in `missing_objects` as `funcdef` / `constraintdef` and mean "this object doesn't have the definition
+from that migration": either the migration wasn't applied or the object was edited by hand. Compare the definition
+before overwriting it.
 
 ### Bringing it up to date
 

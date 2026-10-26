@@ -10,7 +10,9 @@
 --   n/a          it only changes data or defaults, so there is nothing to look up by name
 -- Look at the 'missing_objects' column to see exactly what is absent.
 --
--- Not covered: row data, column defaults, function bodies, grants, and cron jobs. For cron run
+-- Not covered: row data, column defaults, grants, and cron jobs (and function bodies and check
+-- constraints, except where a later migration redefines one under the same name: those rows are
+-- 'funcdef' / 'constraintdef' and mean "the definition from this migration"). For cron run
 --   select jobname, schedule from cron.job;     -- expect the router liveness check
 with expected(ord, track, migration, kind, ident) as (values
   (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.captive_portals.captive_portals_pkey'),
@@ -241,6 +243,7 @@ with expected(ord, track, migration, kind, ident) as (values
   (16, 'supabase', '20261024140000_tv_devices.sql', 'table', 'public.tv_devices'),
   (17, 'supabase', '20261024150000_portal_theme.sql', 'column', 'public.captive_portals.theme'),
   (17, 'supabase', '20261024150000_portal_theme.sql', 'constraint', 'public.captive_portals.captive_portals_theme_check'),
+  (18, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'funcdef', 'public.admin_approve_user(p_user_id uuid, p_role app_role, p_tenant_id uuid, p_new_tenant_name text, p_new_tenant_slug text)#44ad0b37'),
   (18, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'function', 'public.has_tenant_role(_user_id uuid, _tenant_id uuid, _roles app_role[])'),
   (18, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'function', 'public.is_aal2()'),
   (18, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals delete by role'),
@@ -435,7 +438,8 @@ with expected(ord, track, migration, kind, ident) as (values
   (25, 'supabase', '20261028000000_platform_gateway_secrets.sql', 'constraint', 'public.platform_gateway_secrets.platform_gateway_secrets_pkey'),
   (25, 'supabase', '20261028000000_platform_gateway_secrets.sql', 'index', 'public.platform_gateway_secrets_pkey'),
   (25, 'supabase', '20261028000000_platform_gateway_secrets.sql', 'rls', 'public.platform_gateway_secrets'),
-  (25, 'supabase', '20261028000000_platform_gateway_secrets.sql', 'table', 'public.platform_gateway_secrets')
+  (25, 'supabase', '20261028000000_platform_gateway_secrets.sql', 'table', 'public.platform_gateway_secrets'),
+  (26, 'supabase', '20261029000000_gateway_secrets_publishable_key.sql', 'constraintdef', 'public.platform_gateway_secrets.platform_gateway_secrets_name_check#607bbdef')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.
@@ -473,6 +477,22 @@ select kind, ident from (
     join pg_class c on c.oid = k.conrelid
     join pg_namespace n on n.oid = c.relnamespace
    where n.nspname = 'public'
+  union all
+  -- Definition fingerprints. A later migration can redefine something under the SAME name (widen a
+  -- check, replace a function body), which names alone cannot show. The generator only keeps these
+  -- rows for objects that really are redefined somewhere in the migration history.
+  select 'constraintdef',
+         'public.' || c.relname || '.' || k.conname || '#' || left(md5(pg_get_constraintdef(k.oid)), 8)
+    from pg_constraint k
+    join pg_class c on c.oid = k.conrelid
+    join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and k.contype = 'c'
+  union all
+  select 'funcdef',
+         'public.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')#'
+           || left(md5(pg_get_functiondef(p.oid)), 8)
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.prokind in ('f', 'p')
   union all
   select 'enum', t.typname || '.' || e.enumlabel
     from pg_enum e
