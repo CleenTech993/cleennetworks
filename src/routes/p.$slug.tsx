@@ -7,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { buildHotspotLoginRedirect, routerParams } from "@/lib/hotspot-redirect";
+import {
+  buildHotspotLoginRedirect,
+  LOGIN_RETRY_DELAY_MS,
+  recallVoucher,
+  rememberVoucher,
+  routerLoginFailed,
+  routerParams,
+} from "@/lib/hotspot-redirect";
 import { PortalHeader } from "@/components/portal/header";
 import { PlanOption } from "@/components/portal/plan-option";
 import { PortalThemeFrame } from "@/components/portal/theme-frame";
@@ -71,8 +78,13 @@ function sessionStore(): Storage | null {
 }
 
 function PortalPage() {
+  const [tab, setTab] = useState("buy");
   useEffect(() => {
     routerParams(window.location.search, sessionStore());
+    // The router refused a voucher login and sent the customer back: show the voucher tab, which
+    // keeps retrying (see VoucherFlow), instead of the purchase screen.
+    if (routerLoginFailed(window.location.search) && recallVoucher(sessionStore()))
+      setTab("voucher");
   }, []);
   const { slug } = Route.useParams();
   const { data, isLoading, error } = useQuery<PortalData>({
@@ -120,7 +132,7 @@ function PortalPage() {
 
       <div className={theme.sheet ? "pt-sheet pt-6" : undefined}>
         <div className="mx-auto max-w-md px-4 pb-12">
-          <Tabs defaultValue="buy">
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger className="px-1 text-xs sm:text-sm" value="buy">
                 Buy
@@ -690,14 +702,53 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
 
 function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
   const [code, setCode] = useState("");
-  const [done, setDone] = useState<"connecting" | "accepted" | null>(null);
+  const [done, setDone] = useState<"connecting" | "activating" | "stalled" | "accepted" | null>(
+    null,
+  );
   const [busy, setBusy] = useState(false);
+
+  // The router sent the customer back because it refused the login. That is expected for a minute
+  // or two after redeeming: the router only learns about the voucher on its next sync. Keep trying
+  // the router login (the voucher is already redeemed) until it is accepted, then give up politely.
+  useEffect(() => {
+    if (!routerLoginFailed(window.location.search)) return;
+    const store = sessionStore();
+    const saved = recallVoucher(store);
+    if (!saved) return;
+    const target = buildHotspotLoginRedirect(
+      routerParams(window.location.search, store).login,
+      saved.code,
+    );
+    if (!target) return;
+    if (!saved.retry) {
+      setDone("stalled");
+      return;
+    }
+    setDone("activating");
+    const t = setTimeout(() => {
+      window.location.href = target;
+    }, LOGIN_RETRY_DELAY_MS);
+    return () => clearTimeout(t);
+  }, []);
+
+  function tryAgain() {
+    const store = sessionStore();
+    const saved = recallVoucher(store);
+    const target = saved
+      ? buildHotspotLoginRedirect(routerParams(window.location.search, store).login, saved.code)
+      : null;
+    if (!saved || !target) return setDone(null);
+    rememberVoucher(store, saved.code); // restart the retry window
+    setDone("connecting");
+    window.location.href = target;
+  }
 
   async function redeem() {
     setBusy(true);
     try {
       // The router's login page sends the customer here with ?mac=…&ip=…&login=<hotspot login URL>.
-      const params = routerParams(window.location.search, sessionStore());
+      const store = sessionStore();
+      const params = routerParams(window.location.search, store);
       const res = await fetch(`/api/public/portal/${slug}/voucher`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -705,9 +756,11 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
-      toast.success("Voucher redeemed");
+      toast.success(json.resumed ? "Voucher found — reconnecting you" : "Voucher redeemed");
+      const redeemed: string = json.code ?? code;
+      rememberVoucher(store, redeemed);
       // Hand the browser to the router so the device is actually logged in.
-      const target = buildHotspotLoginRedirect(params.login, json.code ?? code);
+      const target = buildHotspotLoginRedirect(params.login, redeemed);
       if (target) {
         setDone("connecting");
         window.location.href = target;
@@ -724,10 +777,37 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
   if (done) {
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
-        <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
+        {done === "activating" || done === "connecting" ? (
+          <Loader2 className="mx-auto h-10 w-10 animate-spin" style={{ color: primary }} />
+        ) : (
+          <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
+        )}
         <p className="mt-3 font-medium">
-          {done === "connecting" ? "Connecting you to the internet…" : "Voucher accepted"}
+          {done === "connecting" && "Connecting you to the internet…"}
+          {done === "activating" && "Activating your voucher on the Wi-Fi…"}
+          {done === "stalled" && "We couldn't connect you yet"}
+          {done === "accepted" && "Voucher accepted"}
         </p>
+        {done === "activating" && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            This can take up to two minutes. Please keep this page open — it retries automatically.
+          </p>
+        )}
+        {done === "stalled" && (
+          <>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your voucher is valid, but the Wi-Fi hasn't accepted it yet. Wait a minute and try
+              again. If it keeps failing, contact the provider.
+            </p>
+            <Button
+              className="pt-btn mt-4 w-full"
+              style={{ backgroundColor: primary }}
+              onClick={tryAgain}
+            >
+              Try again
+            </Button>
+          </>
+        )}
         {done === "accepted" && (
           <p className="mt-1 text-sm text-muted-foreground">
             Open this page from the Wi-Fi network's sign-in screen to connect, or reconnect to the

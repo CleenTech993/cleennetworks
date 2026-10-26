@@ -33,6 +33,20 @@ export function deviceLimitOf(pkg: { device_limit: number | null } | null | unde
 
 export const userProfileName = (limit: number) => `netgrid-d${limit}`;
 
+/**
+ * May an already-redeemed voucher be presented to the portal again? A one-device plan only by the
+ * device that redeemed it (matched by MAC); a multi-device plan by any device, because the router
+ * enforces the device limit (shared-users). Never lets a different device take over a one-device code.
+ */
+export function canResumeVoucher(
+  limit: number,
+  mac: string | null,
+  usedByMac: string | null | undefined,
+): boolean {
+  if (limit > 1) return true;
+  return !!mac && !!usedByMac && mac === usedByMac;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Router -> platform: device report
 // ---------------------------------------------------------------------------------------------
