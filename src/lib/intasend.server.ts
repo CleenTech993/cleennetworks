@@ -47,10 +47,14 @@ export async function intasendStkPush(p: {
   phone: string;
   reference: string;
 }): Promise<{ invoiceId: string; state: string }> {
+  // IntaSend's SDKs send the publishable ("API") key with M-Pesa collection requests; the secret key
+  // goes in the Authorization header. The API key is optional here and only added when it is set.
+  const publicKey = gatewaySecret("INTASEND_PUBLISHABLE_KEY");
   const r = await post("/api/v1/payment/mpesa-stk-push/", {
     amount: intasendChargeAmount(p.amount),
     phone_number: p.phone,
     api_ref: p.reference,
+    ...(publicKey ? { public_key: publicKey } : {}),
   });
   const invoice = r.ok ? parseInvoice(r.json) : null;
   if (!invoice) {

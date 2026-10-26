@@ -106,3 +106,46 @@ export function intasendKeyMode(secretKey: string | undefined | null): "test" | 
   if (secretKey.startsWith("ISSecretKey_live_")) return "live";
   return null;
 }
+
+// ---- Credentials entered on the dashboard -------------------------------------------------------
+/** Secret key: ISSecretKey_test_… / ISSecretKey_live_… */
+export const INTASEND_SECRET_KEY_RE = /^ISSecretKey_(test|live)_[A-Za-z0-9_-]{8,}$/;
+/** Publishable ("API") key: ISPubKey_test_… / ISPubKey_live_… */
+export const INTASEND_PUBLIC_KEY_RE = /^ISPubKey_(test|live)_[A-Za-z0-9_-]{8,}$/;
+/** Webhook challenge: a shared string you choose. Printable, no spaces, long enough to be unguessable. */
+export const INTASEND_CHALLENGE_RE = /^[\x21-\x7e]{12,128}$/;
+
+/** "test" / "live" from the publishable key prefix. */
+export function intasendPublicKeyMode(key: string | undefined | null): "test" | "live" | null {
+  if (!key) return null;
+  if (key.startsWith("ISPubKey_test_")) return "test";
+  if (key.startsWith("ISPubKey_live_")) return "live";
+  return null;
+}
+
+/**
+ * Checks what a super admin is about to save. Returns a message for the first problem, or null.
+ * `existing` is what is already stored (or set in the environment), so changing only ONE key of the
+ * pair is still checked against the other: a test secret key with a live API key (or the reverse) is
+ * the classic setup mistake and makes every payment fail.
+ */
+export function checkIntasendCredentials(
+  input: { secretKey?: string; publishableKey?: string; webhookChallenge?: string },
+  existing: { secretKey?: string | null; publishableKey?: string | null } = {},
+): string | null {
+  if (input.secretKey && !INTASEND_SECRET_KEY_RE.test(input.secretKey)) {
+    return "That does not look like an IntaSend secret key. It starts with ISSecretKey_test_ or ISSecretKey_live_.";
+  }
+  if (input.publishableKey && !INTASEND_PUBLIC_KEY_RE.test(input.publishableKey)) {
+    return "That does not look like an IntaSend API (publishable) key. It starts with ISPubKey_test_ or ISPubKey_live_.";
+  }
+  if (input.webhookChallenge && !INTASEND_CHALLENGE_RE.test(input.webhookChallenge)) {
+    return "The webhook challenge must be 12 to 128 characters with no spaces.";
+  }
+  const secretMode = intasendKeyMode(input.secretKey ?? existing.secretKey);
+  const publicMode = intasendPublicKeyMode(input.publishableKey ?? existing.publishableKey);
+  if (secretMode && publicMode && secretMode !== publicMode) {
+    return `Your secret key is a ${secretMode} key but your API key is a ${publicMode} key. Use two ${secretMode} keys or two ${publicMode} keys from the same IntaSend environment.`;
+  }
+  return null;
+}

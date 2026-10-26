@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MIGRATION_FILE } from "@/lib/gateway-secrets-errors";
 import {
+  checkPendingIntasendPayments,
   removeIntasendCredential,
   saveIntasendCredentials,
   testIntasendConnection,
@@ -35,6 +36,7 @@ export function IntasendCredentials({
 }) {
   const qc = useQueryClient();
   const [secretKey, setSecretKey] = useState("");
+  const [publicKey, setPublicKey] = useState("");
   const [challenge, setChallenge] = useState("");
   const [generated, setGenerated] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ["gateway-status"] });
@@ -42,11 +44,16 @@ export function IntasendCredentials({
   const save = useMutation({
     mutationFn: () =>
       saveIntasendCredentials({
-        data: { secretKey: secretKey || undefined, webhookChallenge: challenge || undefined },
+        data: {
+          secretKey: secretKey || undefined,
+          publishableKey: publicKey || undefined,
+          webhookChallenge: challenge || undefined,
+        },
       }),
     onSuccess: () => {
       // Secrets never stay in the page after saving, and are never sent back by the server.
       setSecretKey("");
+      setPublicKey("");
       setChallenge("");
       setGenerated(false);
       toast.success("IntaSend credentials saved");
@@ -56,8 +63,9 @@ export function IntasendCredentials({
   });
 
   const remove = useMutation({
-    mutationFn: (name: "INTASEND_SECRET_KEY" | "INTASEND_WEBHOOK_CHALLENGE") =>
-      removeIntasendCredential({ data: { name } }),
+    mutationFn: (
+      name: "INTASEND_SECRET_KEY" | "INTASEND_PUBLISHABLE_KEY" | "INTASEND_WEBHOOK_CHALLENGE",
+    ) => removeIntasendCredential({ data: { name } }),
     onSuccess: () => {
       toast.success("Removed. Any server environment value applies again.");
       void refresh();
@@ -78,7 +86,20 @@ export function IntasendCredentials({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const sweep = useMutation({
+    mutationFn: () => checkPendingIntasendPayments(),
+    onSuccess: (r) => {
+      if (r.checked === 0) toast.success("No payments are waiting for confirmation.");
+      else
+        toast.success(
+          `Checked ${r.checked}: ${r.settled} confirmed, ${r.failed} failed${r.errors ? `, ${r.errors} could not be checked` : ""}.`,
+        );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const key = status?.key;
+  const pub = status?.pub;
   const chal = status?.challenge;
   const copy = (text: string, what: string) => {
     void navigator.clipboard.writeText(text).then(() => toast.success(`${what} copied`));
@@ -154,7 +175,37 @@ export function IntasendCredentials({
       </div>
 
       <div>
-        <Label htmlFor="is-chal">Webhook challenge</Label>
+        <Label htmlFor="is-pub">API key (publishable key)</Label>
+        <div className="mt-1 flex gap-2">
+          <Input
+            id="is-pub"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={publicKey}
+            onChange={(e) => setPublicKey(e.target.value)}
+            placeholder={placeholderFor(pub, "ISPubKey_test_… or ISPubKey_live_…")}
+          />
+          {pub?.source === "dashboard" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Remove saved API key"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate("INTASEND_PUBLISHABLE_KEY")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {state(pub)}
+      </div>
+
+      <div>
+        <Label htmlFor="is-chal">
+          Webhook challenge <span className="font-normal text-muted-foreground">(optional)</span>
+        </Label>
         <div className="mt-1 flex gap-2">
           <Input
             id="is-chal"
@@ -216,7 +267,11 @@ export function IntasendCredentials({
       <div className="flex flex-wrap gap-2">
         <Button
           onClick={() => save.mutate()}
-          disabled={save.isPending || (!secretKey && !challenge) || (storage !== undefined && storage !== "ok")}
+          disabled={
+            save.isPending ||
+            (!secretKey && !publicKey && !challenge) ||
+            (storage !== undefined && storage !== "ok")
+          }
         >
           {save.isPending ? "Saving…" : "Save credentials"}
         </Button>
@@ -227,15 +282,33 @@ export function IntasendCredentials({
         >
           {test.isPending ? "Testing…" : "Test connection"}
         </Button>
+        <Button
+          variant="outline"
+          onClick={() => sweep.mutate()}
+          disabled={sweep.isPending || !key?.set}
+        >
+          {sweep.isPending ? "Checking…" : "Check pending payments now"}
+        </Button>
       </div>
 
       <div className="space-y-1.5 rounded-md bg-muted/50 p-3 text-xs">
         <p className="text-sm font-medium">Setup</p>
         <p>
-          1. In the IntaSend dashboard, copy your secret key (test keys to try it out, live keys to
-          take real payments) and paste it above.
+          1. In the IntaSend dashboard open the API keys page. Copy the publishable key (ISPubKey_…)
+          into "API key" and the secret key (ISSecretKey_…) into "Secret key". Use two test keys to
+          try it out, or two live keys to take real payments, never one of each.
         </p>
-        <p>2. In IntaSend go to Settings → Webhooks → New, and set the endpoint to:</p>
+        <p>2. Press Save credentials, then Test connection.</p>
+        <p>3. Choose IntaSend as the active gateway above and save.</p>
+        <p className="font-medium">No webhook needed</p>
+        <p>
+          Payments are confirmed by asking IntaSend directly, using your secret key. That happens
+          while the customer waits on the portal and again every minute or so in the background, so
+          a payment is still confirmed if the customer closes the page. A webhook only makes
+          confirmation a little faster. If you want one, add this endpoint in IntaSend (Settings →
+          Webhooks), use the same challenge string as above, and subscribe to{" "}
+          <code>collection_event</code>:
+        </p>
         <div className="flex items-center gap-2">
           <code className="select-all break-all">{webhookUrl}</code>
           <Button
@@ -249,10 +322,6 @@ export function IntasendCredentials({
             <Copy className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <p>
-          3. Use the same challenge string there, and subscribe to <code>collection_event</code>.
-        </p>
-        <p>4. Press Test connection, then choose IntaSend as the active gateway and save.</p>
       </div>
     </div>
   );

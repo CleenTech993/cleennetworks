@@ -12,7 +12,11 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { classifyStoreError, storeProblemMessage, type StoreProblem } from "./gateway-secrets-errors";
 
-export const GATEWAY_SECRET_NAMES = ["INTASEND_SECRET_KEY", "INTASEND_WEBHOOK_CHALLENGE"] as const;
+export const GATEWAY_SECRET_NAMES = [
+  "INTASEND_SECRET_KEY",
+  "INTASEND_PUBLISHABLE_KEY",
+  "INTASEND_WEBHOOK_CHALLENGE",
+] as const;
 export type GatewaySecretName = (typeof GATEWAY_SECRET_NAMES)[number];
 
 const SALT = new TextEncoder().encode("netgrid/platform-secrets/v1");

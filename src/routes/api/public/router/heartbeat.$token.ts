@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
+import { sweepIntasendIfDue } from "@/lib/intasend-reconcile.server";
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
@@ -116,6 +117,10 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
           dns_ok: q.get("dns") === "1" ? true : q.get("dns") === "0" ? false : null,
           temp,
         });
+
+        // Routers check in every minute, which gives a free, steady clock for confirming IntaSend payments
+        // whose webhook never arrived. Throttled, time-boxed and never allowed to fail the heartbeat.
+        await sweepIntasendIfDue();
 
         return new Response("ok", { headers: { "content-type": "text/plain" } });
       },
