@@ -286,6 +286,28 @@ describe("router.rsc provisioning", () => {
   const rsc = (token: string, ip = freshIp()) => call(Rsc, "GET", { params: { token }, ip });
   const credFor = (id: string) => h.db.rows("router_credentials").find((c) => c.router_id === id);
 
+  it("moves the LAN ports into the hotspot bridge last, so a dropped session cannot leave a half-configured router", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    const at = (s: string) => {
+      const i = script.indexOf(s);
+      expect(i, `missing: ${s}`).toBeGreaterThan(-1);
+      return i;
+    };
+    const portMove = at("/interface bridge port add bridge=netgrid-lan");
+    // exactly one place moves ports, and everything that makes the router work comes first
+    expect(script.match(/\/interface bridge port add/g)).toHaveLength(1);
+    for (const earlier of [
+      "add name=netgrid-hs-pool",
+      "/ip hotspot profile",
+      "/ip hotspot\nadd name=netgrid-hs ",
+      "add name=netgrid-sync interval=2m",
+      "add name=netgrid-heartbeat",
+    ]) {
+      expect(at(earlier), earlier).toBeLessThan(portMove);
+    }
+    expect(portMove).toBeLessThan(at('NetGrid: auto-config complete"'));
+  });
+
   it("exchanges the bootstrap token for a fresh device token and embeds only the device token", async () => {
     const res = await rsc(BOOT1);
     const script = await res.text();
