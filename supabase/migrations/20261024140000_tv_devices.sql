@@ -25,6 +25,7 @@ CREATE INDEX IF NOT EXISTS tv_devices_tenant_status_idx ON public.tv_devices (te
 
 ALTER TABLE public.tv_devices ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "tv_devices tenant read" ON public.tv_devices;
 CREATE POLICY "tv_devices tenant read" ON public.tv_devices
   FOR SELECT TO authenticated
   USING (tenant_id = public.user_tenant_id(auth.uid()) OR public.is_super_admin(auth.uid()));

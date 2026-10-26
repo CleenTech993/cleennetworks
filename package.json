@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test:sql": "bash tests/sql/run.sh"
+    "test:sql": "bash tests/sql/run.sh",
+    "db:verify-gen": "node scripts/db/gen-live-check.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",

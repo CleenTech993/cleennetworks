@@ -69,8 +69,11 @@ END $$;
 DROP POLICY IF EXISTS "user_roles insert require aal2" ON public.user_roles;
 DROP POLICY IF EXISTS "user_roles update require aal2" ON public.user_roles;
 DROP POLICY IF EXISTS "user_roles delete require aal2" ON public.user_roles;
+DROP POLICY IF EXISTS "user_roles insert require aal2" ON public.user_roles;
 CREATE POLICY "user_roles insert require aal2" ON public.user_roles AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.is_aal2());
+DROP POLICY IF EXISTS "user_roles update require aal2" ON public.user_roles;
 CREATE POLICY "user_roles update require aal2" ON public.user_roles AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.is_aal2()) WITH CHECK (public.is_aal2());
+DROP POLICY IF EXISTS "user_roles delete require aal2" ON public.user_roles;
 CREATE POLICY "user_roles delete require aal2" ON public.user_roles AS RESTRICTIVE FOR DELETE TO authenticated USING (public.is_aal2());
 
 -- ---------------------------------------------------------------------------------------------
@@ -87,74 +90,101 @@ DROP POLICY IF EXISTS "vouchers tenant access" ON public.vouchers;
 DROP POLICY IF EXISTS "settlements tenant read" ON public.settlements;
 
 -- routers
+DROP POLICY IF EXISTS "routers select by role" ON public.routers;
 CREATE POLICY "routers select by role" ON public.routers
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "routers insert by role" ON public.routers;
 CREATE POLICY "routers insert by role" ON public.routers
   FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician']::public.app_role[]));
+DROP POLICY IF EXISTS "routers update by role" ON public.routers;
 CREATE POLICY "routers update by role" ON public.routers
   FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician']::public.app_role[])) WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician']::public.app_role[]));
+DROP POLICY IF EXISTS "routers delete by role" ON public.routers;
 CREATE POLICY "routers delete by role" ON public.routers
   FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician']::public.app_role[]));
 
 -- packages
+DROP POLICY IF EXISTS "packages select by role" ON public.packages;
 CREATE POLICY "packages select by role" ON public.packages
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff','end_user']::public.app_role[]));
+DROP POLICY IF EXISTS "packages insert by role" ON public.packages;
 CREATE POLICY "packages insert by role" ON public.packages
   FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[]));
+DROP POLICY IF EXISTS "packages update by role" ON public.packages;
 CREATE POLICY "packages update by role" ON public.packages
   FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[])) WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[]));
+DROP POLICY IF EXISTS "packages delete by role" ON public.packages;
 CREATE POLICY "packages delete by role" ON public.packages
   FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[]));
 
 -- customers
+DROP POLICY IF EXISTS "customers select by role" ON public.customers;
 CREATE POLICY "customers select by role" ON public.customers
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "customers insert by role" ON public.customers;
 CREATE POLICY "customers insert by role" ON public.customers
   FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "customers update by role" ON public.customers;
 CREATE POLICY "customers update by role" ON public.customers
   FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent','support_staff']::public.app_role[])) WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "customers delete by role" ON public.customers;
 CREATE POLICY "customers delete by role" ON public.customers
   FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[]));
 
 -- vouchers
+DROP POLICY IF EXISTS "vouchers select by role" ON public.vouchers;
 CREATE POLICY "vouchers select by role" ON public.vouchers
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "vouchers insert by role" ON public.vouchers;
 CREATE POLICY "vouchers insert by role" ON public.vouchers
   FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "vouchers update by role" ON public.vouchers;
 CREATE POLICY "vouchers update by role" ON public.vouchers
   FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[])) WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[]));
+DROP POLICY IF EXISTS "vouchers delete by role" ON public.vouchers;
 CREATE POLICY "vouchers delete by role" ON public.vouchers
   FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[]));
 
 -- payments
+DROP POLICY IF EXISTS "payments select by role" ON public.payments;
 CREATE POLICY "payments select by role" ON public.payments
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent','support_staff']::public.app_role[]));
 
 -- sessions
+DROP POLICY IF EXISTS "sessions select by role" ON public.sessions;
 CREATE POLICY "sessions select by role" ON public.sessions
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
 
 -- captive_portals
+DROP POLICY IF EXISTS "captive_portals select by role" ON public.captive_portals;
 CREATE POLICY "captive_portals select by role" ON public.captive_portals
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "captive_portals insert by role" ON public.captive_portals;
 CREATE POLICY "captive_portals insert by role" ON public.captive_portals
   FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]));
+DROP POLICY IF EXISTS "captive_portals update by role" ON public.captive_portals;
 CREATE POLICY "captive_portals update by role" ON public.captive_portals
   FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[])) WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]));
+DROP POLICY IF EXISTS "captive_portals delete by role" ON public.captive_portals;
 CREATE POLICY "captive_portals delete by role" ON public.captive_portals
   FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]));
 
 -- support_tickets
+DROP POLICY IF EXISTS "support_tickets select by role" ON public.support_tickets;
 CREATE POLICY "support_tickets select by role" ON public.support_tickets
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "support_tickets insert by role" ON public.support_tickets;
 CREATE POLICY "support_tickets insert by role" ON public.support_tickets
   FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "support_tickets update by role" ON public.support_tickets;
 CREATE POLICY "support_tickets update by role" ON public.support_tickets
   FOR UPDATE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[])) WITH CHECK (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[]));
+DROP POLICY IF EXISTS "support_tickets delete by role" ON public.support_tickets;
 CREATE POLICY "support_tickets delete by role" ON public.support_tickets
   FOR DELETE TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin']::public.app_role[]));
 
 -- settlements
+DROP POLICY IF EXISTS "settlements select by role" ON public.settlements;
 CREATE POLICY "settlements select by role" ON public.settlements
   FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','billing_agent']::public.app_role[]));
 
@@ -162,6 +192,7 @@ CREATE POLICY "settlements select by role" ON public.settlements
 -- uses. status, slug, subdomain, platform_commission_pct and the platform's own M-Pesa
 -- fields are not editable from the browser (a member could previously set the commission to 0).
 DROP POLICY IF EXISTS "tenants admin update" ON public.tenants;
+DROP POLICY IF EXISTS "tenants update by role" ON public.tenants;
 CREATE POLICY "tenants update by role" ON public.tenants
   FOR UPDATE TO authenticated
   USING (public.is_super_admin(auth.uid()) OR public.has_tenant_role(auth.uid(), id, ARRAY['tenant_admin']::public.app_role[]))
