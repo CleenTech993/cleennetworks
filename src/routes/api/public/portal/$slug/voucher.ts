@@ -53,25 +53,32 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           : { data: null };
         const deviceLimit = deviceLimitOf(pkg);
 
-        if (v.status !== "unused") {
-          // Redeeming only marks the voucher used in the database; the customer is then sent to the
-          // router to log in, which can fail for a while (the router learns about new vouchers on its
-          // next sync). That must not lock the customer out: the device that redeemed the code (or
-          // any device, for a multi-device package, where the router enforces the limit) may
-          // present it again so the portal can retry the router login.
-          if (v.status === "used" && canResumeVoucher(deviceLimit, mac, v.used_by_mac)) {
-            if (v.expires_at && new Date(v.expires_at) < new Date()) {
-              return Response.json({ error: "Voucher expired" }, { status: 400 });
-            }
-            return Response.json({
-              ok: true,
-              resumed: true,
-              packageId: v.package_id,
-              code,
-              expiresAt: v.expires_at,
-            });
+        // Redeeming only marks the voucher used in the database; the customer is then sent to the
+        // router to log in, which can fail for a while (the router learns about new vouchers on its
+        // next sync). That must not lock the customer out: the device that redeemed the code (or
+        // any device, for a multi-device package, where the router enforces the limit) may
+        // present it again so the portal can retry the router login.
+        const resume = (row: {
+          status: string;
+          expires_at: string | null;
+          used_by_mac?: string | null;
+        }) => {
+          if (row.status !== "used" || !canResumeVoucher(deviceLimit, mac, row.used_by_mac))
+            return null;
+          if (row.expires_at && new Date(row.expires_at) < new Date()) {
+            return Response.json({ error: "Voucher expired" }, { status: 400 });
           }
-          return Response.json({ error: "Voucher already used" }, { status: 400 });
+          return Response.json({
+            ok: true,
+            resumed: true,
+            packageId: v.package_id,
+            code,
+            expiresAt: row.expires_at,
+          });
+        };
+
+        if (v.status !== "unused") {
+          return resume(v) ?? Response.json({ error: "Voucher already used" }, { status: 400 });
         }
         if (v.expires_at && new Date(v.expires_at) < new Date()) {
           return Response.json({ error: "Voucher expired" }, { status: 400 });
@@ -118,7 +125,20 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
             { status: 500 },
           );
         }
-        if (!redeemed) return Response.json({ error: "Voucher already used" }, { status: 400 });
+        if (!redeemed) {
+          // Lost the race to another request for the same code, typically the customer tapping twice.
+          // That request has redeemed it, so this one resumes rather than being told "already used".
+          const { data: now } = await supabaseAdmin
+            .from("vouchers")
+            .select("status,expires_at,used_by_mac")
+            .eq("id", v.id)
+            .eq("tenant_id", tenant.id)
+            .maybeSingle();
+          return (
+            (now && resume(now)) ??
+            Response.json({ error: "Voucher already used" }, { status: 400 })
+          );
+        }
 
         return Response.json({
           ok: true,

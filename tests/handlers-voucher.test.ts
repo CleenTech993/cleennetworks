@@ -127,6 +127,41 @@ describe("voucher redemption", () => {
     expect(results.filter((r) => r.status === 400)).toHaveLength(5);
   });
 
+  it("a double tap from the same device redeems once and the other tap just resumes", async () => {
+    const MAC = "AA:BB:CC:DD:EE:0A";
+    const ip = freshIp();
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () => redeem({ code: "ABCD2345", mac: MAC }, ip)),
+    );
+    const bodies = await Promise.all(results.map((r) => json(r)));
+    // Nobody is told "already used": that was a dead end for the customer who tapped twice.
+    expect(results.every((r) => r.status === 200)).toBe(true);
+    expect(bodies.filter((b) => !b.resumed)).toHaveLength(1); // exactly one real redemption
+    expect(bodies.filter((b) => b.resumed)).toHaveLength(5);
+    expect(voucher("ABCD2345")).toMatchObject({ status: "used", used_by_mac: MAC });
+  });
+
+  it("losing the race to a DIFFERENT device is still refused (no takeover of a one-device code)", async () => {
+    const ip = freshIp();
+    const [a, b] = await Promise.all([
+      redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0A" }, ip),
+      redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0B" }, ip),
+    ]);
+    expect([a.status, b.status].sort()).toEqual([200, 400]);
+    const loser = a.status === 400 ? a : b;
+    expect((await json(loser)).error).toBe("Voucher already used");
+  });
+
+  it("on a multi-device package, the loser of a race from another device resumes too", async () => {
+    h.db.rows("packages")[0].device_limit = 3;
+    const ip = freshIp();
+    const results = await Promise.all([
+      redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0A" }, ip),
+      redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0B" }, ip),
+    ]);
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
+  });
+
   it("lets the device that redeemed a voucher present it again (router login can fail at first)", async () => {
     const MAC = "AA:BB:CC:DD:EE:0A";
     expect((await redeem({ code: "ABCD2345", mac: MAC })).status).toBe(200);
