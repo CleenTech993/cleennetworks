@@ -143,6 +143,16 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
       `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={}`,
     );
   }
+  if (valid.length > 0) {
+    // Every add above swallows its error, so a router where they all fail (for example no hotspot
+    // server called netgrid-hs) would silently refuse every voucher. Compare what we meant to add
+    // with what is really there and say so in the router log: /log print where message~"NetGrid"
+    lines.push(
+      `:local ngWant ${valid.length}`,
+      ':local ngHave [:len [/ip hotspot user find comment="netgrid-voucher"]]',
+      ':if ($ngHave < $ngWant) do={ :log warning ("NetGrid: only " . $ngHave . " of " . $ngWant . " voucher users were added. Check that hotspot server netgrid-hs and the netgrid-d* user profiles exist.") }',
+    );
+  }
   return lines;
 }
 
