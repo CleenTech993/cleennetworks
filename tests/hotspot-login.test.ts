@@ -36,6 +36,20 @@ describe("hotspot login page", () => {
     expect(html).toContain('"&login=" + encodeURIComponent("$(link-login-only)")');
   });
 
+  it("passes the router's refusal reason to the portal, without putting it inside script code", () => {
+    // $(error) is text the router chooses (it can echo a typed username), so it is only ever placed
+    // in a <textarea> (raw text) and read back with .value, never inside a JS string literal.
+    const occurrences = html.split("$(error)").length - 1;
+    expect(occurrences).toBe(1);
+    expect(html).toMatch(/<textarea id="ng-err" hidden>\$\(error\)<\/textarea>/);
+    expect(html).toContain('document.getElementById("ng-err")');
+    expect(html).toContain('"&error=" + encodeURIComponent(');
+  });
+
+  it("adds no error parameter on a first visit (empty $(error))", () => {
+    expect(html).toContain('(ngErr ? "&error="');
+  });
+
   it("embeds the marker the router uses to detect stale/missing pages", () => {
     expect(html).toContain(`<meta name="generator" content="${loginPageMarker(input)}">`);
   });

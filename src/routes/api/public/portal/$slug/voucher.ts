@@ -5,8 +5,15 @@ import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { expiryFrom } from "@/lib/duration";
 import { deviceLimitOf, normalizeMac } from "@/lib/devices";
+import { canRelogin } from "@/lib/voucher-login";
+import { routerHasVoucher } from "@/lib/voucher-ready.server";
 
-const Schema = z.object({ code: z.string().min(4).max(40), mac: z.string().optional() });
+const Schema = z.object({
+  code: z.string().min(4).max(40),
+  mac: z.string().optional(),
+  /** routers.id of the router the customer is connected to (from the router's login page). */
+  router: z.string().optional(),
+});
 
 export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
   server: {
@@ -32,13 +39,62 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
 
         const { data: v } = await supabaseAdmin
           .from("vouchers")
-          .select("id,status,expires_at,package_id,payment_id")
+          .select("id,status,expires_at,package_id,payment_id,created_at")
           .eq("tenant_id", tenant.id)
           .eq("code", parsed.data.code.trim().toUpperCase())
           .maybeSingle();
         if (!v) return Response.json({ error: "Invalid voucher" }, { status: 404 });
-        if (v.status !== "unused")
-          return Response.json({ error: "Voucher already used" }, { status: 400 });
+
+        const code = parsed.data.code.trim().toUpperCase();
+        const mac = parsed.data.mac ? normalizeMac(parsed.data.mac) : null;
+
+        let pkg: {
+          duration_value: number | null;
+          duration_unit: string | null;
+          device_limit: number | null;
+        } | null = null;
+        if (v.package_id) {
+          const { data } = await supabaseAdmin
+            .from("packages")
+            .select("duration_value,duration_unit,device_limit")
+            .eq("id", v.package_id)
+            .eq("tenant_id", tenant.id)
+            .maybeSingle();
+          pkg = data;
+        }
+        const deviceLimit = deviceLimitOf(pkg);
+
+        // A voucher that was already redeemed can log in again until it expires: a retry after a
+        // failed first login (the router only learns a new voucher at its next sync), the same device
+        // reconnecting, or another device on a multi-device plan. Without this, one failed attempt
+        // locked the customer out for good. The router still enforces the device limit and MAC pin.
+        const relogin = async (status: string, expiresAt: string | null) => {
+          let boundMac: string | null = null;
+          if (status === "used") {
+            // Separate, tolerant read: the column is missing until the device-management migration ran.
+            const { data: b } = await supabaseAdmin
+              .from("vouchers")
+              .select("bound_mac")
+              .eq("id", v.id)
+              .maybeSingle();
+            boundMac = b?.bound_mac ?? null;
+          }
+          const verdict = canRelogin(
+            { status, expires_at: expiresAt, bound_mac: boundMac },
+            deviceLimit,
+            mac,
+          );
+          if (!verdict.ok) return Response.json({ error: verdict.error }, { status: 400 });
+          return Response.json({
+            ok: true,
+            reconnect: true,
+            packageId: v.package_id,
+            code,
+            expiresAt,
+            routerReady: await routerHasVoucher(tenant.id, parsed.data.router, v.created_at),
+          });
+        };
+        if (v.status !== "unused") return relogin(v.status, v.expires_at);
         if (v.expires_at && new Date(v.expires_at) < new Date()) {
           return Response.json({ error: "Voucher expired" }, { status: 400 });
         }
@@ -47,22 +103,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
         // optional "redeem by" date, so the usage clock starts now. (Vouchers bought through the
         // portal already got their expiry when the payment succeeded.)
         let expiresAt = v.expires_at;
-        let deviceLimit = 1;
-        if (v.package_id) {
-          const { data: pkg } = await supabaseAdmin
-            .from("packages")
-            .select("duration_value,duration_unit,device_limit")
-            .eq("id", v.package_id)
-            .eq("tenant_id", tenant.id)
-            .maybeSingle();
-          deviceLimit = deviceLimitOf(pkg);
-          if (!v.payment_id && pkg?.duration_value && pkg.duration_unit)
-            expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
-        }
+        if (!v.payment_id && pkg?.duration_value && pkg.duration_unit)
+          expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
 
         // One package = one device: pin the voucher to the device that redeems it. The router
         // refuses the code from any other device (written to the router on the next sync).
-        const mac = parsed.data.mac ? normalizeMac(parsed.data.mac) : null;
 
         // Atomic redeem: only one concurrent request can flip unused -> used.
         const redeemNow = (patch: TablesUpdate<"vouchers">) =>
@@ -98,13 +143,26 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
             { status: 500 },
           );
         }
-        if (!redeemed) return Response.json({ error: "Voucher already used" }, { status: 400 });
+        if (!redeemed) {
+          // Lost the race to another request for the same code (a double tap): that request has
+          // redeemed it, so this one just reconnects rather than being told it is "already used".
+          const { data: now } = await supabaseAdmin
+            .from("vouchers")
+            .select("status,expires_at")
+            .eq("id", v.id)
+            .maybeSingle();
+          if (now && now.status === "used") return relogin(now.status, now.expires_at);
+          return Response.json({ error: "Voucher already used" }, { status: 400 });
+        }
 
         return Response.json({
           ok: true,
           packageId: v.package_id,
-          code: parsed.data.code.trim().toUpperCase(),
+          code,
           expiresAt,
+          // False while the router has not synced this voucher yet: the portal waits instead of
+          // sending the customer to a login that is certain to fail.
+          routerReady: await routerHasVoucher(tenant.id, parsed.data.router, v.created_at),
         });
       },
     },

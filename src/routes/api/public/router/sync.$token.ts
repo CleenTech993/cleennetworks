@@ -151,6 +151,14 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
           }));
           lines.push(...buildHotspotUserLines(syncVouchers));
+          // Remember when this router was handed the voucher list: the portal waits on it so a
+          // customer's brand-new voucher is not tried before the router knows it.
+          const { error: syncStampError } = await supabaseAdmin
+            .from("routers")
+            .update({ last_sync_at: now })
+            .eq("id", router.id);
+          if (syncStampError)
+            console.warn("sync: could not record last_sync_at:", syncStampError.message);
         } else {
           lines.push(':log warning "NetGrid: voucher list unavailable, keeping current vouchers"');
         }

@@ -57,6 +57,7 @@ import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/p
 import { Route as ApiPublicPortalSlugStatusRouteImport } from './routes/api/public/portal/$slug/status'
 import { Route as ApiPublicPortalSlugTvRouteImport } from './routes/api/public/portal/$slug/tv'
 import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
+import { Route as ApiPublicPortalSlugVoucherReadyRouteImport } from './routes/api/public/portal/$slug/voucher-ready'
 import { Route as ApiPublicProvisionTokenLoginDothtmlRouteImport } from './routes/api/public/provision/$token/login[.]html'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
 import { Route as ApiPublicRouterDevicesTokenRouteImport } from './routes/api/public/router/devices.$token'
@@ -313,6 +314,12 @@ const ApiPublicPortalSlugVoucherRoute =
     path: '/voucher',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
+const ApiPublicPortalSlugVoucherReadyRoute =
+  ApiPublicPortalSlugVoucherReadyRouteImport.update({
+    id: '/voucher-ready',
+    path: '/voucher-ready',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
 const ApiPublicProvisionTokenLoginDothtmlRoute =
   ApiPublicProvisionTokenLoginDothtmlRouteImport.update({
     id: '/api/public/provision/$token/login.html',
@@ -411,6 +418,7 @@ export interface FileRoutesByFullPath {
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/portal/$slug/voucher-ready': typeof ApiPublicPortalSlugVoucherReadyRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
@@ -466,6 +474,7 @@ export interface FileRoutesByTo {
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/portal/$slug/voucher-ready': typeof ApiPublicPortalSlugVoucherReadyRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
@@ -525,6 +534,7 @@ export interface FileRoutesById {
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/portal/$slug/voucher-ready': typeof ApiPublicPortalSlugVoucherReadyRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
@@ -585,6 +595,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/portal/$slug/voucher-ready'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/devices/$token'
@@ -640,6 +651,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/portal/$slug/voucher-ready'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/devices/$token'
@@ -698,6 +710,7 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/portal/$slug/voucher-ready'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/devices/$token'
@@ -1071,6 +1084,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugVoucherRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
+    '/api/public/portal/$slug/voucher-ready': {
+      id: '/api/public/portal/$slug/voucher-ready'
+      path: '/voucher-ready'
+      fullPath: '/api/public/portal/$slug/voucher-ready'
+      preLoaderRoute: typeof ApiPublicPortalSlugVoucherReadyRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
     '/api/public/provision/$token/login.html': {
       id: '/api/public/provision/$token/login.html'
       path: '/api/public/provision/$token/login.html'
@@ -1231,6 +1251,7 @@ interface ApiPublicPortalSlugRouteChildren {
   ApiPublicPortalSlugStatusRoute: typeof ApiPublicPortalSlugStatusRoute
   ApiPublicPortalSlugTvRoute: typeof ApiPublicPortalSlugTvRoute
   ApiPublicPortalSlugVoucherRoute: typeof ApiPublicPortalSlugVoucherRoute
+  ApiPublicPortalSlugVoucherReadyRoute: typeof ApiPublicPortalSlugVoucherReadyRoute
 }
 
 const ApiPublicPortalSlugRouteChildren: ApiPublicPortalSlugRouteChildren = {
@@ -1240,6 +1261,7 @@ const ApiPublicPortalSlugRouteChildren: ApiPublicPortalSlugRouteChildren = {
   ApiPublicPortalSlugStatusRoute: ApiPublicPortalSlugStatusRoute,
   ApiPublicPortalSlugTvRoute: ApiPublicPortalSlugTvRoute,
   ApiPublicPortalSlugVoucherRoute: ApiPublicPortalSlugVoucherRoute,
+  ApiPublicPortalSlugVoucherReadyRoute: ApiPublicPortalSlugVoucherReadyRoute,
 }
 
 const ApiPublicPortalSlugRouteWithChildren =

@@ -272,6 +272,40 @@ describe("sync script scoping", () => {
   });
 });
 
+describe("sync records when the router received its voucher list", () => {
+  const sync = async (token: string) => call(Sync, "GET", { params: { token }, ip: freshIp() });
+
+  it("stamps last_sync_at on the router that synced, and only that router", async () => {
+    const token = await issueDeviceToken(R1);
+    const before = Date.now();
+    expect((await sync(token)).status).toBe(200);
+    const stamped = new Date(String(router(R1).last_sync_at)).getTime();
+    expect(stamped).toBeGreaterThanOrEqual(before - 1000);
+    expect(stamped).toBeLessThanOrEqual(Date.now() + 1000);
+    expect(router(R2).last_sync_at).toBeUndefined();
+    expect(router(R3).last_sync_at).toBeUndefined();
+  });
+
+  it("does NOT stamp it when the voucher list could not be read (the router got no vouchers)", async () => {
+    const token = await issueDeviceToken(R1);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext("vouchers", "select", "db down"); // first attempt
+    h.db.failNext("vouchers", "select", "db down"); // retry without bound_mac
+    const res = await sync(token);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("voucher list unavailable");
+    expect(router(R1).last_sync_at).toBeUndefined();
+  });
+
+  it("a failed stamp never fails the sync itself", async () => {
+    const token = await issueDeviceToken(R1);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    h.db.failNext("routers", "update", "db down");
+    expect((await sync(token)).status).toBe(200);
+  });
+});
+
 describe("login.html", () => {
   it("needs a valid device token", async () => {
     expect(

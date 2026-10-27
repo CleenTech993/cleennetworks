@@ -57,11 +57,18 @@ function renderBody({ portalUrl, routerId }: LoginPageInput): string {
     `</head><body style="font-family:sans-serif;text-align:center;padding:2rem">`,
     `<p>Taking you to the Wi-Fi portal…</p>`,
     `<p><a href="${escapeHtml(noJsUrl)}">Tap here if nothing happens</a></p>`,
+    // The router fills $(error) with the reason a login was refused (empty on a first visit). It sits
+    // in a <textarea> (raw text; only a closing textarea tag could end it) rather than inside a script
+    // string, because the text is not under our control. The script passes it to the portal, which
+    // shows it. Without this every refused login looked like a silent bounce back to the sign-in page.
+    `<textarea id="ng-err" hidden>$(error)</textarea>`,
     `<script>`,
+    `var ngErr = (document.getElementById("ng-err") || {}).value || "";`,
     `location.replace(${jsString(base)}`,
     `  + "&mac=" + encodeURIComponent("$(mac)")`,
     `  + "&ip=" + encodeURIComponent("$(ip)")`,
-    `  + "&login=" + encodeURIComponent("$(link-login-only)"));`,
+    `  + "&login=" + encodeURIComponent("$(link-login-only)")`,
+    `  + (ngErr ? "&error=" + encodeURIComponent(ngErr.slice(0, 200)) : ""));`,
     `</script>`,
     `</body></html>`,
   ].join("\n");

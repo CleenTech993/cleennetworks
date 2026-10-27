@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buildHotspotLoginRedirect, routerParams } from "@/lib/hotspot-redirect";
+import {
+  READY_POLL_MS,
+  READY_SETTLE_MS,
+  READY_WAIT_MAX_MS,
+  cleanRouterError,
+  explainLoginError,
+} from "@/lib/voucher-login";
 import { PortalHeader } from "@/components/portal/header";
 import { PlanOption } from "@/components/portal/plan-option";
 import { PortalThemeFrame } from "@/components/portal/theme-frame";
@@ -70,9 +77,26 @@ function sessionStore(): Storage | null {
   }
 }
 
+/** Why the router refused a login, shown when its login page sent the customer back here. */
+function RouterErrorNotice({ message }: { message: string }) {
+  const help = explainLoginError(message);
+  return (
+    <div
+      role="alert"
+      className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm"
+    >
+      <p className="font-medium">The Wi-Fi didn't accept that code</p>
+      <p className="mt-1 text-muted-foreground">{help.hint}</p>
+      <p className="mt-1 text-xs text-muted-foreground">Router said: {message}</p>
+    </div>
+  );
+}
+
 function PortalPage() {
+  const [routerError, setRouterError] = useState<string | null>(null);
   useEffect(() => {
     routerParams(window.location.search, sessionStore());
+    setRouterError(cleanRouterError(new URLSearchParams(window.location.search).get("error")));
   }, []);
   const { slug } = Route.useParams();
   const { data, isLoading, error } = useQuery<PortalData>({
@@ -120,7 +144,8 @@ function PortalPage() {
 
       <div className={theme.sheet ? "pt-sheet pt-6" : undefined}>
         <div className="mx-auto max-w-md px-4 pb-12">
-          <Tabs defaultValue="buy">
+          {routerError && <RouterErrorNotice message={routerError} />}
+          <Tabs defaultValue={routerError ? "voucher" : "buy"}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger className="px-1 text-xs sm:text-sm" value="buy">
                 Buy
@@ -690,8 +715,50 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
 
 function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
   const [code, setCode] = useState("");
-  const [done, setDone] = useState<"connecting" | "accepted" | null>(null);
+  const [done, setDone] = useState<"waiting" | "connecting" | "accepted" | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set when the router has not received this voucher yet: where to send the phone once it has.
+  const [pending, setPending] = useState<{
+    target: string;
+    code: string;
+    router: string | null;
+  } | null>(null);
+
+  function connect(target: string) {
+    setDone("connecting");
+    window.location.href = target;
+  }
+
+  // A brand-new voucher reaches the router at its next sync (up to 2 minutes). Logging in before
+  // that is certain to fail, so wait until the router reports it has the voucher, then log in.
+  useEffect(() => {
+    if (done !== "waiting" || !pending) return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const started = Date.now();
+    const tick = async () => {
+      if (stopped) return;
+      if (Date.now() - started > READY_WAIT_MAX_MS) return connect(pending.target); // try anyway
+      try {
+        const q = new URLSearchParams({ code: pending.code });
+        if (pending.router) q.set("router", pending.router);
+        const res = await fetch(`/api/public/portal/${slug}/voucher-ready?${q}`);
+        const json = await res.json();
+        if (json.ready) {
+          timer = setTimeout(() => !stopped && connect(pending.target), READY_SETTLE_MS);
+          return;
+        }
+      } catch {
+        // Offline blip: keep waiting.
+      }
+      timer = setTimeout(tick, READY_POLL_MS);
+    };
+    timer = setTimeout(tick, 0);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [done, pending, slug]);
 
   async function redeem() {
     setBusy(true);
@@ -701,18 +768,24 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       const res = await fetch(`/api/public/portal/${slug}/voucher`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, mac: params.mac || undefined }),
+        body: JSON.stringify({
+          code,
+          mac: params.mac || undefined,
+          router: params.router || undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
-      toast.success("Voucher redeemed");
+      toast.success(json.reconnect ? "Welcome back" : "Voucher redeemed");
       // Hand the browser to the router so the device is actually logged in.
       const target = buildHotspotLoginRedirect(params.login, json.code ?? code);
-      if (target) {
-        setDone("connecting");
-        window.location.href = target;
-      } else {
+      if (!target) {
         setDone("accepted");
+      } else if (json.routerReady === false) {
+        setPending({ target, code: json.code ?? code, router: params.router });
+        setDone("waiting");
+      } else {
+        connect(target);
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -726,8 +799,28 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
         <p className="mt-3 font-medium">
-          {done === "connecting" ? "Connecting you to the internet…" : "Voucher accepted"}
+          {done === "connecting"
+            ? "Connecting you to the internet…"
+            : done === "waiting"
+              ? "Getting your voucher onto the Wi-Fi…"
+              : "Voucher accepted"}
         </p>
+        {done === "waiting" && (
+          <>
+            <p className="mt-1 text-sm text-muted-foreground">
+              A new voucher can take up to 2 minutes to reach the router. You'll be connected
+              automatically; please keep this page open.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={() => pending && connect(pending.target)}
+            >
+              Try now
+            </Button>
+          </>
+        )}
         {done === "accepted" && (
           <p className="mt-1 text-sm text-muted-foreground">
             Open this page from the Wi-Fi network's sign-in screen to connect, or reconnect to the

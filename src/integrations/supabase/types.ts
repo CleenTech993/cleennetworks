@@ -999,6 +999,7 @@ export type Database = {
       };
       routers: {
         Row: {
+          last_sync_at: string | null;
           architecture: string | null;
           block_tethering: boolean;
           board_name: string | null;
@@ -1035,6 +1036,7 @@ export type Database = {
           wg_tunnel_ip: string | null;
         };
         Insert: {
+          last_sync_at?: string | null;
           architecture?: string | null;
           block_tethering?: boolean;
           board_name?: string | null;
@@ -1071,6 +1073,7 @@ export type Database = {
           wg_tunnel_ip?: string | null;
         };
         Update: {
+          last_sync_at?: string | null;
           architecture?: string | null;
           block_tethering?: boolean;
           board_name?: string | null;
