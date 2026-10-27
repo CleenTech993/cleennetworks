@@ -18,6 +18,17 @@ import {
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
+/**
+ * A section whose database read failed (for example a migration that has not been applied yet) must
+ * NOT be treated as "there is nothing": that would delete every PPPoE client, TV or block already on
+ * the router. The section is skipped instead, so the router keeps what it has, and the problem is
+ * logged on the server and on the router.
+ */
+function skipped(section: string, error: { message: string } | null | undefined): string[] {
+  console.error(`sync: ${section} could not be read, router keeps its current state: ${error?.message}`);
+  return [`:log warning "NetGrid: ${section} sync skipped (database problem), keeping current settings"`];
+}
+
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
 // Routers fetch + import this every few minutes (see provisioning scheduler "netgrid-sync").
 
@@ -39,14 +50,14 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const now = new Date().toISOString();
         const [
           { data: tenant },
-          { data: customers },
+          { data: customers, error: customersError },
           { data: vouchers, error: vouchersError },
-          { data: packages },
-          { data: tvs },
+          { data: packages, error: packagesError },
+          { data: tvs, error: tvsError },
           { data: hotspotPkgs },
-          { data: blocked },
-          { data: routerRow },
-          { data: monitored },
+          { data: blocked, error: blockedError },
+          { data: routerRow, error: routerRowError },
+          { data: monitored, error: monitoredError },
         ] = await Promise.all([
           supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
           // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
@@ -101,28 +112,14 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const lines: string[] = ["# NetGrid sync"];
         const host = getRequestHost();
 
-        // Self-heal the hotspot login page (captive-portal redirect): if the router's copy is
-        // missing, stale or was reset, re-download it. No flash write when it is already current.
-        if (tenant?.slug) {
-          const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
-          lines.push(
-            routerosHealLoginPage({
-              loginUrl: `https://${host}/api/public/provision/${params.token}/login.html`,
-              marker: loginPageMarker({ portalUrl, routerId: router.id }),
-              portalHost: host,
-            }),
-          );
-        }
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
         lines.push(
-          ...buildPppoeSyncLines({
-            routerId: router.id,
-            customers: customers ?? [],
-            packages: packages ?? [],
-          }),
+          ...(customersError || packagesError || !customers || !packages
+            ? skipped("PPPoE", customersError ?? packagesError)
+            : buildPppoeSyncLines({ routerId: router.id, customers, packages })),
         );
         // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
-        lines.push(...buildTvSyncLines(tvs ?? []));
+        lines.push(...(tvsError || !tvs ? skipped("smart TV", tvsError) : buildTvSyncLines(tvs)));
         // Hotspot vouchers: one package = one device (shared-users limit + MAC pinned from the database).
         // If the voucher list cannot be read, the router must KEEP its current voucher users: an empty
         // list would delete every one of them. A missing bound_mac column (migration not applied yet)
@@ -154,9 +151,18 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         } else {
           lines.push(':log warning "NetGrid: voucher list unavailable, keeping current vouchers"');
         }
-        lines.push(...buildBlockLines((blocked ?? []).map((b) => b.mac)));
-        // Anti-tethering rules and the periodic device report.
-        lines.push(...buildTetherLines(routerRow?.block_tethering !== false));
+        lines.push(
+          ...(blockedError || !blocked
+            ? skipped("blocked devices", blockedError)
+            : buildBlockLines(blocked.map((b) => b.mac))),
+        );
+        // Anti-tethering rules and the periodic device report. Without a readable setting the rules
+        // are left exactly as they are (never switched on by default because a read failed).
+        lines.push(
+          ...(routerRowError || !routerRow
+            ? skipped("anti-tethering", routerRowError)
+            : buildTetherLines(routerRow.block_tethering !== false)),
+        );
         lines.push(
           ...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`),
         );
@@ -166,11 +172,28 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         );
         // Inventory monitoring: keep a netwatch entry per monitored device; the router reports up/down.
         lines.push(
-          ...buildDeviceMonitorLines(
-            monitored ?? [],
-            `https://${host}/api/public/router/inventory/${params.token}`,
-          ),
+          ...(monitoredError || !monitored
+            ? skipped("device monitoring", monitoredError)
+            : buildDeviceMonitorLines(
+                monitored,
+                `https://${host}/api/public/router/inventory/${params.token}`,
+              )),
         );
+
+        // Last on purpose: the login page is a nice-to-have, and a slow or failing download here must
+        // never delay or block the user and PPPoE sync above.
+        // Self-heal the hotspot login page (captive-portal redirect): if the router's copy is
+        // missing, stale or was reset, re-download it. No flash write when it is already current.
+        if (tenant?.slug) {
+          const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
+          lines.push(
+            routerosHealLoginPage({
+              loginUrl: `https://${host}/api/public/provision/${params.token}/login.html`,
+              marker: loginPageMarker({ portalUrl, routerId: router.id }),
+              portalHost: host,
+            }),
+          );
+        }
         lines.push(':log info "NetGrid: users synced"', "");
 
         // Send any alert SMS waiting for this tenant (e.g. low stock raised by the database).

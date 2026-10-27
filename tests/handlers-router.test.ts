@@ -110,6 +110,19 @@ describe("device endpoint authentication (heartbeat)", () => {
     ]);
   });
 
+  it("keeps existing routers working when routers.legacy_token_auth does not exist yet (migration not applied)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext("routers", "select", "column routers.legacy_token_auth does not exist");
+    expect((await hb(LEGACY2)).status).toBe(200);
+  });
+
+  it("does not let a database outage open the door: other errors and unknown tokens are still refused", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext("routers", "select", "connection reset");
+    expect((await hb(LEGACY2)).status).toBe(404);
+    expect((await hb("z".repeat(40))).status).toBe(404);
+  });
+
   it("rejects unknown and malformed tokens, and malformed ones never reach the database", async () => {
     expect((await hb("x".repeat(40))).status).toBe(404);
     h.db.log.length = 0;
@@ -299,13 +312,50 @@ describe("router.rsc provisioning", () => {
     for (const earlier of [
       "add name=netgrid-hs-pool",
       "/ip hotspot profile",
-      "/ip hotspot\nadd name=netgrid-hs ",
+      ":do { add name=netgrid-hs interface=netgrid-lan",
       "add name=netgrid-sync interval=2m",
       "add name=netgrid-heartbeat",
     ]) {
       expect(at(earlier), earlier).toBeLessThan(portMove);
     }
     expect(portMove).toBeLessThan(at('NetGrid: auto-config complete"'));
+  });
+
+  it("downloads the login page last (best effort), so a slow download can never hold up the hotspot or PPPoE setup", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    const login = script.indexOf("/tool fetch url=");
+    const firstFetchOfPage = script.indexOf("login.html", login);
+    expect(firstFetchOfPage).toBeGreaterThan(script.indexOf("/interface bridge port add bridge=netgrid-lan"));
+    expect(script.indexOf(":do { add name=netgrid-hs interface")).toBeLessThan(firstFetchOfPage);
+    expect(script.indexOf(":do { add service-name=netgrid interface=netgrid-lan")).toBeLessThan(firstFetchOfPage);
+  });
+
+  it("guards each setup step, so one failing command cannot leave the customer ports disconnected", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    // every 'add' that creates a hotspot / PPPoE / DHCP / NAT piece sits inside its own :do { } on-error
+    const lines = script.split("\n");
+    const bare = lines.filter((l) => /^add (name|address|chain|service-name|dst-host)=/.test(l));
+    // the only unguarded adds left are the scheduler/script definitions (which already tolerate re-runs)
+    expect(bare.filter((l) => !/^add name=netgrid-(wan|ifaces|sync|heartbeat)/.test(l))).toEqual([]);
+  });
+
+  it("is structurally sound: balanced quotes and brackets, and no \\$ outside quoted strings", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    const noComments = script.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+    // quotes: an odd number of unescaped quotes means a string never closes and the import aborts there
+    expect(noComments.replace(/\\./g, "").split('"').length % 2).toBe(1);
+    const stripped = noComments.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    for (const [a, b] of [["{", "}"], ["[", "]"], ["(", ")"]]) {
+      expect(stripped.split(a).length, `${a}${b}`).toBe(stripped.split(b).length);
+    }
+    expect(stripped).not.toMatch(/\\\$/);
+  });
+
+  it("uses RouterOS's standard hotspot folder and never calls the unverified reset-html", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    expect(script).toContain("html-directory=hotspot");
+    expect(script).not.toContain("flash/hotspot");
+    expect(script).not.toContain("reset-html");
   });
 
   it("exchanges the bootstrap token for a fresh device token and embeds only the device token", async () => {
@@ -361,10 +411,94 @@ describe("router.rsc provisioning", () => {
     expect(await res.text()).not.toContain("/router/heartbeat/");
   });
 
+  it("falls back to the previous token scheme when the credentials migration is not applied yet", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext("router_credentials", "upsert", "Could not find the table 'public.router_credentials' in the schema cache");
+    const res = await rsc(BOOT1);
+    expect(res.status).toBe(200);
+    // the router is provisioned with the token it already has instead of being refused
+    expect(await res.text()).toContain(`/router/heartbeat/${BOOT1}`);
+  });
+
   it("leaves the existing credential alone if the tenant lookup fails", async () => {
     const existing = await issueDeviceToken(R1);
     h.db.failNext("tenants", "select");
     await rsc(BOOT1);
     expect((await hb(existing)).status).toBe(200);
+  });
+});
+
+describe("sync keeps what the router already has when a database read fails", () => {
+  const sync = async (token: string) => {
+    const res = await call(Sync, "GET", { params: { token }, ip: freshIp() });
+    return { res, text: await res.text() };
+  };
+  const client = (u: string) => ({
+    tenant_id: T, customer_type: "pppoe", status: "active", pppoe_username: u, pppoe_password: `${u}pass12`,
+    router_id: null, expires_at: null, package_id: null,
+  });
+
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db
+      .seed("customers", [client("alice")])
+      .seed("vouchers", [{ tenant_id: T, code: "UNUSED2345", status: "unused", expires_at: null }]);
+  });
+
+  it("healthy: PPPoE clients and vouchers are written", async () => {
+    const { text } = await sync(await issueDeviceToken(R1));
+    expect(text).toContain("alice");
+    expect(text).toContain("UNUSED2345");
+    expect(text).not.toContain("sync skipped");
+  });
+
+  it("PPPoE: an unreadable customer list is skipped, never treated as 'no clients'", async () => {
+    h.db.failNext("customers", "select", "column customers.router_id does not exist");
+    const { res, text } = await sync(await issueDeviceToken(R1));
+    expect(res.status).toBe(200);
+    expect(text).toContain("PPPoE sync skipped");
+    expect(text).not.toContain("alice");
+    // no PPPoE section at all, so nothing is removed from the router
+    expect(text).not.toContain("/ppp secret");
+    expect(text).not.toContain("/ppp profile");
+    // the rest of the sync still runs
+    expect(text).toContain("UNUSED2345");
+  });
+
+  it("PPPoE: an unreadable package list is skipped too, so speed limits are not silently dropped", async () => {
+    h.db.failNext("packages", "select", "boom");
+    const { text } = await sync(await issueDeviceToken(R1));
+    expect(text).toContain("PPPoE sync skipped");
+    expect(text).not.toContain("/ppp secret");
+  });
+
+  it("smart TVs, blocked devices and device monitoring are each skipped, not wiped", async () => {
+    h.db.failNext("tv_devices", "select", "boom");
+    h.db.failNext("router_devices", "select", "boom");
+    h.db.failNext("inventory_devices", "select", "boom");
+    const { text } = await sync(await issueDeviceToken(R1));
+    expect(text).toContain("smart TV sync skipped");
+    expect(text).toContain("blocked devices sync skipped");
+    expect(text).toContain("device monitoring sync skipped");
+    expect(text).not.toContain("netgrid-tv");
+    expect(text).toContain("alice"); // unrelated sections are unaffected
+  });
+
+  it("the login-page self-heal comes last, after every user and PPPoE section", async () => {
+    const { text } = await sync(await issueDeviceToken(R1));
+    const heal = text.indexOf("hotspot login page self-heal");
+    expect(heal).toBeGreaterThan(-1);
+    for (const earlier of ["alice", "UNUSED2345", "NetGrid: users synced"]) {
+      expect(text.indexOf(earlier), earlier).toBeLessThan(heal === -1 ? 0 : text.lastIndexOf("users synced") + 1);
+    }
+    expect(text.indexOf("alice")).toBeLessThan(heal);
+    expect(text.indexOf("UNUSED2345")).toBeLessThan(heal);
+  });
+
+  it("no router script contains an escaped dollar (\\$) outside a quoted string", async () => {
+    const { text } = await sync(await issueDeviceToken(R1));
+    // inside braced script bodies RouterOS needs plain $; \$ is only valid within "quoted" strings
+    const stripped = text.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    expect(stripped).not.toMatch(/\\\$/);
   });
 });

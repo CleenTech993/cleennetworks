@@ -209,14 +209,13 @@ describe("buildDeviceAgentLines", () => {
     expect(buildDeviceAgentLines("https://x.com/other/t")).toEqual([]);
   });
 
-  it("escapes every $ in the braced script source and keeps the syntax balanced", () => {
+  it("writes variables as plain $ in the braced script source (like the scripts that have always worked) and keeps the syntax balanced", () => {
     const lines = buildDeviceAgentLines(URL_OK);
     const script = lines.find((l) => l.startsWith("add name=netgrid-devices"))!;
     expect(script).toContain(URL_OK);
-    // no unescaped dollar anywhere in the source
-    expect(script.match(/(^|[^\\])\$/g)).toBeNull();
-    // un-escaping gives back plain RouterOS code that still parses as balanced
-    const plain = script.replace(/\\\$/g, "$");
+    // "\$" is only valid inside a quoted string; inside a braced source it would be a syntax error
+    expect(script.match(/\\\$/g)).toBeNull();
+    const plain = script;
     expect(plain).toContain(":foreach h in=[/ip hotspot host find]");
     expect(balanced(plain)).toBe(true);
     expect(balanced(lines.join("\n").replace(/\\\$/g, "$"))).toBe(true);
@@ -239,7 +238,7 @@ describe("buildDeviceAgentLines", () => {
       l.startsWith("add name=netgrid-devices"),
     )!;
     expect(script.split("\n").filter((l) => l.trim().startsWith("#"))).toEqual([]);
-    expect(script).toContain("$c ~".replace("$", "\\$")); // the sanitiser itself is still there
+    expect(script).toContain("$c ~"); // the sanitiser itself is still there
   });
 
   it("creates the scheduler only when missing (re-creating it every sync would reset its timer)", () => {

@@ -100,7 +100,7 @@ export function buildPppoeAgentLines(pushUrl: string): string[] {
   const code = PPPOE_SCRIPT.split("\n")
     .filter((l) => !l.trim().startsWith("#"))
     .join("\n");
-  const source = code.replaceAll("__URL__", pushUrl).replace(/\$/g, "\\$");
+  const source = code.replaceAll("__URL__", pushUrl);
   return [
     "/system script",
     ":do { remove [find where name=netgrid-pppoe] } on-error={}",

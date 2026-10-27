@@ -88,49 +88,58 @@ export function buildLoginHtml(input: LoginPageInput): string {
 // RouterOS snippets. In a JS template literal "$name" (no brace) is literal, so
 // RouterOS variables can be written as-is. Every command that can fail is guarded
 // so one failure never aborts the surrounding /import.
+//
+// The page is written with "/file add name=hotspot/login.html contents=..." (or "/file set" when it
+// already exists): the same way the original provisioning script wrote it, which is known to work on
+// these routers. It is downloaded to a plain file in the root first (a path that always works) and
+// copied from there, so a missing hotspot folder can never make the download itself fail.
 // ---------------------------------------------------------------------------
 
+/** Download the login page to a temp file and copy it into place when it carries the expected marker. */
+function writeLoginPage(a: { loginUrl: string; marker: string }): string {
+  return `:local ngTmp "netgrid-login.html"
+/tool fetch url="${a.loginUrl}" dst-path=$ngTmp mode=https
+:delay 1s
+:local ngBody [/file get [/file find name=$ngTmp] contents]
+:if ([:typeof [:find $ngBody "${a.marker}"]] != "nil") do={
+  :if ([:len [/file find name=$ngFile]] > 0) do={ /file set [/file find name=$ngFile] contents=$ngBody } else={ /file add name=$ngFile contents=$ngBody }
+}
+:do { /file remove [/file find name=$ngTmp] } on-error={}`;
+}
+
 /**
- * Provisioning: pick persistent storage, make sure the hotspot folder has files,
- * download the login page and verify it (3 tries). Expects $ngDir / $ngFile to be
- * defined earlier in the script (see ROUTEROS_PICK_HTML_DIR).
+ * Provisioning: download the login page, save it into the hotspot folder and verify it (3 tries).
+ * Best effort: the hotspot works with RouterOS's own login page until this succeeds, and the sync
+ * job retries every few minutes, so a failure here never blocks the rest of the setup.
+ * Expects $ngFile to be defined earlier in the script (see ROUTEROS_PICK_HTML_DIR).
  */
 export function routerosInstallLoginPage(a: { loginUrl: string; marker: string }): string {
   return `
 # --- Hotspot login page -> captive portal (downloaded, verified, retried) ---
-:do {
-  :if ([:len [/file find name=$ngFile]] = 0) do={ /ip hotspot reset-html }
-} on-error={}
 :local ngOk false
 :local ngTry 0
 :while (!$ngOk && $ngTry < 3) do={
   :set ngTry ($ngTry + 1)
   :do {
-    /tool fetch url="${a.loginUrl}" dst-path=$ngFile mode=https
-    :delay 1s
+${writeLoginPage(a)}
     :local ngHave [/file get [/file find name=$ngFile] contents]
     :if ([:typeof [:find $ngHave "${a.marker}"]] != "nil") do={ :set ngOk true }
   } on-error={ :delay 3s }
 }
-:if ($ngOk) do={ :log info "NetGrid: hotspot login page installed in $ngDir" } else={ :log warning "NetGrid: hotspot login page not installed yet - the sync job will retry" }
+:if ($ngOk) do={ :log info "NetGrid: hotspot login page installed" } else={ :log warning "NetGrid: hotspot login page not installed yet - the sync job will retry" }
 `;
 }
 
-/**
- * Router-side variable setup. Routers that have a "flash" disk keep files outside
- * /flash in RAM, which is wiped on reboot — so the hotspot folder must live in
- * flash/ there to survive a restart.
- */
+/** Router-side variables for the login page snippets (RouterOS's default hotspot folder). */
 export const ROUTEROS_PICK_HTML_DIR = `
 :local ngDir "hotspot"
-:if ([:len [/file find name=flash]] > 0) do={ :set ngDir "flash/hotspot" }
 :local ngFile ($ngDir . "/login.html")
 `;
 
 /**
- * Self-heal, appended to the sync script that routers run every few minutes.
- * Only writes to flash when the page is missing or stale (marker mismatch), and
- * restores the portal's walled-garden entry if it was lost.
+ * Self-heal, appended to the END of the sync script that routers run every few minutes, so a
+ * problem with the login page can never delay or block the user sync before it. Only writes when
+ * the page is missing or stale (marker mismatch), and restores the portal's walled-garden entry.
  */
 export function routerosHealLoginPage(a: {
   loginUrl: string;
@@ -146,7 +155,7 @@ export function routerosHealLoginPage(a: {
   :local ngHave ""
   :do { :set ngHave [/file get [/file find name=$ngFile] contents] } on-error={}
   :if ([:typeof [:find $ngHave "${a.marker}"]] = "nil") do={
-    /tool fetch url="${a.loginUrl}" dst-path=$ngFile mode=https
+${writeLoginPage(a)}
     :log info "NetGrid: hotspot login page restored"
   }
   :if ([:len [/ip hotspot walled-garden ip find comment=netgrid]] = 0) do={
