@@ -29,6 +29,15 @@ export function mintDeviceToken(): string {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/**
+ * True when a database error says a table or column does not exist, i.e. the code was deployed
+ * before the migration that creates it. Used to fall back to the previous behaviour instead of
+ * locking every router out.
+ */
+export function isMissingSchema(message: string | null | undefined): boolean {
+  return /schema cache|does not exist|could not find the .*(table|column)/i.test(message ?? "");
+}
+
 export interface AuthedRouter {
   id: string;
   tenant_id: string;
@@ -65,12 +74,23 @@ export async function authenticateRouter(request: Request, token: string): Promi
     if (router) return { ok: true, router: { ...router, via: "device" } };
   }
 
-  const { data: legacy } = await supabaseAdmin
+  let { data: legacy, error: legacyError } = await supabaseAdmin
     .from("routers")
     .select(ROUTER_COLS)
     .eq("provision_token", token)
     .eq("legacy_token_auth", true)
     .maybeSingle();
+  if (legacyError && isMissingSchema(legacyError.message)) {
+    // The router_credentials migration is not applied yet, so routers.legacy_token_auth does not
+    // exist. Routers set up before it still carry provision_token in their schedulers: keep them
+    // working (exactly as they did before the migration) rather than answering 404 to all of them.
+    console.error(`router auth: ${legacyError.message}; apply migration 20261025010000_router_credentials.sql`);
+    ({ data: legacy } = await supabaseAdmin
+      .from("routers")
+      .select(ROUTER_COLS)
+      .eq("provision_token", token)
+      .maybeSingle());
+  }
   if (legacy) {
     console.warn(`router ${legacy.id} authenticated with a legacy token; it needs re-provisioning`);
     return { ok: true, router: { ...legacy, via: "legacy" } };

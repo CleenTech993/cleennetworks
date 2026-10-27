@@ -117,13 +117,13 @@ describe("buildPppoeAgentLines", () => {
 
   it("posts to the router's own URL, and in batches so a long list cannot overflow a RouterOS string", () => {
     expect(script.split(URL).length - 1).toBe(2); // in-loop batch + final flush
-    expect(script).toContain("[:len \\$d] > 3000"); // "$" is escaped as "\\$" in the emitted source
+    expect(script).toContain("[:len $d] > 3000");
   });
 
-  it("escapes every $ the way RouterOS needs inside a braced script source", () => {
+  it("writes variables as plain $ inside the braced script source, never as \\$", () => {
     const source = script.slice(script.indexOf("source={") + 8);
-    expect(source).toMatch(/\\\$/);
-    expect(source.replace(/\\\$/g, "")).not.toContain("$");
+    expect(source).toContain("$d");
+    expect(source).not.toMatch(/\\\$/);
   });
 
   it("leaves no placeholder or comment lines in the emitted script", () => {

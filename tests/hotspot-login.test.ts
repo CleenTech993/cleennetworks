@@ -74,12 +74,15 @@ describe("RouterOS snippets", () => {
     marker: loginPageMarker(input),
   };
 
-  it("install: downloads, verifies by marker, retries, never uses /file add", () => {
+  it("install: downloads to a plain file, copies it in with /file add|set, verifies by marker, retries", () => {
     const s = routerosInstallLoginPage(a);
-    expect(s).toContain(`/tool fetch url="${a.loginUrl}" dst-path=$ngFile mode=https`);
+    expect(s).toContain(`/tool fetch url="${a.loginUrl}" dst-path=$ngTmp mode=https`);
+    expect(s).toContain("/file add name=$ngFile contents=$ngBody");
+    expect(s).toContain("/file set [/file find name=$ngFile] contents=$ngBody");
     expect(s).toContain(a.marker);
     expect(s).toContain("$ngTry < 3");
-    expect(s).not.toContain("/file add");
+    expect(s).not.toContain("reset-html");
+    expect(s).not.toContain("flash");
   });
 
   it("heal: only fetches when the marker is missing, and restores the walled garden", () => {

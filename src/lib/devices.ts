@@ -236,12 +236,13 @@ const PUSH_URL = /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/api\/public\/router\/devices
  */
 export function buildDeviceAgentLines(pushUrl: string): string[] {
   if (!PUSH_URL.test(pushUrl)) return [];
-  // Inside a braced script source RouterOS needs "$" written as "\$" (same as the other scripts).
+  // Variables are written as plain "$name" inside the braced source, exactly like the WAN, interface and
+  // heartbeat scripts that have always worked. (An escaped "\$" is only valid inside a quoted string.)
   // Comment lines are for readers of this file only: keep them out of the script the router imports.
   const code = DEVICE_SCRIPT.split("\n")
     .filter((l) => !l.trim().startsWith("#"))
     .join("\n");
-  const source = code.replace("__URL__", pushUrl).replace(/\$/g, "\\$");
+  const source = code.replace("__URL__", pushUrl);
   return [
     "/system script",
     ":do { remove [find where name=netgrid-devices] } on-error={}",

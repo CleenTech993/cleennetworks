@@ -6,7 +6,7 @@ import {
   routerosInstallLoginPage,
   ROUTEROS_PICK_HTML_DIR,
 } from "@/lib/hotspot-login.server";
-import { authenticateBootstrap, issueDeviceToken } from "@/lib/router-auth.server";
+import { authenticateBootstrap, isMissingSchema, issueDeviceToken } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/public/provision/$token/router.rsc")({
@@ -46,10 +46,16 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           token = await issueDeviceToken(router.id);
         } catch (e) {
           console.error("provision: could not issue device token", e);
-          return new Response("# could not provision this router right now, please retry\n", {
-            status: 500,
-            headers: { "content-type": "text/plain" },
-          });
+          if (!isMissingSchema(e instanceof Error ? e.message : String(e))) {
+            return new Response("# could not provision this router right now, please retry\n", {
+              status: 500,
+              headers: { "content-type": "text/plain" },
+            });
+          }
+          // The credentials migration has not been applied yet. Provision the way routers were set up
+          // before it existed (the router keeps using this token) instead of refusing to set it up.
+          console.error("provision: apply migration 20261025010000_router_credentials.sql; using the previous token scheme");
+          token = params.token;
         }
 
         const host = getRequestHost();
@@ -130,49 +136,46 @@ function buildRsc(p: {
 
 # --- Addresses ---
 /ip address
-add address=10.5.50.1/24 interface=netgrid-lan comment=netgrid
+:do { add address=10.5.50.1/24 interface=netgrid-lan comment=netgrid } on-error={ :log warning "NetGrid: LAN address failed" }
 
 # --- Pools ---
 /ip pool
-add name=netgrid-hs-pool ranges=10.5.50.10-10.5.50.254
-add name=netgrid-pppoe-pool ranges=10.10.0.2-10.10.0.254
+:do { add name=netgrid-hs-pool ranges=10.5.50.10-10.5.50.254 } on-error={ :log warning "NetGrid: hotspot address pool failed" }
+:do { add name=netgrid-pppoe-pool ranges=10.10.0.2-10.10.0.254 } on-error={ :log warning "NetGrid: PPPoE address pool failed" }
 
 # --- DHCP server for hotspot clients ---
 /ip dhcp-server
-add name=netgrid-dhcp interface=netgrid-lan address-pool=netgrid-hs-pool lease-time=1h disabled=no
+:do { add name=netgrid-dhcp interface=netgrid-lan address-pool=netgrid-hs-pool lease-time=1h disabled=no } on-error={ :log warning "NetGrid: DHCP server failed" }
 /ip dhcp-server network
-add address=10.5.50.0/24 gateway=10.5.50.1 dns-server=10.5.50.1 comment=netgrid
+:do { add address=10.5.50.0/24 gateway=10.5.50.1 dns-server=10.5.50.1 comment=netgrid } on-error={ :log warning "NetGrid: DHCP network failed" }
 
 # --- NAT: share internet from ether1 ---
 /ip firewall nat
-add chain=srcnat out-interface=ether1 action=masquerade comment="netgrid masquerade"
+:do { add chain=srcnat out-interface=ether1 action=masquerade comment="netgrid masquerade" } on-error={ :log warning "NetGrid: internet sharing (NAT) failed" }
 
-# --- Hotspot ---
-# Routers with a flash disk keep files outside /flash in RAM (lost on reboot), so the
-# hotspot pages must live in flash/hotspot there.${ROUTEROS_PICK_HTML_DIR}/ip hotspot profile
-add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=$ngDir
+# --- Hotspot ---${ROUTEROS_PICK_HTML_DIR}/ip hotspot profile
+:do { add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=hotspot } on-error={ :log warning "NetGrid: hotspot profile failed" }
 /ip hotspot
-add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof disabled=no
+:do { add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof disabled=no } on-error={ :log warning "NetGrid: hotspot server failed" }
 
 /ip hotspot walled-garden
 :do { remove [find comment=netgrid] } on-error={}
-add dst-host=*.lovable.app comment=netgrid
-add dst-host=${portalHost} comment=netgrid
-add dst-host=*.payhero.co.ke comment=netgrid
-add dst-host=*.safaricom.co.ke comment=netgrid
+:do { add dst-host=*.lovable.app comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
+:do { add dst-host=${portalHost} comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
+:do { add dst-host=*.payhero.co.ke comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
+:do { add dst-host=*.safaricom.co.ke comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
 /ip hotspot walled-garden ip
 :do { remove [find comment=netgrid] } on-error={}
 # dst-host is resolved when added; if the WAN is not up yet, the sync job re-adds it later.
 :do { add action=accept dst-host=${portalHost} comment=netgrid } on-error={ :log warning "NetGrid: portal walled-garden entry deferred (no DNS yet)" }
 
-${routerosInstallLoginPage({ loginUrl: p.loginUrl, marker: p.marker })}
 # --- PPPoE server ---
 /ppp profile
-add name=netgrid-pppoe local-address=10.10.0.1 remote-address=netgrid-pppoe-pool dns-server=8.8.8.8,1.1.1.1 only-one=yes
+:do { add name=netgrid-pppoe local-address=10.10.0.1 remote-address=netgrid-pppoe-pool dns-server=8.8.8.8,1.1.1.1 only-one=yes } on-error={ :log warning "NetGrid: PPPoE profile failed" }
 /interface pppoe-server server
-add service-name=netgrid interface=netgrid-lan default-profile=netgrid-pppoe authentication=pap,chap,mschap2 one-session-per-host=yes disabled=no
+:do { add service-name=netgrid interface=netgrid-lan default-profile=netgrid-pppoe authentication=pap,chap,mschap2 one-session-per-host=yes disabled=no } on-error={ :log warning "NetGrid: PPPoE server failed" }
 /ip firewall nat
-add chain=srcnat src-address=10.10.0.0/24 out-interface=ether1 action=masquerade comment="netgrid pppoe"
+:do { add chain=srcnat src-address=10.10.0.0/24 out-interface=ether1 action=masquerade comment="netgrid pppoe" } on-error={ :log warning "NetGrid: PPPoE internet sharing (NAT) failed" }
 
 :log info "NetGrid: network, NAT, hotspot and PPPoE configured"
 
@@ -244,6 +247,11 @@ add name=netgrid-heartbeat interval=1m on-event=":global hbUrl \\"${p.callbackUr
   } on-error={}
 }
 
+# --- Hotspot login page (optional, last) ---
+# Everything customers need is configured and the ports are connected by now. Downloading the page
+# can be slow when the internet is not up yet, so it must never hold the rest up; the sync job
+# installs it later if this attempt does not succeed.
+${routerosInstallLoginPage({ loginUrl: p.loginUrl, marker: p.marker })}
 :log info "NetGrid: auto-config complete"
 :put "NetGrid auto-config applied. Portal: ${p.portalUrl}"
 `;
