@@ -2,12 +2,20 @@
 // encrypted, see gateway-secrets.server.ts) or, as a fallback, from server environment variables:
 //   INTASEND_SECRET_KEY         ISSecretKey_test_… (sandbox) or ISSecretKey_live_… (live)
 //   INTASEND_WEBHOOK_CHALLENGE  the "Challenge" string set on the webhook in the IntaSend dashboard
-//   INTASEND_BASE_URL           optional; defaults to https://api.intasend.com (the key picks sandbox/live)
+//   INTASEND_BASE_URL           optional override. By default the key picks the server: test keys use
+//                               https://sandbox.intasend.com, live keys use https://payment.intasend.com
 import { gatewaySecret, loadGatewaySecrets } from "./gateway-secrets.server";
-import { intasendChargeAmount, parseInvoice, type IntasendInvoice } from "./intasend";
+import {
+  intasendBaseUrl,
+  intasendChargeAmount,
+  intasendEnvironment,
+  parseInvoice,
+  type IntasendEnvironment,
+  type IntasendInvoice,
+} from "./intasend";
 
 const baseUrl = () =>
-  (process.env["INTASEND_BASE_URL"] || "https://api.intasend.com").replace(/\/$/, "");
+  intasendBaseUrl(gatewaySecret("INTASEND_SECRET_KEY"), process.env["INTASEND_BASE_URL"]);
 
 export function intasendConfigured(): boolean {
   return !!gatewaySecret("INTASEND_SECRET_KEY");
@@ -75,7 +83,15 @@ export async function intasendInvoiceStatus(
   return { invoice, raw: r.json };
 }
 
-export type KeyCheck = { result: "accepted" | "rejected" | "unreachable" | "not_set" };
+export type KeyCheck = {
+  result: "accepted" | "rejected" | "unreachable" | "not_set";
+  /** Which IntaSend server the key was tried against: sandbox for test keys, live for live keys. */
+  environment?: IntasendEnvironment;
+  /** The HTTP status IntaSend answered with (never the body, which can contain account details). */
+  httpStatus?: number;
+  /** The server that was contacted, for example https://payment.intasend.com. */
+  host?: string;
+};
 
 /**
  * Asks IntaSend whether the stored secret key is accepted, without creating anything: it requests the
@@ -84,13 +100,17 @@ export type KeyCheck = { result: "accepted" | "rejected" | "unreachable" | "not_
  */
 export async function intasendCheckKey(): Promise<KeyCheck> {
   await loadGatewaySecrets({ force: true });
-  if (!gatewaySecret("INTASEND_SECRET_KEY")) return { result: "not_set" };
+  const key = gatewaySecret("INTASEND_SECRET_KEY");
+  if (!key) return { result: "not_set" };
+  const environment = intasendEnvironment(key);
+  const host = baseUrl();
   try {
     const r = await post("/api/v1/payment/status/", { invoice_id: "00000000-connection-test" });
-    if (r.status === 401 || r.status === 403) return { result: "rejected" };
-    if (r.status >= 500) return { result: "unreachable" };
-    return { result: "accepted" };
+    const base = { environment, host, httpStatus: r.status };
+    if (r.status === 401 || r.status === 403) return { result: "rejected", ...base };
+    if (r.status >= 500) return { result: "unreachable", ...base };
+    return { result: "accepted", ...base };
   } catch {
-    return { result: "unreachable" };
+    return { result: "unreachable", environment, host };
   }
 }
