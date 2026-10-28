@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/reset-password")({
-  head: () => ({ meta: [{ title: "Set new password — NetGrid" }] }),
+  head: () => noindexHead("Set new password"),
   component: ResetPasswordPage,
 });
 

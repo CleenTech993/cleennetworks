@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
+import { noindexHead } from "@/lib/seo";
 
 const nav: NavItem[] = [
   { to: "/super-admin", label: "Overview", icon: LayoutDashboard },
@@ -24,6 +25,7 @@ const nav: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/super-admin")({
+  head: () => noindexHead("Platform admin"),
   ssr: false,
   beforeLoad: () => requireConsole({ superAdmin: true }),
   component: () => (

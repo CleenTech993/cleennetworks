@@ -1,20 +1,61 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { BarChart3, CreditCard, Radio, Router, Shield, Wifi } from "lucide-react";
-import { Brand } from "@/components/brand";
+import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 import { StatusDot } from "@/components/status-dot";
 import { Button } from "@/components/ui/button";
+import {
+  faqJsonLd,
+  organizationJsonLd,
+  pageHead,
+  softwareJsonLd,
+  websiteJsonLd,
+  type Faq,
+} from "@/lib/seo";
+
+const faqs: Faq[] = [
+  {
+    q: "What is NetGrid?",
+    a: "NetGrid is a console for ISPs and Wi-Fi hotspot operators. It sets up MikroTik routers, sells hotspot and PPPoE packages, takes M-Pesa payments and shows which routers are online, all in one place.",
+  },
+  {
+    q: "Which routers does it work with?",
+    a: "MikroTik routers running RouterOS. You add a router in the console, paste one generated command into its terminal, and it configures hotspot, PPPoE and reporting by itself.",
+  },
+  {
+    q: "How do customers pay?",
+    a: "With M-Pesa. They get a payment prompt on their phone from your branded portal, and are connected once the payment provider confirms it.",
+  },
+  {
+    q: "Can I sell both hotspot Wi-Fi and monthly home internet?",
+    a: "Yes. Hotspot packages are sold by time and redeemed with M-Pesa checkout or vouchers. PPPoE packages carry a speed and an expiry for monthly subscribers. Both are managed from the same console.",
+  },
+  {
+    q: "Is my business kept separate from other ISPs?",
+    a: "Yes. Every ISP gets an isolated workspace with roles for administrators, technicians, billing agents and support staff, and the console asks for a two-step verification code at sign-in.",
+  },
+];
+
+const guides = [
+  {
+    to: "/mikrotik-hotspot-billing",
+    title: "Hotspot billing",
+    body: "A branded captive portal, vouchers and M-Pesa checkout for paid Wi-Fi.",
+  },
+  {
+    to: "/pppoe-billing",
+    title: "PPPoE billing",
+    body: "Monthly subscribers with a speed and an expiry, kept in step with the router.",
+  },
+  {
+    to: "/mpesa-wifi-payments",
+    title: "M-Pesa payments",
+    body: "How customers pay, and how every payment is confirmed before access.",
+  },
+] as const;
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "NetGrid: run your ISP and hotspot business" },
-      {
-        name: "description",
-        content:
-          "Set up MikroTik routers, sell hotspot and PPPoE packages through M-Pesa, and see which sites are online, all from one console.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead("/", [organizationJsonLd(), websiteJsonLd(), softwareJsonLd(), faqJsonLd(faqs)]),
   component: Landing,
 });
 
@@ -57,7 +98,7 @@ const features = [
   {
     icon: CreditCard,
     title: "M-Pesa payments",
-    body: "STK push through PayHero. Packages activate as soon as the payment is confirmed.",
+    body: "An M-Pesa prompt on the customer's phone. Packages activate as soon as the payment is confirmed.",
   },
   {
     icon: Radio,
@@ -79,17 +120,7 @@ const features = [
 function Landing() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-        <Brand />
-        <nav className="flex items-center gap-2" aria-label="Account">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/login">Sign in</Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link to="/signup">Request access</Link>
-          </Button>
-        </nav>
-      </header>
+      <SiteHeader />
 
       <main>
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-10 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:pt-16">
@@ -113,9 +144,9 @@ function Landing() {
 
           <div className="bg-grid rounded-2xl border border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl shadow-sidebar/25 sm:p-5">
             <div className="flex items-baseline justify-between px-1">
-              <h2 className="font-display text-base font-semibold text-sidebar-accent-foreground">
+              <p className="font-display text-base font-semibold text-sidebar-accent-foreground">
                 Routers
-              </h2>
+              </p>
               <p className="text-xs text-sidebar-foreground/70">
                 <span className="tabular-nums">2</span> of <span className="tabular-nums">4</span>{" "}
                 healthy
@@ -137,9 +168,9 @@ function Landing() {
                 </li>
               ))}
             </ul>
-            <h2 className="mt-5 px-1 font-display text-base font-semibold text-sidebar-accent-foreground">
+            <p className="mt-5 px-1 font-display text-base font-semibold text-sidebar-accent-foreground">
               Latest payments
-            </h2>
+            </p>
             <ul className="mt-3 divide-y divide-sidebar-border">
               {payments.map((p) => (
                 <li key={p.item} className="flex items-baseline gap-3 px-1 py-2.5 text-sm">
@@ -192,14 +223,49 @@ function Landing() {
             ))}
           </div>
         </section>
+
+        <section className="border-y bg-card/60" aria-labelledby="guides-heading">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
+            <h2
+              id="guides-heading"
+              className="max-w-md text-2xl font-semibold tracking-tight sm:text-3xl"
+            >
+              Built for MikroTik ISPs
+            </h2>
+            <ul className="mt-8 grid gap-4 md:grid-cols-3">
+              {guides.map((g) => (
+                <li key={g.to}>
+                  <Link
+                    to={g.to}
+                    className="block h-full rounded-xl border bg-card p-5 transition-colors hover:bg-accent"
+                  >
+                    <span className="font-semibold">{g.title}</span>
+                    <span className="mt-2 block text-sm leading-relaxed text-muted-foreground">
+                      {g.body}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-3xl px-5 py-20 sm:px-8" aria-labelledby="faq-heading">
+          <h2 id="faq-heading" className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Questions
+          </h2>
+          <div className="mt-8 divide-y rounded-xl border bg-card">
+            {faqs.map((f) => (
+              <div key={f.q} className="p-5">
+                <h3 className="font-semibold">{f.q}</h3>
+                <p className="mt-2 leading-relaxed text-muted-foreground">{f.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
 
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-sm text-muted-foreground sm:px-8">
-          <Brand className="text-foreground" />
-          <p>© {new Date().getFullYear()} NetGrid</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { OG_IMAGE, SITE_NAME, absoluteUrl, pageByPath } from "@/lib/seo";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
@@ -74,38 +75,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // Fallbacks for any page that doesn't set its own (see src/lib/seo.ts for the public pages).
       { title: "NetGrid: run your ISP and hotspot business" },
-      {
-        name: "description",
-        content:
-          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
-      },
-      { property: "og:title", content: "NetGrid: run your ISP and hotspot business" },
-      {
-        property: "og:description",
-        content:
-          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
-      },
+      { name: "description", content: pageByPath("/").description },
+      { name: "theme-color", content: "#051e27" },
+      { property: "og:site_name", content: SITE_NAME },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "NetGrid: run your ISP and hotspot business" },
-      {
-        name: "twitter:description",
-        content:
-          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
-      },
-      {
-        property: "og:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703",
-      },
-      {
-        name: "twitter:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703",
-      },
+      { property: "og:title", content: pageByPath("/").title },
+      { property: "og:description", content: pageByPath("/").description },
+      { property: "og:image", content: absoluteUrl(OG_IMAGE.path) },
+      { property: "og:image:width", content: String(OG_IMAGE.width) },
+      { property: "og:image:height", content: String(OG_IMAGE.height) },
+      { property: "og:image:alt", content: OG_IMAGE.alt },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: pageByPath("/").title },
+      { name: "twitter:description", content: pageByPath("/").description },
+      { name: "twitter:image", content: absoluteUrl(OG_IMAGE.path) },
+      { name: "twitter:image:alt", content: OG_IMAGE.alt },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+      { rel: "manifest", href: "/site.webmanifest" },
+    ],
     scripts: [
       {
         children:

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>NetGrid</title>
+  <rect width="32" height="32" rx="7" fill="#051e27"/>
+  <rect x="5" y="5" width="10" height="10" rx="2.5" fill="#ffffff" fill-opacity="0.4"/>
+  <rect x="17" y="5" width="10" height="10" rx="2.5" fill="#ffffff" fill-opacity="0.4"/>
+  <rect x="5" y="17" width="10" height="10" rx="2.5" fill="#ffffff" fill-opacity="0.4"/>
+  <rect x="17" y="17" width="10" height="10" rx="2.5" fill="#33d977"/>
+</svg>

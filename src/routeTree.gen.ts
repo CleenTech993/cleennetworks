@@ -13,10 +13,15 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MfaRouteImport } from './routes/mfa'
+import { Route as MikrotikHotspotBillingRouteImport } from './routes/mikrotik-hotspot-billing'
+import { Route as MpesaWifiPaymentsRouteImport } from './routes/mpesa-wifi-payments'
 import { Route as PendingRouteImport } from './routes/pending'
 import { Route as PortalRouteImport } from './routes/portal'
+import { Route as PppoeBillingRouteImport } from './routes/pppoe-billing'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SuperAdminRouteImport } from './routes/super-admin'
 import { Route as TenantRouteImport } from './routes/tenant'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
@@ -86,6 +91,16 @@ const MfaRoute = MfaRouteImport.update({
   path: '/mfa',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MikrotikHotspotBillingRoute = MikrotikHotspotBillingRouteImport.update({
+  id: '/mikrotik-hotspot-billing',
+  path: '/mikrotik-hotspot-billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MpesaWifiPaymentsRoute = MpesaWifiPaymentsRouteImport.update({
+  id: '/mpesa-wifi-payments',
+  path: '/mpesa-wifi-payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PendingRoute = PendingRouteImport.update({
   id: '/pending',
   path: '/pending',
@@ -96,14 +111,29 @@ const PortalRoute = PortalRouteImport.update({
   path: '/portal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PppoeBillingRoute = PppoeBillingRouteImport.update({
+  id: '/pppoe-billing',
+  path: '/pppoe-billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuperAdminRoute = SuperAdminRouteImport.update({
@@ -367,10 +397,15 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
+  '/mikrotik-hotspot-billing': typeof MikrotikHotspotBillingRoute
+  '/mpesa-wifi-payments': typeof MpesaWifiPaymentsRoute
   '/pending': typeof PendingRoute
   '/portal': typeof PortalRouteWithChildren
+  '/pppoe-billing': typeof PppoeBillingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/tenant': typeof TenantRouteWithChildren
   '/p/$slug': typeof PSlugRoute
@@ -425,9 +460,14 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
+  '/mikrotik-hotspot-billing': typeof MikrotikHotspotBillingRoute
+  '/mpesa-wifi-payments': typeof MpesaWifiPaymentsRoute
   '/pending': typeof PendingRoute
+  '/pppoe-billing': typeof PppoeBillingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
   '/portal/packages': typeof PortalPackagesRoute
@@ -481,10 +521,15 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
+  '/mikrotik-hotspot-billing': typeof MikrotikHotspotBillingRoute
+  '/mpesa-wifi-payments': typeof MpesaWifiPaymentsRoute
   '/pending': typeof PendingRoute
   '/portal': typeof PortalRouteWithChildren
+  '/pppoe-billing': typeof PppoeBillingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/robots.txt': typeof RobotsDottxtRoute
   '/signup': typeof SignupRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/super-admin': typeof SuperAdminRouteWithChildren
   '/tenant': typeof TenantRouteWithChildren
   '/p/$slug': typeof PSlugRoute
@@ -541,10 +586,15 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/mfa'
+    | '/mikrotik-hotspot-billing'
+    | '/mpesa-wifi-payments'
     | '/pending'
     | '/portal'
+    | '/pppoe-billing'
     | '/reset-password'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap.xml'
     | '/super-admin'
     | '/tenant'
     | '/p/$slug'
@@ -599,9 +649,14 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/mfa'
+    | '/mikrotik-hotspot-billing'
+    | '/mpesa-wifi-payments'
     | '/pending'
+    | '/pppoe-billing'
     | '/reset-password'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap.xml'
     | '/p/$slug'
     | '/portal/invoices'
     | '/portal/packages'
@@ -654,10 +709,15 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/mfa'
+    | '/mikrotik-hotspot-billing'
+    | '/mpesa-wifi-payments'
     | '/pending'
     | '/portal'
+    | '/pppoe-billing'
     | '/reset-password'
+    | '/robots.txt'
     | '/signup'
+    | '/sitemap.xml'
     | '/super-admin'
     | '/tenant'
     | '/p/$slug'
@@ -713,10 +773,15 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   MfaRoute: typeof MfaRoute
+  MikrotikHotspotBillingRoute: typeof MikrotikHotspotBillingRoute
+  MpesaWifiPaymentsRoute: typeof MpesaWifiPaymentsRoute
   PendingRoute: typeof PendingRoute
   PortalRoute: typeof PortalRouteWithChildren
+  PppoeBillingRoute: typeof PppoeBillingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
   SignupRoute: typeof SignupRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   PSlugRoute: typeof PSlugRoute
@@ -763,6 +828,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MfaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mikrotik-hotspot-billing': {
+      id: '/mikrotik-hotspot-billing'
+      path: '/mikrotik-hotspot-billing'
+      fullPath: '/mikrotik-hotspot-billing'
+      preLoaderRoute: typeof MikrotikHotspotBillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mpesa-wifi-payments': {
+      id: '/mpesa-wifi-payments'
+      path: '/mpesa-wifi-payments'
+      fullPath: '/mpesa-wifi-payments'
+      preLoaderRoute: typeof MpesaWifiPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/pending': {
       id: '/pending'
       path: '/pending'
@@ -777,6 +856,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pppoe-billing': {
+      id: '/pppoe-billing'
+      path: '/pppoe-billing'
+      fullPath: '/pppoe-billing'
+      preLoaderRoute: typeof PppoeBillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -784,11 +870,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/super-admin': {
@@ -1250,10 +1350,15 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   MfaRoute: MfaRoute,
+  MikrotikHotspotBillingRoute: MikrotikHotspotBillingRoute,
+  MpesaWifiPaymentsRoute: MpesaWifiPaymentsRoute,
   PendingRoute: PendingRoute,
   PortalRoute: PortalRouteWithChildren,
+  PppoeBillingRoute: PppoeBillingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
   SignupRoute: SignupRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   SuperAdminRoute: SuperAdminRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   PSlugRoute: PSlugRoute,

@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { AuthLayout } from "@/components/auth-layout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/pending")({
-  head: () => ({ meta: [{ title: "Pending approval — NetGrid" }] }),
+  head: () => noindexHead("Pending approval"),
   component: PendingPage,
 });
 

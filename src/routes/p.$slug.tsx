@@ -29,6 +29,8 @@ export const Route = createFileRoute("/p/$slug")({
   head: () => ({
     meta: [
       { title: "Wi-Fi access — connect" },
+      // Per-business Wi-Fi login pages are not content: keep them out of search results.
+      { name: "robots", content: "noindex, nofollow" },
       {
         name: "description",
         content: "Buy internet access, redeem your voucher, or reconnect an active package.",

@@ -19,6 +19,7 @@ import {
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
 import { canAccessPage } from "@/lib/permissions";
+import { noindexHead } from "@/lib/seo";
 
 const ALL_NAV: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
@@ -39,6 +40,7 @@ const ALL_NAV: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/tenant")({
+  head: () => noindexHead("Console"),
   // Session lives in browser storage; server render can't see it (that caused logout on refresh).
   ssr: false,
   beforeLoad: async ({ location }) => {

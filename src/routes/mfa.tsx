@@ -7,15 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { noindexHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/mfa")({
   ssr: false,
-  head: () => ({
-    meta: [
-      { title: "Verify sign-in — NetGrid" },
-      { name: "description", content: "Two-step verification code." },
-    ],
-  }),
+  head: () => noindexHead("Verify sign-in"),
   component: MfaPage,
 });
 

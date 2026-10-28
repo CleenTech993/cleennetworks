@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { LayoutDashboard, Package, Receipt, Activity } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { supabase } from "@/integrations/supabase/client";
+import { noindexHead } from "@/lib/seo";
 
 const nav: NavItem[] = [
   { to: "/portal", label: "My account", icon: LayoutDashboard },
@@ -11,6 +12,7 @@ const nav: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/portal")({
+  head: () => noindexHead("My internet"),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/login" });
