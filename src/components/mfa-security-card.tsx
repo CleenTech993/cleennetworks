@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ShieldCheck, ShieldAlert, Copy, Check, QrCode, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 
 export function MfaSecurityCard() {
+  const qc = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [factors, setFactors] = useState<{ id: string; status: string }[]>([]);
   const [enrollOpen, setEnrollOpen] = useState(false);
