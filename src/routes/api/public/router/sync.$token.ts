@@ -111,7 +111,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         ]);
 
         const host = getRequestHost();
-        const lines: string[] = ["# NetGrid sync", ":do { /system scheduler set [find name=netgrid-sync] interval=5s } on-error={}"];
+        const lines: string[] = [
+          "# NetGrid sync",
+          ":do { /system scheduler set [find name=netgrid-sync] interval=5s } on-error={}",
+          ":do { /system scheduler set [find name=netgrid-heartbeat] interval=2s } on-error={}",
+          ":do { /system scheduler set [find name=netgrid-wan] interval=2s } on-error={}",
+        ];
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
         lines.push(

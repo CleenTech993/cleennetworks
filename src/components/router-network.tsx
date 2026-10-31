@@ -47,7 +47,7 @@ function useInterfaces(routerId: string) {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 60_000,
+    refetchInterval: 3_000,
   });
   useEffect(() => {
     const ch = supabase

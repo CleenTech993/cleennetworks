@@ -40,6 +40,7 @@ function RoutersPage() {
       if (error) throw error;
       return data;
     },
+    refetchInterval: 2_000,
   });
 
   // Live updates: the heartbeat endpoint updates the router row every minute, so refetch the moment it
@@ -62,7 +63,7 @@ function RoutersPage() {
   // "Online" is time-based (last check-in within 3 min), so re-evaluate it as time passes even when no new data arrives.
   const [, setTick] = useState(0);
   useEffect(() => {
-    const i = setInterval(() => setTick((t) => t + 1), 20_000);
+    const i = setInterval(() => setTick((t) => t + 1), 2_000);
     return () => clearInterval(i);
   }, []);
 

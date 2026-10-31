@@ -43,7 +43,7 @@ function RouterDetail() {
       if (error) throw error;
       return data as Tables<"routers"> | null;
     },
-    refetchInterval: 30_000,
+    refetchInterval: 2_000,
   });
 
   useEffect(() => {
@@ -62,7 +62,7 @@ function RouterDetail() {
 
   const [, setTick] = useState(0);
   useEffect(() => {
-    const i = setInterval(() => setTick((t) => t + 1), 20_000);
+    const i = setInterval(() => setTick((t) => t + 1), 2_000);
     return () => clearInterval(i);
   }, []);
 

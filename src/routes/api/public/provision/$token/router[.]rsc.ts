@@ -189,22 +189,19 @@ function buildRsc(p: {
 remove [find name=netgrid-wan]
 add name=netgrid-wan source={
   :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
-  :local rcv 0; :local sum 0; :local mn 100000; :local mx 0;
-  :for i from=1 to=5 do={
-    :do {
-      :local res [/ping 8.8.8.8 count=1 as-value];
-      :if ([:len $res] > 0) do={
-        :local s [:tostr ($res->0->"time")];
-        :local t [:tonum [:pick $s 0 [:find $s "ms"]]];
-        :set rcv ($rcv + 1); :set sum ($sum + $t);
-        :if ($t < $mn) do={ :set mn $t }
-        :if ($t > $mx) do={ :set mx $t }
-      }
-    } on-error={}
-    :delay 1s
-  }
-  :if ($rcv > 0) do={ :set ngLat ($sum / $rcv); :set ngJit ($mx - $mn) } else={ :set ngLat 0; :set ngJit 0 }
-  :set ngLoss ((5 - $rcv) * 20);
+  :do {
+    :local res [/ping 8.8.8.8 count=1 as-value];
+    :if ([:len $res] > 0) do={
+      :local s [:tostr ($res->0->"time")];
+      :set ngLat [:tonum [:pick $s 0 [:find $s "ms"]]];
+      :set ngLoss 0;
+      :set ngJit 0;
+    } else={
+      :set ngLat 0;
+      :set ngLoss 100;
+      :set ngJit 0;
+    }
+  } on-error={}
   :set ngDns 0; :do { :resolve google.com; :set ngDns 1 } on-error={}
 }
 
@@ -231,11 +228,11 @@ add name=netgrid-sync source={
 
 /system scheduler
 remove [find name~"netgrid-"]
-add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan"
+add name=netgrid-wan interval=2s on-event="/system script run netgrid-wan"
 add name=netgrid-ifaces interval=1m on-event="/system script run netgrid-ifaces"
 add name=netgrid-sync interval=5s on-event="/system script run netgrid-sync"
 # Heartbeat every minute with live metrics (CPU/RAM/uptime/temp/voltage/version/board/arch/wan-ip + WAN quality)
-add name=netgrid-heartbeat interval=1m on-event=":global hbUrl \\"${p.callbackUrl}\\"; :global ngLat; :global ngLoss; :global ngJit; :global ngDns; :local r [/system resource get]; :local cpu (\\$r->\\"cpu-load\\"); :local mf ((\\$r->\\"free-memory\\")/1048576); :local mt ((\\$r->\\"total-memory\\")/1048576); :local up (\\$r->\\"uptime\\"); :local ver (\\$r->\\"version\\"); :local board (\\$r->\\"board-name\\"); :local arch (\\$r->\\"architecture-name\\"); :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={}; :local wan \\"\\"; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={}; :local volt 0; :do { :set volt [/system health get voltage] } on-error={}; :local temp 0; :do { :set temp [/system health get temperature] } on-error={}; /tool fetch url=(\\$hbUrl . \\"?cpu=\\" . \\$cpu . \\"&mem-free=\\" . \\$mf . \\"&mem-total=\\" . \\$mt . \\"&hdd-free=\\" . \\$hf . \\"&uptime=\\" . \\$up . \\"&temp=\\" . \\$temp . \\"&voltage=\\" . \\$volt . \\"&version=\\" . \\$ver . \\"&board=\\" . \\$board . \\"&arch=\\" . \\$arch . \\"&wan-ip=\\" . \\$wan . \\"&latency=\\" . \\$ngLat . \\"&loss=\\" . \\$ngLoss . \\"&jitter=\\" . \\$ngJit . \\"&dns=\\" . \\$ngDns) mode=https keep-result=no"
+add name=netgrid-heartbeat interval=2s on-event=":global hbUrl \\"${p.callbackUrl}\\"; :global ngLat; :global ngLoss; :global ngJit; :global ngDns; :local r [/system resource get]; :local cpu (\\$r->\\"cpu-load\\"); :local mf ((\\$r->\\"free-memory\\")/1048576); :local mt ((\\$r->\\"total-memory\\")/1048576); :local up (\\$r->\\"uptime\\"); :local ver (\\$r->\\"version\\"); :local board (\\$r->\\"board-name\\"); :local arch (\\$r->\\"architecture-name\\"); :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={}; :local wan \\"\\"; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={}; :local volt 0; :do { :set volt [/system health get voltage] } on-error={}; :local temp 0; :do { :set temp [/system health get temperature] } on-error={}; /tool fetch url=(\\$hbUrl . \\"?cpu=\\" . \\$cpu . \\"&mem-free=\\" . \\$mf . \\"&mem-total=\\" . \\$mt . \\"&hdd-free=\\" . \\$hf . \\"&uptime=\\" . \\$up . \\"&temp=\\" . \\$temp . \\"&voltage=\\" . \\$volt . \\"&version=\\" . \\$ver . \\"&board=\\" . \\$board . \\"&arch=\\" . \\$arch . \\"&wan-ip=\\" . \\$wan . \\"&latency=\\" . \\$ngLat . \\"&loss=\\" . \\$ngLoss . \\"&jitter=\\" . \\$ngJit . \\"&dns=\\" . \\$ngDns) mode=https keep-result=no"
 
 # --- LAN ports join the hotspot bridge LAST ---
 # Moving the port you are connected through (cable, Wi-Fi or MAC-Winbox) into a new bridge can cut
