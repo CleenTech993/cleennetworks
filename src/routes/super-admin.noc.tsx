@@ -268,7 +268,7 @@ function NocPage() {
             <div className="flex items-center gap-2 font-medium text-sm">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
               <span>
-                <strong>{degradedRouters.length} Router{degradedRouters.length > 1 ? "s" : ""}</strong> experiencing high CPU utilization (>75%).
+                <strong>{degradedRouters.length} Router{degradedRouters.length > 1 ? "s" : ""}</strong> experiencing high CPU utilization (&gt;75%).
               </span>
             </div>
             <Button
