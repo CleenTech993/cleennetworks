@@ -104,7 +104,7 @@ export function buildPppoeAgentLines(pushUrl: string): string[] {
   return [
     "/system script",
     ":do { remove [find where name=netgrid-pppoe] } on-error={}",
-    `add name=netgrid-pppoe source={${source}}`,
+    `:do { add name=netgrid-pppoe source={${source}} } on-error={}`,
     ':if ([:len [/system scheduler find where name=netgrid-pppoe]] = 0) do={ /system scheduler add name=netgrid-pppoe interval=2m on-event="/system script run netgrid-pppoe" }',
   ];
 }

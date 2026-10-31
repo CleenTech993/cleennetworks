@@ -234,7 +234,7 @@ describe("buildDeviceAgentLines", () => {
 
   it("writes variables as plain $ in the braced script source (like the scripts that have always worked) and keeps the syntax balanced", () => {
     const lines = buildDeviceAgentLines(URL_OK);
-    const script = lines.find((l) => l.startsWith("add name=netgrid-devices"))!;
+    const script = lines.find((l) => l.includes("add name=netgrid-devices"))!;
     expect(script).toContain(URL_OK);
     // "\$" is only valid inside a quoted string; inside a braced source it would be a syntax error
     expect(script.match(/\\\$/g)).toBeNull();
@@ -258,7 +258,7 @@ describe("buildDeviceAgentLines", () => {
 
   it("sends no comment lines to the router", () => {
     const script = buildDeviceAgentLines(URL_OK).find((l) =>
-      l.startsWith("add name=netgrid-devices"),
+      l.includes("add name=netgrid-devices"),
     )!;
     expect(script.split("\n").filter((l) => l.trim().startsWith("#"))).toEqual([]);
     expect(script).toContain("$c ~"); // the sanitiser itself is still there

@@ -218,8 +218,10 @@ const DEVICE_SCRIPT = `
           :local lim [:len $raw]
           :if ($lim > 40) do={ :set lim 40 }
           :if ($lim > 0) do={
-            :for i from=0 to=($lim - 1) do={
-              :local c [:pick $raw $i ($i + 1)]
+            :local max ($lim - 1)
+            :for i from=0 to=$max do={
+              :local j ($i + 1)
+              :local c [:pick $raw $i $j]
               :if ($c ~ "^[A-Za-z0-9._ -]$") do={ :set hn ($hn . $c) }
             }
           }
@@ -254,7 +256,7 @@ export function buildDeviceAgentLines(pushUrl: string): string[] {
   return [
     "/system script",
     ":do { remove [find where name=netgrid-devices] } on-error={}",
-    `add name=netgrid-devices source={${source}}`,
+    `:do { add name=netgrid-devices source={${source}} } on-error={}`,
     ':if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=2m on-event="/system script run netgrid-devices" }',
   ];
 }
