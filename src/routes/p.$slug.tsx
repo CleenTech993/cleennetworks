@@ -118,7 +118,7 @@ function PortalPage() {
   }
 
   return (
-    <PortalThemeFrame themeId={themeId} brand={brand} className="min-h-screen">
+    <PortalThemeFrame themeId={themeId} brand={brand} backgroundUrl={data.portal?.background_url} className="min-h-screen">
       <PortalHeader
         theme={theme}
         name={data.tenant.name}

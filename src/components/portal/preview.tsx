@@ -61,7 +61,7 @@ export function PortalPreview({
   const [picked, setPicked] = useState("b");
 
   return (
-    <PortalThemeFrame themeId={themeId} brand={brand} className="min-h-full">
+    <PortalThemeFrame themeId={themeId} brand={brand} backgroundUrl={backgroundUrl} className="min-h-full">
       <PortalHeader
         theme={theme}
         name={name}

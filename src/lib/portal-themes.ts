@@ -105,6 +105,72 @@ export const PORTAL_THEMES: Record<PortalThemeId, PortalThemeDef> = {
     tagline: "A plain receipt-style list. No images, system fonts, loads fast.",
     bestFor: "Slow connections and older phones.",
   },
+  festive: {
+    id: "festive",
+    name: "Festive Holiday",
+    dark: true,
+    header: "centered",
+    plan: "card",
+    sheet: false,
+    usesImages: true,
+    tagline: "Rich ruby red, warm pine, and gold holiday cheer.",
+    bestFor: "Christmas, December holidays, and seasonal winter celebrations.",
+  },
+  celebration: {
+    id: "celebration",
+    name: "New Year & Gala",
+    dark: true,
+    header: "centered",
+    plan: "ticket",
+    sheet: false,
+    usesImages: true,
+    tagline: "Obsidian night and champagne gold luxury celebration.",
+    bestFor: "New Year parties, luxury venues, and festive events.",
+  },
+  tropical: {
+    id: "tropical",
+    name: "Tropical Summer",
+    dark: false,
+    header: "photo",
+    plan: "card",
+    sheet: true,
+    usesImages: true,
+    tagline: "Sunburst turquoise ocean and warm coral sands.",
+    bestFor: "Beach resorts, summer getaways, hotels, and vacation pools.",
+  },
+  ramadan: {
+    id: "ramadan",
+    name: "Ramadan & Eid",
+    dark: true,
+    header: "centered",
+    plan: "card",
+    sheet: false,
+    usesImages: true,
+    tagline: "Nocturnal forest emerald with starlight crescent gold.",
+    bestFor: "Ramadan nights, Eid celebrations, and community venues.",
+  },
+  safari: {
+    id: "safari",
+    name: "Savannah Safari",
+    dark: false,
+    header: "photo",
+    plan: "bars",
+    sheet: true,
+    usesImages: true,
+    tagline: "Terracotta clay and warm Kenyan sunset acacia tones.",
+    bestFor: "Safari lodges, eco-camps, national parks, and rustic venues.",
+  },
+  custom: {
+    id: "custom",
+    name: "Custom Studio",
+    dark: false,
+    header: "centered",
+    plan: "card",
+    sheet: false,
+    usesImages: true,
+    tagline: "Full creative control with your custom background and artwork.",
+    bestFor: "ISPs uploading their own custom design, wallpaper, or branding.",
+  },
 };
 
 export const PORTAL_THEME_LIST: PortalThemeDef[] = PORTAL_THEME_IDS.map((id) => PORTAL_THEMES[id]);
@@ -237,7 +303,9 @@ export function ensureContrast(color: string, against: string, min: number): str
 /** Only http(s) image URLs are ever rendered. */
 export function safeImageUrl(url: string | null | undefined): string | null {
   const u = (url ?? "").trim();
-  return /^https?:\/\/[^\s"'<>()]+$/i.test(u) ? u : null;
+  if (/^https?:\/\/[^\s"'<>()]+$/i.test(u)) return u;
+  if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(u)) return u;
+  return null;
 }
 
 /** 0 (unknown) to 4 bars for a plan's download speed. */
@@ -416,6 +484,99 @@ export function themeVars(
         "--pt-font-head": SYSTEM_SANS,
         "--pt-font-mono": SYSTEM_MONO,
       };
+    case "festive": {
+      const fill = ensureContrast(brand, "#2b0914", 3.5);
+      return {
+        ...surface({
+          page: "#1c050d",
+          fg: "#fff1f2",
+          card: "#2b0914",
+          muted: "#3f0e1f",
+          mutedFg: "#fecdd3",
+          border: "#4c0519",
+        }),
+        ...accentVars(fill),
+        "--radius": "1rem",
+        "--pt-font-head": "var(--font-display)",
+      };
+    }
+    case "celebration": {
+      const fill = ensureContrast(brand, "#18181b", 3.5);
+      return {
+        ...surface({
+          page: "#09090b",
+          fg: "#fafafa",
+          card: "#18181b",
+          muted: "#27272a",
+          mutedFg: "#d4d4d8",
+          border: "#3f3f46",
+        }),
+        ...accentVars(fill),
+        "--radius": "0.75rem",
+        "--pt-font-head": SYSTEM_SERIF,
+        "--pt-font-mono": SYSTEM_MONO,
+      };
+    }
+    case "tropical": {
+      return {
+        ...surface({
+          page: "#f0fdfa",
+          fg: "#134e4a",
+          card: "#ffffff",
+          muted: "#ccfbf1",
+          mutedFg: "#0f766e",
+          border: "#99f6e4",
+        }),
+        ...accentVars(brand),
+        "--radius": "1rem",
+        "--pt-font-head": "var(--font-display)",
+      };
+    }
+    case "ramadan": {
+      const fill = ensureContrast(brand, "#064e3b", 3.5);
+      return {
+        ...surface({
+          page: "#022c22",
+          fg: "#f0fdf4",
+          card: "#064e3b",
+          muted: "#065f46",
+          mutedFg: "#bbf7d0",
+          border: "#047857",
+        }),
+        ...accentVars(fill),
+        "--radius": "1rem",
+        "--pt-font-head": SYSTEM_SERIF,
+      };
+    }
+    case "safari": {
+      return {
+        ...surface({
+          page: "#fff7ed",
+          fg: "#431407",
+          card: "#ffffff",
+          muted: "#fed7aa",
+          mutedFg: "#7c2d12",
+          border: "#fdba74",
+        }),
+        ...accentVars(brand),
+        "--radius": "0.75rem",
+        "--pt-font-head": "var(--font-display)",
+      };
+    }
+    case "custom": {
+      return {
+        ...surface({
+          page: "#f8fafc",
+          fg: "#0f172a",
+          card: "#ffffff",
+          muted: "#e2e8f0",
+          mutedFg: "#475569",
+          border: "#cbd5e1",
+        }),
+        ...accentVars(brand),
+        "--radius": "0.75rem",
+      };
+    }
     case "classic":
     default:
       // Same surfaces as before themes existed; only the accent is set (so unreadable button
