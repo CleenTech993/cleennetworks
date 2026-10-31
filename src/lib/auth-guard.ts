@@ -2,12 +2,15 @@ import { redirect } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/permissions";
 
-/** Client-side gate for console layouts: signed in + verified with OTP (aal2) + has a role. Returns the user's roles. */
+/** Client-side gate for console layouts: signed in + verified with OTP (aal2 if MFA enabled) + has a role. Returns the user's roles. */
 export async function requireConsole(opts: { superAdmin?: boolean } = {}): Promise<AppRole[]> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw redirect({ to: "/login" });
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal?.currentLevel !== "aal2") throw redirect({ to: "/mfa" });
+  // Only enforce aal2 when the admin has activated MFA (nextLevel is aal2)
+  if (aal?.nextLevel === "aal2" && aal?.currentLevel !== "aal2") {
+    throw redirect({ to: "/mfa" });
+  }
   const { data: roles } = await supabase
     .from("user_roles")
     .select("role")

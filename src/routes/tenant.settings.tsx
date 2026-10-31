@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { MfaSecurityCard } from "@/components/mfa-security-card";
 
 export const Route = createFileRoute("/tenant/settings")({ component: Settings });
 
@@ -162,6 +163,11 @@ function Settings() {
         <Button onClick={() => save.mutate()} disabled={save.isPending}>
           Save changes
         </Button>
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold mb-3">Security &amp; Authentication</h3>
+        <MfaSecurityCard />
       </div>
     </div>
   );

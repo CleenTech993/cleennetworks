@@ -83,21 +83,33 @@ function MfaPage() {
     navigate({ to: await destinationAfterAuth() });
   }
 
+  async function skipMfa() {
+    // Unenroll unverified factors and proceed directly to portal
+    const { data } = await supabase.auth.mfa.listFactors();
+    for (const f of data?.all ?? []) {
+      if (f.status === "unverified") {
+        await supabase.auth.mfa.unenroll({ factorId: f.id });
+      }
+    }
+    toast.info("Two-step verification skipped");
+    navigate({ to: await destinationAfterAuth() });
+  }
+
   return (
     <AuthLayout
       title="Two-step verification"
       icon={<ShieldCheck className="h-6 w-6 text-primary" />}
       description={
-        mode === "verify" ? "Enter the 6-digit code from your authenticator app." : undefined
+        mode === "verify"
+          ? "Enter the 6-digit code from your authenticator app."
+          : mode === "enroll"
+            ? "Scan this QR code with Google Authenticator, Microsoft Authenticator or Authy to activate MFA, or skip to keep it disabled."
+            : undefined
       }
     >
       {mode === "loading" && <p className="text-sm text-muted-foreground">Loading…</p>}
       {mode === "enroll" && (
         <div className="space-y-3 text-sm">
-          <p className="text-muted-foreground">
-            Scan this code with Google Authenticator, Microsoft Authenticator or Authy, then enter
-            the 6-digit code it shows.
-          </p>
           {qr && (
             <img
               src={qr}
@@ -124,8 +136,20 @@ function MfaPage() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={busy || code.length !== 6}>
-            {busy ? "Verifying…" : "Verify"}
+            {busy ? "Verifying…" : mode === "enroll" ? "Verify & Activate MFA" : "Verify"}
           </Button>
+
+          {mode === "enroll" && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={skipMfa}
+            >
+              Skip (Keep MFA Disabled)
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="ghost"

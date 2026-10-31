@@ -27,17 +27,28 @@ function LoginPage() {
       toast.error(error.message);
       return;
     }
-    // Approved users must pass two-step verification (OTP) before entering a console
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+
     const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
     if (!roles?.length) {
       navigate({ to: "/pending" });
       return;
     }
-    navigate({ to: "/mfa" });
+
+    // If the admin has MFA activated (nextLevel is aal2), navigate to verify OTP.
+    // If MFA is disabled, navigate directly into their console.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.nextLevel === "aal2") {
+      navigate({ to: "/mfa" });
+      return;
+    }
+
+    const dest = roles.some((r) => r.role === "super_admin") ? "/super-admin" : "/tenant";
+    navigate({ to: dest });
   }
 
   return (

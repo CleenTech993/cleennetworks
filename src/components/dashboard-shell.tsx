@@ -1,6 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { LogOut, Menu } from "lucide-react";
+import { LogOut, Menu, ShieldCheck } from "lucide-react";
+import { MfaSecurityDialog } from "@/components/mfa-security-card";
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,8 @@ function NavList({
           );
         })}
       </nav>
-      <div className="border-t border-sidebar-border p-3">
+      <div className="border-t border-sidebar-border p-3 space-y-1">
+        <MfaSecurityDialog />
         <Button
           variant="ghost"
           size="sm"
@@ -118,7 +120,15 @@ export function DashboardShell({ title, subtitle, nav, children }: Props) {
             </SheetContent>
           </Sheet>
           <h1 className="min-w-0 truncate text-sm font-medium text-muted-foreground">{title}</h1>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <MfaSecurityDialog
+              trigger={
+                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  <span className="hidden sm:inline">Two-Step Auth</span>
+                </Button>
+              }
+            />
             <ThemeToggle />
           </div>
         </header>
