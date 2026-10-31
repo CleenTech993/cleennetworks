@@ -132,5 +132,4 @@ async function handleHeartbeat(request: Request, token: string) {
         await sweepIntasendIfDue();
 
         return new Response("ok", { headers: { "content-type": "text/plain" } });
-      },
 }
