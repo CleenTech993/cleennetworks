@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import {
   LayoutDashboard,
+  Radar,
+  Wrench,
   Router,
   Wifi,
   Network,
@@ -23,6 +25,7 @@ import { canAccessPage } from "@/lib/permissions";
 
 const ALL_NAV: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
+  { to: "/tenant/noc", label: "NOC Monitor", icon: Radar },
   { to: "/tenant/routers", label: "Routers", icon: Router },
   { to: "/tenant/hotspot", label: "Hotspot", icon: Wifi },
   { to: "/tenant/devices", label: "Devices", icon: Smartphone },
@@ -34,6 +37,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant/inventory", label: "Inventory", icon: Boxes },
   { to: "/tenant/payments", label: "Payments", icon: CreditCard },
   { to: "/tenant/sms", label: "Notifications", icon: MessageSquare },
+  { to: "/tenant/tools", label: "Diagnostics & Tools", icon: Wrench },
   { to: "/tenant/tickets", label: "Support", icon: LifeBuoy },
   { to: "/tenant/team", label: "Team", icon: UserCog },
   { to: "/tenant/audit", label: "Audit Log", icon: History },

@@ -51,3 +51,4 @@ CREATE POLICY "audit_logs insert" ON public.audit_logs
     tenant_id IS NULL OR
     tenant_id = public.user_tenant_id(auth.uid())
   );
+

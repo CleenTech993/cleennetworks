@@ -77,31 +77,95 @@ function downloadCsv(batch: Batch) {
   URL.revokeObjectURL(url);
 }
 
-// Must run directly inside a click handler, otherwise the browser blocks the popup.
-function printSheet(batch: Batch, ispName: string) {
+// Professional Hotspot Voucher Print Sheet with QR code auto-login
+function printSheet(
+  batch: { codes: string[]; packageName?: string; duration?: string; price?: string | number },
+  ispName: string
+) {
   const w = window.open("", "_blank");
   if (!w) {
     toast.error("Allow pop-ups to print, or use Download CSV.");
     return;
   }
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
   const cards = batch.codes
-    .map(
-      (c) =>
-        `<div class="card"><div class="isp">${esc(ispName)}</div><div class="pkg">${esc(batch.packageName)}</div><div class="dur">${esc(batch.duration)}</div><div class="code">${esc(c)}</div></div>`,
-    )
+    .map((c) => {
+      const loginUrl = `${baseUrl}/portal?voucher=${encodeURIComponent(c)}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&margin=2&data=${encodeURIComponent(loginUrl)}`;
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div class="isp-badge">
+              <span class="wifi-icon">📶</span>
+              <span class="isp-name">${esc(ispName || "Wi-Fi Hotspot")}</span>
+            </div>
+            ${batch.price ? `<div class="price-tag">KES ${batch.price}</div>` : ""}
+          </div>
+          <div class="pkg-info">
+            <span class="pkg-name">${esc(batch.packageName || "Internet Access")}</span>
+            <span class="pkg-dot">·</span>
+            <span class="pkg-dur">${esc(batch.duration || "Standard")}</span>
+          </div>
+          <div class="card-body">
+            <div class="qr-box">
+              <img src="${qrUrl}" alt="QR" width="80" height="80" loading="eager" />
+              <div class="qr-hint">Scan to Login</div>
+            </div>
+            <div class="code-box">
+              <div class="code-label">Voucher Login Code:</div>
+              <div class="voucher-code">${esc(c)}</div>
+              <div class="code-instr">Connect to Wi-Fi and enter code on captive portal</div>
+            </div>
+          </div>
+          <div class="cut-line">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
+        </div>
+      `;
+    })
     .join("");
-  w.document.write(
-    `<!doctype html><html><head><meta charset="utf-8"><title>Vouchers</title><style>
-      body{font-family:system-ui,sans-serif;margin:16px}
-      .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-      .card{border:1px dashed #555;padding:10px;text-align:center;break-inside:avoid}
-      .isp{font-size:11px;color:#555}.pkg{font-weight:600;margin-top:4px}.dur{font-size:12px;color:#555}
-      .code{font:700 20px ui-monospace,monospace;letter-spacing:2px;margin-top:6px}
-    </style></head><body><div class="grid">${cards}</div></body></html>`,
-  );
+
+  w.document.write(`
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${esc(ispName || "Wi-Fi")} Vouchers</title>
+        <style>
+          @page { margin: 8mm; size: A4; }
+          * { box-sizing: border-box; }
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background: #fff; color: #111; }
+          .toolbar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; margin-bottom: 12px; background: #f3f4f6; border-radius: 6px; }
+          .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+          .card { border: 1.5px dashed #cbd5e1; border-radius: 8px; padding: 12px 14px; position: relative; background: #ffffff; break-inside: avoid; page-break-inside: avoid; }
+          .card-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 6px; }
+          .isp-badge { display: flex; align-items: center; gap: 4px; font-weight: 700; font-size: 13px; color: #0f172a; }
+          .price-tag { font-size: 12px; font-weight: 700; background: #ecfdf5; color: #059669; padding: 2px 6px; border-radius: 4px; border: 1px solid #a7f3d0; }
+          .pkg-info { font-size: 11px; color: #64748b; font-weight: 500; margin-bottom: 8px; }
+          .pkg-name { font-weight: 600; color: #334155; }
+          .card-body { display: flex; align-items: center; gap: 12px; }
+          .qr-box { display: flex; flex-direction: column; align-items: center; padding: 4px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; }
+          .qr-hint { font-size: 8px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-top: 2px; }
+          .code-box { flex: 1; }
+          .code-label { font-size: 9px; text-transform: uppercase; font-weight: 600; color: #64748b; letter-spacing: 0.5px; }
+          .voucher-code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 18px; font-weight: 800; letter-spacing: 2px; color: #0f172a; margin: 2px 0; background: #f8fafc; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0; display: inline-block; }
+          .code-instr { font-size: 9px; color: #64748b; margin-top: 4px; line-height: 1.2; }
+          .cut-line { font-size: 8px; color: #cbd5e1; text-align: center; margin-top: 8px; font-family: monospace; }
+          @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar no-print">
+          <div><strong>${batch.codes.length} Voucher Cards</strong> ready to print</div>
+          <button onclick="window.print()" style="padding: 6px 14px; font-weight: 600; cursor: pointer; background: #2563eb; color: #fff; border: none; border-radius: 4px;">Print Now</button>
+        </div>
+        <div class="grid">${cards}</div>
+      </body>
+    </html>
+  `);
   w.document.close();
   w.focus();
-  setTimeout(() => w.print(), 250);
 }
 
 export function VoucherManager() {
@@ -268,6 +332,21 @@ export function VoucherManager() {
       }
       return n;
     });
+  function printSelectedVouchers() {
+    const selectedVouchers = vouchers.filter((v) => selected.has(v.id));
+    if (selectedVouchers.length === 0) return;
+    const firstPkg = selectedVouchers[0]?.package_id ? pkgById.get(selectedVouchers[0].package_id) : undefined;
+    printSheet(
+      {
+        codes: selectedVouchers.map((v) => v.code),
+        packageName: firstPkg?.name ?? "Hotspot Voucher",
+        duration: firstPkg ? `${firstPkg.duration_value} ${firstPkg.duration_unit}` : "Standard",
+        price: firstPkg?.price,
+      },
+      ispName
+    );
+  }
+
   const deleteTargets = confirmDelete ? vouchers.filter((v) => confirmDelete.includes(v.id)) : [];
   const deleteUsed = deleteTargets.filter((v) => v.status !== "unused").length;
 
