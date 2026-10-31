@@ -314,7 +314,7 @@ describe("router.rsc provisioning", () => {
       "add name=netgrid-hs-pool",
       "/ip hotspot profile",
       ":do { add name=netgrid-hs interface=netgrid-lan",
-      "add name=netgrid-sync interval=2m",
+      "add name=netgrid-sync interval=30s",
       "add name=netgrid-heartbeat",
     ]) {
       expect(at(earlier), earlier).toBeLessThan(portMove);

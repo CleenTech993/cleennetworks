@@ -110,7 +110,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .not("ip_address", "is", null),
         ]);
 
-        const lines: string[] = ["# NetGrid sync"];
+        const lines: string[] = ["# NetGrid sync", ":do { /system scheduler set [find name=netgrid-sync] interval=30s } on-error={}"];
         const host = getRequestHost();
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
