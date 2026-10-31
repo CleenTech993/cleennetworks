@@ -762,8 +762,10 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       // Hand the browser to the router so the device is actually logged in.
       const target = buildHotspotLoginRedirect(params.login, redeemed);
       if (target) {
-        setDone("connecting");
-        window.location.href = target;
+        setDone("activating");
+        setTimeout(() => {
+          window.location.href = target;
+        }, 2000);
       } else {
         setDone("accepted");
       }

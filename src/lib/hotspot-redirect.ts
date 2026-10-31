@@ -55,7 +55,7 @@ export function routerLoginFailed(search: string): boolean {
 // until the router has the voucher, instead of leaving the customer stuck.
 // ---------------------------------------------------------------------------------------------
 
-export const LOGIN_RETRY_DELAY_MS = 10_000;
+export const LOGIN_RETRY_DELAY_MS = 2_000;
 /** A little longer than two sync intervals. */
 export const LOGIN_RETRY_WINDOW_MS = 4 * 60_000;
 const VOUCHER_KEYS = { code: "ng_voucher", at: "ng_voucher_at" } as const;
