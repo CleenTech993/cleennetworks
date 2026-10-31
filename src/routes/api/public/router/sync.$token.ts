@@ -113,9 +113,31 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const host = getRequestHost();
         const lines: string[] = [
           "# NetGrid sync",
-          ":do { /system scheduler set [find name=netgrid-sync] interval=5s } on-error={}",
-          ":do { /system scheduler set [find name=netgrid-heartbeat] interval=2s } on-error={}",
-          ":do { /system scheduler set [find name=netgrid-wan] interval=2s } on-error={}",
+          ":do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5s on-event=\"/system script run netgrid-sync\" } else={ /system scheduler set [find name=netgrid-sync] interval=5s } } on-error={}",
+          ":do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=2s on-event=\"/system script run netgrid-wan\" } else={ /system scheduler set [find name=netgrid-wan] interval=2s } } on-error={}",
+          "/system script",
+          ":do { remove [find where name=netgrid-heartbeat] } on-error={}",
+          `:do { add name=netgrid-heartbeat source={
+  :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
+  :local r [/system resource get];
+  :local cpu ($r->"cpu-load");
+  :local mf (($r->"free-memory")/1048576);
+  :local mt (($r->"total-memory")/1048576);
+  :local up ($r->"uptime");
+  :local ver ($r->"version");
+  :local board ($r->"board-name");
+  :local arch ($r->"architecture-name");
+  :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={};
+  :local wan ""; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={};
+  :local volt 0; :do { :set volt [/system health get voltage] } on-error={};
+  :local temp 0; :do { :set temp [/system health get temperature] } on-error={};
+  :local d ("cpu=" . $cpu . "&mem-free=" . $mf . "&mem-total=" . $mt . "&hdd-free=" . $hf . "&uptime=" . $up . "&temp=" . $temp . "&voltage=" . $volt . "&version=" . $ver . "&board=" . $board . "&arch=" . $arch . "&wan-ip=" . $wan . "&latency=" . $ngLat . "&loss=" . $ngLoss . "&jitter=" . $ngJit . "&dns=" . $ngDns);
+  :do {
+    /tool fetch url="https://${host}/api/public/router/heartbeat/${params.token}" http-method=post http-data=$d mode=https keep-result=no
+  } on-error={ :log warning "NetGrid: heartbeat failed" }
+} } on-error={}`,
+          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=2s on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=2s on-event="/system script run netgrid-heartbeat" } } on-error={}',
+          ':do { /system script run netgrid-heartbeat } on-error={}',
         ];
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.

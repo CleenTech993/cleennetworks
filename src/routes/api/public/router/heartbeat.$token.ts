@@ -13,9 +13,16 @@ import { tooManyRequests } from "@/lib/rate-limit.server";
 export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
   server: {
     handlers: {
-      GET: async ({ params, request }) => {
+      GET: async ({ params, request }) => handleHeartbeat(request, params.token),
+      POST: async ({ params, request }) => handleHeartbeat(request, params.token),
+    },
+  },
+});
+
+async function handleHeartbeat(request: Request, token: string) {
         const url = new URL(request.url);
-        const q = url.searchParams;
+        const bodyText = request.method === "POST" ? await request.text() : "";
+        const q = request.method === "POST" && bodyText ? new URLSearchParams(bodyText) : url.searchParams;
         const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
 
         const num = (k: string) => {
@@ -66,13 +73,14 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
         const arch = str("arch");
         if (arch) patch.architecture = arch;
         const wanIp = str("wan-ip");
-        if (wanIp) patch.wan_ip = wanIp;
+        if (wanIp) patch.wan_ip = wanIp.split("/")[0].trim();
+        else if (ip) patch.wan_ip = ip;
         const lanIp = str("lan-ip");
         if (lanIp) patch.lan_ip = lanIp;
         const model = str("model");
         if (model) patch.model = model;
 
-        const auth = await authenticateRouter(request, params.token);
+        const auth = await authenticateRouter(request, token);
         if (!auth.ok)
           return auth.blocked ? tooManyRequests() : new Response("unknown", { status: 404 });
         const prev = auth.router;
@@ -125,6 +133,4 @@ export const Route = createFileRoute("/api/public/router/heartbeat/$token")({
 
         return new Response("ok", { headers: { "content-type": "text/plain" } });
       },
-    },
-  },
-});
+}
