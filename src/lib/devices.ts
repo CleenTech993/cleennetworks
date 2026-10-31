@@ -148,9 +148,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
     // server called netgrid-hs) would silently refuse every voucher. Compare what we meant to add
     // with what is really there and say so in the router log: /log print where message~"NetGrid"
     lines.push(
-      `:local ngWant ${valid.length}`,
-      ':local ngHave [:len [/ip hotspot user find comment="netgrid-voucher"]]',
-      ':if ($ngHave < $ngWant) do={ :log warning ("NetGrid: only " . $ngHave . " of " . $ngWant . " voucher users were added. Check that hotspot server netgrid-hs and the netgrid-d* user profiles exist.") }',
+      `:do { :local ngWant ${valid.length}; :local ngHave [:len [/ip hotspot user find comment="netgrid-voucher"]]; :if ($ngHave < $ngWant) do={ :log warning ("NetGrid: only " . $ngHave . " of " . $ngWant . " voucher users were added. Check that hotspot server netgrid-hs and the netgrid-d* user profiles exist.") } } on-error={}`,
     );
   }
   return lines;

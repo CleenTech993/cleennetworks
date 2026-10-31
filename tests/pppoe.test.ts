@@ -107,7 +107,7 @@ describe("buildPppoeSyncLines", () => {
   it("snapshots old secrets first and disconnects removed / re-profiled clients last", () => {
     const lines = buildPppoeSyncLines({ routerId: ROUTER, customers: [], packages: [], now: NOW });
     const out = lines.join("\n");
-    expect(out.indexOf(":local ngOld")).toBeLessThan(
+    expect(out.indexOf(":global ngOld")).toBeLessThan(
       out.indexOf('remove [find comment="netgrid"]'),
     );
     expect(out.indexOf('remove [find comment="netgrid"]')).toBeLessThan(

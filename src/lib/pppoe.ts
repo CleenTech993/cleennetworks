@@ -135,7 +135,7 @@ export function buildPppoeSyncLines(opts: {
 
   const lines: string[] = [
     "# PPPoE: remember current netgrid secrets (name|profile) to detect removed / changed clients",
-    ':local ngOld [:toarray ""]',
+    ':global ngOld [:toarray ""]',
     ":do {",
     '  :foreach s in=[/ppp secret find comment="netgrid"] do={',
     '    :set ngOld ($ngOld, ([/ppp secret get $s name] . "|" . [/ppp secret get $s profile]))',
@@ -173,6 +173,7 @@ export function buildPppoeSyncLines(opts: {
     "    }",
     "  }",
     "} on-error={}",
+    ":set ngOld",
   );
 
   return lines;
