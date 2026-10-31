@@ -157,6 +157,8 @@ function buildRsc(p: {
 :do { add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=hotspot } on-error={ :log warning "NetGrid: hotspot profile failed" }
 /ip hotspot
 :do { add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof disabled=no } on-error={ :log warning "NetGrid: hotspot server failed" }
+/ip hotspot user profile
+:do { add name=netgrid-d1 shared-users=1 } on-error={}
 
 /ip hotspot walled-garden
 :do { remove [find comment=netgrid] } on-error={}
@@ -253,6 +255,7 @@ add name=netgrid-heartbeat interval=1m on-event=":global hbUrl \\"${p.callbackUr
 # installs it later if this attempt does not succeed.
 ${routerosInstallLoginPage({ loginUrl: p.loginUrl, marker: p.marker })}
 :log info "NetGrid: auto-config complete"
+:do { /system script run netgrid-sync } on-error={}
 :put "NetGrid auto-config applied. Portal: ${p.portalUrl}"
 `;
 }
