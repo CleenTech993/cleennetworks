@@ -56,3 +56,13 @@ export function parseRouterOsDuration(v: string | null | undefined): number | nu
   const [w, d, h, mi, se] = [m[1], m[2], m[3], m[4], m[5]].map((x) => (x == null ? 0 : Number(x)));
   return w * 604800 + d * 86400 + h * 3600 + mi * 60 + se;
 }
+
+export function fmtUptime(sec?: number | null) {
+  if (!sec) return "—";
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}

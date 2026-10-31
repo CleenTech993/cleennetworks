@@ -129,9 +129,11 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
   :local arch ($r->"architecture-name");
   :local hf 0; :do { :set hf (([/system resource get free-hdd-space])/1048576) } on-error={};
   :local wan ""; :do { :set wan [/ip address get [find interface=ether1] address] } on-error={};
+  :if ($wan = "") do={ :do { :set wan [/ip address get [find dynamic=yes and disabled=no] address] } on-error={} };
+  :local lan ""; :do { :set lan [/ip address get [find interface=netgrid-lan] address] } on-error={};
   :local volt 0; :do { :set volt [/system health get voltage] } on-error={};
   :local temp 0; :do { :set temp [/system health get temperature] } on-error={};
-  :local d ("cpu=" . $cpu . "&mem-free=" . $mf . "&mem-total=" . $mt . "&hdd-free=" . $hf . "&uptime=" . $up . "&temp=" . $temp . "&voltage=" . $volt . "&version=" . $ver . "&board=" . $board . "&arch=" . $arch . "&wan-ip=" . $wan . "&latency=" . $ngLat . "&loss=" . $ngLoss . "&jitter=" . $ngJit . "&dns=" . $ngDns);
+  :local d ("cpu=" . $cpu . "&mem-free=" . $mf . "&mem-total=" . $mt . "&hdd-free=" . $hf . "&uptime=" . $up . "&temp=" . $temp . "&voltage=" . $volt . "&version=" . $ver . "&board=" . $board . "&arch=" . $arch . "&wan-ip=" . $wan . "&lan-ip=" . $lan . "&latency=" . $ngLat . "&loss=" . $ngLoss . "&jitter=" . $ngJit . "&dns=" . $ngDns);
   :do {
     /tool fetch url="https://${host}/api/public/router/heartbeat/${params.token}" http-method=post http-data=$d mode=https keep-result=no
   } on-error={ :log warning "NetGrid: heartbeat failed" }
