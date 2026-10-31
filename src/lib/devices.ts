@@ -140,7 +140,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
     const mac =
       v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
     lines.push(
-      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={}`,
+      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=default comment="netgrid-voucher" } on-error={} }`,
     );
   }
   if (valid.length > 0) {

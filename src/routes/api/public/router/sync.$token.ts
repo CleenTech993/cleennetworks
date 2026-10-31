@@ -111,19 +111,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         ]);
 
         const host = getRequestHost();
-        const lines: string[] = [
-          "# NetGrid sync",
-          ":do { /system scheduler set [find name=netgrid-sync] interval=30s } on-error={}",
-          ":do {",
-            "  :local s [/system script find name=netgrid-sync]",
-            "  :if ([:len $s] > 0) do={",
-            "    :local src [/system script get $s source]",
-            "    :if ([:typeof [:find $src \"verbose=yes\"]] = \"nil\") do={",
-            `      /system script set $s source=":do {\\r\\n  /tool fetch url=\\\"https://${host}/api/public/router/sync/${params.token}\\\" dst-path=netgrid-sync.rsc mode=https\\r\\n  :delay 2s\\r\\n  /import file-name=netgrid-sync.rsc verbose=yes\\r\\n} on-error={ :log warning \\\"NetGrid: user sync failed\\\" }"`,
-            "    }",
-            "  }",
-          "} on-error={}",
-        ];
+        const lines: string[] = ["# NetGrid sync", ":do { /system scheduler set [find name=netgrid-sync] interval=30s } on-error={}"];
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
         lines.push(
