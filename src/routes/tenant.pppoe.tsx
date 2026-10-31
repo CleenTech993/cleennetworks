@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Eye,
@@ -12,8 +12,14 @@ import {
   PauseCircle,
   PlayCircle,
   Trash2,
+  Search,
+  Wifi,
+  Activity,
+  Smartphone,
+  ShieldAlert,
+  Radio,
 } from "lucide-react";
-import { PageHeader, EmptyState } from "@/components/dashboard-shell";
+import { PageHeader, EmptyState, StatCard } from "@/components/dashboard-shell";
 import { isRouterLive } from "@/lib/router-health";
 import { isClientConnected } from "@/lib/pppoe-sessions";
 import { Button } from "@/components/ui/button";
@@ -50,6 +56,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { randomCode } from "@/lib/codes";
 import { expiryFrom } from "@/lib/duration";
 import { formatSpeed, isExpired, renewedExpiry, validatePppoeCredentials } from "@/lib/pppoe";
+import { logAudit } from "@/lib/audit";
 
 export const Route = createFileRoute("/tenant/pppoe")({
   head: () => ({
@@ -58,7 +65,7 @@ export const Route = createFileRoute("/tenant/pppoe")({
       {
         name: "description",
         content:
-          "Create PPPoE logins with a speed and duration, then renew, suspend or remove them.",
+          "Create PPPoE logins with a speed and duration, view live connected client devices, and manage subscriptions.",
       },
     ],
   }),
@@ -124,6 +131,8 @@ function PPPoE() {
   const [form, setForm] = useState(empty);
   const [showPw, setShowPw] = useState(false);
   const [deleting, setDeleting] = useState<Client | null>(null);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active_now" | "disconnected" | "suspended">("all");
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ["pppoe-customers"],
@@ -138,9 +147,9 @@ function PPPoE() {
       if (error) throw error;
       return data as Client[];
     },
-    // Keep "connected" and the MAC fresh without a manual reload (routers report every 2 minutes).
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   });
+
   const { data: packages } = useQuery({
     queryKey: ["pppoe-packages"],
     queryFn: async () => {
@@ -153,6 +162,7 @@ function PPPoE() {
       return data as Pkg[];
     },
   });
+
   const { data: routers } = useQuery({
     queryKey: ["pppoe-routers"],
     queryFn: async () => {
@@ -163,13 +173,77 @@ function PPPoE() {
       if (error) throw error;
       return data as Router[];
     },
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   });
-  const routerById = useMemo(() => new Map((routers ?? []).map((r) => [r.id, r])), [routers]);
 
+  // Re-evaluate client connectivity every 3 seconds even without a new network payload
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => setTick((t) => t + 1), 3_000);
+    return () => clearInterval(i);
+  }, []);
+
+  // Supabase Realtime channel subscription for immediate updates on client connect/disconnect
+  useEffect(() => {
+    if (!tenantId) return;
+    const ch = supabase
+      .channel(`pppoe-customers-${tenantId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "customers",
+          filter: `tenant_id=eq.${tenantId}`,
+        },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["pppoe-customers"] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [tenantId, qc]);
+
+  const routerById = useMemo(() => new Map((routers ?? []).map((r) => [r.id, r])), [routers]);
   const pkgById = useMemo(() => new Map((packages ?? []).map((p) => [p.id, p])), [packages]);
   const refresh = () => qc.invalidateQueries({ queryKey: ["pppoe-customers"] });
   const unassigned = (clients ?? []).filter((c) => !c.router_id).length;
+
+  // Active connected devices count
+  const activeNowCount = useMemo(() => {
+    if (!clients) return 0;
+    return clients.filter((c) => {
+      const router = c.router_id ? routerById.get(c.router_id) : undefined;
+      const routerLive = router ? isRouterLive(router) : false;
+      return isClientConnected(c.last_seen_at) && (!router || routerLive);
+    }).length;
+  }, [clients, routerById]);
+
+  // Filtered clients list
+  const filteredClients = useMemo(() => {
+    if (!clients) return [];
+    return clients.filter((c) => {
+      const router = c.router_id ? routerById.get(c.router_id) : undefined;
+      const routerLive = router ? isRouterLive(router) : false;
+      const isConnected = isClientConnected(c.last_seen_at) && (!router || routerLive);
+
+      if (statusFilter === "active_now" && !isConnected) return false;
+      if (statusFilter === "disconnected" && isConnected) return false;
+      if (statusFilter === "suspended" && c.status !== "suspended") return false;
+
+      if (!search.trim()) return true;
+      const q = search.toLowerCase().trim();
+      return (
+        (c.pppoe_username ?? "").toLowerCase().includes(q) ||
+        (c.full_name ?? "").toLowerCase().includes(q) ||
+        (c.phone ?? "").toLowerCase().includes(q) ||
+        (c.last_mac ?? "").toLowerCase().includes(q) ||
+        (c.last_ip ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [clients, routerById, statusFilter, search]);
 
   const openNew = () => {
     setForm({
@@ -179,6 +253,7 @@ function PPPoE() {
     });
     setEditing("new");
   };
+
   const openEdit = (c: Client) => {
     setForm({
       full_name: c.full_name ?? "",
@@ -192,7 +267,6 @@ function PPPoE() {
     setEditing(c);
   };
 
-  // Picking a package on a NEW client pre-fills the expiry from the package duration.
   const pickPackage = (id: string) => {
     const pkg = pkgById.get(id);
     const next = { ...form, package_id: id };
@@ -217,22 +291,40 @@ function PPPoE() {
         router_id: form.router_id,
         expires_at: fromLocalInput(form.expires_at),
       };
-      const { error } =
+      const { data, error } =
         editing === "new"
           ? await supabase
               .from("customers")
               .insert({ ...row, tenant_id: tenantId, customer_type: "pppoe", status: "active" })
+              .select("id")
+              .single()
           : await supabase
               .from("customers")
               .update(row)
-              .eq("id", (editing as Client).id);
+              .eq("id", (editing as Client).id)
+              .select("id")
+              .single();
+
       if (error)
         throw error.code === "23505"
           ? new Error("That username is already used by another client.")
           : error;
+
+      await logAudit({
+        action: editing === "new" ? "create" : "update",
+        resource: "pppoe_client",
+        resourceId: data?.id ?? (editing !== "new" ? (editing as Client).id : undefined),
+        details: {
+          username: row.pppoe_username,
+          full_name: row.full_name,
+          router_id: row.router_id,
+          package_id: row.package_id,
+        },
+        tenantId,
+      });
     },
     onSuccess: () => {
-      toast.success("Saved — the router picks it up within 2 minutes");
+      toast.success("Saved — the router picks it up within seconds");
       refresh();
       setEditing(null);
     },
@@ -244,17 +336,26 @@ function PPPoE() {
       const pkg = c.package_id ? pkgById.get(c.package_id) : undefined;
       if (!pkg?.duration_value || !pkg.duration_unit)
         throw new Error("Assign a package with a duration first.");
+      const newExpiry = renewedExpiry(c.expires_at, pkg.duration_value, pkg.duration_unit);
       const { error } = await supabase
         .from("customers")
         .update({
-          expires_at: renewedExpiry(c.expires_at, pkg.duration_value, pkg.duration_unit),
+          expires_at: newExpiry,
           status: "active",
         })
         .eq("id", c.id);
       if (error) throw error;
+
+      await logAudit({
+        action: "renew",
+        resource: "pppoe_client",
+        resourceId: c.id,
+        details: { username: c.pppoe_username, new_expires_at: newExpiry },
+        tenantId,
+      });
     },
     onSuccess: () => {
-      toast.success("Renewed");
+      toast.success("Client subscription renewed");
       refresh();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -264,6 +365,14 @@ function PPPoE() {
     mutationFn: async ({ c, status }: { c: Client; status: "active" | "suspended" }) => {
       const { error } = await supabase.from("customers").update({ status }).eq("id", c.id);
       if (error) throw error;
+
+      await logAudit({
+        action: status === "active" ? "resume" : "suspend",
+        resource: "pppoe_client",
+        resourceId: c.id,
+        details: { username: c.pppoe_username, status },
+        tenantId,
+      });
     },
     onSuccess: (_d, v) => {
       toast.success(v.status === "active" ? "Client re-activated" : "Client suspended");
@@ -276,6 +385,14 @@ function PPPoE() {
     mutationFn: async (c: Client) => {
       const { error } = await supabase.from("customers").delete().eq("id", c.id);
       if (error) throw error;
+
+      await logAudit({
+        action: "delete",
+        resource: "pppoe_client",
+        resourceId: c.id,
+        details: { username: c.pppoe_username },
+        tenantId,
+      });
     },
     onSuccess: () => {
       toast.success("Client deleted");
@@ -290,10 +407,10 @@ function PPPoE() {
   );
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
-        title="PPPoE clients"
-        description="Give each client a username and password for their router, with the speed and duration of their package."
+        title="PPPoE Clients & Devices"
+        description="Manage PPPoE client logins, monitor real-time connected devices, speeds, and router assignments."
         action={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setShowPw((v) => !v)}>
@@ -307,38 +424,136 @@ function PPPoE() {
         }
       />
 
+      {/* Overview Stat Cards */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Total PPPoE Clients"
+          value={clients?.length ?? 0}
+          hint="Registered logins"
+          icon={Smartphone}
+        />
+        <div className="rounded-xl border bg-card p-5 relative overflow-hidden">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-muted-foreground">Active Now (Online)</p>
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+            </span>
+          </div>
+          <div className="mt-2 flex items-baseline gap-2">
+            <span className="text-2xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
+              {activeNowCount}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              of {clients?.length ?? 0} connected
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Reporting live via MikroTik router sessions
+          </p>
+        </div>
+        <StatCard
+          label="Disconnected / Idle"
+          value={(clients?.length ?? 0) - activeNowCount}
+          hint="Not currently transmitting"
+          icon={Radio}
+        />
+        <StatCard
+          label="Router Assignments"
+          value={unassigned === 0 ? "100% Bound" : `${unassigned} Unassigned`}
+          hint={unassigned === 0 ? "All clients bound to router" : "Requires router assignment"}
+          icon={Wifi}
+        />
+      </div>
+
       {unassigned > 0 && (
-        <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-          {unassigned} {unassigned === 1 ? "client is" : "clients are"} not assigned to a router, so{" "}
-          {unassigned === 1 ? "its login works" : "their logins work"} on every router. Edit each
-          one and choose the router it connects through.
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
+          <span>
+            {unassigned} {unassigned === 1 ? "client is" : "clients are"} not assigned to a router, so{" "}
+            {unassigned === 1 ? "its login works" : "their logins work"} on every router. Edit each
+            one and choose the router it connects through.
+          </span>
         </div>
       )}
 
+      {/* Filter and Search Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <Button
+            size="sm"
+            variant={statusFilter === "all" ? "default" : "outline"}
+            onClick={() => setStatusFilter("all")}
+            className="text-xs"
+          >
+            All Clients ({clients?.length ?? 0})
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "active_now" ? "default" : "outline"}
+            onClick={() => setStatusFilter("active_now")}
+            className="text-xs gap-1.5"
+          >
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            Active Devices ({activeNowCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "disconnected" ? "default" : "outline"}
+            onClick={() => setStatusFilter("disconnected")}
+            className="text-xs"
+          >
+            Disconnected ({(clients?.length ?? 0) - activeNowCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "suspended" ? "default" : "outline"}
+            onClick={() => setStatusFilter("suspended")}
+            className="text-xs"
+          >
+            Suspended ({(clients ?? []).filter((c) => c.status === "suspended").length})
+          </Button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search name, user, IP, MAC…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-8 h-9 text-xs"
+          />
+        </div>
+      </div>
+
       {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <div className="py-12 text-center text-sm text-muted-foreground">Loading PPPoE clients…</div>
       ) : !clients?.length ? (
         <EmptyState
           title="No PPPoE clients"
           description="Add a client to create their PPPoE login. Create a PPPoE package first (Packages page) to set the speed and duration."
         />
+      ) : filteredClients.length === 0 ? (
+        <div className="rounded-xl border bg-card p-8 text-center text-sm text-muted-foreground">
+          No clients match your filter or search query.
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-4 py-2">Client</th>
-                <th className="px-4 py-2">Login</th>
-                <th className="px-4 py-2">Router</th>
-                <th className="px-4 py-2">Device</th>
-                <th className="px-4 py-2">Package / speed</th>
-                <th className="px-4 py-2">Expires</th>
-                <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2" />
+                <th className="px-4 py-3">Client</th>
+                <th className="px-4 py-3">PPPoE Login</th>
+                <th className="px-4 py-3">Router</th>
+                <th className="px-4 py-3">Device & Connection</th>
+                <th className="px-4 py-3">Package / Speed</th>
+                <th className="px-4 py-3">Expires</th>
+                <th className="px-4 py-3">Account</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {clients.map((c) => {
+            <tbody className="divide-y divide-border">
+              {filteredClients.map((c) => {
                 const pkg = c.package_id ? pkgById.get(c.package_id) : undefined;
                 const expired = isExpired(c.expires_at);
                 const label = c.status !== "active" ? c.status : expired ? "expired" : "active";
@@ -346,87 +561,116 @@ function PPPoE() {
                 const routerLive = router ? isRouterLive(router) : false;
                 // A client only counts as connected while its router is itself reporting in.
                 const connected = isClientConnected(c.last_seen_at) && (!router || routerLive);
+
                 return (
-                  <tr key={c.id} className="border-t align-top">
-                    <td className="px-4 py-2 font-medium">
-                      {c.full_name ?? "—"}
+                  <tr key={c.id} className="hover:bg-muted/20 transition-colors align-top">
+                    <td className="px-4 py-3 font-medium">
+                      <div className="text-foreground">{c.full_name ?? "—"}</div>
                       <div className="text-xs font-normal text-muted-foreground">
-                        {c.phone ?? ""}
+                        {c.phone ?? "No phone"}
                       </div>
                     </td>
-                    <td className="px-4 py-2 font-mono text-xs">
-                      {c.pppoe_username ?? "—"}
+                    <td className="px-4 py-3 font-mono text-xs">
+                      <div className="font-semibold text-foreground">{c.pppoe_username ?? "—"}</div>
                       <div className="text-muted-foreground">
                         {showPw ? c.pppoe_password : "••••••••"}
                       </div>
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3">
                       {router ? (
-                        <>
-                          <div className="flex items-center gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 font-medium">
                             <span
-                              className={`h-2 w-2 rounded-full ${routerLive ? "bg-green-500" : "bg-muted-foreground/40"}`}
+                              className={`h-2 w-2 rounded-full ${routerLive ? "bg-emerald-500" : "bg-red-500"}`}
                               aria-hidden
                             />
                             {router.name}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {routerLive ? "Online" : "Offline"}
+                            {routerLive ? "Router Online" : "Router Offline"}
                           </div>
-                        </>
+                        </div>
                       ) : c.router_id ? (
-                        <span className="text-muted-foreground">Router removed</span>
+                        <span className="text-xs text-muted-foreground">Router removed</span>
                       ) : (
-                        <>
-                          <Badge variant="outline" className="border-amber-500 text-amber-600">
-                            Not assigned
+                        <div>
+                          <Badge variant="outline" className="border-amber-500 text-amber-600 text-[10px]">
+                            Not bound
                           </Badge>
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            Works on every router
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
+                            Works on any router
                           </div>
-                        </>
+                        </div>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-xs">
-                      {c.last_mac ? (
-                        <>
-                          <div className="font-mono">{c.last_mac}</div>
-                          {c.last_ip && <div className="text-muted-foreground">{c.last_ip}</div>}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">No MAC yet</span>
-                      )}
-                      <div className="mt-1">
-                        {connected ? (
-                          <Badge>Connected</Badge>
-                        ) : c.last_seen_at ? (
-                          <span className="text-muted-foreground">
-                            Last seen {new Date(c.last_seen_at).toLocaleString()}
+                    <td className="px-4 py-3 text-xs">
+                      {connected ? (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            Active / Connected
                           </span>
-                        ) : (
-                          <span className="text-muted-foreground">Never connected</span>
-                        )}
-                      </div>
+                          {c.last_ip && (
+                            <div className="font-mono text-xs font-medium text-foreground bg-muted/70 px-1.5 py-0.5 rounded border inline-block">
+                              IP: {c.last_ip}
+                            </div>
+                          )}
+                          {c.last_mac && (
+                            <div className="font-mono text-[11px] text-muted-foreground">
+                              MAC: {c.last_mac}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-xs font-medium text-muted-foreground border">
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
+                            Disconnected
+                          </span>
+                          {c.last_ip && (
+                            <div className="font-mono text-xs text-muted-foreground">
+                              Last IP: {c.last_ip}
+                            </div>
+                          )}
+                          {c.last_mac ? (
+                            <div className="font-mono text-[11px] text-muted-foreground">
+                              MAC: {c.last_mac}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-muted-foreground">No MAC detected</div>
+                          )}
+                          {c.last_seen_at && (
+                            <div className="text-[10px] text-muted-foreground/80">
+                              Seen {new Date(c.last_seen_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3">
                       {pkg ? (
-                        <>
-                          {pkg.name}
+                        <div>
+                          <div className="font-medium">{pkg.name}</div>
                           <div className="text-xs text-muted-foreground">
                             ↓ {formatSpeed(pkg.download_kbps)} · ↑ {formatSpeed(pkg.upload_kbps)}
                           </div>
-                        </>
+                        </div>
                       ) : (
-                        <span className="text-muted-foreground">No package (unlimited)</span>
+                        <span className="text-xs text-muted-foreground">No package (unlimited)</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {c.expires_at ? new Date(c.expires_at).toLocaleString() : "Never"}
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {c.expires_at ? new Date(c.expires_at).toLocaleString() : "Never expires"}
                     </td>
-                    <td className="px-4 py-2">
-                      <Badge variant={label === "active" ? "default" : "secondary"}>{label}</Badge>
+                    <td className="px-4 py-3">
+                      <Badge
+                        variant={label === "active" ? "default" : label === "expired" ? "destructive" : "secondary"}
+                        className="capitalize text-[11px]"
+                      >
+                        {label}
+                      </Badge>
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1">
                         <Button
                           size="icon"
@@ -481,6 +725,7 @@ function PPPoE() {
         </div>
       )}
 
+      {/* Edit / New Dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
@@ -488,7 +733,7 @@ function PPPoE() {
               {editing === "new" ? "New PPPoE client" : "Edit PPPoE client"}
             </DialogTitle>
             <DialogDescription>
-              The client enters this username and password in their own router's PPPoE settings.
+              The client enters this username and password in their router's PPPoE WAN settings.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -498,6 +743,7 @@ function PPPoE() {
                 <Input
                   value={form.full_name}
                   onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  placeholder="e.g. John Doe"
                 />
               </div>
               <div>
@@ -605,6 +851,7 @@ function PPPoE() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation */}
       <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -612,8 +859,7 @@ function PPPoE() {
               Delete {deleting?.full_name ?? deleting?.pppoe_username}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Their login is removed from the router within 2 minutes and any live connection is
-              dropped.
+              Their login is removed from the router and any live connection is dropped.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -43,6 +43,56 @@ export type Database = {
           },
         ];
       };
+      audit_logs: {
+        Row: {
+          id: string;
+          created_at: string;
+          tenant_id: string | null;
+          actor_id: string | null;
+          actor_email: string | null;
+          actor_role: string | null;
+          action: string;
+          resource_type: string;
+          resource_id: string | null;
+          description: string;
+          metadata: Json | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          tenant_id?: string | null;
+          actor_id?: string | null;
+          actor_email?: string | null;
+          actor_role?: string | null;
+          action: string;
+          resource_type: string;
+          resource_id?: string | null;
+          description: string;
+          metadata?: Json | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          tenant_id?: string | null;
+          actor_id?: string | null;
+          actor_email?: string | null;
+          actor_role?: string | null;
+          action?: string;
+          resource_type?: string;
+          resource_id?: string | null;
+          description?: string;
+          metadata?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       captive_portals: {
         Row: {
           background_url: string | null;

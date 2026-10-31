@@ -8,6 +8,7 @@ import {
   Wallet,
   Banknote,
   Radar,
+  History,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
@@ -21,6 +22,7 @@ const nav: NavItem[] = [
   { to: "/super-admin/billing", label: "SaaS Billing", icon: CreditCard },
   { to: "/super-admin/health", label: "Platform Health", icon: Activity },
   { to: "/super-admin/users", label: "Users", icon: Users },
+  { to: "/super-admin/audit", label: "Audit Logs", icon: History },
 ];
 
 export const Route = createFileRoute("/super-admin")({

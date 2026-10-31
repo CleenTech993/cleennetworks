@@ -441,7 +441,14 @@ with expected(ord, track, migration, kind, ident) as (values
   (25, 'supabase', '20261028000000_platform_gateway_secrets.sql', 'table', 'public.platform_gateway_secrets'),
   (26, 'supabase', '20261029000000_gateway_secrets_publishable_key.sql', 'constraintdef', 'public.platform_gateway_secrets.platform_gateway_secrets_name_check#607bbdef'),
   (27, 'supabase', '20261030000000_router_last_sync.sql', 'column', 'public.routers.last_sync_at'),
-  (28, 'supabase', '20261031000000_optional_mfa_aal2.sql', 'function', 'public.is_aal2()')
+  (28, 'supabase', '20261031000000_optional_mfa_aal2.sql', 'function', 'public.is_aal2()'),
+  (29, 'supabase', '20261031010000_audit_logs.sql', 'constraint', 'public.audit_logs.audit_logs_pkey'),
+  (29, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_created_at_idx'),
+  (29, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_pkey'),
+  (29, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_action_idx'),
+  (29, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_tenant_id_idx'),
+  (29, 'supabase', '20261031010000_audit_logs.sql', 'rls', 'public.audit_logs'),
+  (29, 'supabase', '20261031010000_audit_logs.sql', 'table', 'public.audit_logs')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.

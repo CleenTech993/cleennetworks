@@ -59,3 +59,4 @@ $$;
 
 REVOKE ALL ON FUNCTION public.is_aal2() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.is_aal2() TO authenticated, service_role;
+

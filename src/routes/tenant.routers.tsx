@@ -32,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
+import { logAudit } from "@/lib/audit";
 
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
 
@@ -92,11 +93,18 @@ function RoutersPage() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Router added — copy the provisioning command below");
       qc.invalidateQueries({ queryKey: ["routers"] });
       setOpen(false);
       setName("");
+      void logAudit({
+        action: "create",
+        resource: "router",
+        resourceId: data?.id,
+        details: { name },
+        tenantId,
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -107,9 +115,15 @@ function RoutersPage() {
       const { error } = await supabase.from("routers").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_d, id) => {
       toast.success("Router deleted");
       qc.invalidateQueries({ queryKey: ["routers"] });
+      void logAudit({
+        action: "delete",
+        resource: "router",
+        resourceId: id,
+        tenantId,
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -130,6 +144,13 @@ function RoutersPage() {
       );
       setShowCmd((s) => ({ ...s, [v.id]: true }));
       qc.invalidateQueries({ queryKey: ["routers"] });
+      void logAudit({
+        action: "rotate_token",
+        resource: "router",
+        resourceId: v.id,
+        details: { revoke: v.revoke },
+        tenantId,
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });

@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { logAudit } from "@/lib/audit";
 
 export function MfaSecurityCard() {
   const qc = useQueryClient();
@@ -101,6 +102,7 @@ export function MfaSecurityCard() {
       }
 
       toast.success("Two-step verification (MFA) activated successfully!");
+      void logAudit({ action: "enable_mfa", resource: "auth", details: { method: "totp" } });
       setEnrollOpen(false);
       await loadFactors();
     } catch (e: unknown) {
@@ -118,6 +120,7 @@ export function MfaSecurityCard() {
         await supabase.auth.mfa.unenroll({ factorId: f.id });
       }
       toast.success("Two-step verification has been disabled");
+      void logAudit({ action: "disable_mfa", resource: "auth", details: { method: "totp" } });
       setDisableOpen(false);
       await loadFactors();
     } catch (e: unknown) {

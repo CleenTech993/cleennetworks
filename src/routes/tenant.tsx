@@ -13,6 +13,7 @@ import {
   MessageSquare,
   LifeBuoy,
   Settings,
+  History,
   UserCog,
   Smartphone,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant/sms", label: "Notifications", icon: MessageSquare },
   { to: "/tenant/tickets", label: "Support", icon: LifeBuoy },
   { to: "/tenant/team", label: "Team", icon: UserCog },
+  { to: "/tenant/audit", label: "Audit Log", icon: History },
   { to: "/tenant/settings", label: "Settings", icon: Settings },
 ];
 

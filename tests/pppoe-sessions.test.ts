@@ -132,7 +132,7 @@ describe("buildPppoeAgentLines", () => {
   });
 
   it("has balanced braces, so the import cannot break the rest of the sync script", () => {
-    const body = script.slice(script.indexOf("source={"));
+    const body = script.includes(":do { add name=netgrid-pppoe") ? script.slice(script.indexOf(":do { add name=netgrid-pppoe")) : script.slice(script.indexOf("source={"));
     const open = (body.match(/\{/g) ?? []).length;
     const close = (body.match(/\}/g) ?? []).length;
     expect(open).toBe(close);

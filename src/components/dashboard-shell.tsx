@@ -2,6 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { LogOut, Menu, ShieldCheck } from "lucide-react";
 import { MfaSecurityDialog } from "@/components/mfa-security-card";
+import { RouterAlertsNotification } from "@/components/router-alerts-notification";
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,7 @@ export function DashboardShell({ title, subtitle, nav, children }: Props) {
           </Sheet>
           <h1 className="min-w-0 truncate text-sm font-medium text-muted-foreground">{title}</h1>
           <div className="ml-auto flex items-center gap-2">
+            <RouterAlertsNotification isSuperAdmin={pathname.startsWith("/super-admin")} />
             <MfaSecurityDialog
               trigger={
                 <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
