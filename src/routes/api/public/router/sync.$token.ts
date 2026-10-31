@@ -4,6 +4,7 @@ import { dispatchPendingAlerts } from "@/lib/alerts.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
 import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
+import { buildDoctorInstallLines } from "@/lib/router-doctor";
 import { buildPppoeSyncLines } from "@/lib/pppoe";
 import { buildTvSyncLines } from "@/lib/tv";
 import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
@@ -180,6 +181,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
               )),
         );
 
+        // Diagnostic script: afterwards `/system script run netgrid-doctor` explains what is wrong on this router.
+        lines.push(...buildDoctorInstallLines(host));
+
         // Last on purpose: the login page is a nice-to-have, and a slow or failing download here must
         // never delay or block the user and PPPoE sync above.
         // Self-heal the hotspot login page (captive-portal redirect): if the router's copy is
@@ -195,6 +199,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           );
         }
         lines.push(':log info "NetGrid: users synced"', "");
+
+        // Record that this router just received a sync, so the dashboard can show whether routers are
+        // really syncing. Best effort: if the column does not exist yet this fails quietly.
+        await supabaseAdmin.from("routers").update({ last_sync_at: now }).eq("id", router.id);
 
         // Send any alert SMS waiting for this tenant (e.g. low stock raised by the database).
         try {

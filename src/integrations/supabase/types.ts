@@ -1012,6 +1012,7 @@ export type Database = {
           lan_ip: string | null;
           last_heartbeat_at: string | null;
           last_seen_at: string | null;
+          last_sync_at: string | null;
           mac_address: string | null;
           model: string | null;
           name: string;
@@ -1048,6 +1049,7 @@ export type Database = {
           lan_ip?: string | null;
           last_heartbeat_at?: string | null;
           last_seen_at?: string | null;
+          last_sync_at?: string | null;
           mac_address?: string | null;
           model?: string | null;
           name: string;
@@ -1084,6 +1086,7 @@ export type Database = {
           lan_ip?: string | null;
           last_heartbeat_at?: string | null;
           last_seen_at?: string | null;
+          last_sync_at?: string | null;
           mac_address?: string | null;
           model?: string | null;
           name?: string;

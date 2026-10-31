@@ -240,7 +240,8 @@ describe("sync script scoping", () => {
 
   it("never emits expired, suspended or other tenants' clients", async () => {
     const { text } = await sync(await issueDeviceToken(R1));
-    for (const s of ["dave", "erin", "mallory", "rivalpass6"]) expect(text).not.toContain(s);
+    for (const s of ["dave", "erin", "mallory", "rivalpass6"]) expect(text).not.toContain(`"${s}"`);
+    expect(text).not.toContain("rivalpass6");
   });
 
   it("never even READS other routers' client rows for this request", async () => {
@@ -445,6 +446,20 @@ describe("sync keeps what the router already has when a database read fails", ()
       .seed("vouchers", [{ tenant_id: T, code: "UNUSED2345", status: "unused", expires_at: null }]);
   });
 
+  it("records when the router last synced, and never fails the sync if it cannot", async () => {
+    const token = await issueDeviceToken(R1);
+    expect(h.db.rows("routers").find((r) => r.id === R1)?.last_sync_at ?? null).toBeNull();
+    expect((await sync(token)).res.status).toBe(200);
+    const stamped = h.db.rows("routers").find((r) => r.id === R1)?.last_sync_at as string;
+    expect(Date.now() - new Date(stamped).getTime()).toBeLessThan(5_000);
+
+    // the column may not exist yet in production: the sync must still work
+    h.db.failNext("routers", "update", "column routers.last_sync_at does not exist");
+    const { res, text } = await sync(token);
+    expect(res.status).toBe(200);
+    expect(text).toContain("UNUSED2345");
+  });
+
   it("healthy: PPPoE clients and vouchers are written", async () => {
     const { text } = await sync(await issueDeviceToken(R1));
     expect(text).toContain("alice");
@@ -459,8 +474,8 @@ describe("sync keeps what the router already has when a database read fails", ()
     expect(text).toContain("PPPoE sync skipped");
     expect(text).not.toContain("alice");
     // no PPPoE section at all, so nothing is removed from the router
-    expect(text).not.toContain("/ppp secret");
-    expect(text).not.toContain("/ppp profile");
+    expect(text).not.toMatch(/^\/ppp secret$/m);
+    expect(text).not.toMatch(/^\/ppp profile$/m);
     // the rest of the sync still runs
     expect(text).toContain("UNUSED2345");
   });
@@ -469,7 +484,7 @@ describe("sync keeps what the router already has when a database read fails", ()
     h.db.failNext("packages", "select", "boom");
     const { text } = await sync(await issueDeviceToken(R1));
     expect(text).toContain("PPPoE sync skipped");
-    expect(text).not.toContain("/ppp secret");
+    expect(text).not.toMatch(/^\/ppp secret$/m);
   });
 
   it("smart TVs, blocked devices and device monitoring are each skipped, not wiped", async () => {

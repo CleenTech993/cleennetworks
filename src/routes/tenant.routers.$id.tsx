@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Cpu, HardDrive, RefreshCw, Thermometer, Zap } from "lucide-react";
+import { ArrowLeft, ClipboardCopy, Cpu, HardDrive, RefreshCw, Stethoscope, Thermometer, Zap } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { RouterHistory } from "@/components/router-history";
 import { healthScore } from "@/lib/router-health";
+import { buildDoctorPaste } from "@/lib/router-doctor";
+import { syncStatus } from "@/lib/sync-status";
 import { InterfacesTab, QualityTab, TrafficTab } from "@/components/router-network";
 
 export const Route = createFileRoute("/tenant/routers/$id")({
@@ -151,6 +153,19 @@ function RouterDetail() {
             <StatCard label="Uptime" value={fmtUptime(r.uptime_seconds ?? null)} />
           </div>
 
+          {(() => {
+            const sync = syncStatus(r.last_sync_at);
+            return (
+              <div
+                className={`mb-6 rounded-xl border p-4 text-sm ${
+                  sync.level === "ok" ? "bg-card" : sync.level === "warn" ? "border-warning/50 bg-warning/10" : "border-destructive/50 bg-destructive/10"
+                }`}
+              >
+                <b>Customer sync: {sync.label}.</b> {sync.detail}
+              </div>
+            );
+          })()}
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border bg-card p-5">
               <h3 className="mb-3 font-semibold">Identity</h3>
@@ -218,6 +233,36 @@ function RouterDetail() {
                 }
               }}
             />
+          </div>
+
+          <div className="mt-4 rounded-xl border bg-card p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="flex items-center gap-2 font-semibold">
+                  <Stethoscope className="h-4 w-4" /> Customers can't connect?
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Copy this check, open <b>New Terminal</b> in WinBox (or SSH), paste it and press Enter. It
+                  reports in plain words whether the hotspot, PPPoE, internet and sync are working, and
+                  what to fix. It only reads; nothing is changed. After the router's next sync you can also
+                  just run <code className="rounded bg-muted px-1">/system script run netgrid-doctor</code>.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="shrink-0"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(buildDoctorPaste(window.location.host));
+                    toast.success("Copied. Paste it into the router's terminal.");
+                  } catch {
+                    toast.error("Could not copy. Allow clipboard access and try again.");
+                  }
+                }}
+              >
+                <ClipboardCopy className="h-4 w-4" /> Copy check
+              </Button>
+            </div>
           </div>
 
           <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />

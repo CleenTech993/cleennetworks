@@ -38,6 +38,8 @@ SELECT item, ok AS present FROM (VALUES
      to_regclass('public.platform_gateway_secrets') IS NOT NULL),
   ('20261029 IntaSend publishable key',
      EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'platform_gateway_secrets_name_check' AND pg_get_constraintdef(oid) LIKE '%INTASEND_PUBLISHABLE_KEY%')),
+  ('20261030 router last-sync time (dashboard shows whether routers are syncing)',
+     EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'routers' AND column_name = 'last_sync_at')),
   ('pg_cron enabled (needed to schedule the router liveness check)',
      EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'))
 ) AS t(item, ok)
