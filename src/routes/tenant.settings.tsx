@@ -94,14 +94,24 @@ function Settings() {
         import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
       if (!url || !key) throw new Error("Password verification is not configured.");
 
+      const authStorage = new Map<string, string>();
       const verifier = createClient<Database>(url, key, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        auth: {
+          storageKey: `settings-password-check-${crypto.randomUUID()}`,
+          storage: {
+            getItem: (storageKey) => authStorage.get(storageKey) ?? null,
+            setItem: (storageKey, value) => void authStorage.set(storageKey, value),
+            removeItem: (storageKey) => void authStorage.delete(storageKey),
+          },
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
       });
       const { data, error } = await verifier.auth.signInWithPassword({
         email: user.email,
         password,
       });
-      await verifier.auth.signOut();
       if (error || data.user?.id !== user.id)
         throw new Error("The password is incorrect. Please try again.");
       setVerified(true);
