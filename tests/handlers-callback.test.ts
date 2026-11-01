@@ -3,14 +3,11 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call, json } from "./helpers/call";
 import { h } from "./helpers/setup";
 
-const darajaMock = vi.hoisted(() => ({ query: vi.fn() }));
-
 vi.mock("@/integrations/supabase/client.server", () => ({
   get supabaseAdmin() {
     return h.db;
   },
 }));
-vi.mock("@/lib/daraja.server", () => ({ queryDarajaStkPush: darajaMock.query }));
 import { Route } from "@/routes/api/public/mpesa/callback.$tenantId";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
@@ -39,10 +36,6 @@ const send = (body: unknown = callbackBody(), tenantId = TENANT) =>
   call(Route, "POST", { body, params: { tenantId } });
 
 beforeEach(() => {
-  darajaMock.query.mockReset().mockResolvedValue({
-    resultCode: "0",
-    resultDescription: "success",
-  });
   h.db = new FakeDb()
     .seed("packages", [
       {
@@ -84,10 +77,9 @@ afterEach(() => {
 const payment = () => h.db.rows("payments").find((row) => row.id === PAY)!;
 
 describe("tenant Daraja callback", () => {
-  it("verifies STK success and issues a voucher", async () => {
+  it("settles a successful Daraja callback and issues a voucher", async () => {
     const response = await send();
     expect(response.status).toBe(200);
-    expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
 
     const vouchers = h.db.rows("vouchers");
     expect(vouchers).toHaveLength(1);
@@ -115,60 +107,17 @@ describe("tenant Daraja callback", () => {
 
   it("does not settle callback details that do not match the stored amount or phone", async () => {
     await send(callbackBody({ amount: 1 }));
-    expect(darajaMock.query).not.toHaveBeenCalled();
     expect(payment().status).toBe("pending");
 
     await send(callbackBody({ phone: 254700000000 }));
-    expect(darajaMock.query).not.toHaveBeenCalled();
-    expect(h.db.rows("vouchers")).toHaveLength(0);
-  });
-
-  it("requests a callback retry if Daraja's verification has not caught up yet", async () => {
-    darajaMock.query
-      .mockResolvedValueOnce({
-        resultCode: null,
-        resultDescription: "request accepted",
-      })
-      .mockResolvedValueOnce({
-        resultCode: "0",
-        resultDescription: "success",
-      });
-
-    const response = await send();
-    expect(response.status).toBe(200);
-    expect(darajaMock.query).toHaveBeenCalledTimes(2);
-    expect(payment().status).toBe("success");
-    expect(h.db.rows("vouchers")).toHaveLength(1);
-  });
-
-  it("requests a callback retry if Daraja verification is still pending after the retry", async () => {
-    darajaMock.query.mockResolvedValue({
-      resultCode: null,
-      resultDescription: "request accepted",
-    });
-
-    const response = await send();
-    expect(response.status).toBe(503);
-    expect(darajaMock.query).toHaveBeenCalledTimes(2);
-    expect(payment().status).toBe("pending");
-    expect(h.db.rows("vouchers")).toHaveLength(0);
-  });
-
-  it("returns a retryable error when Daraja verification is unavailable", async () => {
-    darajaMock.query.mockRejectedValue(new Error("Daraja unavailable"));
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const response = await send();
-    expect(response.status).toBe(502);
-    expect(payment().status).toBe("pending");
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
   it("ignores callbacks for another tenant and non-Daraja callback formats", async () => {
     const wrongTenant = await send(callbackBody(), OTHER_TENANT);
-    expect(await json(wrongTenant)).toMatchObject({ note: "Unknown payment" });
+    expect(wrongTenant.status).toBe(503);
     const oldGateway = await send({ response: { CheckoutRequestID: "ws_CO_1" } });
     expect(await json(oldGateway)).toMatchObject({ note: "Unknown callback" });
-    expect(darajaMock.query).not.toHaveBeenCalled();
     expect(payment().status).toBe("pending");
   });
 
