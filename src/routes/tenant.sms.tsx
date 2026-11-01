@@ -55,10 +55,12 @@ function ServiceSettings() {
         ([field, value]) => field !== "mpesaEnvironment" && Boolean(value),
       );
       return saveTenantServiceCredentials({
-        ...form,
-        ...(!credentialsEntered && status?.mpesaEnvironment === form.mpesaEnvironment
-          ? { mpesaEnvironment: undefined }
-          : {}),
+        data: {
+          ...form,
+          ...(!credentialsEntered && status?.mpesaEnvironment === form.mpesaEnvironment
+            ? { mpesaEnvironment: undefined }
+            : {}),
+        },
       });
     },
     onSuccess: (nextStatus) => {
