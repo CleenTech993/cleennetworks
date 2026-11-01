@@ -25,6 +25,11 @@ CREATE TABLE IF NOT EXISTS storage.objects (
   owner uuid,
   created_at timestamptz DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS auth.mfa_factors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'verified'
+);
 CREATE SCHEMA IF NOT EXISTS cron;
 CREATE OR REPLACE FUNCTION cron.schedule(a text, b text, c text) RETURNS bigint LANGUAGE sql AS $$ SELECT 1::bigint $$;
 CREATE PUBLICATION supabase_realtime;
