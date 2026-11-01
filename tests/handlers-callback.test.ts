@@ -140,6 +140,30 @@ describe("tenant Daraja callback", () => {
     expect(h.db.rows("vouchers")).toHaveLength(1);
   });
 
+  it("backfills the receipt when the payment was already reconciled", async () => {
+    payment().status = "success";
+    payment().voucher_code = "EXISTING123";
+    h.db.seed("vouchers", [
+      { tenant_id: TENANT, package_id: HOTSPOT_PKG, payment_id: PAY, code: "EXISTING123" },
+    ]);
+
+    const response = await send();
+
+    expect(response.status).toBe(200);
+    expect(payment()).toMatchObject({ status: "success", mpesa_receipt: "DAR1234567" });
+    expect(h.db.rows("vouchers")).toHaveLength(1);
+  });
+
+  it("saves the callback receipt while another settlement is processing", async () => {
+    payment().status = "processing";
+
+    const response = await send();
+
+    expect(response.status).toBe(200);
+    expect(payment()).toMatchObject({ status: "processing", mpesa_receipt: "DAR1234567" });
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
   it("issues exactly one voucher for concurrent duplicate callbacks", async () => {
     const responses = await Promise.all([send(), send(), send(), send()]);
     expect(responses.every((response) => response.status === 200)).toBe(true);

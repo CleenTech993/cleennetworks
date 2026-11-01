@@ -25,7 +25,7 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
     supabaseAdmin
       .from("payments")
       .select(
-        "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,tv_device_id,expires_at",
+        "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,mpesa_receipt,tv_device_id,expires_at",
       )
       .eq("tenant_id", tenantId)
       .eq("provider", "daraja")
@@ -43,9 +43,6 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   const payment = lookup.data;
   if (!payment)
     return Response.json({ ok: false, error: "Payment not available yet" }, { status: 503 });
-  if (payment.status === "success" || payment.status === "processing") {
-    return Response.json({ ok: true, note: "Already processed" });
-  }
   if (
     callback.MerchantRequestID &&
     payment.merchant_request_id &&
@@ -55,6 +52,9 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   }
 
   if (String(callback.ResultCode) !== "0") {
+    if (payment.status === "success" || payment.status === "processing") {
+      return Response.json({ ok: true, note: "Already processed" });
+    }
     await markPaymentFailed(payment.id, rawJson);
     return Response.json({ ok: true, note: "Payment was not completed" });
   }
@@ -73,6 +73,24 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   ) {
     console.error(`Daraja callback data did not match payment ${payment.id}`);
     return Response.json({ ok: true, note: "Payment details did not match" });
+  }
+
+  if (payment.status === "success" || payment.status === "processing") {
+    if (!payment.mpesa_receipt) {
+      const { error } = await supabaseAdmin
+        .from("payments")
+        .update({ mpesa_receipt: receipt, raw_callback: rawJson })
+        .eq("id", payment.id)
+        .is("mpesa_receipt", null);
+      if (error) {
+        console.error("Daraja receipt update failed", error);
+        return Response.json({ ok: false, error: "Receipt update failed" }, { status: 500 });
+      }
+    }
+    return Response.json({
+      ok: true,
+      note: payment.status === "success" ? "Already processed" : "Already processing",
+    });
   }
 
   try {

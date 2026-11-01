@@ -100,7 +100,7 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
       .from("payments")
       .update({
         status: "success",
-        mpesa_receipt: i.receipt || null,
+        ...(i.receipt ? { mpesa_receipt: i.receipt } : {}),
         phone: payment.phone || undefined,
         raw_callback: i.raw,
         voucher_code: voucherCode,
