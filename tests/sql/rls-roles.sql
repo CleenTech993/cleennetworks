@@ -31,6 +31,11 @@ INSERT INTO public.user_roles (user_id, role, tenant_id) VALUES
 INSERT INTO public.customers (id, tenant_id, full_name) VALUES
   ('cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','T1 customer'),
   ('cccccccc-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000002','T2 customer');
+-- These admins have MFA enrolled: their password-only (aal1) sessions must be denied
+-- until they finish the second step. is_aal2() keys off verified factors in auth.mfa_factors.
+INSERT INTO auth.mfa_factors (user_id, status) VALUES
+  ('bbbbbbbb-0000-0000-0000-0000000000a1','verified'),
+  ('bbbbbbbb-0000-0000-0000-00000000000a','verified');
 INSERT INTO public.payments (tenant_id, amount) VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 100);
 INSERT INTO public.packages (id, tenant_id, name) VALUES ('dddddddd-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','Pkg');
 INSERT INTO public.routers (id, tenant_id, name) VALUES ('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','R1');
