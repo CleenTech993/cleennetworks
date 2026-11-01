@@ -18,6 +18,13 @@ BEGIN
   SELECT string_to_array(name, '/') INTO _parts;
   RETURN _parts[1:array_length(_parts, 1) - 1];
 END $$;
+CREATE TABLE IF NOT EXISTS storage.objects (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  bucket_id text,
+  name text,
+  owner uuid,
+  created_at timestamptz DEFAULT now()
+);
 CREATE SCHEMA IF NOT EXISTS cron;
 CREATE OR REPLACE FUNCTION cron.schedule(a text, b text, c text) RETURNS bigint LANGUAGE sql AS $$ SELECT 1::bigint $$;
 CREATE PUBLICATION supabase_realtime;
