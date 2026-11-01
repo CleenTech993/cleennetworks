@@ -673,6 +673,53 @@ export type Database = {
           },
         ]
       }
+      platform_commissions: {
+        Row: {
+          collected_at: string | null
+          commission_amount: number
+          created_at: string
+          gross_amount: number
+          id: string
+          mpesa_receipt: string | null
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          collected_at?: string | null
+          commission_amount?: number
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          mpesa_receipt?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          collected_at?: string | null
+          commission_amount?: number
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          mpesa_receipt?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_commissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_gateway_secrets: {
         Row: {
           ciphertext: string
@@ -1387,6 +1434,41 @@ export type Database = {
           },
           {
             foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_service_secrets: {
+        Row: {
+          ciphertext: string
+          last4: string | null
+          name: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ciphertext: string
+          last4?: string | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ciphertext?: string
+          last4?: string | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_service_secrets_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
