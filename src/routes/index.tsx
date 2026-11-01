@@ -57,7 +57,7 @@ const features = [
   {
     icon: CreditCard,
     title: "M-Pesa payments",
-    body: "STK push through PayHero. Packages activate as soon as the payment is confirmed.",
+    body: "Customers pay through your Daraja account. Packages activate as soon as payment is confirmed.",
   },
   {
     icon: Radio,

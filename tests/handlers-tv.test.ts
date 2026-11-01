@@ -1,16 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeDb } from "./helpers/fake-supabase";
 import { call, json } from "./helpers/call";
-import { freshIp, h, stubFetch } from "./helpers/setup";
+import { freshIp, h } from "./helpers/setup";
+
+const darajaMock = vi.hoisted(() => ({
+  start: vi.fn(async () => ({ checkoutRequestId: "", merchantRequestId: "" })),
+}));
 
 vi.mock("@/integrations/supabase/client.server", () => ({
   get supabaseAdmin() {
     return h.db;
   },
 }));
+vi.mock("@/lib/daraja.server", () => ({ startDarajaStkPush: darajaMock.start }));
 vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
 
 import { Route } from "@/routes/api/public/portal/$slug/tv";
+import { startDarajaStkPush } from "@/lib/daraja.server";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const PKG = "22222222-2222-2222-2222-222222222222";
@@ -21,19 +27,14 @@ const PARAMS = { slug: "acme" };
 const MAC = "AA:BB:CC:DD:EE:FF";
 let nextRef = 0;
 
-const payhero = () =>
-  stubFetch(() =>
-    Response.json({
-      success: true,
-      CheckoutRequestID: `ws_CO_${++nextRef}`,
-      reference: `ref-${nextRef}`,
-    }),
-  );
+const daraja = () => vi.mocked(startDarajaStkPush);
 
 beforeEach(() => {
-  process.env.PAYHERO_API_USERNAME = "u";
-  process.env.PAYHERO_API_PASSWORD = "p";
-  process.env.PAYHERO_CHANNEL_ID = "42";
+  nextRef = 0;
+  darajaMock.start.mockReset().mockImplementation(async () => {
+    const ref = ++nextRef;
+    return { checkoutRequestId: `ws_CO_${ref}`, merchantRequestId: `merchant-${ref}` };
+  });
   h.db = new FakeDb()
     .seed("tenants", [
       { id: TENANT, slug: "acme", name: "Acme", mpesa_paybill: null, mpesa_till: null },
@@ -97,7 +98,7 @@ const valid = (extra: Record<string, unknown> = {}) => ({
 
 describe("smart TV registration", () => {
   it("registers a new TV, records a payment tied to it and sends one STK push", async () => {
-    const fetchSpy = payhero();
+    const darajaSpy = daraja();
     const res = await register(valid({ mac: "aa-bb-cc-dd-ee-ff", name: "Living room" }));
     const body = await json(res);
 
@@ -122,17 +123,26 @@ describe("smart TV registration", () => {
       tv_device_id: tvs[0].id,
     });
     expect(body.paymentId).toBe(pays[0].id);
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(darajaSpy).toHaveBeenCalledTimes(1);
+    expect(darajaSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: TENANT,
+        amount: 30,
+        phone: "254712345678",
+        description: "Smart TV",
+        callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
+      }),
+    );
   });
 
   it("charges the price from the database, never one the client sends", async () => {
-    payhero();
+    daraja();
     await register(valid({ amount: 1, price: 1 }));
     expect(h.db.rows("payments")[0].amount).toBe(30);
   });
 
   it("renewing a TV that is still paid up does not switch it off", async () => {
-    payhero();
+    daraja();
     const until = "2026-12-01T00:00:00.000Z";
     h.db.seed("tv_devices", [
       {
@@ -153,14 +163,14 @@ describe("smart TV registration", () => {
   });
 
   it("refuses a blocked TV and sends nothing", async () => {
-    const fetchSpy = payhero();
+    const darajaSpy = daraja();
     h.db.seed("tv_devices", [
       { id: "tv-1", tenant_id: TENANT, mac_address: MAC, status: "blocked" },
     ]);
     const res = await register(valid());
     expect(res.status).toBe(403);
     expect(h.db.rows("payments")).toHaveLength(0);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(darajaSpy).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -172,26 +182,26 @@ describe("smart TV registration", () => {
   ])(
     "rejects an invalid MAC (%s) without touching the database or the gateway",
     async (_label, mac) => {
-      const fetchSpy = payhero();
+      const darajaSpy = daraja();
       const res = await register(valid({ mac }));
       expect(res.status).toBe(400);
       expect(h.db.rows("tv_devices")).toHaveLength(0);
       expect(h.db.rows("payments")).toHaveLength(0);
-      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(darajaSpy).not.toHaveBeenCalled();
     },
   );
 
   it("rejects inactive, other-tenant and duration-less packages", async () => {
-    const fetchSpy = payhero();
+    const darajaSpy = daraja();
     for (const packageId of [INACTIVE_PKG, OTHER_TENANT_PKG, NO_DURATION_PKG]) {
       expect((await register(valid({ packageId }))).status).toBe(400);
     }
     expect(h.db.rows("tv_devices")).toHaveLength(0);
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(darajaSpy).not.toHaveBeenCalled();
   });
 
   it("answers 404 for an unknown portal", async () => {
-    payhero();
+    daraja();
     expect(
       (await call(Route, "POST", { body: valid(), ip: freshIp(), params: { slug: "nope" } }))
         .status,
@@ -199,8 +209,8 @@ describe("smart TV registration", () => {
   });
 
   it("does not leak gateway internals, and marks the payment failed", async () => {
-    stubFetch(
-      () => new Response("secret-gateway-detail https://internal.example/acct/42", { status: 500 }),
+    darajaMock.start.mockRejectedValueOnce(
+      new Error("secret-gateway-detail https://internal.example/acct/42"),
     );
     vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await register(valid());
@@ -212,7 +222,7 @@ describe("smart TV registration", () => {
   });
 
   it("allows 5 registrations a minute per IP, then answers 429", async () => {
-    payhero();
+    daraja();
     const ip = freshIp();
     const statuses: number[] = [];
     for (let i = 0; i < 6; i++) {

@@ -54,7 +54,9 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           }
           // The credentials migration has not been applied yet. Provision the way routers were set up
           // before it existed (the router keeps using this token) instead of refusing to set it up.
-          console.error("provision: apply migration 20261025010000_router_credentials.sql; using the previous token scheme");
+          console.error(
+            "provision: apply migration 20261025010000_router_credentials.sql; using the previous token scheme",
+          );
           token = params.token;
         }
 
@@ -164,7 +166,6 @@ function buildRsc(p: {
 :do { remove [find comment=netgrid] } on-error={}
 :do { add dst-host=*.lovable.app comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
 :do { add dst-host=${portalHost} comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
-:do { add dst-host=*.payhero.co.ke comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
 :do { add dst-host=*.safaricom.co.ke comment=netgrid } on-error={ :log warning "NetGrid: walled-garden entry failed" }
 /ip hotspot walled-garden ip
 :do { remove [find comment=netgrid] } on-error={}

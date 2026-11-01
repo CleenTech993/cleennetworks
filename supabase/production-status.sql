@@ -29,15 +29,11 @@ SELECT item, ok AS present FROM (VALUES
      to_regclass('public.inventory_items') IS NOT NULL AND to_regclass('public.inventory_devices') IS NOT NULL
      AND to_regclass('public.stock_movements') IS NOT NULL AND to_regclass('public.inventory_alerts') IS NOT NULL
      AND to_regclass('public.alert_settings') IS NOT NULL),
-  ('20261026 payment provider (PayHero / IntaSend)',
-     EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'platform_mpesa_config' AND column_name = 'active_provider')
-     AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'payments' AND column_name = 'provider')),
-  ('20261027 IntaSend as the default provider',
-     COALESCE((SELECT column_default LIKE '%intasend%' FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'platform_mpesa_config' AND column_name = 'active_provider'), false)),
-  ('20261028 payment credentials storage  <- "Could not save the credential" without this',
-     to_regclass('public.platform_gateway_secrets') IS NOT NULL),
-  ('20261029 IntaSend publishable key',
-     EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'platform_gateway_secrets_name_check' AND pg_get_constraintdef(oid) LIKE '%INTASEND_PUBLISHABLE_KEY%')),
+  ('20261102 Daraja-only payments',
+     NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'platform_mpesa_config' AND column_name = 'active_provider')
+     AND to_regclass('public.platform_gateway_secrets') IS NULL
+     AND EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.payments'::regclass
+       AND conname = 'payments_provider_check' AND pg_get_constraintdef(oid) LIKE '%failed%')),
   ('20261030 router last-sync time (dashboard shows whether routers are syncing)',
      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'routers' AND column_name = 'last_sync_at')),
   ('pg_cron enabled (needed to schedule the router liveness check)',

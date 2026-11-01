@@ -70,12 +70,12 @@ export async function dispatchPendingAlerts(tenantId: string): Promise<void> {
         sms_status: "skipped",
         sms_error: numbers.length === 0 ? "No SMS numbers set up" : "Turned off in alert settings",
       };
-    } else if (!smsConfigured()) {
-      patch = { sms_status: "skipped", sms_error: "SMS is not configured on the platform" };
+    } else if (!(await smsConfigured(tenantId))) {
+      patch = { sms_status: "skipped", sms_error: "SMS is not configured for this tenant" };
     } else if (budget <= 0) {
       patch = { sms_status: "skipped", sms_error: `Daily SMS limit (${DAILY_SMS_CAP}) reached` };
     } else {
-      const res = await sendSms(numbers, `NetGrid: ${alert.message}`);
+      const res = await sendSms(tenantId, numbers, `NetGrid: ${alert.message}`);
       if (res.ok) {
         budget--;
         patch = { sms_status: "sent", sms_sent_at: new Date().toISOString(), sms_error: null };

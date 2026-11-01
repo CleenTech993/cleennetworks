@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { loadPlatformMpesaConfig, normalizePhone } from "@/lib/mpesa.server";
-import { resolveProvider, startStkPush } from "@/lib/payment-gateway.server";
+import { normalizePhone } from "@/lib/mpesa.server";
+import { startDarajaStkPush } from "@/lib/daraja.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { isRandomizedMac, normalizeMac } from "@/lib/tv";
 
@@ -88,6 +88,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
         if (!pkg.duration_value || !pkg.duration_unit) {
           return Response.json({ error: "This package can't be used for a TV." }, { status: 400 });
         }
+        const amount = Math.ceil(Number(pkg.price));
+        if (!Number.isFinite(amount) || amount < 1) {
+          return Response.json(
+            { error: "This package cannot be paid for online." },
+            { status: 400 },
+          );
+        }
 
         const phone = normalizePhone(parsed.data.phone);
         const now = new Date().toISOString();
@@ -141,30 +148,16 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           deviceId = created.id;
         }
 
-        // Same gateway switch as the card checkout (IntaSend by default).
-        let cfg;
-        let provider;
-        try {
-          cfg = await loadPlatformMpesaConfig();
-          provider = resolveProvider(cfg);
-        } catch (e) {
-          console.error("tv checkout: no payment gateway available", e);
-          return Response.json(
-            { error: "Payments are temporarily unavailable. Please try again later." },
-            { status: 503 },
-          );
-        }
-
         const { data: pay, error: payErr } = await supabaseAdmin
           .from("payments")
           .insert({
             tenant_id: tenant.id,
             package_id: pkg.id,
             phone,
-            amount: pkg.price,
+            amount,
             status: "pending",
             tv_device_id: deviceId,
-            provider,
+            provider: "daraja",
           })
           .select("id")
           .single();
@@ -177,29 +170,26 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
         }
 
         try {
-          const callbackBase =
-            cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${getRequestHost()}`;
-          const started = await startStkPush({
-            provider,
-            cfg,
-            amount: Number(pkg.price),
+          const started = await startDarajaStkPush({
+            tenantId: tenant.id,
+            amount,
             phone,
-            reference: pay.id,
+            paymentId: pay.id,
             description: "Smart TV",
-            callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
+            callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
           });
           await supabaseAdmin
             .from("payments")
             .update({
-              checkout_request_id: started.checkoutRef,
-              merchant_request_id: started.providerRef,
+              checkout_request_id: started.checkoutRequestId,
+              merchant_request_id: started.merchantRequestId,
             })
             .eq("id", pay.id);
           return Response.json({
             paymentId: pay.id,
             mac,
             randomizedMac: isRandomizedMac(mac),
-            message: started.message,
+            message: "Check your phone for the M-Pesa prompt",
           });
         } catch (e) {
           console.error("tv checkout: STK push failed", e);

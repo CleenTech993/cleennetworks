@@ -49,7 +49,9 @@ function Health() {
       const total = routers.length;
 
       const scores = liveRouters.map((r) => healthScore(r));
-      const avgHealth = scores.length ? Math.round(scores.reduce((s, x) => s + x, 0) / scores.length) : 0;
+      const avgHealth = scores.length
+        ? Math.round(scores.reduce((s, x) => s + x, 0) / scores.length)
+        : 0;
 
       // Group into health bands
       const optimal = scores.filter((s) => s >= 80).length;
@@ -59,7 +61,9 @@ function Health() {
       const payments = paymentsRes.data ?? [];
       const totalPay = payments.length;
       const successPay = payments.filter((p) => p.status === "success").length;
-      const failedPay = payments.filter((p) => p.status === "failed" || p.status === "cancelled").length;
+      const failedPay = payments.filter(
+        (p) => p.status === "failed" || p.status === "cancelled",
+      ).length;
       const pendingPay = totalPay - successPay - failedPay;
 
       return {
@@ -114,9 +118,10 @@ function Health() {
       type: "telemetry",
     },
     {
-      name: "Payment Gateway Webhook Pipeline (M-Pesa / IntaSend)",
-      description: "Instant IPN and STK Push callback handlers with duplicate transaction guards.",
-      status: data?.payments?.successRate && data.payments.successRate < 80 ? "degraded" : "operational",
+      name: "M-Pesa Daraja Payment Pipeline",
+      description: "Tenant Daraja STK Push callback handling with duplicate transaction guards.",
+      status:
+        data?.payments?.successRate && data.payments.successRate < 80 ? "degraded" : "operational",
       latency: "< 140ms",
       type: "payments",
     },
@@ -165,7 +170,9 @@ function Health() {
           icon={Zap}
           label="Payment Gateway Success (24h)"
           value={data ? `${data.payments.successRate}%` : "—"}
-          hint={data ? `${data.payments.success} succeeded / ${data.payments.total} total` : undefined}
+          hint={
+            data ? `${data.payments.success} succeeded / ${data.payments.total} total` : undefined
+          }
         />
         <StatCard
           icon={Clock}
@@ -179,12 +186,17 @@ function Health() {
       <div className="rounded-xl border bg-card shadow-sm p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-base tracking-tight">Core Platform Services Matrix</h3>
+            <h3 className="font-semibold text-base tracking-tight">
+              Core Platform Services Matrix
+            </h3>
             <p className="text-xs text-muted-foreground">
               Automated status evaluation based on active response benchmarks.
             </p>
           </div>
-          <Badge variant="outline" className="text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
+          <Badge
+            variant="outline"
+            className="text-emerald-600 border-emerald-500/30 bg-emerald-500/10"
+          >
             <CheckCircle2 className="h-3 w-3 mr-1" /> All Systems Online
           </Badge>
         </div>
@@ -275,7 +287,9 @@ function Health() {
                 <div
                   className="h-full bg-red-500"
                   style={{
-                    width: data?.total ? `${(data.healthBands.critical / data.total) * 100}%` : "0%",
+                    width: data?.total
+                      ? `${(data.healthBands.critical / data.total) * 100}%`
+                      : "0%",
                   }}
                 />
               </div>
@@ -310,7 +324,7 @@ function Health() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Monitors real-time STK push transaction settlements across IntaSend, PayHero, and M-Pesa Daraja.
+            Monitors real-time M-Pesa Daraja STK push transaction settlements.
           </p>
         </div>
       </div>

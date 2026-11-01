@@ -72,8 +72,8 @@ export function AlertsTab({ canManage }: { canManage: boolean }) {
 
       {canManage && sms && !sms.configured && (
         <div className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
-          Text messages aren't switched on for this platform yet, so alerts are only recorded here.
-          Ask the platform owner to add the SMS credentials.
+          Text alerts are not configured for this tenant yet, so alerts are only recorded here. Add
+          your Africa&apos;s Talking credentials under Notifications.
         </div>
       )}
 

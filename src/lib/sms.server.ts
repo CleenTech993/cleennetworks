@@ -1,11 +1,6 @@
-import process from "node:process";
+import { loadTenantServiceSecrets } from "@/lib/tenant-service-secrets.server";
 
-// SMS through Africa's Talking, using platform-level credentials set as server secrets:
-//   AT_USERNAME   your Africa's Talking username ("sandbox" for testing)
-//   AT_API_KEY    API key
-//   AT_SENDER_ID  optional approved sender ID / shortcode
-//   AT_ENV        set to "sandbox" to use the sandbox endpoint
-// Env is read inside functions (Cloudflare binds it per request). Without credentials nothing is sent.
+// SMS credentials belong to the tenant and are decrypted only on the server.
 
 export type SmsResult = { ok: true } | { ok: false; error: string; notConfigured?: boolean };
 
@@ -23,8 +18,9 @@ export function toE164(input: string): string | null {
   return E164.test(out) ? out : null;
 }
 
-export function smsConfigured(): boolean {
-  return Boolean(process.env.AT_USERNAME && process.env.AT_API_KEY);
+export async function smsConfigured(tenantId: string): Promise<boolean> {
+  const secrets = await loadTenantServiceSecrets(tenantId);
+  return Boolean(secrets.AT_USERNAME && secrets.AT_API_KEY);
 }
 
 /** Builds the Africa's Talking request (pure, so it can be tested without the network). */
@@ -73,11 +69,16 @@ export function parseSmsResponse(json: unknown): SmsResult {
   return { ok: false, error: String(reason).slice(0, 200) };
 }
 
-export async function sendSms(numbers: string[], message: string): Promise<SmsResult> {
-  const username = process.env.AT_USERNAME;
-  const apiKey = process.env.AT_API_KEY;
+export async function sendSms(
+  tenantId: string,
+  numbers: string[],
+  message: string,
+): Promise<SmsResult> {
+  const secrets = await loadTenantServiceSecrets(tenantId);
+  const username = secrets.AT_USERNAME;
+  const apiKey = secrets.AT_API_KEY;
   if (!username || !apiKey)
-    return { ok: false, error: "SMS is not configured on the platform", notConfigured: true };
+    return { ok: false, error: "SMS is not configured for this tenant", notConfigured: true };
 
   const to = [...new Set(numbers.map(toE164).filter((n): n is string => !!n))];
   if (to.length === 0) return { ok: false, error: "No valid phone numbers" };
@@ -86,8 +87,8 @@ export async function sendSms(numbers: string[], message: string): Promise<SmsRe
     {
       username,
       apiKey,
-      senderId: process.env.AT_SENDER_ID || undefined,
-      sandbox: process.env.AT_ENV === "sandbox",
+      senderId: secrets.AT_SENDER_ID,
+      sandbox: username === "sandbox",
     },
     to,
     message,

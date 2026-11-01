@@ -12,10 +12,7 @@
 SELECT
   set_config('catchup.credentials_done', EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'routers' AND column_name = 'legacy_token_auth')::text, false) AS credentials_already_applied,
-  set_config('catchup.intasend_default_done', COALESCE((
-    SELECT column_default LIKE '%intasend%' FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'platform_mpesa_config' AND column_name = 'active_provider'), false)::text, false) AS intasend_default_already_applied;
+    WHERE table_schema = 'public' AND table_name = 'routers' AND column_name = 'legacy_token_auth')::text, false) AS credentials_already_applied;
 
 -- ===== 20261023000000_lock_profiles_columns.sql =====
 -- SECURITY: authenticated users could UPDATE profiles.tenant_id on their own row
@@ -1176,15 +1173,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS payments_intasend_invoice_key
 -- Super admin -> Platform Payments.
 ALTER TABLE public.platform_mpesa_config ALTER COLUMN active_provider SET DEFAULT 'intasend';
 
--- One-time: only when IntaSend was not already the default (re-running it would override a provider
--- choice made on Super admin -> Platform Payments).
-DO $catchup$
-BEGIN
-  IF current_setting('catchup.intasend_default_done') <> 'true' THEN
-    UPDATE public.platform_mpesa_config SET active_provider = 'intasend' WHERE active_provider <> 'intasend';
-  END IF;
-END
-$catchup$;
+UPDATE public.platform_mpesa_config SET active_provider = 'intasend' WHERE active_provider <> 'intasend';
 
 -- ===== 20261028000000_platform_gateway_secrets.sql =====
 -- Payment gateway credentials entered on Super admin -> Platform Payments.
@@ -1226,6 +1215,231 @@ ALTER TABLE public.platform_gateway_secrets
 -- Shown on the router page so it is obvious whether a router is receiving vouchers and PPPoE users:
 -- "never" or "days ago" means customers created since then cannot connect.
 ALTER TABLE public.routers ADD COLUMN IF NOT EXISTS last_sync_at timestamptz;
+
+-- ===== 20261031000000_optional_mfa_aal2.sql =====
+-- Allow admins to optionally activate or disable Two-Factor Authentication (MFA).
+-- Previously, is_aal2() strictly required auth.jwt() ->> 'aal' = 'aal2'.
+-- When an admin chose to disable MFA, their session was at 'aal1', causing
+-- the restrictive RLS policies on all business tables to hide all rows.
+--
+-- This update checks whether the caller has an active, verified MFA factor in auth.mfa_factors.
+-- If the admin has MFA enabled: aal2 is strictly required.
+-- If the admin has MFA disabled (no verified factor): the aal1 password session is permitted.
+
+CREATE OR REPLACE FUNCTION public.is_aal2()
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_role text;
+  v_aal text;
+  v_uid uuid;
+  v_has_mfa boolean;
+BEGIN
+  -- Service role bypasses MFA check
+  v_role := auth.jwt() ->> 'role';
+  IF v_role = 'service_role' THEN
+    RETURN true;
+  END IF;
+
+  -- If token has aal2, MFA challenge was completed and verified
+  v_aal := auth.jwt() ->> 'aal';
+  IF v_aal = 'aal2' THEN
+    RETURN true;
+  END IF;
+
+  -- Caller's user ID
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
+    RETURN false;
+  END IF;
+
+  -- Check if user has an active/verified MFA factor enrolled
+  IF to_regclass('auth.mfa_factors') IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1 FROM auth.mfa_factors
+       WHERE user_id = v_uid
+         AND status = 'verified'
+    ) INTO v_has_mfa;
+
+    -- If user has active MFA enrolled, require them to finish the MFA challenge (aal2)
+    IF v_has_mfa THEN
+      RETURN false;
+    END IF;
+  END IF;
+
+  -- User does not have MFA enabled: aal1 session is fully authorized
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.is_aal2() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_aal2() TO authenticated, service_role;
+
+-- ===== 20261031010000_audit_logs.sql =====
+-- Audit logs for Super Admin and Tenant Admins
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  tenant_id uuid REFERENCES public.tenants(id) ON DELETE CASCADE,
+  actor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  actor_email text,
+  actor_role text,
+  action text NOT NULL,
+  resource_type text NOT NULL,
+  resource_id text,
+  description text NOT NULL,
+  metadata jsonb DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX IF NOT EXISTS audit_logs_created_at_idx ON public.audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_tenant_id_idx ON public.audit_logs (tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_action_idx ON public.audit_logs (action);
+
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Restrictive aal2 policy (respects is_aal2() so MFA-disabled accounts still have access)
+DROP POLICY IF EXISTS "audit_logs require aal2" ON public.audit_logs;
+CREATE POLICY "audit_logs require aal2" ON public.audit_logs
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING (public.is_aal2()) WITH CHECK (public.is_aal2());
+
+-- Super Admin can read all audit logs
+DROP POLICY IF EXISTS "audit_logs super admin read" ON public.audit_logs;
+CREATE POLICY "audit_logs super admin read" ON public.audit_logs
+  FOR SELECT TO authenticated
+  USING (public.is_super_admin(auth.uid()));
+
+-- Tenant staff can read their own tenant's audit logs
+DROP POLICY IF EXISTS "audit_logs tenant read" ON public.audit_logs;
+CREATE POLICY "audit_logs tenant read" ON public.audit_logs
+  FOR SELECT TO authenticated
+  USING (
+    tenant_id IS NOT NULL AND (
+      tenant_id = public.user_tenant_id(auth.uid()) OR
+      public.has_tenant_role(auth.uid(), tenant_id, ARRAY['tenant_admin','technician','billing_agent','support_staff']::public.app_role[])
+    )
+  );
+
+-- Authenticated users can insert audit logs for their own actions / tenant
+DROP POLICY IF EXISTS "audit_logs insert" ON public.audit_logs;
+CREATE POLICY "audit_logs insert" ON public.audit_logs
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    public.is_super_admin(auth.uid()) OR
+    tenant_id IS NULL OR
+    tenant_id = public.user_tenant_id(auth.uid())
+  );
+
+-- ===== 20261101000000_tenant_owned_services.sql =====
+-- Tenant-owned Daraja and SMS credentials. Ciphertext is written by the server only;
+-- browser roles have no policies or grants on this table.
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_provider_check;
+ALTER TABLE public.payments
+  ADD CONSTRAINT payments_provider_check
+  CHECK (provider IN ('payhero', 'intasend', 'daraja'));
+ALTER TABLE public.payments ALTER COLUMN provider SET DEFAULT 'daraja';
+CREATE UNIQUE INDEX IF NOT EXISTS payments_daraja_checkout_key
+  ON public.payments (checkout_request_id)
+  WHERE provider = 'daraja' AND checkout_request_id IS NOT NULL;
+
+-- Platform Daraja credentials are no longer used: customer collections use tenant credentials,
+-- while platform commission is paid to the platform shortcode by a separate tenant-initiated C2B.
+UPDATE public.platform_mpesa_config
+SET consumer_key = NULL,
+    consumer_secret = NULL,
+    passkey = NULL,
+    validation_url = NULL,
+    confirmation_url = NULL,
+    callback_base_url = NULL;
+
+REVOKE INSERT, UPDATE ON public.platform_mpesa_config FROM authenticated;
+GRANT UPDATE (shortcode, updated_at) ON public.platform_mpesa_config TO authenticated;
+
+CREATE TABLE IF NOT EXISTS public.tenant_service_secrets (
+  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  name text NOT NULL CHECK (name IN (
+    'MPESA_ENV',
+    'MPESA_SHORTCODE',
+    'MPESA_CONSUMER_KEY',
+    'MPESA_CONSUMER_SECRET',
+    'MPESA_PASSKEY',
+    'AT_USERNAME',
+    'AT_API_KEY',
+    'AT_SENDER_ID'
+  )),
+  ciphertext text NOT NULL,
+  last4 text,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by uuid,
+  PRIMARY KEY (tenant_id, name)
+);
+
+ALTER TABLE public.tenant_service_secrets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.tenant_service_secrets FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.tenant_service_secrets TO service_role;
+
+-- This ledger tracks platform commission owed by tenants after their direct collections.
+-- The tenant initiates a separate C2B payment to the platform's configured shortcode.
+CREATE TABLE IF NOT EXISTS public.platform_commissions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+  period_start timestamptz NOT NULL,
+  period_end timestamptz NOT NULL,
+  gross_amount numeric NOT NULL DEFAULT 0,
+  commission_amount numeric NOT NULL DEFAULT 0,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'collected')),
+  mpesa_receipt text UNIQUE,
+  collected_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, period_start, period_end),
+  CHECK (period_end >= period_start),
+  CHECK (gross_amount >= 0 AND commission_amount >= 0)
+);
+
+ALTER TABLE public.platform_commissions ENABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE ON public.platform_commissions TO authenticated;
+GRANT ALL ON public.platform_commissions TO service_role;
+
+DROP POLICY IF EXISTS "platform commissions super read" ON public.platform_commissions;
+CREATE POLICY "platform commissions super read" ON public.platform_commissions
+  FOR SELECT TO authenticated USING (public.is_super_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "platform commissions super write" ON public.platform_commissions;
+CREATE POLICY "platform commissions super write" ON public.platform_commissions
+  FOR ALL TO authenticated
+  USING (public.is_super_admin(auth.uid()))
+  WITH CHECK (public.is_super_admin(auth.uid()));
+
+CREATE INDEX IF NOT EXISTS platform_commissions_tenant_status_idx
+  ON public.platform_commissions (tenant_id, status, created_at DESC);
+
+-- ===== 20261102000000_daraja_only.sql =====
+-- Remove non-Daraja payment paths. Keep completed historical records readable, but
+-- fail old provider payments that were still waiting for a callback at cutover.
+ALTER TABLE public.payments DROP CONSTRAINT IF EXISTS payments_provider_check;
+UPDATE public.payments
+SET status = 'failed'
+WHERE provider IN ('intasend', 'payhero')
+  AND status IN ('pending', 'processing');
+ALTER TABLE public.payments
+  ADD CONSTRAINT payments_provider_check
+  CHECK (
+    provider = 'daraja'
+    OR (provider IN ('intasend', 'payhero') AND status IN ('success', 'failed'))
+  );
+
+DROP INDEX IF EXISTS public.payments_intasend_invoice_key;
+
+ALTER TABLE public.platform_mpesa_config
+  DROP CONSTRAINT IF EXISTS platform_mpesa_config_active_provider_check;
+ALTER TABLE public.platform_mpesa_config
+  DROP COLUMN IF EXISTS active_provider;
+
+DROP TABLE IF EXISTS public.platform_gateway_secrets;
 
 -- ===== done =====
 SELECT 'catch-up complete: run supabase/production-status.sql to confirm' AS result;

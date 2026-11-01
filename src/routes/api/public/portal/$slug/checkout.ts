@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { loadTenantBySlugAdmin, loadPlatformMpesaConfig, normalizePhone } from "@/lib/mpesa.server";
-import { resolveProvider, startStkPush } from "@/lib/payment-gateway.server";
+import { loadTenantBySlugAdmin, normalizePhone } from "@/lib/mpesa.server";
+import { startDarajaStkPush } from "@/lib/daraja.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import {
   CHECKOUT_LIMITS,
@@ -52,8 +52,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         try {
           const tenant = await loadTenantBySlugAdmin(params.slug).catch(() => null);
           if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
-          const cfg = await loadPlatformMpesaConfig();
-          const provider = resolveProvider(cfg);
 
           const { data: pkg } = await supabaseAdmin
             .from("packages")
@@ -63,6 +61,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (!pkg || pkg.tenant_id !== tenant.id || !pkg.active) {
             return Response.json({ error: "Invalid package" }, { status: 400 });
           }
+          const amount = Math.ceil(Number(pkg.price));
+          if (!Number.isFinite(amount) || amount < 1) {
+            return Response.json(
+              { error: "This package cannot be paid for online." },
+              { status: 400 },
+            );
+          }
 
           const { data: pay, error: payErr } = await supabaseAdmin
             .from("payments")
@@ -70,9 +75,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               tenant_id: tenant.id,
               package_id: pkg.id,
               phone,
-              amount: pkg.price,
+              amount,
               status: "pending",
-              provider,
+              provider: "daraja",
             })
             .select("id,created_at,status,package_id")
             .single();
@@ -102,18 +107,15 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             );
           }
 
-          const host = getRequestHost();
-          const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
           let started;
           try {
-            started = await startStkPush({
-              provider,
-              cfg,
-              amount: Number(pkg.price),
+            started = await startDarajaStkPush({
+              tenantId: tenant.id,
+              amount,
               phone,
-              reference: pay.id,
+              paymentId: pay.id,
               description: pkg.kind ?? "Internet",
-              callbackUrl: `${callbackBase}/api/public/mpesa/callback/${tenant.id}`,
+              callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
             });
           } catch (e) {
             // Gateway text can contain internals (URLs, account ids): log it and show a generic message.
@@ -132,15 +134,15 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           await supabaseAdmin
             .from("payments")
             .update({
-              checkout_request_id: started.checkoutRef,
-              merchant_request_id: started.providerRef,
+              checkout_request_id: started.checkoutRequestId,
+              merchant_request_id: started.merchantRequestId,
             })
             .eq("id", pay.id);
 
           return Response.json({
             paymentId: pay.id,
-            checkoutRequestId: started.checkoutRef,
-            message: started.message,
+            checkoutRequestId: started.checkoutRequestId,
+            message: "Check your phone for the M-Pesa prompt",
           });
         } catch (e) {
           console.error("checkout failed", e);

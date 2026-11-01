@@ -1,10 +1,101 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { payheroTransactionStatus } from "@/lib/mpesa.server";
+import type { Json } from "@/integrations/supabase/types";
+import { normalizePhone } from "@/lib/mpesa.server";
+import { queryDarajaStkPush } from "@/lib/daraja.server";
 import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 
-// PayHero payment callback. The callback body is NOT trusted: we look up the
-// payment by its external_reference and re-verify the status with PayHero.
+type DarajaCallback = {
+  Body?: {
+    stkCallback?: {
+      CheckoutRequestID?: string;
+      MerchantRequestID?: string;
+      ResultCode?: number | string;
+      CallbackMetadata?: { Item?: { Name?: string; Value?: string | number }[] };
+    };
+  };
+};
+
+async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Promise<Response> {
+  const rawJson = raw as unknown as Json;
+  const callback = raw.Body?.stkCallback;
+  const checkoutId = callback?.CheckoutRequestID;
+  if (!callback || !checkoutId) return Response.json({ ok: true, note: "No payment reference" });
+
+  const { data: payment } = await supabaseAdmin
+    .from("payments")
+    .select(
+      "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,tv_device_id,expires_at",
+    )
+    .eq("tenant_id", tenantId)
+    .eq("provider", "daraja")
+    .eq("checkout_request_id", checkoutId)
+    .maybeSingle();
+  if (!payment) return Response.json({ ok: true, note: "Unknown payment" });
+  if (payment.status === "success" || payment.status === "processing") {
+    return Response.json({ ok: true, note: "Already processed" });
+  }
+  if (
+    callback.MerchantRequestID &&
+    payment.merchant_request_id &&
+    callback.MerchantRequestID !== payment.merchant_request_id
+  ) {
+    return Response.json({ ok: true, note: "Request mismatch" });
+  }
+
+  if (String(callback.ResultCode) !== "0") {
+    await markPaymentFailed(payment.id, rawJson);
+    return Response.json({ ok: true, note: "Payment was not completed" });
+  }
+
+  const metadata = callback.CallbackMetadata?.Item ?? [];
+  const value = (name: string) => metadata.find((item) => item.Name === name)?.Value;
+  const amount = Number(value("Amount"));
+  const receipt = value("MpesaReceiptNumber");
+  const phone = value("PhoneNumber");
+  if (
+    !Number.isFinite(amount) ||
+    amount !== Math.ceil(Number(payment.amount)) ||
+    typeof receipt !== "string" ||
+    !receipt ||
+    (phone !== undefined && normalizePhone(String(phone)) !== payment.phone)
+  ) {
+    console.error(`Daraja callback data did not match payment ${payment.id}`);
+    return Response.json({ ok: true, note: "Payment details did not match" });
+  }
+
+  let verification: Awaited<ReturnType<typeof queryDarajaStkPush>>;
+  try {
+    verification = await queryDarajaStkPush(tenantId, checkoutId);
+  } catch (error) {
+    console.error("Daraja callback verification failed", error);
+    return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
+  }
+  if (verification.resultCode !== "0") {
+    return Response.json({ ok: true, note: "Payment verification is still pending" });
+  }
+
+  try {
+    const outcome = await settlePayment({
+      payment: {
+        id: payment.id,
+        tenant_id: tenantId,
+        package_id: payment.package_id,
+        phone: payment.phone,
+        tv_device_id: payment.tv_device_id,
+        expires_at: payment.expires_at,
+      },
+      receipt,
+      raw: rawJson,
+    });
+    if (outcome === "already") return Response.json({ ok: true, note: "Already processing" });
+  } catch (error) {
+    console.error("Daraja callback processing failed", error);
+    return Response.json({ ok: false, error: "Processing failed" }, { status: 500 });
+  }
+  return Response.json({ ok: true });
+}
+
 export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
   server: {
     handlers: {
@@ -16,69 +107,8 @@ export const Route = createFileRoute("/api/public/mpesa/callback/$tenantId")({
         } catch {
           return Response.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
         }
-        const rawJson = body as unknown as never;
-        const r = (body.response ?? {}) as Record<string, unknown>;
-        const externalRef = String(r.ExternalReference ?? "");
-        const checkoutId = String(r.CheckoutRequestID ?? "");
-        if (!externalRef && !checkoutId) return Response.json({ ok: true });
-
-        let q = supabaseAdmin
-          .from("payments")
-          .select(
-            "id,tenant_id,package_id,customer_id,status,merchant_request_id,phone,tv_device_id,expires_at",
-          )
-          .eq("tenant_id", tenantId);
-        q = /^[0-9a-f-]{36}$/i.test(externalRef)
-          ? q.eq("id", externalRef)
-          : q.eq("checkout_request_id", checkoutId);
-        const { data: payment } = await q.maybeSingle();
-
-        if (!payment) return Response.json({ ok: true, note: "Unknown payment" });
-        if (payment.status === "success" || payment.status === "processing") {
-          return Response.json({ ok: true, note: "Already processed" });
-        }
-
-        // Verify with PayHero directly
-        let verified = { status: "", receipt: null as string | null };
-        try {
-          if (payment.merchant_request_id)
-            verified = await payheroTransactionStatus(payment.merchant_request_id);
-        } catch (e) {
-          console.error(e);
-          return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
-        }
-
-        if (verified.status === "FAILED") {
-          await markPaymentFailed(payment.id, rawJson);
-          return Response.json({ ok: true, note: "Recorded failure" });
-        }
-        if (verified.status !== "SUCCESS") return Response.json({ ok: true, note: "Pending" });
-
-        const receipt = String(verified.receipt ?? r.MpesaReceiptNumber ?? "");
-        // Keep the amount recorded at STK-push time; the callback body is untrusted.
-        const phone = payment.phone ?? String(r.Phone ?? "").replace(/\D/g, "");
-
-        try {
-          const outcome = await settlePayment({
-            payment: {
-              id: payment.id,
-              tenant_id: tenantId,
-              package_id: payment.package_id,
-              phone: phone || null,
-              tv_device_id: payment.tv_device_id,
-              expires_at: payment.expires_at,
-            },
-            receipt: receipt || null,
-            raw: rawJson,
-          });
-          if (outcome === "already") return Response.json({ ok: true, note: "Already processing" });
-        } catch (e) {
-          // settlePayment released the claim so PayHero's retry can reprocess.
-          console.error("callback processing failed", e);
-          return Response.json({ ok: false, error: "Processing failed" }, { status: 500 });
-        }
-
-        return Response.json({ ok: true });
+        if (!("Body" in body)) return Response.json({ ok: true, note: "Unknown callback" });
+        return handleDarajaCallback(tenantId, body as DarajaCallback);
       },
     },
   },

@@ -34,17 +34,6 @@ BEGIN
   END IF;
 END
 $catchup$;""")],
-    "20261027000000_default_intasend.sql": [(
-        "UPDATE public.platform_mpesa_config SET active_provider = 'intasend' WHERE active_provider <> 'intasend';",
-        """-- One-time: only when IntaSend was not already the default (re-running it would override a provider
--- choice made on Super admin -> Platform Payments).
-DO $catchup$
-BEGIN
-  IF current_setting('catchup.intasend_default_done') <> 'true' THEN
-    UPDATE public.platform_mpesa_config SET active_provider = 'intasend' WHERE active_provider <> 'intasend';
-  END IF;
-END
-$catchup$;""")],
     "20261024120000_router_liveness_check.sql": [(
         """CREATE EXTENSION IF NOT EXISTS pg_cron;
 -- Scheduling with an existing job name replaces that job, so this is safe to re-run.
@@ -74,10 +63,7 @@ HEADER = f"""-- ================================================================
 SELECT
   set_config('catchup.credentials_done', EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'routers' AND column_name = 'legacy_token_auth')::text, false) AS credentials_already_applied,
-  set_config('catchup.intasend_default_done', COALESCE((
-    SELECT column_default LIKE '%intasend%' FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'platform_mpesa_config' AND column_name = 'active_provider'), false)::text, false) AS intasend_default_already_applied;
+    WHERE table_schema = 'public' AND table_name = 'routers' AND column_name = 'legacy_token_auth')::text, false) AS credentials_already_applied;
 """
 
 def main():

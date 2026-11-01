@@ -36,13 +36,8 @@ describe("tenant console page access", () => {
       "/tenant/inventory",
       "/tenant/tickets",
     ]));
-  it("billing agent: customers + payments + notifications only", () =>
-    expect(open(["billing_agent"])).toEqual([
-      "/tenant",
-      "/tenant/customers",
-      "/tenant/payments",
-      "/tenant/sms",
-    ]));
+  it("billing agent: customers and payments only", () =>
+    expect(open(["billing_agent"])).toEqual(["/tenant", "/tenant/customers", "/tenant/payments"]));
   it("support staff: customers, sessions, inventory (read), tickets only", () =>
     expect(open(["support_staff"])).toEqual([
       "/tenant",

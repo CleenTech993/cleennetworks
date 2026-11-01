@@ -124,9 +124,9 @@ function Settings() {
         <div className="rounded-xl border bg-card p-5">
           <h3 className="font-semibold mb-1">Receiving details</h3>
           <p className="text-xs text-muted-foreground mb-4">
-            Customers pay through the platform M-Pesa API (managed by Super Admin). These details
-            are used for your settlement records and shown to customers for manual deposits — they
-            are <b>not</b> API credentials.
+            New online payments are sent directly to your M-Pesa account using the Daraja
+            credentials configured under Notifications. These details are for customer instructions
+            and records; they are not API credentials.
           </p>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">

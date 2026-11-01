@@ -41,7 +41,7 @@ It does **not** check row data, column defaults, grants or scheduled jobs. For t
 `select jobname, schedule from cron.job;` and expect the router liveness check.
 
 Function bodies and check constraints are compared by definition only where a later migration **redefines one under
-the same name** (today: the `admin_approve_user` function and the `platform_gateway_secrets_name_check` constraint).
+the same name** (today: the `admin_approve_user` function and the `payments_provider_check` constraint).
 Those show up in `missing_objects` as `funcdef` / `constraintdef` and mean "this object doesn't have the definition
 from that migration": either the migration wasn't applied or the object was edited by hand. Compare the definition
 before overwriting it.
@@ -86,3 +86,13 @@ before overwriting it.
 
 `npm run db:verify-gen` and `npm run test:sql` need a Postgres they can create databases in (set `PGHOST` and
 `PGUSER`); they never touch your Supabase project.
+
+## Tenant payment credentials
+
+From `20261101000000_tenant_owned_services.sql`, customer payments use tenant-owned Daraja STK
+credentials. The encrypted `tenant_service_secrets` table is server-only; never grant browser roles
+access to it. `20261102000000_daraja_only.sql` removes platform gateway selection and encrypted
+gateway secrets. New payments use Daraja only; outstanding payments from the retired gateways are
+marked failed, and completed historical records remain available for reporting. Super admins manage
+only the platform's C2B receiving shortcode. Tenants pay platform commission by separate C2B transfer;
+`platform_commissions` records the amount due and the manually confirmed M-Pesa receipt.

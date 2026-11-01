@@ -1,211 +1,74 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { IntasendCredentials } from "@/components/intasend-credentials";
-import { getGatewayStatus } from "@/lib/gateway.functions";
 
 export const Route = createFileRoute("/super-admin/payments")({ component: PlatformPayments });
 
-const empty = {
-  mpesa_env: "sandbox",
-  shortcode: "",
-  consumer_key: "",
-  consumer_secret: "",
-  passkey: "",
-  callback_base_url: "",
-  validation_url: "",
-  confirmation_url: "",
-  active_provider: "intasend",
-};
-
 function PlatformPayments() {
-  const qc = useQueryClient();
-  const { data: cfg } = useQuery({
-    queryKey: ["platform-mpesa"],
+  const queryClient = useQueryClient();
+  const [shortcode, setShortcode] = useState("");
+  const { data: config, isLoading } = useQuery({
+    queryKey: ["platform-c2b"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("platform_mpesa_config")
-        .select("*")
+        .select("shortcode")
         .eq("id", 1)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
-  const { data: gateways } = useQuery({
-    queryKey: ["gateway-status"],
-    queryFn: () => getGatewayStatus(),
-  });
-  const [form, setForm] = useState(empty);
-  useEffect(() => {
-    if (cfg)
-      setForm({
-        mpesa_env: cfg.mpesa_env ?? "sandbox",
-        shortcode: cfg.shortcode ?? "",
-        consumer_key: cfg.consumer_key ?? "",
-        consumer_secret: cfg.consumer_secret ?? "",
-        passkey: cfg.passkey ?? "",
-        callback_base_url: cfg.callback_base_url ?? "",
-        validation_url: cfg.validation_url ?? "",
-        confirmation_url: cfg.confirmation_url ?? "",
-        active_provider: cfg.active_provider ?? "intasend",
-      });
-  }, [cfg]);
+
+  useEffect(() => setShortcode(config?.shortcode ?? ""), [config]);
 
   const save = useMutation({
     mutationFn: async () => {
       const { error } = await supabase
         .from("platform_mpesa_config")
-        .update({ ...form, updated_at: new Date().toISOString() })
+        .update({ shortcode: shortcode.trim() || null, updated_at: new Date().toISOString() })
         .eq("id", 1);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Platform M-Pesa updated");
-      qc.invalidateQueries({ queryKey: ["platform-mpesa"] });
+      toast.success("Platform C2B receiving shortcode saved.");
+      queryClient.invalidateQueries({ queryKey: ["platform-c2b"] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (error: Error) => toast.error(error.message),
   });
-
-  function field<K extends keyof typeof form>(
-    k: K,
-    label: string,
-    placeholder?: string,
-    type: string = "text",
-  ) {
-    return (
-      <div>
-        <Label>{label}</Label>
-        <Input
-          type={type}
-          value={form[k]}
-          placeholder={placeholder}
-          onChange={(e) => setForm({ ...form, [k]: e.target.value })}
-          className="mt-1"
-        />
-      </div>
-    );
-  }
-
-  const origin = (
-    form.callback_base_url || (typeof window !== "undefined" ? window.location.origin : "")
-  ).replace(/\/$/, "");
-  const webhookUrl = `${origin}/api/public/intasend/webhook`;
-  const ok = (v: boolean | undefined, yes: string, no: string) => (
-    <Badge variant={v ? "default" : "secondary"}>{v ? yes : no}</Badge>
-  );
 
   return (
     <div>
       <PageHeader
-        title="Platform Payments"
-        description="Payment gateway used by every tenant portal."
+        title="Platform C2B"
+        description="New customer purchases use each tenant's own Daraja account. The platform only receives commission payments initiated by tenants."
       />
-      <div className="rounded-xl border bg-card p-5 max-w-3xl space-y-5">
-        <div>
-          <Label>Active gateway</Label>
-          <Select
-            value={form.active_provider}
-            onValueChange={(v) => setForm({ ...form, active_provider: v })}
-          >
-            <SelectTrigger className="mt-1 max-w-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="intasend">IntaSend (default)</SelectItem>
-              <SelectItem value="payhero">PayHero</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground mt-2">
-            New payments use this gateway. Payments already started keep using the one that created
-            them, so switching is safe.
-          </p>
-          {gateways && (
-            <p className="mt-2 text-sm">
-              Checkouts are using{" "}
-              <strong>
-                {gateways.effective === "intasend"
-                  ? "IntaSend"
-                  : gateways.effective === "payhero"
-                    ? "PayHero"
-                    : "no gateway"}
-              </strong>{" "}
-              right now.
-              {gateways.effective === null && (
-                <span className="text-destructive">
-                  {" "}
-                  Neither gateway has its credentials set, so customers cannot pay.
-                </span>
-              )}
-              {gateways.effective !== null &&
-                gateways.effective !== (cfg?.active_provider ?? "intasend") && (
-                  <span className="text-destructive">
-                    {" "}
-                    The selected gateway has no credentials yet, so payments fall back to the other
-                    one.
-                  </span>
-                )}
-            </p>
-          )}
+      <section className="max-w-2xl rounded-xl border bg-card p-5">
+        <h2 className="font-semibold">Commission receiving shortcode</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Tenants pay their commission due to this platform PayBill/Till through a separate M-Pesa
+          C2B transaction. The platform does not initiate a deduction from tenant earnings here.
+        </p>
+        <div className="mt-4 max-w-sm">
+          <Label htmlFor="platform-shortcode">Platform PayBill or Till</Label>
+          <Input
+            id="platform-shortcode"
+            value={shortcode}
+            onChange={(event) => setShortcode(event.target.value)}
+            placeholder={isLoading ? "Loading…" : "Enter platform shortcode"}
+            className="mt-1"
+          />
         </div>
-
-        <div className="grid gap-2 text-sm sm:grid-cols-2">
-          <div className="rounded-lg border p-3">
-            <div className="font-medium mb-1">PayHero</div>
-            {ok(gateways?.payhero, "Server secrets set", "Not configured")}
-          </div>
-          <div className="rounded-lg border p-3">
-            <div className="font-medium mb-1">IntaSend</div>
-            <div className="flex flex-wrap gap-1">
-              {ok(gateways?.intasend.secretKey, "Secret key set", "Secret key missing")}
-              {gateways?.intasend.mode && (
-                <Badge variant="outline">
-                  {gateways.intasend.mode === "live" ? "Live keys" : "Sandbox keys"}
-                </Badge>
-              )}
-              {gateways?.intasend.pub.set ? (
-                <Badge variant="success">API key set</Badge>
-              ) : (
-                <Badge variant="outline">API key not set</Badge>
-              )}
-              {gateways?.intasend.webhookChallenge ? (
-                <Badge variant="success">Webhook on</Badge>
-              ) : (
-                <Badge variant="outline">Webhook off (optional)</Badge>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <IntasendCredentials status={gateways?.intasend} storage={gateways?.storage} webhookUrl={webhookUrl} />
-
-        <div className="space-y-3">
-          {field(
-            "callback_base_url",
-            "Callback base URL (optional)",
-            "https://cleennetworks.lovable.app",
-          )}
-        </div>
-        <div>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
-            Save
-          </Button>
-        </div>
-      </div>
+        <Button className="mt-4" onClick={() => save.mutate()} disabled={save.isPending}>
+          Save shortcode
+        </Button>
+      </section>
     </div>
   );
 }

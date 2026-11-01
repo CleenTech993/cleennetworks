@@ -2,8 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
-import { loadPlatformMpesaConfig, normalizePhone } from "./mpesa.server";
-import { resolveProvider, startStkPush } from "./payment-gateway.server";
+import { normalizePhone } from "./mpesa.server";
+import { startDarajaStkPush } from "./daraja.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const StkSchema = z.object({
@@ -31,13 +31,11 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
       .eq("id", data.packageId)
       .single();
     if (kErr || !pkg || pkg.tenant_id !== tenantId) throw new Error("Package not found");
+    const amount = Math.ceil(Number(pkg.price));
+    if (!Number.isFinite(amount) || amount < 1)
+      throw new Error("This package cannot be paid online.");
 
-    const cfg = await loadPlatformMpesaConfig();
-    const provider = resolveProvider(cfg);
-
-    const host = getRequestHost();
-    const callbackBase = cfg.callback_base_url?.replace(/\/$/, "") ?? `https://${host}`;
-    const callbackUrl = `${callbackBase}/api/public/mpesa/callback/${tenantId}`;
+    const callbackUrl = `https://${getRequestHost()}/api/public/mpesa/callback/${tenantId}`;
 
     // Insert pending payment first so the callback can find it
     const { data: pay, error: payErr } = await supabaseAdmin
@@ -47,20 +45,19 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
         customer_id: data.customerId ?? null,
         package_id: pkg.id,
         phone: normalizePhone(data.phone),
-        amount: pkg.price,
+        amount,
         status: "pending",
-        provider,
+        provider: "daraja",
       })
       .select("id")
       .single();
     if (payErr || !pay) throw new Error(payErr?.message ?? "Could not create payment");
 
-    const started = await startStkPush({
-      provider,
-      cfg,
-      amount: Number(pkg.price),
+    const started = await startDarajaStkPush({
+      tenantId,
+      amount,
       phone: data.phone,
-      reference: pay.id,
+      paymentId: pay.id,
       description: pkg.kind ?? "Internet",
       callbackUrl,
     }).catch(async (e) => {
@@ -71,14 +68,14 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
     await supabaseAdmin
       .from("payments")
       .update({
-        checkout_request_id: started.checkoutRef,
-        merchant_request_id: started.providerRef,
+        checkout_request_id: started.checkoutRequestId,
+        merchant_request_id: started.merchantRequestId,
       })
       .eq("id", pay.id);
 
     return {
       paymentId: pay.id,
-      checkoutRequestId: started.checkoutRef,
-      message: started.message,
+      checkoutRequestId: started.checkoutRequestId,
+      message: "Check your phone for the M-Pesa prompt",
     };
   });

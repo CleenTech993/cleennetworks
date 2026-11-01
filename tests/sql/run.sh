@@ -15,7 +15,7 @@ source "$(dirname "$0")/build-db.sh"   # apply() and build_db(): migration order
 build_db rls_roles_test "${1:-}"
 psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/rls-roles.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/payment-provider.sql
-[[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/gateway-secrets.sql
+[[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/tenant-services.sql
 
 if [[ "${1:-}" != "--before" ]]; then
   build_db router_tokens_test
