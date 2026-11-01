@@ -673,33 +673,55 @@ export type Database = {
           },
         ]
       }
-      platform_gateway_secrets: {
+      platform_commissions: {
         Row: {
-          ciphertext: string
-          last4: string | null
-          name: string
-          updated_at: string
-          updated_by: string | null
+          collected_at: string | null
+          commission_amount: number
+          created_at: string
+          gross_amount: number
+          id: string
+          mpesa_receipt: string | null
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
         }
         Insert: {
-          ciphertext: string
-          last4?: string | null
-          name: string
-          updated_at?: string
-          updated_by?: string | null
+          collected_at?: string | null
+          commission_amount?: number
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          mpesa_receipt?: string | null
+          period_end: string
+          period_start: string
+          status?: string
+          tenant_id: string
         }
         Update: {
-          ciphertext?: string
-          last4?: string | null
-          name?: string
-          updated_at?: string
-          updated_by?: string | null
+          collected_at?: string | null
+          commission_amount?: number
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          mpesa_receipt?: string | null
+          period_end?: string
+          period_start?: string
+          status?: string
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "platform_commissions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       platform_mpesa_config: {
         Row: {
-          active_provider: string
           callback_base_url: string | null
           confirmation_url: string | null
           consumer_key: string | null
@@ -712,7 +734,6 @@ export type Database = {
           validation_url: string | null
         }
         Insert: {
-          active_provider?: string
           callback_base_url?: string | null
           confirmation_url?: string | null
           consumer_key?: string | null
@@ -725,7 +746,6 @@ export type Database = {
           validation_url?: string | null
         }
         Update: {
-          active_provider?: string
           callback_base_url?: string | null
           confirmation_url?: string | null
           consumer_key?: string | null
@@ -1387,6 +1407,41 @@ export type Database = {
           },
           {
             foreignKeyName: "support_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_service_secrets: {
+        Row: {
+          ciphertext: string
+          last4: string | null
+          name: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ciphertext: string
+          last4?: string | null
+          name: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ciphertext?: string
+          last4?: string | null
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_service_secrets_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
