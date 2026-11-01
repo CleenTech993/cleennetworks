@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Tv } from "lucide-react";
+import { Loader2, CheckCircle2, Tv, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +77,15 @@ function sessionStore(): Storage | null {
   }
 }
 
+async function copyVoucherCode(code: string) {
+  try {
+    await navigator.clipboard.writeText(code);
+    toast.success("Voucher code copied");
+  } catch {
+    toast.error("Could not copy the code. Select and copy it manually.");
+  }
+}
+
 function PortalPage() {
   const [tab, setTab] = useState("buy");
   useEffect(() => {
@@ -118,7 +127,12 @@ function PortalPage() {
   }
 
   return (
-    <PortalThemeFrame themeId={themeId} brand={brand} backgroundUrl={data.portal?.background_url} className="min-h-screen">
+    <PortalThemeFrame
+      themeId={themeId}
+      brand={brand}
+      backgroundUrl={data.portal?.background_url}
+      className="min-h-screen"
+    >
       <PortalHeader
         theme={theme}
         name={data.tenant.name}
@@ -273,6 +287,8 @@ function PaymentWaiting({
 }) {
   const [status, setStatus] = useState<string>("pending");
   const [voucher, setVoucher] = useState<string | null>(null);
+  const [autoConnecting, setAutoConnecting] = useState(false);
+  const autoConnectAttempted = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -291,6 +307,20 @@ function PaymentWaiting({
     };
   }, [paymentId, slug]);
 
+  useEffect(() => {
+    if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
+    const store = sessionStore();
+    const params = routerParams(window.location.search, store);
+    const target = buildHotspotLoginRedirect(params.login, voucher);
+    if (!target) return;
+
+    autoConnectAttempted.current = true;
+    rememberVoucher(store, voucher);
+    setAutoConnecting(true);
+    const timeout = window.setTimeout(() => window.location.assign(target), 2_000);
+    return () => window.clearTimeout(timeout);
+  }, [status, tv, voucher]);
+
   if (status === "success" && tv) {
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
@@ -307,16 +337,27 @@ function PaymentWaiting({
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
-        <h2 className="mt-3 text-lg font-semibold">You're online</h2>
+        <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {autoConnecting
+            ? "Connecting you to the Wi-Fi automatically…"
+            : "Your voucher is ready. If automatic connection is unavailable, enter this code on the Wi-Fi sign-in page."}
+        </p>
         {voucher && (
-          <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Use this voucher on the Wi-Fi page:
-            </p>
+          <div className="mt-4 flex flex-col items-center gap-3">
             <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-lg tracking-widest">
               {voucher}
             </p>
-          </>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void copyVoucherCode(voucher)}
+              className="gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              Copy voucher code
+            </Button>
+          </div>
         )}
       </div>
     );
@@ -715,6 +756,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
     const store = sessionStore();
     const saved = recallVoucher(store);
     if (!saved) return;
+    setCode(saved.code);
     const target = buildHotspotLoginRedirect(
       routerParams(window.location.search, store).login,
       saved.code,
@@ -815,6 +857,22 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
             Open this page from the Wi-Fi network's sign-in screen to connect, or reconnect to the
             Wi-Fi.
           </p>
+        )}
+        {code && (
+          <div className="mt-4 space-y-3">
+            <p className="rounded-md bg-muted px-4 py-2 font-mono text-lg tracking-widest">
+              {code}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void copyVoucherCode(code)}
+              className="gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              Copy voucher code
+            </Button>
+          </div>
         )}
       </div>
     );
