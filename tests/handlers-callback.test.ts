@@ -11,7 +11,6 @@ vi.mock("@/integrations/supabase/client.server", () => ({
   },
 }));
 vi.mock("@/lib/daraja.server", () => ({ queryDarajaStkPush: darajaMock.query }));
-
 import { Route } from "@/routes/api/public/mpesa/callback.$tenantId";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
@@ -85,7 +84,7 @@ afterEach(() => {
 const payment = () => h.db.rows("payments").find((row) => row.id === PAY)!;
 
 describe("tenant Daraja callback", () => {
-  it("verifies STK success before settling and issuing a voucher", async () => {
+  it("verifies STK success and issues a voucher", async () => {
     const response = await send();
     expect(response.status).toBe(200);
     expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
@@ -111,18 +110,6 @@ describe("tenant Daraja callback", () => {
   it("records M-Pesa failure and issues nothing", async () => {
     await send(callbackBody({ resultCode: 1032 }));
     expect(payment().status).toBe("failed");
-    expect(darajaMock.query).not.toHaveBeenCalled();
-    expect(h.db.rows("vouchers")).toHaveLength(0);
-  });
-
-  it("does not settle when the STK query is not successful", async () => {
-    darajaMock.query.mockResolvedValue({
-      resultCode: "1032",
-      resultDescription: "cancelled",
-    });
-    const response = await send();
-    expect(response.status).toBe(200);
-    expect(payment().status).toBe("pending");
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
@@ -133,6 +120,46 @@ describe("tenant Daraja callback", () => {
 
     await send(callbackBody({ phone: 254700000000 }));
     expect(darajaMock.query).not.toHaveBeenCalled();
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
+  it("requests a callback retry if Daraja's verification has not caught up yet", async () => {
+    darajaMock.query
+      .mockResolvedValueOnce({
+        resultCode: null,
+        resultDescription: "request accepted",
+      })
+      .mockResolvedValueOnce({
+        resultCode: "0",
+        resultDescription: "success",
+      });
+
+    const response = await send();
+    expect(response.status).toBe(200);
+    expect(darajaMock.query).toHaveBeenCalledTimes(2);
+    expect(payment().status).toBe("success");
+    expect(h.db.rows("vouchers")).toHaveLength(1);
+  });
+
+  it("requests a callback retry if Daraja verification is still pending after the retry", async () => {
+    darajaMock.query.mockResolvedValue({
+      resultCode: null,
+      resultDescription: "request accepted",
+    });
+
+    const response = await send();
+    expect(response.status).toBe(503);
+    expect(darajaMock.query).toHaveBeenCalledTimes(2);
+    expect(payment().status).toBe("pending");
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
+  it("returns a retryable error when Daraja verification is unavailable", async () => {
+    darajaMock.query.mockRejectedValue(new Error("Daraja unavailable"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await send();
+    expect(response.status).toBe(502);
+    expect(payment().status).toBe("pending");
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
@@ -155,15 +182,6 @@ describe("tenant Daraja callback", () => {
         })
       ).status,
     ).toBe(400);
-  });
-
-  it("returns 502 and leaves payment pending when Daraja verification is unavailable", async () => {
-    darajaMock.query.mockRejectedValue(new Error("Daraja unavailable"));
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    const response = await send();
-    expect(response.status).toBe(502);
-    expect(payment().status).toBe("pending");
-    expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
   it("is idempotent when a callback is replayed", async () => {

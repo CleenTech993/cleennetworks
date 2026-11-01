@@ -127,6 +127,7 @@ describe("smart TV registration", () => {
     expect(darajaSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         tenantId: TENANT,
+        businessName: "Acme",
         amount: 30,
         phone: "254712345678",
         description: "Smart TV",

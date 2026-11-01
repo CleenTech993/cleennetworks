@@ -77,6 +77,7 @@ describe("checkout", () => {
     expect(darajaSpy).toHaveBeenCalledTimes(1);
     expect(darajaSpy).toHaveBeenCalledWith({
       tenantId: TENANT,
+      businessName: "Acme",
       amount: 50,
       phone: "254712345678",
       paymentId: body.paymentId,

@@ -43,6 +43,7 @@ describe("tenant Daraja STK Push", () => {
 
     const result = await startDarajaStkPush({
       tenantId: TENANT,
+      businessName: "Acme Networks",
       amount: 50.01,
       phone: "0712345678",
       paymentId: PAYMENT,
@@ -72,7 +73,8 @@ describe("tenant Daraja STK Push", () => {
       PartyB: "174379",
       PhoneNumber: "254712345678",
       CallBackURL: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
-      AccountReference: "aaaaaaaabbbb",
+      AccountReference: "ACMENETWORKS",
+      TransactionDesc: "Acme Networks hotspot",
       Timestamp: "20261024150000",
     });
     expect(request.Password).toBe(btoa(`174379passkey${request.Timestamp}`));
@@ -89,6 +91,7 @@ describe("tenant Daraja STK Push", () => {
     await expect(
       startDarajaStkPush({
         tenantId: TENANT,
+        businessName: "Acme",
         amount: 50,
         phone: "254712345678",
         paymentId: PAYMENT,

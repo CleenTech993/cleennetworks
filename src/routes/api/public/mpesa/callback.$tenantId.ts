@@ -64,15 +64,22 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
     return Response.json({ ok: true, note: "Payment details did not match" });
   }
 
-  let verification: Awaited<ReturnType<typeof queryDarajaStkPush>>;
-  try {
-    verification = await queryDarajaStkPush(tenantId, checkoutId);
-  } catch (error) {
-    console.error("Daraja callback verification failed", error);
-    return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
+  let verification: Awaited<ReturnType<typeof queryDarajaStkPush>> | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      verification = await queryDarajaStkPush(tenantId, checkoutId);
+    } catch (error) {
+      console.error("Daraja callback verification failed", error);
+      return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
+    }
+    if (verification.resultCode === "0") break;
+    if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
-  if (verification.resultCode !== "0") {
-    return Response.json({ ok: true, note: "Payment verification is still pending" });
+  if (verification?.resultCode !== "0") {
+    return Response.json(
+      { ok: false, error: "Payment verification is still pending; retry the callback." },
+      { status: 503 },
+    );
   }
 
   try {

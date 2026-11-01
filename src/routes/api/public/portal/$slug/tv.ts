@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
-          .select("id")
+          .select("id,name")
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
@@ -172,6 +172,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
         try {
           const started = await startDarajaStkPush({
             tenantId: tenant.id,
+            businessName: tenant.name,
             amount,
             phone,
             paymentId: pay.id,

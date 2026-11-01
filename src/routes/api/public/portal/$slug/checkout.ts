@@ -114,6 +114,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               amount,
               phone,
               paymentId: pay.id,
+              businessName: tenant.name,
               description: pkg.kind ?? "Internet",
               callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
             });

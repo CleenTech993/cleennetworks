@@ -77,6 +77,7 @@ async function loadConfig(tenantId: string): Promise<DarajaConfig> {
 
 export async function startDarajaStkPush(input: {
   tenantId: string;
+  businessName: string;
   amount: number;
   phone: string;
   paymentId: string;
@@ -93,6 +94,16 @@ export async function startDarajaStkPush(input: {
     throw new Error("M-Pesa callbacks require a public HTTPS URL.");
   const timestamp = darajaTimestamp();
   const token = await accessToken(config);
+  const accountReference =
+    input.businessName
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/gi, "")
+      .slice(0, 12)
+      .toUpperCase() || "BUSINESS";
+  const description = `${input.businessName} ${input.description}`
+    .replace(/\s+/g, " ")
+    .slice(0, 30);
   const response = await fetch(`${baseUrl(config.environment)}/mpesa/stkpush/v1/processrequest`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -106,8 +117,8 @@ export async function startDarajaStkPush(input: {
       PartyB: config.shortcode,
       PhoneNumber: phone,
       CallBackURL: input.callbackUrl,
-      AccountReference: input.paymentId.replaceAll("-", "").slice(0, 12),
-      TransactionDesc: input.description.slice(0, 30),
+      AccountReference: accountReference,
+      TransactionDesc: description,
     }),
     signal: AbortSignal.timeout(15_000),
   });
