@@ -472,7 +472,22 @@ with expected(ord, track, migration, kind, ident) as (values
   (32, 'supabase', '20261101000000_tenant_owned_services.sql', 'rls', 'public.tenant_service_secrets'),
   (32, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.platform_commissions'),
   (32, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.tenant_service_secrets'),
-  (33, 'supabase', '20261102000000_daraja_only.sql', 'constraintdef', 'public.payments.payments_provider_check#945f1ba9')
+  (33, 'supabase', '20261102000000_daraja_only.sql', 'constraintdef', 'public.payments.payments_provider_check#945f1ba9'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_amount_check'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_customer_id_fkey'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_payment_id_fkey'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_pkey'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_status_check'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_suggested_customer_id_fkey'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_tenant_id_fkey'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_transaction_id_key'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'function', 'public.approve_direct_mpesa_transaction(p_transaction_id uuid, p_tenant_id uuid, p_customer_id uuid, p_package_id uuid, p_expires_at timestamp with time zone, p_reviewed_by uuid)'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_pkey'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_tenant_status_time_idx'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_transaction_id_key'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'policy', 'public.direct_mpesa_transactions.direct M-Pesa transactions tenant read'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'rls', 'public.direct_mpesa_transactions'),
+  (34, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'table', 'public.direct_mpesa_transactions')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.
