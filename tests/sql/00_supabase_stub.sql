@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS storage.objects (
   bucket_id text,
   name text,
   owner uuid,
+  owner_id text,
   created_at timestamptz DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS auth.mfa_factors (
