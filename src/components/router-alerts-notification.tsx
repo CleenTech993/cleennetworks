@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, AlertTriangle, CheckCircle2, Router as RouterIcon, ExternalLink } from "lucide-react";
+import {
+  Bell,
+  AlertTriangle,
+  CheckCircle2,
+  Router as RouterIcon,
+  ExternalLink,
+  ShieldAlert,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { isRouterLive } from "@/lib/router-health";
 import { logAudit } from "@/lib/audit";
@@ -22,6 +25,16 @@ interface RouterStatus {
   last_heartbeat_at: string | null;
   last_seen_at: string | null;
 }
+
+interface LoginSecurityAlert {
+  id: string;
+  action: string;
+  description: string;
+  actor_email: string | null;
+  created_at: string;
+}
+
+const LOGIN_SECURITY_ACTIONS = ["new_login_location", "repeated_failed_logins"];
 
 export function RouterAlertsNotification({
   tenantId,
@@ -53,6 +66,24 @@ export function RouterAlertsNotification({
       return (data ?? []) as RouterStatus[];
     },
     refetchInterval: 5_000,
+  });
+
+  const { data: securityAlerts = [] } = useQuery({
+    queryKey: ["login-security-alerts"],
+    enabled: isSuperAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("id,action,description,actor_email,created_at")
+        .eq("resource_type", "auth")
+        .in("action", LOGIN_SECURITY_ACTIONS)
+        .gte("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return (data ?? []) as LoginSecurityAlert[];
+    },
+    refetchInterval: 15_000,
   });
 
   // Re-evaluate router liveness every 3 seconds
@@ -149,6 +180,8 @@ export function RouterAlertsNotification({
   const configuredRouters = (routers ?? []).filter((r) => r.status !== "pending");
   const offlineRouters = configuredRouters.filter((r) => !isRouterLive(r));
   const hasAlerts = offlineRouters.length > 0;
+  const hasSecurityAlerts = isSuperAdmin && securityAlerts.length > 0;
+  const alertCount = offlineRouters.length + (hasSecurityAlerts ? securityAlerts.length : 0);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -157,17 +190,17 @@ export function RouterAlertsNotification({
           variant="ghost"
           size="icon"
           className={`relative h-8 w-8 rounded-full transition-colors ${
-            hasAlerts
+            alertCount > 0
               ? "text-rose-500 hover:text-rose-600 bg-rose-500/10 hover:bg-rose-500/20"
               : "text-muted-foreground hover:text-foreground"
           }`}
-          aria-label="Router alerts"
-          title={hasAlerts ? `${offlineRouters.length} router(s) offline` : "All routers healthy"}
+          aria-label="System alerts"
+          title={alertCount > 0 ? `${alertCount} active alert(s)` : "No active alerts"}
         >
-          <Bell className={`h-4 w-4 ${hasAlerts ? "animate-bounce" : ""}`} />
-          {hasAlerts && (
+          <Bell className={`h-4 w-4 ${alertCount > 0 ? "animate-bounce" : ""}`} />
+          {alertCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white shadow-xs">
-              {offlineRouters.length}
+              {alertCount}
             </span>
           )}
         </Button>
@@ -176,28 +209,76 @@ export function RouterAlertsNotification({
       <PopoverContent className="w-80 p-0 shadow-lg" align="end">
         <div className="flex items-center justify-between border-b px-4 py-3 bg-muted/30">
           <div className="flex items-center gap-2">
-            <AlertTriangle className={`h-4 w-4 ${hasAlerts ? "text-rose-500" : "text-emerald-500"}`} />
-            <h4 className="font-semibold text-xs">Router Health Alerts</h4>
+            <AlertTriangle
+              className={`h-4 w-4 ${alertCount > 0 ? "text-rose-500" : "text-emerald-500"}`}
+            />
+            <h4 className="font-semibold text-xs">System Alerts</h4>
           </div>
-          {hasAlerts ? (
+          {alertCount > 0 ? (
             <Badge variant="destructive" className="text-[10px] h-5 px-1.5 font-mono">
-              {offlineRouters.length} offline
+              {alertCount} active
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5 text-emerald-600 border-emerald-500/30">
+            <Badge
+              variant="outline"
+              className="text-[10px] h-5 px-1.5 text-emerald-600 border-emerald-500/30"
+            >
               All normal
             </Badge>
           )}
         </div>
 
         <div className="max-h-72 overflow-y-auto divide-y divide-border/60">
+          {hasSecurityAlerts && (
+            <section>
+              <div className="flex items-center gap-2 border-b bg-rose-500/5 px-3 py-2 text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                <ShieldAlert className="h-3.5 w-3.5" />
+                Login security · last 7 days
+              </div>
+              {securityAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="flex items-start justify-between gap-3 p-3 text-xs hover:bg-muted/40"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground">
+                      {alert.action === "repeated_failed_logins"
+                        ? "Repeated failed sign-ins"
+                        : "New login location"}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{alert.description}</p>
+                    <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                      {alert.actor_email ?? "Account not identified"} ·{" "}
+                      {new Date(alert.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 shrink-0 gap-1 px-2 text-[11px] text-primary"
+                    onClick={() => setOpen(false)}
+                  >
+                    <Link to="/super-admin/audit">
+                      Review <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </Button>
+                </div>
+              ))}
+            </section>
+          )}
           {hasAlerts ? (
             offlineRouters.map((r) => {
               const last = r.last_heartbeat_at ?? r.last_seen_at;
-              const mins = last ? Math.round((Date.now() - new Date(last).getTime()) / 60000) : null;
+              const mins = last
+                ? Math.round((Date.now() - new Date(last).getTime()) / 60000)
+                : null;
 
               return (
-                <div key={r.id} className="p-3 text-xs flex items-start justify-between gap-3 hover:bg-muted/40 transition-colors">
+                <div
+                  key={r.id}
+                  className="p-3 text-xs flex items-start justify-between gap-3 hover:bg-muted/40 transition-colors"
+                >
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 font-medium text-foreground">
                       <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse shrink-0" />
@@ -214,7 +295,10 @@ export function RouterAlertsNotification({
                     className="h-7 px-2 text-[11px] shrink-0 gap-1 text-primary"
                     onClick={() => setOpen(false)}
                   >
-                    <Link to={isSuperAdmin ? "/super-admin/noc" : `/tenant/routers/$id`} params={{ id: r.id }}>
+                    <Link
+                      to={isSuperAdmin ? "/super-admin/noc" : `/tenant/routers/$id`}
+                      params={{ id: r.id }}
+                    >
                       Check <ExternalLink className="h-3 w-3" />
                     </Link>
                   </Button>
@@ -226,7 +310,8 @@ export function RouterAlertsNotification({
               <CheckCircle2 className="h-8 w-8 mx-auto text-emerald-500 mb-2 opacity-80" />
               <p className="font-medium text-foreground">All Routers Connected</p>
               <p className="text-[11px] mt-0.5">
-                {configuredRouters.length} router{configuredRouters.length === 1 ? "" : "s"} actively streaming heartbeats.
+                {configuredRouters.length} router{configuredRouters.length === 1 ? "" : "s"}{" "}
+                actively streaming heartbeats.
               </p>
             </div>
           )}
@@ -245,4 +330,3 @@ export function RouterAlertsNotification({
     </Popover>
   );
 }
-
