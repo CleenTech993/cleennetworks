@@ -8,6 +8,76 @@ export interface PaymentReportRow {
   status: string;
 }
 
+export interface PaymentSummary {
+  totalCount: number;
+  successfulCount: number;
+  successfulAmount: number;
+  pendingCount: number;
+  pendingAmount: number;
+  unsuccessfulCount: number;
+  unsuccessfulAmount: number;
+}
+
+export function summarizePayments(
+  payments: Pick<PaymentReportRow, "amount" | "status">[],
+): PaymentSummary {
+  return payments.reduce<PaymentSummary>(
+    (summary, payment) => {
+      const amount = Number(payment.amount);
+      if (!Number.isFinite(amount)) return summary;
+      summary.totalCount++;
+      if (payment.status === "success") {
+        summary.successfulCount++;
+        summary.successfulAmount += amount;
+      } else if (payment.status === "pending") {
+        summary.pendingCount++;
+        summary.pendingAmount += amount;
+      } else if (payment.status === "failed" || payment.status === "cancelled") {
+        summary.unsuccessfulCount++;
+        summary.unsuccessfulAmount += amount;
+      }
+      return summary;
+    },
+    {
+      totalCount: 0,
+      successfulCount: 0,
+      successfulAmount: 0,
+      pendingCount: 0,
+      pendingAmount: 0,
+      unsuccessfulCount: 0,
+      unsuccessfulAmount: 0,
+    },
+  );
+}
+
+export function summarizeDirectMpesa(transactions: { amount: number; status: string }[]) {
+  return transactions.reduce(
+    (summary, transaction) => {
+      const amount = Number(transaction.amount);
+      if (!Number.isFinite(amount)) return summary;
+      summary.capturedAmount += amount;
+      summary.capturedCount++;
+      if (transaction.status === "received") {
+        summary.reviewCount++;
+        summary.reviewAmount += amount;
+      } else if (transaction.status === "approved") {
+        summary.approvedCount++;
+      } else if (transaction.status === "rejected") {
+        summary.rejectedCount++;
+      }
+      return summary;
+    },
+    {
+      capturedAmount: 0,
+      capturedCount: 0,
+      reviewAmount: 0,
+      reviewCount: 0,
+      approvedCount: 0,
+      rejectedCount: 0,
+    },
+  );
+}
+
 export function filterPaymentRows<T extends PaymentReportRow>(
   payments: T[],
   {

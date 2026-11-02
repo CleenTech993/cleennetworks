@@ -9,7 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { reviewDirectMpesaTransaction } from "@/lib/tenant-service.functions";
-import { buildPaymentCsv, filterPaymentRows } from "@/lib/payment-report";
+import {
+  buildPaymentCsv,
+  filterPaymentRows,
+  summarizeDirectMpesa,
+  summarizePayments,
+} from "@/lib/payment-report";
 
 export const Route = createFileRoute("/tenant/payments")({
   head: () => ({
@@ -100,6 +105,8 @@ function Payments() {
     from: dateFrom,
     to: dateTo,
   });
+  const paymentSummary = summarizePayments(rows);
+  const directSummary = summarizeDirectMpesa(directTransactions ?? []);
 
   function exportPayments() {
     const csv = buildPaymentCsv(rows);
@@ -124,6 +131,38 @@ function Payments() {
           Incoming C2B transactions are captured here. Confirm each payment against the M-Pesa
           statement, then match the customer and package before approving a PPPoE renewal.
         </p>
+        {!directLoading && directTransactions?.length ? (
+          <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs text-muted-foreground">C2B captured (latest 200)</p>
+              <p className="mt-1 text-lg font-semibold">
+                KES {directSummary.capturedAmount.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {directSummary.capturedCount} receipts
+              </p>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs text-muted-foreground">Awaiting review</p>
+              <p className="mt-1 text-lg font-semibold">
+                KES {directSummary.reviewAmount.toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {directSummary.reviewCount} transactions
+              </p>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs text-muted-foreground">Approved renewals</p>
+              <p className="mt-1 text-lg font-semibold">{directSummary.approvedCount}</p>
+              <p className="text-xs text-muted-foreground">Customer service renewed</p>
+            </div>
+            <div className="rounded-lg border bg-card p-3">
+              <p className="text-xs text-muted-foreground">Rejected transactions</p>
+              <p className="mt-1 text-lg font-semibold">{directSummary.rejectedCount}</p>
+              <p className="text-xs text-muted-foreground">No service renewal</p>
+            </div>
+          </div>
+        ) : null}
         {directLoading ? (
           <p className="text-sm text-muted-foreground">Loading direct payments…</p>
         ) : !directTransactions?.length ? (
@@ -323,6 +362,38 @@ function Payments() {
           <Download className="h-4 w-4" />
           Export {rows.length} payments
         </Button>
+      </div>
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-xs text-muted-foreground">Successful amount (filtered)</p>
+          <p className="mt-1 text-lg font-semibold">
+            KES {paymentSummary.successfulAmount.toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {paymentSummary.successfulCount} successful payments
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-xs text-muted-foreground">Pending</p>
+          <p className="mt-1 text-lg font-semibold">
+            KES {paymentSummary.pendingAmount.toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground">{paymentSummary.pendingCount} payments</p>
+        </div>
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-xs text-muted-foreground">Failed / cancelled</p>
+          <p className="mt-1 text-lg font-semibold">
+            KES {paymentSummary.unsuccessfulAmount.toLocaleString()}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {paymentSummary.unsuccessfulCount} payments
+          </p>
+        </div>
+        <div className="rounded-lg border bg-card p-3">
+          <p className="text-xs text-muted-foreground">Filtered transactions</p>
+          <p className="mt-1 text-lg font-semibold">{paymentSummary.totalCount}</p>
+          <p className="text-xs text-muted-foreground">From the latest 500 records</p>
+        </div>
       </div>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>

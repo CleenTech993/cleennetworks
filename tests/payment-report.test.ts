@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildPaymentCsv,
   filterPaymentRows,
+  summarizeDirectMpesa,
+  summarizePayments,
   type PaymentReportRow,
 } from "../src/lib/payment-report";
 
@@ -72,5 +74,43 @@ describe("buildPaymentCsv", () => {
     expect(csv).toContain(`"'=HYPERLINK(""https://example.test"")"`);
     expect(csv).toContain('"Q""W123"');
     expect(csv).toContain('"100.00"');
+  });
+});
+
+describe("payment summaries", () => {
+  it("counts value only in the matching STK status bucket", () => {
+    expect(
+      summarizePayments([
+        { amount: 100, status: "success" },
+        { amount: 50, status: "pending" },
+        { amount: 25, status: "failed" },
+        { amount: 10, status: "cancelled" },
+      ]),
+    ).toEqual({
+      totalCount: 4,
+      successfulCount: 1,
+      successfulAmount: 100,
+      pendingCount: 1,
+      pendingAmount: 50,
+      unsuccessfulCount: 2,
+      unsuccessfulAmount: 35,
+    });
+  });
+
+  it("keeps C2B review, approval, and rejection totals distinct", () => {
+    expect(
+      summarizeDirectMpesa([
+        { amount: 100, status: "received" },
+        { amount: 50, status: "approved" },
+        { amount: 25, status: "rejected" },
+      ]),
+    ).toEqual({
+      capturedAmount: 175,
+      capturedCount: 3,
+      reviewAmount: 100,
+      reviewCount: 1,
+      approvedCount: 1,
+      rejectedCount: 1,
+    });
   });
 });
