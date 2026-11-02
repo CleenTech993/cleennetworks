@@ -27,13 +27,29 @@ function formatAmount(amount: number): string {
   })}`;
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return "Please try again in a moment.";
+}
+
 function TenantBilling() {
   const { tenantId } = useAuth();
   const [printingId, setPrintingId] = useState<string | null>(null);
   const {
     data: invoices,
     isLoading,
+    isFetching,
+    refetch,
     error,
+    isError,
   } = useQuery({
     queryKey: ["tenant-platform-invoices", tenantId],
     enabled: !!tenantId,
@@ -58,8 +74,6 @@ function TenantBilling() {
     setPrintingId(id);
     window.setTimeout(() => window.print(), 0);
   }
-
-  if (error) throw error;
 
   return (
     <div>
@@ -92,9 +106,24 @@ function TenantBilling() {
         )}
       </div>
 
+      {isError && (
+        <div
+          role="alert"
+          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+        >
+          <div>
+            <p className="font-medium text-destructive">Could not load platform invoices.</p>
+            <p className="mt-1 text-muted-foreground">{errorMessage(error)}</p>
+          </div>
+          <Button variant="outline" size="sm" disabled={isFetching} onClick={() => void refetch()}>
+            {isFetching ? "Retrying…" : "Try again"}
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading invoices…</p>
-      ) : !invoices?.length ? (
+      ) : isError && !invoices ? null : !invoices?.length ? (
         <EmptyState
           title="No invoices yet"
           description="An invoice will appear here after the first month in which you receive successful customer payments."
