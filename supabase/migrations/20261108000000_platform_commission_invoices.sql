@@ -351,57 +351,88 @@ GRANT EXECUTE ON FUNCTION public.refresh_overdue_tenant_billing(timestamptz)
 GRANT EXECUTE ON FUNCTION public.claim_platform_invoice_emails(integer, timestamptz)
   TO service_role;
 
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS supabase_vault WITH SCHEMA vault;
-
-CREATE OR REPLACE FUNCTION public.invoke_platform_billing_job()
-RETURNS bigint
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, vault, net
-AS $$
+DO $platform_billing_schedule$
 DECLARE
-  v_app_url text;
-  v_cron_secret text;
-  v_request_id bigint;
+  v_net_schema text;
+  v_job_id bigint;
 BEGIN
-  SELECT decrypted_secret INTO v_app_url
-  FROM vault.decrypted_secrets
-  WHERE name = 'platform_billing_app_url'
-  ORDER BY updated_at DESC
+  SELECT n.nspname
+  INTO v_net_schema
+  FROM pg_catalog.pg_proc p
+  JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+  WHERE p.proname = 'http_post'
+    AND n.nspname IN ('net', 'extensions')
+  ORDER BY (n.nspname = 'net') DESC
   LIMIT 1;
 
-  SELECT decrypted_secret INTO v_cron_secret
-  FROM vault.decrypted_secrets
-  WHERE name = 'platform_billing_cron_secret'
-  ORDER BY updated_at DESC
-  LIMIT 1;
-
-  IF COALESCE(v_app_url, '') = '' OR COALESCE(v_cron_secret, '') = '' THEN
-    RAISE WARNING 'Platform billing job is not configured; add the app URL and cron secret to Supabase Vault';
-    RETURN NULL;
+  IF to_regclass('cron.job') IS NULL
+     OR to_regclass('vault.decrypted_secrets') IS NULL
+     OR v_net_schema IS NULL THEN
+    RAISE NOTICE 'Database billing scheduler extensions are unavailable; call /api/cron/platform-billing from an external scheduler every 15 minutes';
+    RETURN;
   END IF;
 
-  v_request_id := net.http_post(
-    url := rtrim(v_app_url, '/') || '/api/cron/platform-billing',
-    body := '{}'::jsonb,
-    headers := jsonb_build_object(
-      'content-type', 'application/json',
-      'authorization', 'Bearer ' || v_cron_secret
-    ),
-    timeout_milliseconds := 30000
-  );
-  RETURN v_request_id;
-END
-$$;
+  EXECUTE format($function$
+    CREATE OR REPLACE FUNCTION public.invoke_platform_billing_job()
+    RETURNS bigint
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = public, vault, %I
+    AS $body$
+    DECLARE
+      v_app_url text;
+      v_cron_secret text;
+      v_request_id bigint;
+    BEGIN
+      SELECT decrypted_secret INTO v_app_url
+      FROM vault.decrypted_secrets
+      WHERE name = 'platform_billing_app_url'
+      ORDER BY updated_at DESC
+      LIMIT 1;
 
-REVOKE ALL ON FUNCTION public.invoke_platform_billing_job() FROM PUBLIC, anon, authenticated;
-SELECT cron.unschedule(jobid)
-FROM cron.job
-WHERE jobname = 'platform-billing-invoices';
-SELECT cron.schedule(
-  'platform-billing-invoices',
-  '*/15 * * * *',
-  'SELECT public.invoke_platform_billing_job()'
-);
+      SELECT decrypted_secret INTO v_cron_secret
+      FROM vault.decrypted_secrets
+      WHERE name = 'platform_billing_cron_secret'
+      ORDER BY updated_at DESC
+      LIMIT 1;
+
+      IF COALESCE(v_app_url, '') = '' OR COALESCE(v_cron_secret, '') = '' THEN
+        RAISE WARNING 'Platform billing job is not configured; add the app URL and cron secret to Supabase Vault';
+        RETURN NULL;
+      END IF;
+
+      v_request_id := %I.http_post(
+        url := rtrim(v_app_url, '/') || '/api/cron/platform-billing',
+        body := '{}'::jsonb,
+        headers := jsonb_build_object(
+          'content-type', 'application/json',
+          'authorization', 'Bearer ' || v_cron_secret
+        ),
+        timeout_milliseconds := 30000
+      );
+      RETURN v_request_id;
+    END
+    $body$;
+  $function$, v_net_schema, v_net_schema);
+
+  REVOKE ALL ON FUNCTION public.invoke_platform_billing_job()
+    FROM PUBLIC, anon, authenticated;
+
+  FOR v_job_id IN
+    EXECUTE 'SELECT jobid FROM cron.job WHERE jobname = $1'
+      USING 'platform-billing-invoices'
+  LOOP
+    EXECUTE format('SELECT cron.unschedule(%s)', v_job_id);
+  END LOOP;
+
+  EXECUTE $schedule$
+    SELECT cron.schedule(
+      'platform-billing-invoices',
+      '*/15 * * * *',
+      'SELECT public.invoke_platform_billing_job()'
+    )
+  $schedule$;
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Could not configure the database billing scheduler (%); call /api/cron/platform-billing from an external scheduler every 15 minutes', SQLERRM;
+END
+$platform_billing_schedule$;

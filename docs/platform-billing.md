@@ -28,18 +28,25 @@ For example, generate a token locally with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-After applying migrations, store the application URL and the same cron token in Supabase Vault.
-Run these statements in the Supabase SQL editor, replacing the placeholders:
+The migration does not install database extensions. If `pg_cron`, `pg_net`, and Supabase Vault are
+already enabled, it schedules the protected application job every 15 minutes and reads its URL and
+token from Vault. Store those values by running these statements in the Supabase SQL editor:
 
 ```sql
 select vault.create_secret('https://<application-domain>', 'platform_billing_app_url');
 select vault.create_secret('<same-value-as-CRON_SECRET>', 'platform_billing_cron_secret');
 ```
 
-The migration schedules the protected application job every 15 minutes using `pg_cron` and
-`pg_net`. It creates monthly invoices, reconciles overdue status, and delivers or retries invoice
-emails. To rotate a Vault value, update the existing secret row by its id using
-`vault.update_secret(<secret-id>, '<new-value>')`.
+If one or more extensions are unavailable, the migration still creates the billing schema and
+service restrictions, reports a notice, and skips database scheduling. In that case, configure an
+external scheduler to send an HTTP `POST` to
+`https://<application-domain>/api/cron/platform-billing` every 15 minutes. Set the request header
+named `Authorization` to `Bearer` followed by the same secret configured as `CRON_SECRET`. Do not
+put the cron secret in a URL or expose it in browser code. The endpoint creates monthly invoices,
+refreshes overdue status, and delivers or retries invoice emails.
+
+To rotate a Vault value, update the existing secret row by its id using
+`vault.update_secret(<secret-id>, '<new-value>')`. External schedulers do not need Vault.
 
 The recipient is the tenant's **Support / invoice email** in **Tenant Console → Settings**. Set the
 platform's receiving PayBill/Till in **Super Admin → Platform Payments**; it is displayed to the

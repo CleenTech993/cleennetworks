@@ -8,13 +8,7 @@ import {
   tenantServiceRestrictionMessage,
 } from "@/lib/platform-billing.server";
 import { startDarajaStkPush } from "@/lib/daraja.server";
-import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
-import {
-  CHECKOUT_LIMITS,
-  isValidKenyanMobile,
-  throttleMessage,
-  throttleVerdict,
-} from "@/lib/checkout-throttle";
+import { isValidKenyanMobile } from "@/lib/phone";
 
 const Schema = z.object({
   packageId: z.string().uuid(),
@@ -25,16 +19,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
   server: {
     handlers: {
       POST: async ({ request, params }) => {
-        // Cheap per-IP gate first (per-instance; the per-phone limit below is the durable one).
-        if (
-          !rateLimit(
-            `checkout:${params.slug}:${clientIp(request)}`,
-            CHECKOUT_LIMITS.ipMax,
-            CHECKOUT_LIMITS.ipWindowMs,
-          )
-        ) {
-          return tooManyRequests();
-        }
         let body: unknown;
         try {
           body = await request.json();
@@ -94,29 +78,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             .single();
           if (payErr || !pay)
             return Response.json({ error: "Could not start the payment." }, { status: 500 });
-
-          // Per-phone limit, shared across server instances because it counts payment rows. The
-          // row is inserted first and then ranked against earlier ones, so parallel requests
-          // cannot all pass. A refused attempt is deleted so it does not count against the phone.
-          const { data: others, error: othersErr } = await supabaseAdmin
-            .from("payments")
-            .select("id,created_at,status,package_id")
-            .eq("tenant_id", tenant.id)
-            .eq("phone", phone)
-            .neq("id", pay.id)
-            .gte("created_at", new Date(Date.now() - CHECKOUT_LIMITS.phoneWindowMs).toISOString());
-          if (othersErr) {
-            await supabaseAdmin.from("payments").delete().eq("id", pay.id);
-            return Response.json({ error: "Please try again in a moment." }, { status: 503 });
-          }
-          const verdict = throttleVerdict(pay, others ?? []);
-          if (!verdict.ok) {
-            await supabaseAdmin.from("payments").delete().eq("id", pay.id);
-            return Response.json(
-              { error: throttleMessage(verdict) },
-              { status: 429, headers: { "retry-after": String(verdict.retryAfterSec) } },
-            );
-          }
 
           let started;
           try {

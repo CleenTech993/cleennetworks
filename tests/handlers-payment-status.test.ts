@@ -52,6 +52,7 @@ beforeEach(() => {
         phone: "254712345678",
         amount: 50,
         status: "pending",
+        created_at: new Date().toISOString(),
         provider: "daraja",
         checkout_request_id: "ws_CO_1",
         merchant_request_id: "merchant-1",
@@ -98,7 +99,21 @@ describe("captive portal payment status recovery", () => {
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
-  it("marks a Daraja-confirmed failure without provisioning access", async () => {
+  it("keeps waiting for a Daraja failure result during the prompt response window", async () => {
+    darajaMock.query.mockResolvedValue({
+      resultCode: "1032",
+      resultDescription: "cancelled",
+    });
+
+    const response = await send();
+
+    expect(await json(response)).toMatchObject({ status: "pending" });
+    expect(h.db.rows("payments")[0].status).toBe("pending");
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
+  it("marks a Daraja-confirmed failure after the prompt response window", async () => {
+    h.db.rows("payments")[0].created_at = new Date(Date.now() - 3 * 60_000).toISOString();
     darajaMock.query.mockResolvedValue({
       resultCode: "1032",
       resultDescription: "cancelled",

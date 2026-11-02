@@ -364,7 +364,7 @@ function PaymentWaiting({
         if (!active) return;
         console.warn("Payment status check failed; it will be retried.", error);
       }
-      if (active) timer = window.setTimeout(() => void poll(), 10_000);
+      if (active) timer = window.setTimeout(() => void poll(), 3000);
     };
     void poll();
     return () => {

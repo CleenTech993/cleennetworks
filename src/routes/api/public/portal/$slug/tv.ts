@@ -71,8 +71,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
       // Register (or renew) a TV and start the M-Pesa payment.
       POST: async ({ request, params }) => {
-        if (!rateLimit(`tv:${params.slug}:${clientIp(request)}`, 5, 60_000))
-          return tooManyRequests();
         let body: unknown;
         try {
           body = await request.json();

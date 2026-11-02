@@ -4,6 +4,8 @@ import { queryDarajaStkPush } from "@/lib/daraja.server";
 import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 import { rateLimit } from "@/lib/rate-limit.server";
 
+const STK_RESULT_GRACE_MS = 2 * 60_000;
+
 export const Route = createFileRoute("/api/public/portal/$slug/payment-status")({
   server: {
     handlers: {
@@ -26,7 +28,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
         const { data: pay, error: paymentError } = await supabaseAdmin
           .from("payments")
           .select(
-            "id,status,provider,checkout_request_id,package_id,phone,tv_device_id,expires_at,mpesa_receipt,voucher_code",
+            "id,status,provider,checkout_request_id,package_id,phone,tv_device_id,expires_at,created_at,mpesa_receipt,voucher_code",
           )
           .eq("id", id)
           .eq("tenant_id", tenant.id)
@@ -58,7 +60,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
                     resultDescription: verification.resultDescription,
                   },
                 });
-              } else if (verification.resultCode !== null) {
+              } else if (
+                verification.resultCode !== null &&
+                Date.now() - Date.parse(pay.created_at) >= STK_RESULT_GRACE_MS
+              ) {
                 await markPaymentFailed(pay.id, {
                   source: "daraja_stk_query",
                   resultCode: verification.resultCode,
@@ -66,11 +71,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
                 });
               }
             } catch (error) {
-              console.error("Could not reconcile pending Daraja payment", error);
-              return Response.json(
-                { error: "Could not verify payment with M-Pesa" },
-                { status: 502 },
-              );
+              console.warn("Could not reconcile pending Daraja payment with Daraja API", error);
             }
 
             const { data: refreshed, error: refreshError } = await supabaseAdmin

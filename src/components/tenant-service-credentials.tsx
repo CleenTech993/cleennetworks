@@ -217,6 +217,22 @@ export function TenantServiceCredentials() {
         </div>
       </div>
 
+      {status?.emailAddress && (
+        <div className="mt-5 rounded-lg border bg-muted/30 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="font-semibold text-sm">Tenant System Outgoing Email</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Invoices and system notices to customers originate from this address:
+              </p>
+            </div>
+            <Badge variant="outline" className="font-mono text-xs bg-background px-2.5 py-1">
+              {status.emailAddress}
+            </Badge>
+          </div>
+        </div>
+      )}
+
       <div className="mt-5 flex flex-wrap gap-2">
         <Button onClick={() => save.mutate()} disabled={save.isPending}>
           {save.isPending ? "Saving…" : "Save credentials"}

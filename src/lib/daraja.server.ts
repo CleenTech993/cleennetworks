@@ -158,20 +158,42 @@ export async function queryDarajaStkPush(
     ResultDesc?: string;
     ResponseCode?: string | number;
     ResponseDescription?: string;
+    errorMessage?: string;
+    errorCode?: string;
   } | null;
+
+  const desc =
+    result?.ResultDesc ??
+    result?.ResponseDescription ??
+    result?.errorMessage ??
+    "";
+
+  // Safaricom returns "The transaction is being processed" while prompt is waiting for user PIN
+  const isProcessing =
+    desc.toLowerCase().includes("processing") ||
+    desc.toLowerCase().includes("in process") ||
+    desc.toLowerCase().includes("unable to lock");
+
+  if (isProcessing) {
+    return {
+      resultCode: null,
+      resultDescription: desc || "The transaction is being processed",
+    };
+  }
+
   const resultCode = result?.ResultCode;
   const responseCode = result?.ResponseCode;
   if (
-    !response.ok ||
-    (responseCode !== undefined && String(responseCode) !== "0") ||
+    (!response.ok && resultCode === undefined) ||
+    (responseCode !== undefined && String(responseCode) !== "0" && resultCode === undefined) ||
     (resultCode === undefined && responseCode === undefined)
   ) {
-    console.error(`Daraja STK query failed [${response.status}]`);
+    console.error(`Daraja STK query failed [${response.status}]`, desc);
     throw new Error("Could not verify the M-Pesa payment.");
   }
   return {
     resultCode: resultCode === undefined ? null : String(resultCode),
-    resultDescription: result?.ResultDesc ?? result?.ResponseDescription ?? "",
+    resultDescription: desc,
   };
 }
 

@@ -109,6 +109,10 @@ other account from Users. A reset removes the user's factors and revokes their a
 does not disable the MFA requirement: the user must enroll and verify a new factor before console
 access is restored.
 
+The application does not impose a failed-password lockout or attempt limit. Repeated failures and
+sign-ins from new locations are still recorded as security alerts. Supabase Auth may independently
+rate-limit sign-in requests.
+
 Users can manage their own active sessions from tenant Settings: signing out other sessions keeps
 the current browser active, while signing out all devices revokes every session and returns the
 current browser to sign-in. These actions are recorded in the audit log.
