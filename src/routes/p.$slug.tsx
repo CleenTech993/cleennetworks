@@ -627,13 +627,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
 }
 
 interface StatusResp {
-  active: { amount: number; expires_at: string; mpesa_receipt: string | null } | null;
-  history: Array<{
-    amount: number;
-    status: string;
-    created_at: string;
-    mpesa_receipt: string | null;
-  }>;
+  active: { expires_at: string } | null;
 }
 
 function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
