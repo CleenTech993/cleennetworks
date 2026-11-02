@@ -108,3 +108,7 @@ Tenant admins can reset MFA for other users in their tenant from Team; super adm
 other account from Users. A reset removes the user's factors and revokes their active sessions, but
 does not disable the MFA requirement: the user must enroll and verify a new factor before console
 access is restored.
+
+Users can manage their own active sessions from tenant Settings: signing out other sessions keeps
+the current browser active, while signing out all devices revokes every session and returns the
+current browser to sign-in. These actions are recorded in the audit log.

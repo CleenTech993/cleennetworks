@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MfaSecurityCard } from "@/components/mfa-security-card";
 import { TenantServiceCredentials } from "@/components/tenant-service-credentials";
+import { SessionManagementCard } from "@/components/session-management-card";
 
 export const Route = createFileRoute("/tenant/settings")({ component: Settings });
 
@@ -172,6 +173,7 @@ function Settings() {
         <h3 className="text-lg font-semibold mb-3">Security &amp; Authentication</h3>
         <MfaSecurityCard />
       </div>
+      <SessionManagementCard />
     </div>
   );
 }
