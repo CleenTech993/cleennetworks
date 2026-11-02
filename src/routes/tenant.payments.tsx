@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { reviewDirectMpesaTransaction } from "@/lib/tenant-service.functions";
 import {
+  buildDirectMpesaCsv,
   buildPaymentCsv,
   normalizePaymentSearch,
   summarizeDirectMpesa,
@@ -34,6 +35,7 @@ function Payments() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [exportingDirect, setExportingDirect] = useState(false);
   const deferredSearch = useDeferredValue(q);
   const queryClient = useQueryClient();
   const {
@@ -182,6 +184,33 @@ function Payments() {
       setExporting(false);
     }
   }
+
+  async function exportDirectPayments() {
+    setExportingDirect(true);
+    try {
+      let pages = directPaymentPages?.pages ?? [];
+      while (pages.length && pages[pages.length - 1]?.length === PAYMENT_PAGE_SIZE) {
+        const result = await fetchMoreDirectPayments();
+        if (result.isError) throw result.error;
+        pages = result.data.pages;
+      }
+      const allTransactions = pages.flat();
+      if (!allTransactions.length) return;
+      const csv = buildDirectMpesaCsv(allTransactions);
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `direct-mpesa-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not export direct payments.");
+    } finally {
+      setExportingDirect(false);
+    }
+  }
   return (
     <div>
       <PageHeader
@@ -242,9 +271,22 @@ function Payments() {
           />
         ) : (
           <>
-            <p className="mb-2 text-xs text-muted-foreground">
-              Showing {directTransactions.length} direct M-Pesa transactions.
-            </p>
+            <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-muted-foreground">
+                Showing {directTransactions.length} loaded direct M-Pesa transactions; the export
+                includes the full history.
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 self-start sm:self-auto"
+                onClick={exportDirectPayments}
+                disabled={exportingDirect || isFetchingMoreDirectPayments || directLoading}
+              >
+                <Download className="h-4 w-4" />
+                {exportingDirect ? "Preparing full export…" : "Export all C2B transactions"}
+              </Button>
+            </div>
             <div className="overflow-x-auto rounded-xl border bg-card">
               <table className="w-full text-sm">
                 <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">

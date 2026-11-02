@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDirectMpesaCsv,
   buildPaymentCsv,
   normalizePaymentSearch,
   summarizeDirectMpesa,
@@ -48,6 +49,31 @@ describe("buildPaymentCsv", () => {
 
     expect(csv).toContain(`"'=HYPERLINK(""https://example.test"")"`);
     expect(csv).toContain('"Q""W123"');
+    expect(csv).toContain('"100.00"');
+  });
+});
+
+describe("buildDirectMpesaCsv", () => {
+  it("exports direct transaction details and neutralizes spreadsheet formulas", () => {
+    const csv = buildDirectMpesaCsv([
+      {
+        transaction_time: "2026-11-01T10:00:00.000Z",
+        transaction_id: "QW123",
+        amount: 100,
+        bill_ref_number: "=SUM(A1:A2)",
+        phone: "254712345678",
+        first_name: "Jane",
+        last_name: "Doe",
+        customer_id: null,
+        suggested_customer_id: "customer-1",
+        status: "received",
+      },
+    ]);
+
+    expect(csv).toContain('"QW123"');
+    expect(csv).toContain(`"'=SUM(A1:A2)"`);
+    expect(csv).toContain('"Jane Doe"');
+    expect(csv).toContain('"customer-1"');
     expect(csv).toContain('"100.00"');
   });
 });

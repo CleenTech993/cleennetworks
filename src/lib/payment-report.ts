@@ -8,6 +8,19 @@ export interface PaymentReportRow {
   status: string;
 }
 
+export interface DirectMpesaReportRow {
+  transaction_time: string;
+  transaction_id: string;
+  amount: number;
+  bill_ref_number: string | null;
+  phone: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  customer_id: string | null;
+  suggested_customer_id: string | null;
+  status: string;
+}
+
 export interface PaymentSummary {
   totalCount: number;
   successfulCount: number;
@@ -100,6 +113,30 @@ export function buildPaymentCsv(payments: PaymentReportRow[]): string {
     payment.mpesa_receipt,
     payment.voucher_code,
     payment.status,
+  ]);
+  return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+export function buildDirectMpesaCsv(transactions: DirectMpesaReportRow[]): string {
+  const header = [
+    "Date",
+    "M-Pesa receipt",
+    "Phone",
+    "Customer name",
+    "Bill reference",
+    "Amount (KES)",
+    "Customer ID",
+    "Review status",
+  ];
+  const rows = transactions.map((transaction) => [
+    transaction.transaction_time,
+    transaction.transaction_id,
+    transaction.phone,
+    [transaction.first_name, transaction.last_name].filter(Boolean).join(" "),
+    transaction.bill_ref_number,
+    Number(transaction.amount).toFixed(2),
+    transaction.customer_id ?? transaction.suggested_customer_id,
+    transaction.status,
   ]);
   return [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
 }
