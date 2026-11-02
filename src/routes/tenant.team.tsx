@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Copy, Trash2, UserPlus } from "lucide-react";
+import { ResetUserMfaButton } from "@/components/reset-user-mfa-button";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -170,14 +171,20 @@ function TeamPage() {
                     </td>
                     <td className="px-4 py-2 text-right">
                       {!self && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setRemoving(m)}
-                          aria-label="Remove member"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <ResetUserMfaButton
+                            userId={m.id}
+                            userLabel={m.full_name ?? m.email ?? "this member"}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setRemoving(m)}
+                            aria-label="Remove member"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                     </td>
                   </tr>

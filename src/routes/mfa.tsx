@@ -45,7 +45,7 @@ function MfaPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return navigate({ to: "/login" });
       const { data } = await supabase.auth.mfa.listFactors();
-      const verified = data?.totp?.[0];
+      const verified = data?.totp?.find((factor) => factor.status === "verified");
       if (verified) {
         setFactorId(verified.id);
         setMode("verify");
@@ -83,18 +83,6 @@ function MfaPage() {
     navigate({ to: await destinationAfterAuth() });
   }
 
-  async function skipMfa() {
-    // Unenroll unverified factors and proceed directly to portal
-    const { data } = await supabase.auth.mfa.listFactors();
-    for (const f of data?.all ?? []) {
-      if (f.status === "unverified") {
-        await supabase.auth.mfa.unenroll({ factorId: f.id });
-      }
-    }
-    toast.info("Two-step verification skipped");
-    navigate({ to: await destinationAfterAuth() });
-  }
-
   return (
     <AuthLayout
       title="Two-step verification"
@@ -103,7 +91,7 @@ function MfaPage() {
         mode === "verify"
           ? "Enter the 6-digit code from your authenticator app."
           : mode === "enroll"
-            ? "Scan this QR code with Google Authenticator, Microsoft Authenticator or Authy to activate MFA, or skip to keep it disabled."
+            ? "Scan this QR code with an authenticator app and verify a code to secure your account."
             : undefined
       }
     >
@@ -118,6 +106,9 @@ function MfaPage() {
             />
           )}
           <p className="break-all text-center font-mono text-xs text-muted-foreground">{secret}</p>
+          <p className="text-center text-muted-foreground">
+            MFA setup is required to access the tenant and platform consoles.
+          </p>
         </div>
       )}
       {mode !== "loading" && (
@@ -138,17 +129,6 @@ function MfaPage() {
           <Button type="submit" className="w-full" disabled={busy || code.length !== 6}>
             {busy ? "Verifying…" : mode === "enroll" ? "Verify & Activate MFA" : "Verify"}
           </Button>
-
-          {mode === "enroll" && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              onClick={skipMfa}
-            >
-              Skip (Keep MFA Disabled)
-            </Button>
-          )}
 
           <Button
             type="button"

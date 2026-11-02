@@ -39,8 +39,8 @@ function LoginPage() {
       return;
     }
 
-    // If the admin has MFA activated (nextLevel is aal2), navigate to verify OTP.
-    // If MFA is disabled, navigate directly into their console.
+    // Existing factors prompt for a code here; users without a factor are sent to the
+    // console's MFA setup gate before they can access protected pages.
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.nextLevel === "aal2") {
       navigate({ to: "/mfa" });

@@ -96,3 +96,15 @@ gateway secrets. New payments use Daraja only; outstanding payments from the ret
 marked failed, and completed historical records remain available for reporting. Super admins manage
 only the platform's C2B receiving shortcode. Tenants pay platform commission by separate C2B transfer;
 `platform_commissions` records the amount due and the manually confirmed M-Pesa receipt.
+
+## Mandatory MFA for console access
+
+`20261104000000_mandatory_mfa.sql` changes `public.is_aal2()` so authenticated business-table
+access always requires a second-factor (`aal2`) session, including for users who have not enrolled
+an MFA factor yet. Tenant and super-admin console routes send users without a verified factor to
+the required enrollment flow; password-only sessions cannot access business data. Apply this
+migration after the optional-MFA migration and regenerate `verify_live_db.sql` using the steps above.
+Tenant admins can reset MFA for other users in their tenant from Team; super admins can reset any
+other account from Users. A reset removes the user's factors and revokes their active sessions, but
+does not disable the MFA requirement: the user must enroll and verify a new factor before console
+access is restored.

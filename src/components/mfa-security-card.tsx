@@ -23,7 +23,6 @@ export function MfaSecurityCard() {
   const [loading, setLoading] = useState(true);
   const [factors, setFactors] = useState<{ id: string; status: string }[]>([]);
   const [enrollOpen, setEnrollOpen] = useState(false);
-  const [disableOpen, setDisableOpen] = useState(false);
 
   // Enrollment state
   const [qr, setQr] = useState("");
@@ -33,7 +32,6 @@ export function MfaSecurityCard() {
   const [enrolling, setEnrolling] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [disabling, setDisabling] = useState(false);
 
   async function loadFactors() {
     setLoading(true);
@@ -112,24 +110,6 @@ export function MfaSecurityCard() {
     }
   }
 
-  async function handleDisableMfa() {
-    setDisabling(true);
-    try {
-      const { data } = await supabase.auth.mfa.listFactors();
-      for (const f of data?.all ?? []) {
-        await supabase.auth.mfa.unenroll({ factorId: f.id });
-      }
-      toast.success("Two-step verification has been disabled");
-      void logAudit({ action: "disable_mfa", resource: "auth", details: { method: "totp" } });
-      setDisableOpen(false);
-      await loadFactors();
-    } catch (e: unknown) {
-      toast.error((e as Error)?.message ?? "Failed to disable MFA");
-    } finally {
-      setDisabling(false);
-    }
-  }
-
   function copySecret() {
     if (!secret) return;
     navigator.clipboard.writeText(secret);
@@ -149,7 +129,11 @@ export function MfaSecurityCard() {
                 : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
             }`}
           >
-            {isMfaActive ? <ShieldCheck className="h-5 w-5" /> : <ShieldAlert className="h-5 w-5" />}
+            {isMfaActive ? (
+              <ShieldCheck className="h-5 w-5" />
+            ) : (
+              <ShieldAlert className="h-5 w-5" />
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -164,15 +148,18 @@ export function MfaSecurityCard() {
                   Activated
                 </Badge>
               ) : (
-                <Badge variant="outline" className="border-amber-500/30 text-amber-600 dark:text-amber-400">
-                  Disabled
+                <Badge
+                  variant="outline"
+                  className="border-amber-500/30 text-amber-600 dark:text-amber-400"
+                >
+                  Setup required
                 </Badge>
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-1 max-w-xl">
               {isMfaActive
                 ? "Your admin account is protected with an Authenticator App (TOTP). A 6-digit verification code is required when signing into this portal."
-                : "Two-step verification is currently disabled for this account. You can activate it at any time to require an authenticator code on sign-in."}
+                : "Two-step verification is required for console access. Complete setup before continuing."}
             </p>
           </div>
         </div>
@@ -183,29 +170,9 @@ export function MfaSecurityCard() {
               <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Loading
             </Button>
           ) : isMfaActive ? (
-            <Dialog open={disableOpen} onOpenChange={setDisableOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive/30">
-                  Disable MFA
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Disable Two-Step Verification?</DialogTitle>
-                  <DialogDescription>
-                    Turning off two-step verification means your portal will only be protected by your password. Are you sure you want to disable it?
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="mt-4 gap-2">
-                  <Button variant="ghost" onClick={() => setDisableOpen(false)} disabled={disabling}>
-                    Cancel
-                  </Button>
-                  <Button variant="destructive" onClick={handleDisableMfa} disabled={disabling}>
-                    {disabling ? "Disabling…" : "Yes, Disable MFA"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Badge variant="default" className="bg-emerald-500/15 text-emerald-600">
+              Required
+            </Badge>
           ) : (
             <Button size="sm" onClick={startEnrollment} disabled={enrolling} className="gap-2">
               <QrCode className="h-4 w-4" />
@@ -221,7 +188,8 @@ export function MfaSecurityCard() {
           <DialogHeader>
             <DialogTitle>Set Up Two-Step Verification</DialogTitle>
             <DialogDescription>
-              Scan the QR code with your authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, or Authy).
+              Scan the QR code with your authenticator app (Google Authenticator, Microsoft
+              Authenticator, 1Password, or Authy).
             </DialogDescription>
           </DialogHeader>
 
@@ -238,7 +206,11 @@ export function MfaSecurityCard() {
                 <div className="flex items-center gap-2 mt-1">
                   <Input value={secret} readOnly className="font-mono text-xs bg-muted" />
                   <Button size="sm" variant="outline" onClick={copySecret} type="button">
-                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -261,7 +233,12 @@ export function MfaSecurityCard() {
               </div>
 
               <DialogFooter className="mt-4 gap-2">
-                <Button type="button" variant="ghost" onClick={() => setEnrollOpen(false)} disabled={verifying}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setEnrollOpen(false)}
+                  disabled={verifying}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={verifying || code.trim().length !== 6}>
@@ -276,11 +253,7 @@ export function MfaSecurityCard() {
   );
 }
 
-export function MfaSecurityDialog({
-  trigger,
-}: {
-  trigger?: React.ReactNode;
-}) {
+export function MfaSecurityDialog({ trigger }: { trigger?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   return (

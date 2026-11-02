@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { ResetUserMfaButton } from "@/components/reset-user-mfa-button";
 import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/super-admin/users")({ component: Users });
@@ -52,6 +53,11 @@ function Users() {
     email: string | null;
     full_name: string | null;
   } | null>(null);
+
+  const { data: currentUserId } = useQuery({
+    queryKey: ["current-user-id"],
+    queryFn: async () => (await supabase.auth.getUser()).data.user?.id ?? null,
+  });
 
   const { data: profiles } = useQuery({
     queryKey: ["all-users"],
@@ -141,15 +147,23 @@ function Users() {
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      <Button
-                        size="sm"
-                        variant={pending ? "default" : "outline"}
-                        onClick={() =>
-                          setApproveFor({ id: u.id, email: u.email, full_name: u.full_name })
-                        }
-                      >
-                        {pending ? "Approve" : "Assign role"}
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        {!pending && u.id !== currentUserId && (
+                          <ResetUserMfaButton
+                            userId={u.id}
+                            userLabel={u.full_name ?? u.email ?? "this user"}
+                          />
+                        )}
+                        <Button
+                          size="sm"
+                          variant={pending ? "default" : "outline"}
+                          onClick={() =>
+                            setApproveFor({ id: u.id, email: u.email, full_name: u.full_name })
+                          }
+                        >
+                          {pending ? "Approve" : "Assign role"}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );

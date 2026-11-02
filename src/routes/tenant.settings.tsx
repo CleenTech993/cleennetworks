@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MfaSecurityCard } from "@/components/mfa-security-card";
+import { TenantServiceCredentials } from "@/components/tenant-service-credentials";
 
 export const Route = createFileRoute("/tenant/settings")({ component: Settings });
 
@@ -125,8 +126,8 @@ function Settings() {
           <h3 className="font-semibold mb-1">Receiving details</h3>
           <p className="text-xs text-muted-foreground mb-4">
             New online payments are sent directly to your M-Pesa account using the Daraja
-            credentials configured under Notifications. These details are for customer instructions
-            and records; they are not API credentials.
+            credentials configured below. These details are for customer instructions and records;
+            they are not API credentials.
           </p>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -164,6 +165,8 @@ function Settings() {
           Save changes
         </Button>
       </div>
+
+      <TenantServiceCredentials />
 
       <div className="mt-8">
         <h3 className="text-lg font-semibold mb-3">Security &amp; Authentication</h3>

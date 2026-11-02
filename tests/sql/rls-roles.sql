@@ -131,6 +131,11 @@ SELECT t.denied('aal1 admin cannot edit settings',   $$UPDATE public.tenants SET
 SELECT t.allowed('aal1 admin can still read own role row', $$SELECT 1 FROM public.user_roles WHERE user_id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 SELECT t.allowed('aal1 admin can still read own profile',  $$SELECT 1 FROM public.profiles WHERE id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 
+-- MFA is required even for users who have not enrolled a factor yet.
+SELECT t.as_user(:admin2, 'aal1');
+SELECT t.denied('aal1 admin without enrolled MFA cannot read tenant data',
+                $$SELECT 1 FROM public.customers WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000002'$$);
+
 -- ---- super_admin ---------------------------------------------------------------------------------
 SELECT t.as_user(:super, 'aal1');
 SELECT t.denied ('aal1 super admin cannot grant roles', $$INSERT INTO public.user_roles (user_id, role, tenant_id) VALUES ('bbbbbbbb-0000-0000-0000-0000000000d1','tenant_admin','aaaaaaaa-0000-0000-0000-000000000001')$$);
