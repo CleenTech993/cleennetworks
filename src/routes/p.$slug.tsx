@@ -276,18 +276,32 @@ function PaymentWaiting({
 
   useEffect(() => {
     let active = true;
-    const t = setInterval(async () => {
-      const res = await fetch(`/api/public/portal/${slug}/payment-status?id=${paymentId}`);
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!active) return;
-      setStatus(json.status);
-      if (json.voucher_code) setVoucher(json.voucher_code);
-      if (json.status === "success" || json.status === "failed") clearInterval(t);
-    }, 3000);
+    let timer: number | undefined;
+    let controller: AbortController | undefined;
+    const poll = async () => {
+      controller = new AbortController();
+      try {
+        const res = await fetch(`/api/public/portal/${slug}/payment-status?id=${paymentId}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (!active) return;
+          setStatus(json.status);
+          if (json.voucher_code) setVoucher(json.voucher_code);
+          if (json.status === "success" || json.status === "failed") return;
+        }
+      } catch (error) {
+        if (!active) return;
+        console.warn("Payment status check failed; it will be retried.", error);
+      }
+      if (active) timer = window.setTimeout(() => void poll(), 10_000);
+    };
+    void poll();
     return () => {
       active = false;
-      clearInterval(t);
+      if (timer !== undefined) window.clearTimeout(timer);
+      controller?.abort();
     };
   }, [paymentId, slug]);
 
@@ -333,7 +347,10 @@ function PaymentWaiting({
     <div className="pt-surface rounded-xl border bg-card p-6 text-center">
       <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
       <p className="mt-3 font-medium">Waiting for M-Pesa…</p>
-      <p className="mt-1 text-sm text-muted-foreground">Approve the prompt on your phone.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Approve the prompt on your phone. We’ll keep checking until M-Pesa confirms payment or
+        reports the request cancelled or failed.
+      </p>
     </div>
   );
 }
