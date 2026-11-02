@@ -27,8 +27,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
       GET: async ({ request, params }) => {
         if (!rateLimit(`tvstatus:${params.slug}:${clientIp(request)}`, 20, 60_000))
           return tooManyRequests();
-        const mac = normalizeMac(new URL(request.url).searchParams.get("mac") ?? "");
+        const url = new URL(request.url);
+        const mac = normalizeMac(url.searchParams.get("mac") ?? "");
         if (!mac) return Response.json({ error: BAD_MAC }, { status: 400 });
+        // Only the phone number the TV was registered with may query it: a MAC alone is
+        // guessable, so requiring both stops status lookups of other people's TVs.
+        const phone = normalizePhone(url.searchParams.get("phone") ?? "");
+        if (!phone) return Response.json({ error: "Phone number required" }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
@@ -42,6 +47,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .select("status,expires_at")
           .eq("tenant_id", tenant.id)
           .eq("mac_address", mac)
+          .eq("phone", phone)
           .maybeSingle();
         const active =
           !!tv && tv.status === "active" && !!tv.expires_at && new Date(tv.expires_at) > new Date();
