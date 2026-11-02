@@ -521,17 +521,6 @@ function TvFlow({
         ))}
       </div>
 
-      <div className="mt-5">
-        <Label htmlFor="tv-phone">M-Pesa phone</Label>
-        <Input
-          id="tv-phone"
-          inputMode="tel"
-          placeholder="07XXXXXXXX"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="mt-1"
-        />
-      </div>
       <Button
         className="pt-btn mt-4 w-full"
         style={{ backgroundColor: primary }}
