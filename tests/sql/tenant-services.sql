@@ -131,9 +131,12 @@ BEGIN
   END IF;
   IF has_table_privilege('authenticated', 'public.auth_login_attempts', 'SELECT')
      OR has_table_privilege('anon', 'public.auth_login_attempts', 'SELECT')
-     OR has_function_privilege('authenticated', 'public.check_auth_login_throttle(text,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.record_auth_login_attempt(text,text,boolean)', 'EXECUTE')
      OR has_function_privilege('anon', 'public.record_auth_login_attempt(text,text,boolean)', 'EXECUTE') THEN
-    RAISE EXCEPTION 'login throttle storage and functions must be server-only';
+    RAISE EXCEPTION 'login attempt storage must be server-only';
+  END IF;
+  IF to_regprocedure('public.check_auth_login_throttle(text,text)') IS NOT NULL THEN
+    RAISE EXCEPTION 'the sign-in lockout must not exist';
   END IF;
 
   FOR i IN 1..4 LOOP
@@ -148,16 +151,7 @@ BEGIN
     RAISE EXCEPTION 'fifth failed login must raise a security alert';
   END IF;
 
-  SELECT * INTO v_result
-    FROM public.check_auth_login_throttle(v_email_hash, v_ip_hash);
-  IF NOT v_result.blocked OR v_result.retry_after_seconds <= 0 THEN
-    RAISE EXCEPTION 'fifth failed login must lock the account temporarily';
-  END IF;
-
   PERFORM public.record_auth_login_attempt(v_email_hash, v_ip_hash, true);
-  SELECT * INTO v_result
-    FROM public.check_auth_login_throttle(v_email_hash, v_ip_hash);
-  IF v_result.blocked THEN RAISE EXCEPTION 'successful sign-in must clear the email failure lock'; END IF;
 
   SELECT * INTO v_result
     FROM public.record_auth_login_attempt(v_email_hash, repeat('c', 64), true);

@@ -75,20 +75,6 @@ export const signInWithPassword = createServerFn({ method: "POST" })
       hashIdentifier(`ip:${clientIp}`),
     ]);
 
-    const { data: throttleRows, error: throttleError } = await supabaseAdmin.rpc(
-      "check_auth_login_throttle",
-      { p_email_hash: emailHash, p_ip_hash: ipHash },
-    );
-    if (throttleError) throw new Error("Unable to verify sign-in security limits.");
-    const throttle = throttleRows?.[0];
-    if (throttle?.blocked) {
-      return {
-        ok: false as const,
-        error: "Too many unsuccessful sign-in attempts. Please wait and try again.",
-        retryAfterSeconds: throttle.retry_after_seconds,
-      };
-    }
-
     const supabaseUrl = process.env["SUPABASE_URL"];
     const publishableKey = process.env["SUPABASE_PUBLISHABLE_KEY"];
     if (!supabaseUrl || !publishableKey) {
