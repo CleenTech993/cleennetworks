@@ -107,7 +107,7 @@ function MfaPage() {
           )}
           <p className="break-all text-center font-mono text-xs text-muted-foreground">{secret}</p>
           <p className="text-center text-muted-foreground">
-            MFA setup is required to access the tenant and platform consoles.
+            Two-step verification protects your account with a 6-digit authenticator code.
           </p>
         </div>
       )}
@@ -129,6 +129,19 @@ function MfaPage() {
           <Button type="submit" className="w-full" disabled={busy || code.length !== 6}>
             {busy ? "Verifying…" : mode === "enroll" ? "Verify & Activate MFA" : "Verify"}
           </Button>
+
+          {mode === "enroll" && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={async () => {
+                navigate({ to: await destinationAfterAuth() });
+              }}
+            >
+              Skip for now — Continue to console
+            </Button>
+          )}
 
           <Button
             type="button"

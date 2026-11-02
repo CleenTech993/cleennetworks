@@ -20,7 +20,7 @@ export async function requireConsole(opts: { superAdmin?: boolean } = {}): Promi
   const hasVerifiedFactor = factors?.totp.some((factor) => factor.status === "verified") ?? false;
   const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aalError) throw aalError;
-  if (!hasVerifiedFactor || aal?.currentLevel !== "aal2") {
+  if (hasVerifiedFactor && aal?.currentLevel !== "aal2") {
     throw redirect({ to: "/mfa" });
   }
 
