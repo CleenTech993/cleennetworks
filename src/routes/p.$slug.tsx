@@ -383,10 +383,12 @@ function TvFlow({
   const [status, setStatus] = useState<TvStatus | null>(null);
 
   async function checkStatus() {
-    if (!mac) return;
+    if (!mac || !phone) return;
     setChecking(true);
     try {
-      const res = await fetch(`/api/public/portal/${slug}/tv?mac=${encodeURIComponent(mac)}`);
+      const res = await fetch(
+        `/api/public/portal/${slug}/tv?mac=${encodeURIComponent(mac)}&phone=${encodeURIComponent(phone)}`,
+      );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setStatus(json);
