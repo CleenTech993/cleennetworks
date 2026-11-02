@@ -27,6 +27,7 @@ import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
+import { RouterFleetSlaCard } from "@/components/router-fleet-sla-card";
 
 export const Route = createFileRoute("/tenant/noc")({
   head: () => ({
@@ -209,6 +210,8 @@ export function TenantNocPage() {
           icon={Users}
         />
       </div>
+
+      <RouterFleetSlaCard tenantId={tenantId} routers={routerList} />
 
       {/* Network Outage Alert Banner (if any router is down) */}
       {offlineRouters.length > 0 && (
@@ -445,4 +448,3 @@ export function TenantNocPage() {
     </div>
   );
 }
-
