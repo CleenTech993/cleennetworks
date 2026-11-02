@@ -473,6 +473,17 @@ function TvFlow({
             className="mt-1"
           />
         </div>
+        <div>
+          <Label htmlFor="tv-phone">M-Pesa phone used for this TV</Label>
+          <Input
+            id="tv-phone"
+            inputMode="tel"
+            placeholder="07XXXXXXXX"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="mt-1"
+          />
+        </div>
       </div>
 
       {status && (
@@ -481,14 +492,14 @@ function TvFlow({
             ? `This TV is active until ${new Date(status.expires_at as string).toLocaleString()}. You can buy more time below.`
             : status.registered
               ? "This TV is registered but has no active plan."
-              : "This TV isn't registered yet."}
+              : "No TV found for that address and phone number."}
         </p>
       )}
       <Button
         variant="outline"
         size="sm"
         className="mt-3"
-        disabled={!mac || checking}
+        disabled={!mac || !phone || checking}
         onClick={checkStatus}
       >
         {checking ? "Checking…" : "Check TV status"}
