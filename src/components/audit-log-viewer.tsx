@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Search,
   Filter,
@@ -48,6 +49,8 @@ export interface AuditLogRecord {
   metadata: Record<string, unknown> | null;
 }
 
+const SECURITY_ALERT_ACTIONS = new Set(["new_login_location", "repeated_failed_logins"]);
+
 export function AuditLogViewer({
   tenantId,
   isSuperAdmin = false,
@@ -59,6 +62,8 @@ export function AuditLogViewer({
   const [search, setSearch] = useState("");
   const [resourceFilter, setResourceFilter] = useState("all");
   const [selectedLog, setSelectedLog] = useState<AuditLogRecord | null>(null);
+  const seenLogIds = useRef(new Set<string>());
+  const hasLoadedLogs = useRef(false);
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ["audit-logs", tenantId ?? "all"],
@@ -79,6 +84,36 @@ export function AuditLogViewer({
     },
     refetchInterval: 5_000,
   });
+
+  useEffect(() => {
+    if (!logs) return;
+    if (!hasLoadedLogs.current) {
+      for (const log of logs) seenLogIds.current.add(log.id);
+      hasLoadedLogs.current = true;
+      return;
+    }
+
+    for (const log of logs) {
+      if (seenLogIds.current.has(log.id)) continue;
+      seenLogIds.current.add(log.id);
+      if (
+        !isSuperAdmin ||
+        log.resource_type !== "auth" ||
+        !SECURITY_ALERT_ACTIONS.has(log.action)
+      ) {
+        continue;
+      }
+
+      toast.error(
+        log.action === "repeated_failed_logins" ? "Repeated failed sign-ins" : "New login location",
+        {
+          description: log.description,
+          duration: 10_000,
+          action: { label: "Review", onClick: () => setSelectedLog(log) },
+        },
+      );
+    }
+  }, [logs, isSuperAdmin]);
 
   // Realtime subscription for instant audit updates
   useEffect(() => {
@@ -105,7 +140,11 @@ export function AuditLogViewer({
   const filtered = useMemo(() => {
     if (!logs) return [];
     return logs.filter((log) => {
-      if (resourceFilter !== "all" && log.resource_type !== resourceFilter) {
+      const matchesResource =
+        resourceFilter === "security"
+          ? ["auth", "mfa", "security"].includes(log.resource_type)
+          : resourceFilter === "all" || log.resource_type === resourceFilter;
+      if (!matchesResource) {
         return false;
       }
       if (search.trim()) {
@@ -345,4 +384,3 @@ export function AuditLogViewer({
     </div>
   );
 }
-
