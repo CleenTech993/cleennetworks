@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDeferredValue, useState } from "react";
 import { Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
@@ -11,10 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { reviewDirectMpesaTransaction } from "@/lib/tenant-service.functions";
 import {
   buildPaymentCsv,
-  filterPaymentRows,
+  normalizePaymentSearch,
   summarizeDirectMpesa,
   summarizePayments,
 } from "@/lib/payment-report";
+
+const PAYMENT_PAGE_SIZE = 100;
 
 export const Route = createFileRoute("/tenant/payments")({
   head: () => ({
@@ -31,18 +33,56 @@ function Payments() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const deferredSearch = useDeferredValue(q);
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
-    queryKey: ["payments"],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const {
+    data: paymentPages,
+    isLoading,
+    error: paymentError,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["payments", statusFilter, dateFrom, dateTo, deferredSearch],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const searchTerm = normalizePaymentSearch(deferredSearch);
+      if (deferredSearch.trim() && !searchTerm) {
+        return { payments: [], count: 0, hasMore: false, nextOffset: pageParam };
+      }
+
+      let query = supabase
         .from("payments")
-        .select("*")
+        .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
-        .limit(500);
+        .order("id", { ascending: false })
+        .range(pageParam, pageParam + PAYMENT_PAGE_SIZE - 1);
+      if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      if (dateFrom)
+        query = query.gte("created_at", new Date(`${dateFrom}T00:00:00.000Z`).toISOString());
+      if (dateTo) {
+        const nextDay = new Date(`${dateTo}T00:00:00.000Z`);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        query = query.lt("created_at", nextDay.toISOString());
+      }
+      if (searchTerm) {
+        query = query.or(
+          `phone.ilike.%${searchTerm}%,mpesa_receipt.ilike.%${searchTerm}%,voucher_code.ilike.%${searchTerm}%`,
+        );
+      }
+      const { data, count, error } = await query;
       if (error) throw error;
-      return data;
+      const payments = data ?? [];
+      const total = count ?? 0;
+      return {
+        payments,
+        count: total,
+        hasMore: pageParam + payments.length < total,
+        nextOffset: pageParam + payments.length,
+      };
     },
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
   });
   const { data: directTransactions, isLoading: directLoading } = useQuery({
     queryKey: ["direct-mpesa-transactions"],
@@ -99,25 +139,36 @@ function Payments() {
   const [selections, setSelections] = useState<
     Record<string, { customerId: string; packageId: string }>
   >({});
-  const rows = filterPaymentRows(data ?? [], {
-    search: q,
-    status: statusFilter,
-    from: dateFrom,
-    to: dateTo,
-  });
+  const rows = paymentPages?.pages.flatMap((page) => page.payments) ?? [];
+  const matchingCount = paymentPages?.pages[0]?.count ?? 0;
   const paymentSummary = summarizePayments(rows);
   const directSummary = summarizeDirectMpesa(directTransactions ?? []);
 
-  function exportPayments() {
-    const csv = buildPaymentCsv(rows);
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  async function exportPayments() {
+    setExporting(true);
+    try {
+      let pages = paymentPages?.pages ?? [];
+      while (pages.length && pages[pages.length - 1]?.hasMore) {
+        const result = await fetchNextPage();
+        if (result.isError) throw result.error;
+        pages = result.data.pages;
+      }
+      const allRows = pages.flatMap((page) => page.payments);
+      if (!allRows.length) return;
+      const csv = buildPaymentCsv(allRows);
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not export payments.");
+    } finally {
+      setExporting(false);
+    }
   }
   return (
     <div>
@@ -357,15 +408,15 @@ function Payments() {
           variant="outline"
           className="gap-1.5 self-end"
           onClick={exportPayments}
-          disabled={!rows.length}
+          disabled={!rows.length || exporting || isLoading}
         >
           <Download className="h-4 w-4" />
-          Export {rows.length} payments
+          {exporting ? "Preparing full export…" : `Export all ${matchingCount} matching`}
         </Button>
       </div>
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">Successful amount (filtered)</p>
+          <p className="text-xs text-muted-foreground">Successful amount (loaded matches)</p>
           <p className="mt-1 text-lg font-semibold">
             KES {paymentSummary.successfulAmount.toLocaleString()}
           </p>
@@ -374,14 +425,14 @@ function Payments() {
           </p>
         </div>
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">Pending</p>
+          <p className="text-xs text-muted-foreground">Pending (loaded matches)</p>
           <p className="mt-1 text-lg font-semibold">
             KES {paymentSummary.pendingAmount.toLocaleString()}
           </p>
           <p className="text-xs text-muted-foreground">{paymentSummary.pendingCount} payments</p>
         </div>
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">Failed / cancelled</p>
+          <p className="text-xs text-muted-foreground">Failed / cancelled (loaded matches)</p>
           <p className="mt-1 text-lg font-semibold">
             KES {paymentSummary.unsuccessfulAmount.toLocaleString()}
           </p>
@@ -390,13 +441,22 @@ function Payments() {
           </p>
         </div>
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-xs text-muted-foreground">Filtered transactions</p>
+          <p className="text-xs text-muted-foreground">Matching transactions</p>
           <p className="mt-1 text-lg font-semibold">{paymentSummary.totalCount}</p>
-          <p className="text-xs text-muted-foreground">From the latest 500 records</p>
+          <p className="text-xs text-muted-foreground">
+            {rows.length} loaded of {matchingCount} matching
+          </p>
         </div>
       </div>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
+      ) : paymentError ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+        >
+          Could not load payments: {paymentError.message}
+        </p>
       ) : !rows.length ? (
         <EmptyState
           title="No payments"
@@ -407,46 +467,61 @@ function Payments() {
           }
         />
       ) : (
-        <div className="rounded-xl border bg-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2.5 text-left">Date</th>
-                <th className="px-4 py-2.5 text-left">Phone</th>
-                <th className="px-4 py-2.5 text-left">Amount</th>
-                <th className="px-4 py-2.5 text-left">M-Pesa code</th>
-                <th className="px-4 py-2.5 text-left">Voucher</th>
-                <th className="px-4 py-2.5 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((p) => (
-                <tr key={p.id} className="border-t">
-                  <td className="px-4 py-2.5">{new Date(p.created_at).toLocaleString()}</td>
-                  <td className="px-4 py-2.5">{p.phone ?? "—"}</td>
-                  <td className="px-4 py-2.5">KES {Number(p.amount).toLocaleString()}</td>
-                  <td className="px-4 py-2.5 font-mono text-xs font-semibold">
-                    {p.mpesa_receipt ?? "—"}
-                  </td>
-                  <td className="px-4 py-2.5 font-mono text-xs">{p.voucher_code ?? "—"}</td>
-                  <td className="px-4 py-2.5">
-                    <Badge
-                      variant={
-                        p.status === "success"
-                          ? "default"
-                          : p.status === "failed"
-                            ? "destructive"
-                            : "secondary"
-                      }
-                    >
-                      {p.status}
-                    </Badge>
-                  </td>
+        <>
+          <div className="rounded-xl border bg-card overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2.5 text-left">Date</th>
+                  <th className="px-4 py-2.5 text-left">Phone</th>
+                  <th className="px-4 py-2.5 text-left">Amount</th>
+                  <th className="px-4 py-2.5 text-left">M-Pesa code</th>
+                  <th className="px-4 py-2.5 text-left">Voucher</th>
+                  <th className="px-4 py-2.5 text-left">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="px-4 py-2.5">{new Date(p.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-2.5">{p.phone ?? "—"}</td>
+                    <td className="px-4 py-2.5">KES {Number(p.amount).toLocaleString()}</td>
+                    <td className="px-4 py-2.5 font-mono text-xs font-semibold">
+                      {p.mpesa_receipt ?? "—"}
+                    </td>
+                    <td className="px-4 py-2.5 font-mono text-xs">{p.voucher_code ?? "—"}</td>
+                    <td className="px-4 py-2.5">
+                      <Badge
+                        variant={
+                          p.status === "success"
+                            ? "default"
+                            : p.status === "failed"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                      >
+                        {p.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {hasNextPage && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                onClick={() => void fetchNextPage()}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage
+                  ? "Loading more…"
+                  : `Load more payments (${rows.length} of ${matchingCount})`}
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

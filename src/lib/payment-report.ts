@@ -18,6 +18,13 @@ export interface PaymentSummary {
   unsuccessfulAmount: number;
 }
 
+export function normalizePaymentSearch(search: string): string {
+  return search
+    .trim()
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
+}
+
 export function summarizePayments(
   payments: Pick<PaymentReportRow, "amount" | "status">[],
 ): PaymentSummary {
@@ -76,35 +83,6 @@ export function summarizeDirectMpesa(transactions: { amount: number; status: str
       rejectedCount: 0,
     },
   );
-}
-
-export function filterPaymentRows<T extends PaymentReportRow>(
-  payments: T[],
-  {
-    search,
-    status,
-    from,
-    to,
-  }: {
-    search: string;
-    status: string;
-    from: string;
-    to: string;
-  },
-): T[] {
-  const query = search.trim().toLowerCase();
-  const fromTime = from ? new Date(`${from}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
-  const toTime = to ? new Date(`${to}T23:59:59.999`).getTime() : Number.POSITIVE_INFINITY;
-
-  return payments.filter((payment) => {
-    if (status !== "all" && payment.status !== status) return false;
-    const created = new Date(payment.created_at).getTime();
-    if (!Number.isFinite(created) || created < fromTime || created > toTime) return false;
-    if (!query) return true;
-    return [payment.phone, payment.mpesa_receipt, payment.voucher_code].some((value) =>
-      value?.toLowerCase().includes(query),
-    );
-  });
 }
 
 function csvCell(value: string | number | null): string {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPaymentCsv,
-  filterPaymentRows,
+  normalizePaymentSearch,
   summarizeDirectMpesa,
   summarizePayments,
   type PaymentReportRow,
@@ -28,36 +28,11 @@ const payments: PaymentReportRow[] = [
   },
 ];
 
-describe("filterPaymentRows", () => {
-  it("filters by status, date range, and case-insensitive transaction data", () => {
-    expect(
-      filterPaymentRows(payments, {
-        search: "qw123",
-        status: "success",
-        from: "2026-11-01",
-        to: "2026-11-01",
-      }).map((payment) => payment.id),
-    ).toEqual(["p1"]);
-
-    expect(
-      filterPaymentRows(payments, {
-        search: "",
-        status: "all",
-        from: "2026-10-31",
-        to: "",
-      }).map((payment) => payment.id),
-    ).toEqual(["p1"]);
-  });
-
-  it("returns no rows for an inverted date range", () => {
-    expect(
-      filterPaymentRows(payments, {
-        search: "",
-        status: "all",
-        from: "2026-11-02",
-        to: "2026-10-01",
-      }),
-    ).toEqual([]);
+describe("normalizePaymentSearch", () => {
+  it("retains receipt characters and strips PostgREST filter syntax", () => {
+    expect(normalizePaymentSearch(" QW-123, (ABC) ")).toBe("qw123abc");
+    expect(normalizePaymentSearch(" +254 712 345 678 ")).toBe("254712345678");
+    expect(normalizePaymentSearch(" ,%._() ")).toBe("");
   });
 });
 
