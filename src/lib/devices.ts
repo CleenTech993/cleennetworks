@@ -154,6 +154,15 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   return lines;
 }
 
+/** Disconnects active voucher sessions before removing the tenant's managed hotspot users. */
+export function buildHotspotSuspendLines(): string[] {
+  return [
+    "/ip hotspot user",
+    ':foreach u in=[find where comment="netgrid-voucher"] do={ :local n [get $u name]; :do { /ip hotspot active remove [find where user=$n] } on-error={} }',
+    ':do { remove [find where comment="netgrid-voucher"] } on-error={}',
+  ];
+}
+
 /** Devices the tenant blocked: no hotspot access, and any running session is dropped at once. */
 export function buildBlockLines(macs: string[]): string[] {
   const list = [...new Set(macs.filter(isUsableMac))];

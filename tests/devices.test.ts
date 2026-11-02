@@ -3,6 +3,7 @@ import {
   buildBlockLines,
   canResumeVoucher,
   buildDeviceAgentLines,
+  buildHotspotSuspendLines,
   buildHotspotUserLines,
   buildTetherLines,
   deviceLimitOf,
@@ -144,6 +145,17 @@ describe("buildHotspotUserLines", () => {
       'add name="ABC123XYZ9" password="ABC123XYZ9" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
     );
     expect(out).toContain("add name=netgrid-d1 shared-users=1");
+  });
+
+  describe("buildHotspotSuspendLines", () => {
+    it("disconnects current managed hotspot sessions before removing managed users", () => {
+      const lines = buildHotspotSuspendLines().join("\n");
+      expect(lines).toContain("/ip hotspot active remove [find where user=$n]");
+      expect(lines).toContain(':do { remove [find where comment="netgrid-voucher"] }');
+      expect(lines.indexOf("/ip hotspot active remove")).toBeLessThan(
+        lines.indexOf(':do { remove [find where comment="netgrid-voucher"] }'),
+      );
+    });
   });
 
   it("does not pin a multi-device voucher but caps simultaneous devices", () => {

@@ -6,6 +6,10 @@ import { normalizePhone } from "@/lib/mpesa.server";
 import { startDarajaStkPush } from "@/lib/daraja.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { isRandomizedMac, normalizeMac } from "@/lib/tv";
+import {
+  tenantServiceRestriction,
+  tenantServiceRestrictionMessage,
+} from "@/lib/platform-billing.server";
 
 // Smart-TV registration. A TV cannot show the captive portal, so the customer registers its MAC
 // address from a phone, pays, and the payment callback activates the device. The router picks it
@@ -41,6 +45,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
+        const restriction = await tenantServiceRestriction(tenant.id);
+        if (restriction) {
+          return Response.json(
+            { error: tenantServiceRestrictionMessage(restriction) },
+            { status: 423 },
+          );
+        }
 
         const { data: tv } = await supabaseAdmin
           .from("tv_devices")
@@ -81,6 +92,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
+        const restriction = await tenantServiceRestriction(tenant.id);
+        if (restriction) {
+          return Response.json(
+            { error: tenantServiceRestrictionMessage(restriction) },
+            { status: 423 },
+          );
+        }
 
         const { data: pkg } = await supabaseAdmin
           .from("packages")

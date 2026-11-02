@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { resolveThemeId } from "@/lib/portal-themes";
+import {
+  tenantServiceRestriction,
+  tenantServiceRestrictionMessage,
+} from "@/lib/platform-billing.server";
 
 export const Route = createFileRoute("/api/public/portal/$slug")({
   server: {
@@ -12,6 +16,14 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return new Response("Not found", { status: 404 });
+
+        const restriction = await tenantServiceRestriction(tenant.id);
+        if (restriction) {
+          return Response.json(
+            { error: tenantServiceRestrictionMessage(restriction) },
+            { status: 423 },
+          );
+        }
 
         const [{ data: portal }, { data: packages }] = await Promise.all([
           supabaseAdmin

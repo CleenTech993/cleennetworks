@@ -3,6 +3,10 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { normalizePhone } from "@/lib/mpesa.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
+import {
+  tenantServiceRestriction,
+  tenantServiceRestrictionMessage,
+} from "@/lib/platform-billing.server";
 
 // The M-Pesa receipt code is required: a phone number alone is not a secret, so it must
 // never be enough to retrieve a paid voucher. Phone, if given, is an extra filter.
@@ -32,6 +36,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
+        const restriction = await tenantServiceRestriction(tenant.id);
+        if (restriction) {
+          return Response.json(
+            { error: tenantServiceRestrictionMessage(restriction) },
+            { status: 423 },
+          );
+        }
 
         let q = supabaseAdmin
           .from("payments")

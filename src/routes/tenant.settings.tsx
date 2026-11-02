@@ -157,7 +157,10 @@ function Settings() {
           <h3 className="font-semibold mb-4">Customer support</h3>
           <div className="grid gap-3 md:grid-cols-2">
             {field("support_phone", "Support phone / WhatsApp")}
-            {field("support_email", "Support email")}
+            {field("support_email", "Support / invoice email")}
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              Monthly platform commission invoices are sent to this address.
+            </p>
           </div>
         </div>
       </div>

@@ -130,7 +130,16 @@ function PortalPage() {
     queryKey: ["portal", slug],
     queryFn: async () => {
       const res = await fetch(`/api/public/portal/${slug}`);
-      if (!res.ok) throw new Error("Portal unavailable");
+      if (!res.ok) {
+        let message = "Portal unavailable.";
+        try {
+          const json = await res.json();
+          if (typeof json.error === "string") message = json.error;
+        } catch {
+          // Use the generic message when the server does not return JSON.
+        }
+        throw new Error(message);
+      }
       return res.json();
     },
   });
@@ -151,7 +160,7 @@ function PortalPage() {
   if (error || !data) {
     return (
       <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">
-        Portal not found.
+        {error instanceof Error ? error.message : "Portal not found."}
       </div>
     );
   }

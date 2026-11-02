@@ -3,6 +3,10 @@ import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loadTenantBySlugAdmin, normalizePhone } from "@/lib/mpesa.server";
+import {
+  tenantServiceRestriction,
+  tenantServiceRestrictionMessage,
+} from "@/lib/platform-billing.server";
 import { startDarajaStkPush } from "@/lib/daraja.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import {
@@ -52,6 +56,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
         try {
           const tenant = await loadTenantBySlugAdmin(params.slug).catch(() => null);
           if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
+          const restriction = await tenantServiceRestriction(tenant.id);
+          if (restriction) {
+            return Response.json(
+              { error: tenantServiceRestrictionMessage(restriction) },
+              { status: 423 },
+            );
+          }
 
           const { data: pkg } = await supabaseAdmin
             .from("packages")

@@ -11,6 +11,10 @@ import {
   saveTenantServiceSecret,
   type TenantServiceSecretName,
 } from "@/lib/tenant-service-secrets.server";
+import {
+  tenantServiceRestriction,
+  tenantServiceRestrictionMessage,
+} from "@/lib/platform-billing.server";
 
 async function tenantAdminId(userId: string): Promise<string> {
   const { data, error } = await supabaseAdmin
@@ -215,6 +219,9 @@ export const reviewDirectMpesaTransaction = createServerFn({ method: "POST" })
       if (error || !rejected) throw new Error("Could not reject this transaction.");
       return;
     }
+
+    const restriction = await tenantServiceRestriction(tenantId);
+    if (restriction) throw new Error(tenantServiceRestrictionMessage(restriction));
 
     const { data: customer, error: customerError } = await supabaseAdmin
       .from("customers")

@@ -1,10 +1,4 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options
@@ -790,9 +784,17 @@ export type Database = {
         Row: {
           collected_at: string | null
           commission_amount: number
+          commission_rate_pct: number | null
           created_at: string
+          due_at: string | null
+          email_attempted_at: string | null
+          email_error: string | null
+          email_sent_at: string | null
+          email_status: string
           gross_amount: number
           id: string
+          invoice_number: string | null
+          issued_at: string | null
           mpesa_receipt: string | null
           period_end: string
           period_start: string
@@ -802,9 +804,17 @@ export type Database = {
         Insert: {
           collected_at?: string | null
           commission_amount?: number
+          commission_rate_pct?: number | null
           created_at?: string
+          due_at?: string | null
+          email_attempted_at?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          email_status?: string
           gross_amount?: number
           id?: string
+          invoice_number?: string | null
+          issued_at?: string | null
           mpesa_receipt?: string | null
           period_end: string
           period_start: string
@@ -814,9 +824,17 @@ export type Database = {
         Update: {
           collected_at?: string | null
           commission_amount?: number
+          commission_rate_pct?: number | null
           created_at?: string
+          due_at?: string | null
+          email_attempted_at?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          email_status?: string
           gross_amount?: number
           id?: string
+          invoice_number?: string | null
+          issued_at?: string | null
           mpesa_receipt?: string | null
           period_end?: string
           period_start?: string
@@ -1568,6 +1586,7 @@ export type Database = {
           bank_account_number: string | null
           bank_branch: string | null
           bank_name: string | null
+          billing_suspended_at: string | null
           created_at: string
           id: string
           logo_url: string | null
@@ -1594,6 +1613,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_branch?: string | null
           bank_name?: string | null
+          billing_suspended_at?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
@@ -1620,6 +1640,7 @@ export type Database = {
           bank_account_number?: string | null
           bank_branch?: string | null
           bank_name?: string | null
+          billing_suspended_at?: string | null
           created_at?: string
           id?: string
           logo_url?: string | null
@@ -1776,6 +1797,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_platform_invoice_emails: {
+        Args: {
+          p_limit?: number
+          p_now?: string
+        }
+        Returns: {
+          collected_at: string | null
+          commission_amount: number
+          commission_rate_pct: number | null
+          created_at: string
+          due_at: string | null
+          email_attempted_at: string | null
+          email_error: string | null
+          email_sent_at: string | null
+          email_status: string
+          gross_amount: number
+          id: string
+          invoice_number: string | null
+          issued_at: string | null
+          mpesa_receipt: string | null
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }[]
+      }
+      generate_monthly_platform_commission_invoices: {
+        Args: {
+          p_now?: string
+        }
+        Returns: number
+      }
+      refresh_overdue_tenant_billing: {
+        Args: {
+          p_now?: string
+        }
+        Returns: number
+      }
       admin_approve_user: {
         Args: {
           p_new_tenant_name?: string
@@ -1872,10 +1931,8 @@ export type Tables<
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] & DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -1884,8 +1941,7 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -1909,8 +1965,7 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -1934,8 +1989,7 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -1951,8 +2005,7 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }

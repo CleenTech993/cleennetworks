@@ -11,6 +11,7 @@ import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import {
   buildBlockLines,
   buildDeviceAgentLines,
+  buildHotspotSuspendLines,
   buildHotspotUserLines,
   buildTetherLines,
   deviceLimitOf,
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
 
         const now = new Date().toISOString();
         const [
-          { data: tenant },
+          { data: tenant, error: tenantError },
           { data: customers, error: customersError },
           { data: vouchers, error: vouchersError },
           { data: packages, error: packagesError },
@@ -64,7 +65,11 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           { data: routerRow, error: routerRowError },
           { data: monitored, error: monitoredError },
         ] = await Promise.all([
-          supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
+          supabaseAdmin
+            .from("tenants")
+            .select("slug,status,billing_suspended_at")
+            .eq("id", router.tenant_id)
+            .single(),
           // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
           // (router_id null). Other routers' credentials are never even read for this request.
           supabaseAdmin
@@ -118,6 +123,16 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .not("ip_address", "is", null),
         ]);
 
+        if (tenantError || !tenant) {
+          console.error("sync: tenant billing status could not be read", tenantError);
+          return new Response("# tenant billing status unavailable; sync aborted\n", {
+            status: 503,
+            headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+          });
+        }
+        const serviceRestricted =
+          tenant.status === "suspended" || Boolean(tenant.billing_suspended_at);
+
         const host = getRequestHost();
         const lines: string[] = [
           "# NetGrid sync",
@@ -153,18 +168,30 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
         lines.push(
           ...(customersError || packagesError || !customers || !packages
-            ? skipped("PPPoE", customersError ?? packagesError)
-            : buildPppoeSyncLines({ routerId: router.id, customers, packages })),
+            ? serviceRestricted
+              ? buildPppoeSyncLines({ routerId: router.id, customers: [], packages: [] })
+              : skipped("PPPoE", customersError ?? packagesError)
+            : buildPppoeSyncLines({
+                routerId: router.id,
+                customers: serviceRestricted ? [] : customers,
+                packages: serviceRestricted ? [] : packages,
+              })),
         );
         // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
-        lines.push(...(tvsError || !tvs ? skipped("smart TV", tvsError) : buildTvSyncLines(tvs)));
+        lines.push(
+          ...(serviceRestricted
+            ? buildTvSyncLines([])
+            : tvsError || !tvs
+              ? skipped("smart TV", tvsError)
+              : buildTvSyncLines(tvs)),
+        );
         // Hotspot vouchers: one package = one device (shared-users limit + MAC pinned from the database).
         // If the voucher list cannot be read, the router must KEEP its current voucher users: an empty
         // list would delete every one of them. A missing bound_mac column (migration not applied yet)
         // is retried without it, so vouchers keep working, just without the device pin.
         type VoucherRow = { code: string; bound_mac?: string | null; package_id: string | null };
         let voucherRows: VoucherRow[] | null = vouchers;
-        if (vouchersError) {
+        if (!serviceRestricted && vouchersError) {
           console.warn(
             "sync: voucher query failed, retrying without bound_mac:",
             vouchersError.message,
@@ -178,7 +205,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
           voucherRows = retry.error ? null : retry.data;
         }
-        if (voucherRows) {
+        if (serviceRestricted) {
+          lines.push(...buildHotspotSuspendLines());
+        } else if (voucherRows) {
           const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
           const syncVouchers: SyncVoucher[] = voucherRows.map((v) => ({
             code: v.code,
