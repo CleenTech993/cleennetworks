@@ -682,28 +682,9 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
               <p className="text-xs text-muted-foreground mt-1">
                 Expires {new Date(data.active.expires_at).toLocaleString()}
               </p>
-              <p className="text-xs text-muted-foreground">
-                Receipt {data.active.mpesa_receipt ?? "—"}
-              </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No active package on this number.</p>
-          )}
-          {data.history.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Recent transactions</p>
-              <ul className="space-y-1.5 text-xs">
-                {data.history.slice(0, 5).map((h, i) => (
-                  <li key={i} className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">
-                      {new Date(h.created_at).toLocaleString()}
-                    </span>
-                    <span>KES {Number(h.amount).toFixed(0)}</span>
-                    <span className="capitalize">{h.status}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
         </div>
       )}
