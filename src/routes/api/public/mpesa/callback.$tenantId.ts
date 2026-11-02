@@ -22,7 +22,7 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   const checkoutId = callback?.CheckoutRequestID;
   if (!callback || !checkoutId) return Response.json({ ok: true, note: "No payment reference" });
 
-  const { data: payment } = await supabaseAdmin
+  const { data: payment, error: paymentError } = await supabaseAdmin
     .from("payments")
     .select(
       "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,tv_device_id,expires_at",
@@ -31,16 +31,30 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
     .eq("provider", "daraja")
     .eq("checkout_request_id", checkoutId)
     .maybeSingle();
-  if (!payment) return Response.json({ ok: true, note: "Unknown payment" });
-  if (payment.status === "success" || payment.status === "processing") {
-    return Response.json({ ok: true, note: "Already processed" });
+  if (paymentError) {
+    console.error("Could not look up Daraja callback payment", paymentError);
+    return Response.json({ ok: false, error: "Payment lookup failed" }, { status: 500 });
   }
+  if (!payment) return Response.json({ ok: true, note: "Unknown payment" });
   if (
     callback.MerchantRequestID &&
     payment.merchant_request_id &&
     callback.MerchantRequestID !== payment.merchant_request_id
   ) {
     return Response.json({ ok: true, note: "Request mismatch" });
+  }
+
+  const metadata = callback.CallbackMetadata?.Item ?? [];
+  const value = (name: string) => metadata.find((item) => item.Name === name)?.Value;
+  const amount = Number(value("Amount"));
+  const receipt = value("MpesaReceiptNumber");
+  const phone = value("PhoneNumber");
+
+  if (payment.status === "processing") {
+    return Response.json({ ok: true, note: "Already processed" });
+  }
+  if (payment.status === "success" && String(callback.ResultCode) !== "0") {
+    return Response.json({ ok: true, note: "Already processed" });
   }
 
   if (String(callback.ResultCode) !== "0") {
@@ -58,11 +72,6 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
     return Response.json({ ok: true, note: "Payment was not completed" });
   }
 
-  const metadata = callback.CallbackMetadata?.Item ?? [];
-  const value = (name: string) => metadata.find((item) => item.Name === name)?.Value;
-  const amount = Number(value("Amount"));
-  const receipt = value("MpesaReceiptNumber");
-  const phone = value("PhoneNumber");
   if (
     !Number.isFinite(amount) ||
     amount !== Math.ceil(Number(payment.amount)) ||
@@ -74,15 +83,20 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
     return Response.json({ ok: true, note: "Payment details did not match" });
   }
 
-  let verification: Awaited<ReturnType<typeof queryDarajaStkPush>>;
-  try {
-    verification = await queryDarajaStkPush(tenantId, checkoutId);
-  } catch (error) {
-    console.error("Daraja callback verification failed", error);
-    return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
-  }
-  if (verification.resultCode !== "0") {
-    return Response.json({ ok: true, note: "Payment verification is still pending" });
+  if (payment.status === "success" || payment.status === "processing") {
+    if (payment.status === "success" && typeof receipt === "string" && receipt) {
+      const { error } = await supabaseAdmin
+        .from("payments")
+        .update({ mpesa_receipt: receipt, raw_callback: rawJson })
+        .eq("id", payment.id)
+        .eq("status", "success")
+        .is("mpesa_receipt", null);
+      if (error) {
+        console.error("Could not add receipt to an already settled payment", error);
+        return Response.json({ ok: false, error: "Payment update failed" }, { status: 500 });
+      }
+    }
+    return Response.json({ ok: true, note: "Already processed" });
   }
 
   try {
