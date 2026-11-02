@@ -99,6 +99,30 @@ export type Database = {
           },
         ]
       }
+      auth_login_attempts: {
+        Row: {
+          attempted_at: string
+          email_hash: string
+          id: number
+          ip_hash: string
+          succeeded: boolean
+        }
+        Insert: {
+          attempted_at?: string
+          email_hash: string
+          id?: number
+          ip_hash: string
+          succeeded: boolean
+        }
+        Update: {
+          attempted_at?: string
+          email_hash?: string
+          id?: number
+          ip_hash?: string
+          succeeded?: boolean
+        }
+        Relationships: []
+      }
       captive_portals: {
         Row: {
           background_url: string | null
@@ -1783,6 +1807,10 @@ export type Database = {
         Args: { p_full_name?: string; p_name: string; p_slug: string }
         Returns: string
       }
+      check_auth_login_throttle: {
+        Args: { p_email_hash: string; p_ip_hash: string }
+        Returns: { blocked: boolean; retry_after_seconds: number }[]
+      }
       check_router_liveness: { Args: { p_stale?: string }; Returns: number }
       has_role: {
         Args: {
@@ -1801,6 +1829,10 @@ export type Database = {
       }
       is_aal2: { Args: never; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      record_auth_login_attempt: {
+        Args: { p_email_hash: string; p_ip_hash: string; p_succeeded: boolean }
+        Returns: { attempt_count: number; event_type: string | null; should_alert: boolean }[]
+      }
       record_pppoe_sessions: {
         Args: { p_router_id: string; p_sessions: Json; p_tenant_id: string }
         Returns: number

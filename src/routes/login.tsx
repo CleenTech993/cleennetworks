@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { signInWithPassword } from "@/lib/login.functions";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — NetGrid" }] }),
@@ -21,34 +22,55 @@ function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
+    try {
+      const result = await signInWithPassword({ data: { email, password } });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession(result.session);
+      if (sessionError) {
+        toast.error(
+          "Sign-in completed, but this browser could not save the session. Please retry.",
+        );
+        return;
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error("Sign-in completed without a user session.");
+
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+      if (rolesError) throw rolesError;
+      if (!roles?.length) {
+        await navigate({ to: "/pending" });
+        return;
+      }
+
+      // Existing factors prompt for a code here; users without a factor are sent to the
+      // console's MFA setup gate before they can access protected pages.
+      const { data: aal, error: aalError } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (aalError) throw aalError;
+      if (aal?.nextLevel === "aal2") {
+        await navigate({ to: "/mfa" });
+        return;
+      }
+
+      const dest = roles.some((r) => r.role === "super_admin") ? "/super-admin" : "/tenant";
+      await navigate({ to: dest });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not sign in.");
+    } finally {
+      setLoading(false);
     }
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", user.id);
-    if (!roles?.length) {
-      navigate({ to: "/pending" });
-      return;
-    }
-
-    // Existing factors prompt for a code here; users without a factor are sent to the
-    // console's MFA setup gate before they can access protected pages.
-    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal?.nextLevel === "aal2") {
-      navigate({ to: "/mfa" });
-      return;
-    }
-
-    const dest = roles.some((r) => r.role === "super_admin") ? "/super-admin" : "/tenant";
-    navigate({ to: dest });
   }
 
   return (

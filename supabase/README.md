@@ -112,3 +112,12 @@ access is restored.
 Users can manage their own active sessions from tenant Settings: signing out other sessions keeps
 the current browser active, while signing out all devices revokes every session and returns the
 current browser to sign-in. These actions are recorded in the audit log.
+
+The login protection migration stores only HMAC fingerprints of normalized email addresses and
+client IPs. Five failed password attempts for an email or twenty for an IP within fifteen minutes
+temporarily block sign-in until the rolling window expires. A successful sign-in clears failures
+for that email. Repeated failures and a returning account signing in from a new IP create security
+events in the existing audit log for super-admin review.
+This only protects the application's sign-in flow; direct calls to Supabase Auth do not pass through
+these counters, so keep Supabase's provider-side rate limits enabled and use edge/WAF controls where
+available.
