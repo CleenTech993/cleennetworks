@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useState } from "react";
+import { Download, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { reviewDirectMpesaTransaction } from "@/lib/tenant-service.functions";
+import { buildPaymentCsv, filterPaymentRows } from "@/lib/payment-report";
 
 export const Route = createFileRoute("/tenant/payments")({
   head: () => ({
@@ -22,6 +23,9 @@ export const Route = createFileRoute("/tenant/payments")({
 
 function Payments() {
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["payments"],
@@ -75,10 +79,11 @@ function Payments() {
     },
   });
   const review = useMutation({
-    mutationFn: (input:
-      | { transactionId: string; action: "reject" }
-      | { transactionId: string; action: "approve"; customerId: string; packageId: string }) =>
-      reviewDirectMpesaTransaction({ data: input }),
+    mutationFn: (
+      input:
+        | { transactionId: string; action: "reject" }
+        | { transactionId: string; action: "approve"; customerId: string; packageId: string },
+    ) => reviewDirectMpesaTransaction({ data: input }),
     onSuccess: () => {
       toast.success("Direct payment review saved.");
       queryClient.invalidateQueries({ queryKey: ["direct-mpesa-transactions"] });
@@ -89,13 +94,24 @@ function Payments() {
   const [selections, setSelections] = useState<
     Record<string, { customerId: string; packageId: string }>
   >({});
-  const rows = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return data ?? [];
-    return (data ?? []).filter((p) =>
-      [p.phone, p.mpesa_receipt, p.voucher_code].some((v) => v?.toLowerCase().includes(s)),
-    );
-  }, [q, data]);
+  const rows = filterPaymentRows(data ?? [], {
+    search: q,
+    status: statusFilter,
+    from: dateFrom,
+    to: dateTo,
+  });
+
+  function exportPayments() {
+    const csv = buildPaymentCsv(rows);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `payments-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
   return (
     <div>
       <PageHeader
@@ -260,14 +276,53 @@ function Payments() {
           </div>
         )}
       </section>
-      <div className="relative mb-4 max-w-md">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          className="pl-9"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search M-Pesa code, phone or voucher"
-        />
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search M-Pesa code, phone or voucher"
+              aria-label="Search payments"
+            />
+          </div>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label="Filter payments by status"
+          >
+            <option value="all">All statuses</option>
+            <option value="success">Successful</option>
+            <option value="pending">Pending</option>
+            <option value="failed">Failed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(event) => setDateFrom(event.target.value)}
+            aria-label="Payments from date"
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(event) => setDateTo(event.target.value)}
+            aria-label="Payments through date"
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5 self-end"
+          onClick={exportPayments}
+          disabled={!rows.length}
+        >
+          <Download className="h-4 w-4" />
+          Export {rows.length} payments
+        </Button>
       </div>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
