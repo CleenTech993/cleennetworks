@@ -335,7 +335,7 @@ export function VoucherManager() {
   function printSelectedVouchers() {
     const selectedVouchers = vouchers.filter((v) => selected.has(v.id));
     if (selectedVouchers.length === 0) return;
-    const firstPkg = selectedVouchers[0]?.package_id ? pkgById.get(selectedVouchers[0].package_id) : undefined;
+    const firstPkg = packages.find((p) => p.id === selectedVouchers[0]?.package_id);
     printSheet(
       {
         codes: selectedVouchers.map((v) => v.code),

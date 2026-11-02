@@ -410,7 +410,7 @@ export function TenantNocPage() {
                         <Progress value={cpu} className="h-1.5" />
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        <div>Uptime: <span className="font-medium text-foreground">{r.uptime ? fmtUptime(r.uptime) : "—"}</span></div>
+                        <div>Uptime: <span className="font-medium text-foreground">{r.uptime_seconds ? fmtUptime(r.uptime_seconds) : "—"}</span></div>
                         {memoryMb > 0 && (
                           <div className="text-muted-foreground mt-0.5">
                             RAM: {Math.round(freeMb)}MB free ({usedMemPct}% used)
@@ -419,7 +419,7 @@ export function TenantNocPage() {
                       </td>
                       <td className="px-4 py-3 text-xs">
                         <div className="font-medium text-foreground">{r.board_name ?? r.model ?? "MikroTik"}</div>
-                        <div className="text-muted-foreground">{r.os_version ? `RouterOS ${r.os_version}` : "RouterOS"}</div>
+                        <div className="text-muted-foreground">{r.routeros_version ? `RouterOS ${r.routeros_version}` : "RouterOS"}</div>
                         {r.temperature && (
                           <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                             <Thermometer className="h-3 w-3 text-amber-500" />
