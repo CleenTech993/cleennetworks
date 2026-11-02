@@ -1,18 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { MfaSecurityCard } from "@/components/mfa-security-card";
-import { TenantServiceSettings } from "@/components/tenant-service-settings";
-import type { Database } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/tenant/settings")({ component: Settings });
 
@@ -32,13 +29,10 @@ const empty = {
 
 function Settings() {
   const qc = useQueryClient();
-  const { tenantId, user, loading } = useAuth();
-  const [verified, setVerified] = useState(false);
-  const [password, setPassword] = useState("");
-  const [verifying, setVerifying] = useState(false);
+  const { tenantId } = useAuth();
   const { data: tenant } = useQuery({
     queryKey: ["tenant", tenantId],
-    enabled: !!tenantId && verified,
+    enabled: !!tenantId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
@@ -81,76 +75,6 @@ function Settings() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  async function verifyPassword(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!user?.email || !password) {
-      toast.error("Enter your account password to continue.");
-      return;
-    }
-    setVerifying(true);
-    try {
-      const url = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-      const key =
-        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
-      if (!url || !key) throw new Error("Password verification is not configured.");
-
-      const authStorage = new Map<string, string>();
-      const verifier = createClient<Database>(url, key, {
-        auth: {
-          storageKey: `settings-password-check-${crypto.randomUUID()}`,
-          storage: {
-            getItem: (storageKey) => authStorage.get(storageKey) ?? null,
-            setItem: (storageKey, value) => void authStorage.set(storageKey, value),
-            removeItem: (storageKey) => void authStorage.delete(storageKey),
-          },
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      });
-      const { data, error } = await verifier.auth.signInWithPassword({
-        email: user.email,
-        password,
-      });
-      if (error || data.user?.id !== user.id)
-        throw new Error("The password is incorrect. Please try again.");
-      setVerified(true);
-      setPassword("");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not verify your password.");
-    } finally {
-      setVerifying(false);
-    }
-  }
-
-  if (loading) return <div className="p-6 text-sm text-muted-foreground">Loading settings…</div>;
-  if (!verified) {
-    return (
-      <div>
-        <PageHeader
-          title="Settings"
-          description="Confirm your account password to access tenant settings and sensitive credentials."
-        />
-        <form className="mx-auto max-w-md rounded-xl border bg-card p-5" onSubmit={verifyPassword}>
-          <Label htmlFor="settings-password">Account password</Label>
-          <Input
-            id="settings-password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="mt-1"
-            required
-            autoFocus
-          />
-          <Button className="mt-4 w-full" type="submit" disabled={verifying || !password}>
-            {verifying ? "Verifying…" : "Unlock settings"}
-          </Button>
-        </form>
-      </div>
-    );
-  }
-
   const slug = (tenant as { slug?: string } | undefined)?.slug;
   const portalUrl =
     slug && typeof window !== "undefined" ? `${window.location.origin}/p/${slug}` : "";
@@ -173,7 +97,7 @@ function Settings() {
     <div>
       <PageHeader
         title="Settings"
-        description="Branding, receiving details, customer support, and service credentials."
+        description="Branding, receiving details, and customer support."
       />
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-xl border bg-card p-5">
@@ -201,8 +125,8 @@ function Settings() {
           <h3 className="font-semibold mb-1">Receiving details</h3>
           <p className="text-xs text-muted-foreground mb-4">
             New online payments are sent directly to your M-Pesa account using the Daraja
-            credentials configured below. These details are for customer instructions and records;
-            they are not API credentials.
+            credentials configured under Notifications. These details are for customer instructions
+            and records; they are not API credentials.
           </p>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -245,7 +169,6 @@ function Settings() {
         <h3 className="text-lg font-semibold mb-3">Security &amp; Authentication</h3>
         <MfaSecurityCard />
       </div>
-      <TenantServiceSettings />
     </div>
   );
 }

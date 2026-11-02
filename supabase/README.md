@@ -96,7 +96,3 @@ gateway secrets. New payments use Daraja only; outstanding payments from the ret
 marked failed, and completed historical records remain available for reporting. Super admins manage
 only the platform's C2B receiving shortcode. Tenants pay platform commission by separate C2B transfer;
 `platform_commissions` records the amount due and the manually confirmed M-Pesa receipt.
-
-Portal image uploads are isolated by tenant and authenticated user under `portal-assets`. The public
-read behavior is unchanged; restrictive insert/update policies require tenant-admin membership and
-the uploader's own user-id folder.

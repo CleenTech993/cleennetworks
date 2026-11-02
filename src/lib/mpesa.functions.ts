@@ -24,12 +24,6 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
       .single();
     if (pErr || !profile?.tenant_id) throw new Error("No tenant context");
     const tenantId = profile.tenant_id as string;
-    const { data: tenant, error: tenantError } = await supabase
-      .from("tenants")
-      .select("name")
-      .eq("id", tenantId)
-      .single();
-    if (tenantError || !tenant?.name) throw new Error("No tenant business name");
 
     const { data: pkg, error: kErr } = await supabase
       .from("packages")
@@ -61,7 +55,6 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
 
     const started = await startDarajaStkPush({
       tenantId,
-      businessName: tenant.name,
       amount,
       phone: data.phone,
       paymentId: pay.id,

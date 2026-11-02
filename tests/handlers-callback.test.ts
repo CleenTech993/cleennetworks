@@ -3,11 +3,15 @@ import { FakeDb } from "./helpers/fake-supabase";
 import { call, json } from "./helpers/call";
 import { h } from "./helpers/setup";
 
+const darajaMock = vi.hoisted(() => ({ query: vi.fn() }));
+
 vi.mock("@/integrations/supabase/client.server", () => ({
   get supabaseAdmin() {
     return h.db;
   },
 }));
+vi.mock("@/lib/daraja.server", () => ({ queryDarajaStkPush: darajaMock.query }));
+
 import { Route } from "@/routes/api/public/mpesa/callback.$tenantId";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
@@ -36,6 +40,10 @@ const send = (body: unknown = callbackBody(), tenantId = TENANT) =>
   call(Route, "POST", { body, params: { tenantId } });
 
 beforeEach(() => {
+  darajaMock.query.mockReset().mockResolvedValue({
+    resultCode: "0",
+    resultDescription: "success",
+  });
   h.db = new FakeDb()
     .seed("packages", [
       {
@@ -77,9 +85,10 @@ afterEach(() => {
 const payment = () => h.db.rows("payments").find((row) => row.id === PAY)!;
 
 describe("tenant Daraja callback", () => {
-  it("settles a successful Daraja callback and issues a voucher", async () => {
+  it("verifies STK success before settling and issuing a voucher", async () => {
     const response = await send();
     expect(response.status).toBe(200);
+    expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
 
     const vouchers = h.db.rows("vouchers");
     expect(vouchers).toHaveLength(1);
@@ -102,22 +111,37 @@ describe("tenant Daraja callback", () => {
   it("records M-Pesa failure and issues nothing", async () => {
     await send(callbackBody({ resultCode: 1032 }));
     expect(payment().status).toBe("failed");
+    expect(darajaMock.query).not.toHaveBeenCalled();
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
+  it("does not settle when the STK query is not successful", async () => {
+    darajaMock.query.mockResolvedValue({
+      resultCode: "1032",
+      resultDescription: "cancelled",
+    });
+    const response = await send();
+    expect(response.status).toBe(200);
+    expect(payment().status).toBe("pending");
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
   it("does not settle callback details that do not match the stored amount or phone", async () => {
     await send(callbackBody({ amount: 1 }));
+    expect(darajaMock.query).not.toHaveBeenCalled();
     expect(payment().status).toBe("pending");
 
     await send(callbackBody({ phone: 254700000000 }));
+    expect(darajaMock.query).not.toHaveBeenCalled();
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
   it("ignores callbacks for another tenant and non-Daraja callback formats", async () => {
     const wrongTenant = await send(callbackBody(), OTHER_TENANT);
-    expect(wrongTenant.status).toBe(503);
+    expect(await json(wrongTenant)).toMatchObject({ note: "Unknown payment" });
     const oldGateway = await send({ response: { CheckoutRequestID: "ws_CO_1" } });
     expect(await json(oldGateway)).toMatchObject({ note: "Unknown callback" });
+    expect(darajaMock.query).not.toHaveBeenCalled();
     expect(payment().status).toBe("pending");
   });
 
@@ -133,35 +157,20 @@ describe("tenant Daraja callback", () => {
     ).toBe(400);
   });
 
+  it("returns 502 and leaves payment pending when Daraja verification is unavailable", async () => {
+    darajaMock.query.mockRejectedValue(new Error("Daraja unavailable"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await send();
+    expect(response.status).toBe(502);
+    expect(payment().status).toBe("pending");
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
   it("is idempotent when a callback is replayed", async () => {
     await send();
     const response = await send();
     expect(await json(response)).toMatchObject({ note: "Already processed" });
     expect(h.db.rows("vouchers")).toHaveLength(1);
-  });
-
-  it("backfills the receipt when the payment was already reconciled", async () => {
-    payment().status = "success";
-    payment().voucher_code = "EXISTING123";
-    h.db.seed("vouchers", [
-      { tenant_id: TENANT, package_id: HOTSPOT_PKG, payment_id: PAY, code: "EXISTING123" },
-    ]);
-
-    const response = await send();
-
-    expect(response.status).toBe(200);
-    expect(payment()).toMatchObject({ status: "success", mpesa_receipt: "DAR1234567" });
-    expect(h.db.rows("vouchers")).toHaveLength(1);
-  });
-
-  it("saves the callback receipt while another settlement is processing", async () => {
-    payment().status = "processing";
-
-    const response = await send();
-
-    expect(response.status).toBe(200);
-    expect(payment()).toMatchObject({ status: "processing", mpesa_receipt: "DAR1234567" });
-    expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
   it("issues exactly one voucher for concurrent duplicate callbacks", async () => {

@@ -34,11 +34,6 @@ SELECT item, ok AS present FROM (VALUES
      AND to_regclass('public.platform_gateway_secrets') IS NULL
      AND EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.payments'::regclass
        AND conname = 'payments_provider_check' AND pg_get_constraintdef(oid) LIKE '%failed%')),
-  ('20261103 isolated portal image uploads',
-     EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
-       AND policyname = 'portal assets tenant user uploads' AND permissive = 'RESTRICTIVE')
-     AND EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
-       AND policyname = 'portal assets tenant user updates' AND permissive = 'RESTRICTIVE')),
   ('20261030 router last-sync time (dashboard shows whether routers are syncing)',
      EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'routers' AND column_name = 'last_sync_at')),
   ('pg_cron enabled (needed to schedule the router liveness check)',

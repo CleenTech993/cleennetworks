@@ -400,7 +400,7 @@ function RouterDetail() {
           </div>
 
           <div className="mt-6">
-            <RouterHistory routerId={r.id} />
+            <RouterHistory routerId={r.id} lastHeartbeat={last} createdAt={r.created_at} />
           </div>
         </TabsContent>
       </Tabs>

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
 import { normalizePhone } from "@/lib/mpesa.server";
+import { queryDarajaStkPush } from "@/lib/daraja.server";
 import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 
 type DarajaCallback = {
@@ -21,28 +22,19 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   const checkoutId = callback?.CheckoutRequestID;
   if (!callback || !checkoutId) return Response.json({ ok: true, note: "No payment reference" });
 
-  const findPayment = () =>
-    supabaseAdmin
-      .from("payments")
-      .select(
-        "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,mpesa_receipt,tv_device_id,expires_at",
-      )
-      .eq("tenant_id", tenantId)
-      .eq("provider", "daraja")
-      .eq("checkout_request_id", checkoutId)
-      .maybeSingle();
-  let lookup = await findPayment();
-  for (let attempt = 0; !lookup.data && !lookup.error && attempt < 2; attempt++) {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    lookup = await findPayment();
+  const { data: payment } = await supabaseAdmin
+    .from("payments")
+    .select(
+      "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,tv_device_id,expires_at",
+    )
+    .eq("tenant_id", tenantId)
+    .eq("provider", "daraja")
+    .eq("checkout_request_id", checkoutId)
+    .maybeSingle();
+  if (!payment) return Response.json({ ok: true, note: "Unknown payment" });
+  if (payment.status === "success" || payment.status === "processing") {
+    return Response.json({ ok: true, note: "Already processed" });
   }
-  if (lookup.error) {
-    console.error("Daraja callback payment lookup failed", lookup.error);
-    return Response.json({ ok: false, error: "Payment lookup failed" }, { status: 503 });
-  }
-  const payment = lookup.data;
-  if (!payment)
-    return Response.json({ ok: false, error: "Payment not available yet" }, { status: 503 });
   if (
     callback.MerchantRequestID &&
     payment.merchant_request_id &&
@@ -52,9 +44,6 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   }
 
   if (String(callback.ResultCode) !== "0") {
-    if (payment.status === "success" || payment.status === "processing") {
-      return Response.json({ ok: true, note: "Already processed" });
-    }
     await markPaymentFailed(payment.id, rawJson);
     return Response.json({ ok: true, note: "Payment was not completed" });
   }
@@ -75,22 +64,15 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
     return Response.json({ ok: true, note: "Payment details did not match" });
   }
 
-  if (payment.status === "success" || payment.status === "processing") {
-    if (!payment.mpesa_receipt) {
-      const { error } = await supabaseAdmin
-        .from("payments")
-        .update({ mpesa_receipt: receipt, raw_callback: rawJson })
-        .eq("id", payment.id)
-        .is("mpesa_receipt", null);
-      if (error) {
-        console.error("Daraja receipt update failed", error);
-        return Response.json({ ok: false, error: "Receipt update failed" }, { status: 500 });
-      }
-    }
-    return Response.json({
-      ok: true,
-      note: payment.status === "success" ? "Already processed" : "Already processing",
-    });
+  let verification: Awaited<ReturnType<typeof queryDarajaStkPush>>;
+  try {
+    verification = await queryDarajaStkPush(tenantId, checkoutId);
+  } catch (error) {
+    console.error("Daraja callback verification failed", error);
+    return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
+  }
+  if (verification.resultCode !== "0") {
+    return Response.json({ ok: true, note: "Payment verification is still pending" });
   }
 
   try {

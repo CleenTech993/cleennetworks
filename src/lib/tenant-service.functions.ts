@@ -50,7 +50,8 @@ async function getStatus(tenantId: string) {
   ];
   return {
     mpesaConfigured: mpesaFields.every(Boolean),
-    mpesaEnvironment: secrets.MPESA_ENV ?? "sandbox",
+    mpesaEnvironment:
+      (secrets.MPESA_ENV === "production" ? "production" : "sandbox") as "sandbox" | "production",
     shortcodeLast4: secrets.MPESA_SHORTCODE?.slice(-4) ?? null,
     smsConfigured: Boolean(secrets.AT_USERNAME && secrets.AT_API_KEY),
     smsSenderConfigured: Boolean(secrets.AT_SENDER_ID),

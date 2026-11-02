@@ -1,21 +1,29 @@
+import type { Json } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface LogAuditParams {
   tenantId?: string | null;
   action: string;
-  resourceType: string;
+  /** Resource type, e.g. "router" or "pppoe_client". `resourceType` is the legacy alias. */
+  resource?: string;
+  resourceType?: string;
   resourceId?: string | null;
-  description: string;
+  /** Human-readable summary. Falls back to "<action> <resourceType>". */
+  description?: string;
+  /** Structured detail stored in audit_logs.metadata. `metadata` is the legacy alias. */
+  details?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
 }
 
 export async function logAudit({
   tenantId,
   action,
+  resource,
   resourceType,
   resourceId,
   description,
-  metadata = {},
+  details,
+  metadata,
 }: LogAuditParams) {
   try {
     const { data: u } = await supabase.auth.getUser();
@@ -36,19 +44,21 @@ export async function logAudit({
       }
     }
 
+    const rt = resource ?? resourceType ?? "system";
+    const extra = (details ?? metadata ?? {}) as unknown as Json;
+
     await supabase.from("audit_logs").insert({
       tenant_id: tenantId ?? null,
       actor_id: user?.id ?? null,
       actor_email: user?.email ?? null,
       actor_role: actorRole,
       action,
-      resource_type: resourceType,
+      resource_type: rt,
       resource_id: resourceId ?? null,
-      description,
-      metadata: metadata as Record<string, unknown>,
+      description: description ?? `${action} ${rt}`,
+      metadata: extra,
     });
   } catch (err: unknown) {
     console.warn("Failed to write audit log:", err);
   }
 }
-
