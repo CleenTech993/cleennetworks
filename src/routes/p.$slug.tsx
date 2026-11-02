@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Tv } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +77,45 @@ function sessionStore(): Storage | null {
   }
 }
 
+async function copyVoucher(code: string) {
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code);
+      copied = true;
+    }
+  } catch {
+    // Some captive-portal browsers expose the API but reject clipboard writes.
+  }
+  if (!copied) {
+    const input = document.createElement("textarea");
+    input.value = code;
+    input.setAttribute("readonly", "");
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    document.body.appendChild(input);
+    try {
+      input.select();
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    } finally {
+      input.remove();
+    }
+  }
+  if (copied) toast.success("Voucher copied");
+  else toast.error("Could not copy the voucher. Please select and copy it manually.");
+}
+
+function VoucherCopyButton({ code }: { code: string }) {
+  return (
+    <Button variant="outline" className="mx-auto mt-3 flex" onClick={() => void copyVoucher(code)}>
+      <Copy aria-hidden="true" />
+      Copy voucher
+    </Button>
+  );
+}
+
 function PortalPage() {
   const [tab, setTab] = useState("buy");
   useEffect(() => {
@@ -118,7 +157,12 @@ function PortalPage() {
   }
 
   return (
-    <PortalThemeFrame themeId={themeId} brand={brand} backgroundUrl={data.portal?.background_url} className="min-h-screen">
+    <PortalThemeFrame
+      themeId={themeId}
+      brand={brand}
+      backgroundUrl={data.portal?.background_url}
+      className="min-h-screen"
+    >
       <PortalHeader
         theme={theme}
         name={data.tenant.name}
@@ -218,7 +262,17 @@ function BuyFlow({
     }
   }
 
-  if (paymentId) return <PaymentWaiting slug={slug} paymentId={paymentId} primary={primary} />;
+  if (paymentId)
+    return (
+      <PaymentWaiting
+        key={paymentId}
+        slug={slug}
+        paymentId={paymentId}
+        primary={primary}
+        retrying={submitting}
+        onTryAgain={() => void pay()}
+      />
+    );
 
   return (
     <div>
@@ -265,14 +319,20 @@ function PaymentWaiting({
   paymentId,
   primary,
   tv = false,
+  retrying = false,
+  onTryAgain,
 }: {
   slug: string;
   paymentId: string;
   primary: string;
   tv?: boolean;
+  retrying?: boolean;
+  onTryAgain?: () => void;
 }) {
   const [status, setStatus] = useState<string>("pending");
   const [voucher, setVoucher] = useState<string | null>(null);
+  const [autoConnecting, setAutoConnecting] = useState(false);
+  const autoConnectAttempted = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -305,6 +365,18 @@ function PaymentWaiting({
     };
   }, [paymentId, slug]);
 
+  useEffect(() => {
+    if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
+    const store = sessionStore();
+    const params = routerParams(window.location.search, store);
+    const target = buildHotspotLoginRedirect(params.login, voucher);
+    if (!target) return;
+    autoConnectAttempted.current = true;
+    setAutoConnecting(true);
+    rememberVoucher(store, voucher);
+    window.location.assign(target);
+  }, [status, tv, voucher]);
+
   if (status === "success" && tv) {
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
@@ -321,15 +393,18 @@ function PaymentWaiting({
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
-        <h2 className="mt-3 text-lg font-semibold">You're online</h2>
+        <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {autoConnecting
+            ? "Connecting you to Wi-Fi…"
+            : "Your voucher is ready. Use it on the Wi-Fi login page."}
+        </p>
         {voucher && (
           <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Use this voucher on the Wi-Fi page:
-            </p>
             <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-lg tracking-widest">
               {voucher}
             </p>
+            <VoucherCopyButton code={voucher} />
           </>
         )}
       </div>
@@ -340,6 +415,23 @@ function PaymentWaiting({
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <p className="font-medium">Payment failed</p>
         <p className="mt-1 text-sm text-muted-foreground">Please try again.</p>
+        {onTryAgain && (
+          <Button
+            className="pt-btn mt-4 w-full"
+            style={{ backgroundColor: primary }}
+            disabled={retrying}
+            onClick={onTryAgain}
+          >
+            {retrying ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden="true" />
+                Sending prompt…
+              </>
+            ) : (
+              "Try again"
+            )}
+          </Button>
+        )}
       </div>
     );
   }
@@ -424,7 +516,15 @@ function TvFlow({
   if (paymentId) {
     return (
       <div className="space-y-3">
-        <PaymentWaiting slug={slug} paymentId={paymentId} primary={primary} tv />
+        <PaymentWaiting
+          key={paymentId}
+          slug={slug}
+          paymentId={paymentId}
+          primary={primary}
+          tv
+          retrying={submitting}
+          onTryAgain={() => void pay()}
+        />
         {randomized && (
           <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
             This looks like a private (randomised) Wi-Fi address. Make sure it is the address your
@@ -580,9 +680,12 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
             ` · ${result.remaining_minutes} min left`}
         </p>
         {result.voucher_code && (
-          <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-sm tracking-widest">
-            {result.voucher_code}
-          </p>
+          <>
+            <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-sm tracking-widest">
+              {result.voucher_code}
+            </p>
+            <VoucherCopyButton code={result.voucher_code} />
+          </>
         )}
       </div>
     );
