@@ -241,6 +241,101 @@ export type Database = {
           },
         ]
       }
+      direct_mpesa_transactions: {
+        Row: {
+          amount: number
+          bill_ref_number: string | null
+          created_at: string
+          customer_id: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          middle_name: string | null
+          payment_id: string | null
+          phone: string | null
+          raw_payload: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          shortcode: string
+          status: string
+          suggested_customer_id: string | null
+          tenant_id: string
+          transaction_id: string
+          transaction_time: string
+        }
+        Insert: {
+          amount: number
+          bill_ref_number?: string | null
+          created_at?: string
+          customer_id?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          middle_name?: string | null
+          payment_id?: string | null
+          phone?: string | null
+          raw_payload: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          shortcode: string
+          status?: string
+          suggested_customer_id?: string | null
+          tenant_id: string
+          transaction_id: string
+          transaction_time: string
+        }
+        Update: {
+          amount?: number
+          bill_ref_number?: string | null
+          created_at?: string
+          customer_id?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          middle_name?: string | null
+          payment_id?: string | null
+          phone?: string | null
+          raw_payload?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          shortcode?: string
+          status?: string
+          suggested_customer_id?: string | null
+          tenant_id?: string
+          transaction_id?: string
+          transaction_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_mpesa_transactions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_mpesa_transactions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_mpesa_transactions_suggested_customer_id_fkey"
+            columns: ["suggested_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_mpesa_transactions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_alerts: {
         Row: {
           created_at: string
@@ -1670,6 +1765,17 @@ export type Database = {
           p_role: Database["public"]["Enums"]["app_role"]
           p_tenant_id?: string
           p_user_id: string
+        }
+        Returns: string
+      }
+      approve_direct_mpesa_transaction: {
+        Args: {
+          p_customer_id: string
+          p_expires_at: string
+          p_package_id: string
+          p_reviewed_by: string
+          p_tenant_id: string
+          p_transaction_id: string
         }
         Returns: string
       }
