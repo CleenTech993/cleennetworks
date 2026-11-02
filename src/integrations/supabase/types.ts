@@ -153,6 +153,7 @@ export type Database = {
         Row: {
           created_at: string
           customer_type: string
+          data_used_bytes: number
           email: string | null
           expires_at: string | null
           full_name: string | null
@@ -169,10 +170,14 @@ export type Database = {
           static_ip: string | null
           status: string
           tenant_id: string
+          usage_bytes_in: number
+          usage_bytes_out: number
+          usage_session_id: string | null
         }
         Insert: {
           created_at?: string
           customer_type?: string
+          data_used_bytes?: number
           email?: string | null
           expires_at?: string | null
           full_name?: string | null
@@ -189,10 +194,14 @@ export type Database = {
           static_ip?: string | null
           status?: string
           tenant_id: string
+          usage_bytes_in?: number
+          usage_bytes_out?: number
+          usage_session_id?: string | null
         }
         Update: {
           created_at?: string
           customer_type?: string
+          data_used_bytes?: number
           email?: string | null
           expires_at?: string | null
           full_name?: string | null
@@ -209,6 +218,9 @@ export type Database = {
           static_ip?: string | null
           status?: string
           tenant_id?: string
+          usage_bytes_in?: number
+          usage_bytes_out?: number
+          usage_session_id?: string | null
         }
         Relationships: [
           {
@@ -616,6 +628,8 @@ export type Database = {
           download_kbps: number | null
           duration_unit: string | null
           duration_value: number | null
+          fup_download_kbps: number
+          fup_upload_kbps: number
           id: string
           idle_timeout_sec: number | null
           kind: string
@@ -638,6 +652,8 @@ export type Database = {
           download_kbps?: number | null
           duration_unit?: string | null
           duration_value?: number | null
+          fup_download_kbps?: number
+          fup_upload_kbps?: number
           id?: string
           idle_timeout_sec?: number | null
           kind?: string
@@ -660,6 +676,8 @@ export type Database = {
           download_kbps?: number | null
           duration_unit?: string | null
           duration_value?: number | null
+          fup_download_kbps?: number
+          fup_upload_kbps?: number
           id?: string
           idle_timeout_sec?: number | null
           kind?: string

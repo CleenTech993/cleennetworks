@@ -24,6 +24,10 @@ The app sends STK Push requests to the tenant's Daraja account and routes callba
 query the STK request before issuing a voucher. Configure Daraja with the deployed HTTPS callback URL
 if the Daraja app requires callback allowlisting.
 
+Incoming C2B callback URLs are registered with the Daraja C2B v2 RegisterURL endpoint. C2B v2 can
+mask the payer's MSISDN in its callback; the app stores the phone as unavailable in that case and
+does not use a partial number to suggest a PPPoE customer.
+
 SMS uses the tenant's own Africa's Talking balance. If the username is `sandbox`, the app uses the
 Africa's Talking sandbox endpoint.
 

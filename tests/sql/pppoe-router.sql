@@ -81,7 +81,8 @@ BEGIN
 
   -- (called as the table owner here, exactly what the service role's definer function runs as)
   n := public.record_pppoe_sessions(R1::uuid, A::uuid, jsonb_build_array(
-        jsonb_build_object('username','alice','mac','AA:BB:CC:00:00:01','ip','10.10.0.2'),   -- assigned to R1
+        jsonb_build_object('username','alice','mac','AA:BB:CC:00:00:01','ip','10.10.0.2',
+                           'session_id','alice-1','bytes_in','1000','bytes_out','2000'),     -- assigned to R1
         jsonb_build_object('username','bob',  'mac','AA:BB:CC:00:00:02','ip','10.10.0.3'),   -- now unassigned (router deleted)
         jsonb_build_object('username','carol','mac','AA:BB:CC:00:00:03','ip','10.10.0.4'),   -- legacy, unassigned
         jsonb_build_object('username','nobody','mac','AA:BB:CC:00:00:04','ip','10.10.0.5'))); -- unknown login
@@ -89,6 +90,24 @@ BEGIN
   SELECT * INTO r FROM public.customers WHERE pppoe_username = 'alice' AND tenant_id = A::uuid;
   PERFORM t.check('report: stores MAC, IP, router and time', r.last_mac = 'AA:BB:CC:00:00:01' AND r.last_ip = '10.10.0.2'
                   AND r.last_router_id = R1::uuid AND r.last_seen_at > now() - interval '1 minute');
+  PERFORM t.check('usage: first counter sample establishes a baseline', r.data_used_bytes = 0);
+  PERFORM t.expect('usage: browser cannot forge counters', 'blocked', 'authenticated', admin,
+    format('UPDATE public.customers SET data_used_bytes = 0 WHERE pppoe_username = %L AND tenant_id = %L', 'alice', A));
+  PERFORM public.record_pppoe_sessions(R1::uuid, A::uuid, jsonb_build_array(
+    jsonb_build_object('username','alice','mac','AA:BB:CC:00:00:01','ip','10.10.0.2',
+                       'session_id','alice-1','bytes_in','1500','bytes_out','2500')));
+  SELECT * INTO r FROM public.customers WHERE pppoe_username = 'alice' AND tenant_id = A::uuid;
+  PERFORM t.check('usage: same-session samples add only counter deltas', r.data_used_bytes = 1000);
+  UPDATE public.customers SET expires_at = now() + interval '30 days'
+   WHERE pppoe_username = 'alice' AND tenant_id = A::uuid;
+  SELECT * INTO r FROM public.customers WHERE pppoe_username = 'alice' AND tenant_id = A::uuid;
+  PERFORM t.check('usage: renewal resets usage but preserves active-session baseline',
+    r.data_used_bytes = 0 AND r.usage_session_id = 'alice-1' AND r.usage_bytes_in = 1500 AND r.usage_bytes_out = 2500);
+  PERFORM public.record_pppoe_sessions(R1::uuid, A::uuid, jsonb_build_array(
+    jsonb_build_object('username','alice','mac','AA:BB:CC:00:00:01','ip','10.10.0.2',
+                       'session_id','alice-1','bytes_in','1600','bytes_out','2600')));
+  SELECT * INTO r FROM public.customers WHERE pppoe_username = 'alice' AND tenant_id = A::uuid;
+  PERFORM t.check('usage: renewal counts only post-renewal traffic', r.data_used_bytes = 200);
   PERFORM t.check('report: other tenant''s client with the same username is untouched',
     (SELECT last_mac IS NULL FROM public.customers WHERE pppoe_username = 'alice' AND tenant_id = B::uuid));
 

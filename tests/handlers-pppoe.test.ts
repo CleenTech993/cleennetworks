@@ -62,7 +62,7 @@ describe("PPPoE session report endpoint", () => {
     const token = await issueDeviceToken(R1);
     const res = await send(
       token,
-      "alice|aa-bb-cc-dd-ee-01|10.10.0.2;bob|AA:BB:CC:DD:EE:02|10.10.0.3;",
+      "alice|aa-bb-cc-dd-ee-01|10.10.0.2|alice-1|1000|2000;bob|AA:BB:CC:DD:EE:02|10.10.0.3;",
     );
     expect(res.status).toBe(200);
     expect(rpcCalls()).toHaveLength(1);
@@ -70,8 +70,22 @@ describe("PPPoE session report endpoint", () => {
       p_router_id: R1,
       p_tenant_id: T,
       p_sessions: [
-        { username: "alice", mac: "AA:BB:CC:DD:EE:01", ip: "10.10.0.2" },
-        { username: "bob", mac: "AA:BB:CC:DD:EE:02", ip: "10.10.0.3" },
+        {
+          username: "alice",
+          mac: "AA:BB:CC:DD:EE:01",
+          ip: "10.10.0.2",
+          session_id: "alice-1",
+          bytes_in: "1000",
+          bytes_out: "2000",
+        },
+        {
+          username: "bob",
+          mac: "AA:BB:CC:DD:EE:02",
+          ip: "10.10.0.3",
+          session_id: null,
+          bytes_in: null,
+          bytes_out: null,
+        },
       ],
     });
   });

@@ -35,13 +35,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
 import type { Tables } from "@/integrations/supabase/types";
-import { updatePackage, deletePackage, PACKAGE_UNITS } from "@/lib/package.functions";
+import {
+  createPackage,
+  updatePackage,
+  deletePackage,
+  PACKAGE_UNITS,
+} from "@/lib/package.functions";
 
 export const Route = createFileRoute("/tenant/packages")({ component: Packages });
 
 type Pkg = Tables<"packages">;
+type PackageKind = "hotspot" | "pppoe" | "voucher";
 type FormState = {
   name: string;
   price: string;
@@ -50,9 +55,15 @@ type FormState = {
   duration_unit: string;
   download_kbps: string;
   upload_kbps: string;
+  data_limit_mb: string;
+  fup_download_kbps: string;
+  fup_upload_kbps: string;
   device_limit: string;
   active: boolean;
 };
+const isPackageKind = (kind: string): kind is PackageKind =>
+  kind === "hotspot" || kind === "pppoe" || kind === "voucher";
+
 const EMPTY_FORM: FormState = {
   name: "",
   price: "",
@@ -61,6 +72,9 @@ const EMPTY_FORM: FormState = {
   duration_unit: "hours",
   download_kbps: "5000",
   upload_kbps: "2000",
+  data_limit_mb: "",
+  fup_download_kbps: "512",
+  fup_upload_kbps: "256",
   device_limit: "1",
   active: true,
 };
@@ -92,6 +106,46 @@ function PackageFields({
             onChange={(e) => setForm({ ...form, price: e.target.value })}
           />
         </div>
+        {form.kind === "pppoe" && (
+          <div>
+            <Label>Data allowance (MB, optional)</Label>
+            <Input
+              type="number"
+              min={1}
+              value={form.data_limit_mb}
+              onChange={(e) => setForm({ ...form, data_limit_mb: e.target.value })}
+              placeholder="No data cap"
+            />
+          </div>
+        )}
+        {form.kind === "pppoe" && form.data_limit_mb && (
+          <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
+            <div className="col-span-2">
+              <p className="text-sm font-medium">Fair usage speeds</p>
+              <p className="text-xs text-muted-foreground">
+                Applied after the allowance is used. Usage resets on renewal.
+              </p>
+            </div>
+            <div>
+              <Label>Reduced download (kbps)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.fup_download_kbps}
+                onChange={(e) => setForm({ ...form, fup_download_kbps: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Reduced upload (kbps)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.fup_upload_kbps}
+                onChange={(e) => setForm({ ...form, fup_upload_kbps: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
         <div>
           <Label>Kind</Label>
           {kindLocked ? (
@@ -99,7 +153,12 @@ function PackageFields({
               <Badge variant="outline">{form.kind}</Badge>
             </div>
           ) : (
-            <Select value={form.kind} onValueChange={(v) => setForm({ ...form, kind: v })}>
+            <Select
+              value={form.kind}
+              onValueChange={(v) => {
+                if (isPackageKind(v)) setForm({ ...form, kind: v });
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -194,7 +253,6 @@ function PackageFields({
 
 function Packages() {
   const qc = useQueryClient();
-  const { tenantId } = useAuth();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [editing, setEditing] = useState<Pkg | null>(null);
@@ -215,19 +273,25 @@ function Packages() {
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!tenantId) throw new Error("No tenant");
-      const { error } = await supabase.from("packages").insert({
-        tenant_id: tenantId,
-        name: form.name,
-        price: Number(form.price),
-        kind: form.kind,
-        duration_value: Number(form.duration_value),
-        duration_unit: form.duration_unit,
-        download_kbps: Number(form.download_kbps),
-        upload_kbps: Number(form.upload_kbps),
-        device_limit: Math.min(10, Math.max(1, Math.trunc(Number(form.device_limit)) || 1)),
+      if (!isPackageKind(form.kind)) throw new Error("Choose a valid package type.");
+      const res = await createPackage({
+        data: {
+          name: form.name,
+          price: Number(form.price),
+          kind: form.kind,
+          duration_value: Number(form.duration_value),
+          duration_unit: form.duration_unit,
+          download_kbps: Number(form.download_kbps),
+          upload_kbps: Number(form.upload_kbps),
+          data_limit_mb:
+            form.kind === "pppoe" && form.data_limit_mb ? Number(form.data_limit_mb) : null,
+          fup_download_kbps: Number(form.fup_download_kbps),
+          fup_upload_kbps: Number(form.fup_upload_kbps),
+          device_limit: Math.min(10, Math.max(1, Math.trunc(Number(form.device_limit)) || 1)),
+          active: form.active,
+        },
       });
-      if (error) throw error;
+      if (!res.ok) throw new Error(res.error);
     },
     onSuccess: () => {
       toast.success("Package created");
@@ -248,6 +312,9 @@ function Packages() {
       duration_unit: p.duration_unit ?? "hours",
       download_kbps: String(p.download_kbps ?? 0),
       upload_kbps: String(p.upload_kbps ?? 0),
+      data_limit_mb: p.data_limit_mb ? String(p.data_limit_mb) : "",
+      fup_download_kbps: String(p.fup_download_kbps ?? 512),
+      fup_upload_kbps: String(p.fup_upload_kbps ?? 256),
       device_limit: String(p.device_limit ?? 1),
       active: p.active ?? true,
     });
@@ -265,6 +332,9 @@ function Packages() {
           duration_unit: editForm.duration_unit as (typeof PACKAGE_UNITS)[number],
           download_kbps: Number(editForm.download_kbps),
           upload_kbps: Number(editForm.upload_kbps),
+          data_limit_mb: editForm.data_limit_mb ? Number(editForm.data_limit_mb) : null,
+          fup_download_kbps: Number(editForm.fup_download_kbps),
+          fup_upload_kbps: Number(editForm.fup_upload_kbps),
           device_limit: Math.min(10, Math.max(1, Math.trunc(Number(editForm.device_limit)) || 1)),
           active: editForm.active,
         },
@@ -306,9 +376,14 @@ function Packages() {
 
   const editInvalid =
     !editForm.name.trim() ||
-    [editForm.price, editForm.duration_value, editForm.download_kbps, editForm.upload_kbps].some(
-      (v) => v === "" || Number.isNaN(Number(v)),
-    );
+    [
+      editForm.price,
+      editForm.duration_value,
+      editForm.download_kbps,
+      editForm.upload_kbps,
+      editForm.data_limit_mb,
+      ...(editForm.data_limit_mb ? [editForm.fup_download_kbps, editForm.fup_upload_kbps] : []),
+    ].some((v) => v === "" || Number.isNaN(Number(v)));
 
   return (
     <div>
@@ -366,6 +441,9 @@ function Packages() {
               </p>
               <p className="text-xs text-muted-foreground">
                 {p.duration_value} {p.duration_unit} · {p.download_kbps}/{p.upload_kbps} kbps
+                {p.kind === "pppoe" && p.data_limit_mb && !p.unlimited
+                  ? ` · ${p.data_limit_mb} MB FUP`
+                  : ""}
                 {p.kind !== "pppoe"
                   ? ` · ${p.device_limit ?? 1} device${(p.device_limit ?? 1) === 1 ? "" : "s"}`
                   : ""}

@@ -30,6 +30,53 @@ afterEach(() => {
 });
 
 describe("tenant Daraja STK Push", () => {
+  it("uses the listed production endpoints for STK, STK query, and C2B registration", async () => {
+    secretsMock.load.mockResolvedValue({
+      MPESA_ENV: "production",
+      MPESA_SHORTCODE: "123456",
+      MPESA_CONSUMER_KEY: "consumer-key",
+      MPESA_CONSUMER_SECRET: "consumer-secret",
+      MPESA_PASSKEY: "passkey",
+    });
+    const fetchSpy = stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "access-token" })
+        : url.endsWith("/stkpush/v1/processrequest")
+          ? Response.json({
+              ResponseCode: "0",
+              CheckoutRequestID: "ws_CO_live",
+              MerchantRequestID: "merchant-live",
+            })
+          : url.endsWith("/stkpushquery/v1/query")
+            ? Response.json({ ResponseCode: "0", ResultCode: "0", ResultDesc: "Success" })
+            : Response.json({ ResponseCode: "00000000" }),
+    );
+
+    await startDarajaStkPush({
+      tenantId: TENANT,
+      amount: 50,
+      phone: "0712345678",
+      paymentId: PAYMENT,
+      callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
+      description: "Internet",
+    });
+    await queryDarajaStkPush(TENANT, "ws_CO_live");
+    await registerDarajaC2bUrl({
+      tenantId: TENANT,
+      shortcode: "123456",
+      validationUrl: "https://portal.test/api/public/mpesa/c2b-validation/path",
+      confirmationUrl: "https://portal.test/api/public/mpesa/c2b/path",
+    });
+
+    const urls = fetchSpy.mock.calls.map(([url]) => String(url));
+    expect(urls).toContain(
+      "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+    );
+    expect(urls).toContain("https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest");
+    expect(urls).toContain("https://api.safaricom.co.ke/mpesa/stkpushquery/v1/query");
+    expect(urls).toContain("https://api.safaricom.co.ke/mpesa/c2b/v2/registerurl");
+  });
+
   it("uses the tenant sandbox credentials, records the request ids, and sends the expected amount", async () => {
     const fetchSpy = stubFetch((url) =>
       url.includes("/oauth/")
@@ -94,7 +141,7 @@ describe("tenant Daraja STK Push", () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(fetchSpy.mock.calls[1][0]).toBe(
-      "https://sandbox.safaricom.co.ke/mpesa/c2b/v1/registerurl",
+      "https://sandbox.safaricom.co.ke/mpesa/c2b/v2/registerurl",
     );
     expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body))).toEqual({
       ShortCode: "123456",

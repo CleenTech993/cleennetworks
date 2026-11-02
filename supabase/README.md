@@ -121,3 +121,12 @@ events in the existing audit log for super-admin review.
 This only protects the application's sign-in flow; direct calls to Supabase Auth do not pass through
 these counters, so keep Supabase's provider-side rate limits enabled and use edge/WAF controls where
 available.
+
+## PPPoE fair usage
+
+`20261107000000_pppoe_fup_usage.sql` adds per-package PPPoE data allowances and reduced upload/download
+speeds. The router agent attempts to report session byte counters every two minutes; the database
+accumulates counter deltas and blocks browser edits to usage values. Usage resets when a package is
+changed or its expiry is extended. A customer switches to the package's FUP profile at the next
+router sync after reaching the allowance. If a router does not expose session counters, it continues
+reporting connectivity but cannot accumulate usage for FUP enforcement.

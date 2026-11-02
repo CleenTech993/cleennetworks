@@ -73,6 +73,18 @@ describe("tenant direct M-Pesa C2B callback", () => {
     expect(h.db.rows("payments")).toHaveLength(0);
   });
 
+  it("does not treat C2B v2's masked MSISDN as a real phone number", async () => {
+    const response = await send(
+      callback({ BillRefNumber: "unmatched-reference", MSISDN: "2547 ***** 126" }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(h.db.rows("direct_mpesa_transactions")[0]).toMatchObject({
+      phone: null,
+      suggested_customer_id: null,
+    });
+  });
+
   it("acknowledges a duplicate callback without creating another transaction", async () => {
     await send();
 

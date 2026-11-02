@@ -23,18 +23,61 @@ const NOT_ADMIN: Fail = { ok: false, error: "Only tenant admins can change packa
 
 export const PACKAGE_UNITS = ["minutes", "hours", "days", "weeks", "months"] as const;
 
-const UpdateSchema = z.object({
-  id: z.string().uuid(),
+const PackageSchema = z.object({
   name: z.string().trim().min(1).max(100),
   price: z.number().min(0).max(10_000_000),
+  kind: z.enum(["hotspot", "pppoe", "voucher"]),
   duration_value: z.number().int().min(1).max(100_000),
   duration_unit: z.enum(PACKAGE_UNITS),
   download_kbps: z.number().int().min(0).max(10_000_000),
   upload_kbps: z.number().int().min(0).max(10_000_000),
+  data_limit_mb: z.number().int().min(1).max(10_000_000).nullable(),
+  fup_download_kbps: z.number().int().min(1).max(10_000_000),
+  fup_upload_kbps: z.number().int().min(1).max(10_000_000),
   // How many devices may use one voucher of this package (1 = pinned to a single device).
   device_limit: z.number().int().min(1).max(10),
   active: z.boolean(),
 });
+
+const UpdateSchema = PackageSchema.omit({ kind: true }).extend({ id: z.string().uuid() });
+
+type PackageValues = z.infer<typeof PackageSchema>;
+type PackageRateValues = Pick<
+  PackageValues,
+  "data_limit_mb" | "download_kbps" | "upload_kbps" | "fup_download_kbps" | "fup_upload_kbps"
+>;
+
+function validateFupSpeeds(input: PackageRateValues, kind: string): string | null {
+  if (kind !== "pppoe" || input.data_limit_mb === null) return null;
+  if (input.download_kbps > 0 && input.fup_download_kbps >= input.download_kbps) {
+    return "FUP download speed must be lower than the normal speed.";
+  }
+  if (input.upload_kbps > 0 && input.fup_upload_kbps >= input.upload_kbps) {
+    return "FUP upload speed must be lower than the normal speed.";
+  }
+  return null;
+}
+
+export const createPackage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAal2])
+  .inputValidator((input: unknown) => PackageSchema.parse(input))
+  .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
+    const tenantId = await adminTenantOf(context.userId);
+    if (!tenantId) return NOT_ADMIN;
+    const validationError = validateFupSpeeds(data, data.kind);
+    if (validationError) return { ok: false, error: validationError };
+
+    const { error } = await supabaseAdmin.from("packages").insert({
+      tenant_id: tenantId,
+      ...data,
+      ...(data.kind === "pppoe" && data.data_limit_mb !== null ? { unlimited: false } : {}),
+    });
+    if (error) {
+      console.error("createPackage failed", error);
+      return { ok: false, error: "Could not create the package. Please try again." };
+    }
+    return { ok: true };
+  });
 
 /**
  * Edit a package. `kind` is deliberately not editable: customers, vouchers and router scripts
@@ -42,15 +85,33 @@ const UpdateSchema = z.object({
  */
 export const updatePackage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => UpdateSchema.parse(input))
+  .inputValidator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
 
     const { id, ...patch } = data;
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from("packages")
+      .select("kind")
+      .eq("id", id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (lookupError) {
+      console.error("updatePackage lookup failed", lookupError);
+      return { ok: false, error: "Could not save the package. Please try again." };
+    }
+    if (!existing) return { ok: false, error: "Package not found." };
+    const validationError = validateFupSpeeds(patch, existing.kind);
+    if (validationError) return { ok: false, error: validationError };
+
+    const update = {
+      ...patch,
+      ...(existing.kind === "pppoe" && patch.data_limit_mb !== null ? { unlimited: false } : {}),
+    };
     const { data: row, error } = await supabaseAdmin
       .from("packages")
-      .update(patch)
+      .update(update)
       .eq("id", id)
       .eq("tenant_id", tenantId)
       .select("id")
@@ -87,7 +148,7 @@ async function archive(id: string, tenantId: string): Promise<boolean> {
  */
 export const deletePackage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => DeleteSchema.parse(input))
+  .inputValidator((input: unknown) => DeleteSchema.parse(input))
   .handler(async ({ data, context }): Promise<DeletePackageResult> => {
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;

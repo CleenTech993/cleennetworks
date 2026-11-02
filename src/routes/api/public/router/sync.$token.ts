@@ -26,8 +26,12 @@ import { tooManyRequests } from "@/lib/rate-limit.server";
  * logged on the server and on the router.
  */
 function skipped(section: string, error: { message: string } | null | undefined): string[] {
-  console.error(`sync: ${section} could not be read, router keeps its current state: ${error?.message}`);
-  return [`:log warning "NetGrid: ${section} sync skipped (database problem), keeping current settings"`];
+  console.error(
+    `sync: ${section} could not be read, router keeps its current state: ${error?.message}`,
+  );
+  return [
+    `:log warning "NetGrid: ${section} sync skipped (database problem), keeping current settings"`,
+  ];
 }
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
@@ -65,7 +69,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           // (router_id null). Other routers' credentials are never even read for this request.
           supabaseAdmin
             .from("customers")
-            .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
+            .select(
+              "pppoe_username,pppoe_password,status,expires_at,router_id,package_id,data_used_bytes",
+            )
             .eq("tenant_id", router.tenant_id)
             .eq("customer_type", "pppoe")
             .eq("status", "active")
@@ -78,7 +84,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .or(`expires_at.is.null,expires_at.gt.${now}`),
           supabaseAdmin
             .from("packages")
-            .select("id,download_kbps,upload_kbps")
+            .select(
+              "id,download_kbps,upload_kbps,data_limit_mb,unlimited,fup_download_kbps,fup_upload_kbps",
+            )
             .eq("tenant_id", router.tenant_id)
             .eq("kind", "pppoe"),
           supabaseAdmin
@@ -113,8 +121,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const host = getRequestHost();
         const lines: string[] = [
           "# NetGrid sync",
-          ":do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5s on-event=\"/system script run netgrid-sync\" } else={ /system scheduler set [find name=netgrid-sync] interval=5s } } on-error={}",
-          ":do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=2s on-event=\"/system script run netgrid-wan\" } else={ /system scheduler set [find name=netgrid-wan] interval=2s } } on-error={}",
+          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5s on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5s } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=2s on-event="/system script run netgrid-wan" } else={ /system scheduler set [find name=netgrid-wan] interval=2s } } on-error={}',
           "/system script",
           ":do { remove [find where name=netgrid-heartbeat] } on-error={}",
           `:do { add name=netgrid-heartbeat source={
@@ -139,7 +147,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
   } on-error={ :log warning "NetGrid: heartbeat failed" }
 } } on-error={}`,
           ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=2s on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=2s on-event="/system script run netgrid-heartbeat" } } on-error={}',
-          ':do { /system script run netgrid-heartbeat } on-error={}',
+          ":do { /system script run netgrid-heartbeat } on-error={}",
         ];
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.

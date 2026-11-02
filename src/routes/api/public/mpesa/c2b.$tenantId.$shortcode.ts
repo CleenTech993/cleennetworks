@@ -132,7 +132,9 @@ export const Route = createFileRoute("/api/public/mpesa/c2b/$tenantId/$shortcode
               );
         }
 
-        const phone = body.MSISDN ? normalizePhone(String(body.MSISDN)) : null;
+        const normalizedPhone = body.MSISDN ? normalizePhone(String(body.MSISDN)) : null;
+        const phone =
+          normalizedPhone && /^254[17]\d{8}$/.test(normalizedPhone) ? normalizedPhone : null;
         const reference = body.BillRefNumber?.trim() || null;
         let suggestedCustomerId: string | null = null;
         if (reference) {
