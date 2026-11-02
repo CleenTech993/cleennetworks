@@ -84,19 +84,30 @@ function Payments() {
     },
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
   });
-  const { data: directTransactions, isLoading: directLoading } = useQuery({
+  const {
+    data: directPaymentPages,
+    isLoading: directLoading,
+    error: directPaymentError,
+    hasNextPage: hasMoreDirectPayments,
+    fetchNextPage: fetchMoreDirectPayments,
+    isFetchingNextPage: isFetchingMoreDirectPayments,
+  } = useInfiniteQuery({
     queryKey: ["direct-mpesa-transactions"],
-    queryFn: async () => {
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase
         .from("direct_mpesa_transactions")
         .select(
           "id,transaction_id,transaction_time,amount,bill_ref_number,phone,first_name,last_name,suggested_customer_id,customer_id,status",
         )
         .order("transaction_time", { ascending: false })
-        .limit(200);
+        .order("id", { ascending: false })
+        .range(pageParam, pageParam + PAYMENT_PAGE_SIZE - 1);
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.length === PAYMENT_PAGE_SIZE ? pages.length * PAYMENT_PAGE_SIZE : undefined,
   });
   const { data: pppoeCustomers } = useQuery({
     queryKey: ["direct-mpesa-pppoe-customers"],
@@ -140,6 +151,7 @@ function Payments() {
     Record<string, { customerId: string; packageId: string }>
   >({});
   const rows = paymentPages?.pages.flatMap((page) => page.payments) ?? [];
+  const directTransactions = directPaymentPages?.pages.flatMap((page) => page) ?? [];
   const matchingCount = paymentPages?.pages[0]?.count ?? 0;
   const paymentSummary = summarizePayments(rows);
   const directSummary = summarizeDirectMpesa(directTransactions ?? []);
@@ -185,7 +197,7 @@ function Payments() {
         {!directLoading && directTransactions?.length ? (
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border bg-card p-3">
-              <p className="text-xs text-muted-foreground">C2B captured (latest 200)</p>
+              <p className="text-xs text-muted-foreground">C2B captured (loaded)</p>
               <p className="mt-1 text-lg font-semibold">
                 KES {directSummary.capturedAmount.toLocaleString()}
               </p>
@@ -216,154 +228,181 @@ function Payments() {
         ) : null}
         {directLoading ? (
           <p className="text-sm text-muted-foreground">Loading direct payments…</p>
-        ) : !directTransactions?.length ? (
+        ) : directPaymentError ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive"
+          >
+            Could not load direct M-Pesa payments: {directPaymentError.message}
+          </p>
+        ) : !directTransactions.length ? (
           <EmptyState
             title="No direct payments received"
             description="Register Daraja callbacks in Notifications & Payments. Safaricom must support C2B callback registration for the shortcode."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border bg-card">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2.5 text-left">Date</th>
-                  <th className="px-3 py-2.5 text-left">Amount / receipt</th>
-                  <th className="px-3 py-2.5 text-left">Sender / reference</th>
-                  <th className="px-3 py-2.5 text-left">PPPoE customer</th>
-                  <th className="px-3 py-2.5 text-left">Package</th>
-                  <th className="px-3 py-2.5 text-left">Review</th>
-                </tr>
-              </thead>
-              <tbody>
-                {directTransactions.map((transaction) => {
-                  const selection = selections[transaction.id] ?? {
-                    customerId: transaction.suggested_customer_id ?? "",
-                    packageId: "",
-                  };
-                  const customer = pppoeCustomers?.find((item) => item.id === selection.customerId);
-                  const packageId = selection.packageId || customer?.package_id || "";
-                  return (
-                    <tr key={transaction.id} className="border-t align-top">
-                      <td className="whitespace-nowrap px-3 py-3">
-                        {new Date(transaction.transaction_time).toLocaleString()}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div>KES {Number(transaction.amount).toLocaleString()}</div>
-                        <div className="font-mono text-xs text-muted-foreground">
-                          {transaction.transaction_id}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div>
-                          {[transaction.first_name, transaction.last_name]
-                            .filter(Boolean)
-                            .join(" ") || "M-Pesa customer"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {transaction.phone ?? "—"} · Ref: {transaction.bill_ref_number || "—"}
-                        </div>
-                      </td>
-                      <td className="min-w-52 px-3 py-3">
-                        {transaction.status === "received" ? (
-                          <select
-                            className="w-full rounded-md border bg-background px-2 py-2"
-                            value={selection.customerId}
-                            onChange={(event) =>
-                              setSelections((current) => ({
-                                ...current,
-                                [transaction.id]: {
-                                  customerId: event.target.value,
-                                  packageId: "",
-                                },
-                              }))
-                            }
-                          >
-                            <option value="">Select customer</option>
-                            {pppoeCustomers?.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.pppoe_username ?? item.full_name ?? item.phone ?? item.id}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          (pppoeCustomers?.find(
-                            (item) =>
-                              item.id ===
-                              (transaction.customer_id ?? transaction.suggested_customer_id),
-                          )?.pppoe_username ?? transaction.status)
-                        )}
-                      </td>
-                      <td className="min-w-44 px-3 py-3">
-                        {transaction.status === "received" ? (
-                          <select
-                            className="w-full rounded-md border bg-background px-2 py-2"
-                            value={packageId}
-                            onChange={(event) =>
-                              setSelections((current) => ({
-                                ...current,
-                                [transaction.id]: {
-                                  ...selection,
-                                  packageId: event.target.value,
-                                },
-                              }))
-                            }
-                          >
-                            <option value="">Select package</option>
-                            {pppoePackages?.map((item) => (
-                              <option key={item.id} value={item.id}>
-                                {item.name} — KES {Number(item.price).toLocaleString()}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-3">
-                        {transaction.status === "received" ? (
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              disabled={!selection.customerId || !packageId || review.isPending}
-                              onClick={() =>
-                                review.mutate({
-                                  transactionId: transaction.id,
-                                  action: "approve",
-                                  customerId: selection.customerId,
-                                  packageId,
-                                })
-                              }
-                            >
-                              Approve & renew
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={review.isPending}
-                              onClick={() =>
-                                review.mutate({
-                                  transactionId: transaction.id,
-                                  action: "reject",
-                                })
-                              }
-                            >
-                              Reject
-                            </Button>
+          <>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Showing {directTransactions.length} direct M-Pesa transactions.
+            </p>
+            <div className="overflow-x-auto rounded-xl border bg-card">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2.5 text-left">Date</th>
+                    <th className="px-3 py-2.5 text-left">Amount / receipt</th>
+                    <th className="px-3 py-2.5 text-left">Sender / reference</th>
+                    <th className="px-3 py-2.5 text-left">PPPoE customer</th>
+                    <th className="px-3 py-2.5 text-left">Package</th>
+                    <th className="px-3 py-2.5 text-left">Review</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {directTransactions.map((transaction) => {
+                    const selection = selections[transaction.id] ?? {
+                      customerId: transaction.suggested_customer_id ?? "",
+                      packageId: "",
+                    };
+                    const customer = pppoeCustomers?.find(
+                      (item) => item.id === selection.customerId,
+                    );
+                    const packageId = selection.packageId || customer?.package_id || "";
+                    return (
+                      <tr key={transaction.id} className="border-t align-top">
+                        <td className="whitespace-nowrap px-3 py-3">
+                          {new Date(transaction.transaction_time).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div>KES {Number(transaction.amount).toLocaleString()}</div>
+                          <div className="font-mono text-xs text-muted-foreground">
+                            {transaction.transaction_id}
                           </div>
-                        ) : (
-                          <Badge
-                            variant={transaction.status === "approved" ? "default" : "secondary"}
-                          >
-                            {transaction.status}
-                          </Badge>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div>
+                            {[transaction.first_name, transaction.last_name]
+                              .filter(Boolean)
+                              .join(" ") || "M-Pesa customer"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {transaction.phone ?? "—"} · Ref: {transaction.bill_ref_number || "—"}
+                          </div>
+                        </td>
+                        <td className="min-w-52 px-3 py-3">
+                          {transaction.status === "received" ? (
+                            <select
+                              className="w-full rounded-md border bg-background px-2 py-2"
+                              value={selection.customerId}
+                              onChange={(event) =>
+                                setSelections((current) => ({
+                                  ...current,
+                                  [transaction.id]: {
+                                    customerId: event.target.value,
+                                    packageId: "",
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="">Select customer</option>
+                              {pppoeCustomers?.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.pppoe_username ?? item.full_name ?? item.phone ?? item.id}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            (pppoeCustomers?.find(
+                              (item) =>
+                                item.id ===
+                                (transaction.customer_id ?? transaction.suggested_customer_id),
+                            )?.pppoe_username ?? transaction.status)
+                          )}
+                        </td>
+                        <td className="min-w-44 px-3 py-3">
+                          {transaction.status === "received" ? (
+                            <select
+                              className="w-full rounded-md border bg-background px-2 py-2"
+                              value={packageId}
+                              onChange={(event) =>
+                                setSelections((current) => ({
+                                  ...current,
+                                  [transaction.id]: {
+                                    ...selection,
+                                    packageId: event.target.value,
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="">Select package</option>
+                              {pppoePackages?.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                  {item.name} — KES {Number(item.price).toLocaleString()}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-3">
+                          {transaction.status === "received" ? (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                disabled={!selection.customerId || !packageId || review.isPending}
+                                onClick={() =>
+                                  review.mutate({
+                                    transactionId: transaction.id,
+                                    action: "approve",
+                                    customerId: selection.customerId,
+                                    packageId,
+                                  })
+                                }
+                              >
+                                Approve & renew
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={review.isPending}
+                                onClick={() =>
+                                  review.mutate({
+                                    transactionId: transaction.id,
+                                    action: "reject",
+                                  })
+                                }
+                              >
+                                Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <Badge
+                              variant={transaction.status === "approved" ? "default" : "secondary"}
+                            >
+                              {transaction.status}
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {hasMoreDirectPayments && (
+              <div className="mt-4 flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => void fetchMoreDirectPayments()}
+                  disabled={isFetchingMoreDirectPayments}
+                >
+                  {isFetchingMoreDirectPayments
+                    ? "Loading more…"
+                    : `Load more direct payments (${directTransactions.length})`}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </section>
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
