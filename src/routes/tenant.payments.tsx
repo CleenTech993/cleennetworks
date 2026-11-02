@@ -34,9 +34,14 @@ function Payments() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [directQ, setDirectQ] = useState("");
+  const [directStatusFilter, setDirectStatusFilter] = useState("all");
+  const [directDateFrom, setDirectDateFrom] = useState("");
+  const [directDateTo, setDirectDateTo] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportingDirect, setExportingDirect] = useState(false);
   const deferredSearch = useDeferredValue(q);
+  const deferredDirectSearch = useDeferredValue(directQ);
   const queryClient = useQueryClient();
   const {
     data: paymentPages,
@@ -94,22 +99,57 @@ function Payments() {
     fetchNextPage: fetchMoreDirectPayments,
     isFetchingNextPage: isFetchingMoreDirectPayments,
   } = useInfiniteQuery({
-    queryKey: ["direct-mpesa-transactions"],
+    queryKey: [
+      "direct-mpesa-transactions",
+      directStatusFilter,
+      directDateFrom,
+      directDateTo,
+      deferredDirectSearch,
+    ],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
-      const { data, error } = await supabase
+      const searchTerm = normalizePaymentSearch(deferredDirectSearch);
+      if (deferredDirectSearch.trim() && !searchTerm) {
+        return { transactions: [], count: 0, hasMore: false, nextOffset: pageParam };
+      }
+
+      let query = supabase
         .from("direct_mpesa_transactions")
         .select(
           "id,transaction_id,transaction_time,amount,bill_ref_number,phone,first_name,last_name,suggested_customer_id,customer_id,status",
+          { count: "exact" },
         )
         .order("transaction_time", { ascending: false })
         .order("id", { ascending: false })
         .range(pageParam, pageParam + PAYMENT_PAGE_SIZE - 1);
+      if (directStatusFilter !== "all") query = query.eq("status", directStatusFilter);
+      if (directDateFrom)
+        query = query.gte(
+          "transaction_time",
+          new Date(`${directDateFrom}T00:00:00.000Z`).toISOString(),
+        );
+      if (directDateTo) {
+        const nextDay = new Date(`${directDateTo}T00:00:00.000Z`);
+        nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+        query = query.lt("transaction_time", nextDay.toISOString());
+      }
+      if (searchTerm) {
+        query = query.or(
+          `transaction_id.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%,bill_ref_number.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`,
+        );
+      }
+      const { data, count, error } = await query;
       if (error) throw error;
-      return data ?? [];
+      const transactions = data ?? [];
+      const total = count ?? 0;
+      return {
+        transactions,
+        count: total,
+        hasMore: pageParam + transactions.length < total,
+        nextOffset: pageParam + transactions.length,
+      };
     },
-    getNextPageParam: (lastPage, pages) =>
-      lastPage.length === PAYMENT_PAGE_SIZE ? pages.length * PAYMENT_PAGE_SIZE : undefined,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
   });
   const { data: pppoeCustomers } = useQuery({
     queryKey: ["direct-mpesa-pppoe-customers"],
@@ -153,7 +193,8 @@ function Payments() {
     Record<string, { customerId: string; packageId: string }>
   >({});
   const rows = paymentPages?.pages.flatMap((page) => page.payments) ?? [];
-  const directTransactions = directPaymentPages?.pages.flatMap((page) => page) ?? [];
+  const directTransactions = directPaymentPages?.pages.flatMap((page) => page.transactions) ?? [];
+  const directMatchingCount = directPaymentPages?.pages[0]?.count ?? 0;
   const matchingCount = paymentPages?.pages[0]?.count ?? 0;
   const paymentSummary = summarizePayments(rows);
   const directSummary = summarizeDirectMpesa(directTransactions ?? []);
@@ -189,12 +230,12 @@ function Payments() {
     setExportingDirect(true);
     try {
       let pages = directPaymentPages?.pages ?? [];
-      while (pages.length && pages[pages.length - 1]?.length === PAYMENT_PAGE_SIZE) {
+      while (pages.length && pages[pages.length - 1]?.hasMore) {
         const result = await fetchMoreDirectPayments();
         if (result.isError) throw result.error;
         pages = result.data.pages;
       }
-      const allTransactions = pages.flat();
+      const allTransactions = pages.flatMap((page) => page.transactions);
       if (!allTransactions.length) return;
       const csv = buildDirectMpesaCsv(allTransactions);
       const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -223,6 +264,41 @@ function Payments() {
           Incoming C2B transactions are captured here. Confirm each payment against the M-Pesa
           statement, then match the customer and package before approving a PPPoE renewal.
         </p>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              value={directQ}
+              onChange={(event) => setDirectQ(event.target.value)}
+              placeholder="Search receipt, phone or reference"
+              aria-label="Search direct M-Pesa payments"
+            />
+          </div>
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={directStatusFilter}
+            onChange={(event) => setDirectStatusFilter(event.target.value)}
+            aria-label="Filter direct payments by status"
+          >
+            <option value="all">All review statuses</option>
+            <option value="received">Awaiting review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <Input
+            type="date"
+            value={directDateFrom}
+            onChange={(event) => setDirectDateFrom(event.target.value)}
+            aria-label="Direct payments from date"
+          />
+          <Input
+            type="date"
+            value={directDateTo}
+            onChange={(event) => setDirectDateTo(event.target.value)}
+            aria-label="Direct payments through date"
+          />
+        </div>
         {!directLoading && directTransactions?.length ? (
           <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-lg border bg-card p-3">
@@ -266,15 +342,21 @@ function Payments() {
           </p>
         ) : !directTransactions.length ? (
           <EmptyState
-            title="No direct payments received"
-            description="Register Daraja callbacks in Notifications & Payments. Safaricom must support C2B callback registration for the shortcode."
+            title={
+              directMatchingCount ? "No direct payments loaded" : "No matching direct payments"
+            }
+            description={
+              directQ || directStatusFilter !== "all" || directDateFrom || directDateTo
+                ? "Try changing the search or filters."
+                : "Register Daraja callbacks in Notifications & Payments. Safaricom must support C2B callback registration for the shortcode."
+            }
           />
         ) : (
           <>
             <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">
-                Showing {directTransactions.length} loaded direct M-Pesa transactions; the export
-                includes the full history.
+                Showing {directTransactions.length} loaded of {directMatchingCount} matching direct
+                M-Pesa transactions; the export includes all matches.
               </p>
               <Button
                 size="sm"
@@ -284,7 +366,9 @@ function Payments() {
                 disabled={exportingDirect || isFetchingMoreDirectPayments || directLoading}
               >
                 <Download className="h-4 w-4" />
-                {exportingDirect ? "Preparing full export…" : "Export all C2B transactions"}
+                {exportingDirect
+                  ? "Preparing full export…"
+                  : `Export all ${directMatchingCount} matching`}
               </Button>
             </div>
             <div className="overflow-x-auto rounded-xl border bg-card">
@@ -440,7 +524,7 @@ function Payments() {
                 >
                   {isFetchingMoreDirectPayments
                     ? "Loading more…"
-                    : `Load more direct payments (${directTransactions.length})`}
+                    : `Load more direct payments (${directTransactions.length} of ${directMatchingCount})`}
                 </Button>
               </div>
             )}
