@@ -13,6 +13,11 @@ type LoginSession = {
   refresh_token: string;
 };
 
+type LoginAttemptRecord = {
+  should_alert?: boolean;
+  event_type?: string | null;
+};
+
 async function hashIdentifier(value: string): Promise<string> {
   const secret = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!secret) throw new Error("Server login protection is not configured.");
@@ -29,6 +34,28 @@ async function hashIdentifier(value: string): Promise<string> {
   );
 }
 
+async function recordLoginAttempt(
+  emailHash: string,
+  ipHash: string,
+  succeeded: boolean,
+): Promise<LoginAttemptRecord | undefined> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc("record_auth_login_attempt", {
+      p_email_hash: emailHash,
+      p_ip_hash: ipHash,
+      p_succeeded: succeeded,
+    });
+    if (error) {
+      console.error("Could not record auth login attempt:", error);
+      return;
+    }
+    return data?.[0];
+  } catch (error) {
+    console.error("Could not record auth login attempt:", error);
+    return;
+  }
+}
+
 async function logSecurityEvent({
   type,
   emailHash,
@@ -42,23 +69,27 @@ async function logSecurityEvent({
   userId?: string;
   email?: string;
 }) {
-  const { error } = await supabaseAdmin.from("audit_logs").insert({
-    actor_id: userId ?? null,
-    actor_email: email ?? null,
-    actor_role: "system",
-    action: type,
-    resource_type: "auth",
-    resource_id: userId ?? null,
-    description:
-      type === "new_login_location"
-        ? "Successful sign-in from a new network location"
-        : "Repeated failed sign-in attempts triggered a security alert",
-    metadata: {
-      email_fingerprint: emailHash.slice(0, 16),
-      ip_fingerprint: ipHash.slice(0, 16),
-    },
-  });
-  if (error) console.error("Could not write login security alert:", error);
+  try {
+    const { error } = await supabaseAdmin.from("audit_logs").insert({
+      actor_id: userId ?? null,
+      actor_email: email ?? null,
+      actor_role: "system",
+      action: type,
+      resource_type: "auth",
+      resource_id: userId ?? null,
+      description:
+        type === "new_login_location"
+          ? "Successful sign-in from a new network location"
+          : "Repeated failed sign-in attempts triggered a security alert",
+      metadata: {
+        email_fingerprint: emailHash.slice(0, 16),
+        ip_fingerprint: ipHash.slice(0, 16),
+      },
+    });
+    if (error) console.error("Could not write login security alert:", error);
+  } catch (error) {
+    console.error("Could not write login security alert:", error);
+  }
 }
 
 export const signInWithPassword = createServerFn({ method: "POST" })
@@ -112,12 +143,7 @@ export const signInWithPassword = createServerFn({ method: "POST" })
         throw new Error("Sign-in service is temporarily unavailable. Please try again.");
       }
 
-      const { data: recordRows, error: recordError } = await supabaseAdmin.rpc(
-        "record_auth_login_attempt",
-        { p_email_hash: emailHash, p_ip_hash: ipHash, p_succeeded: false },
-      );
-      if (recordError) throw new Error("Unable to record the failed sign-in attempt.");
-      const record = recordRows?.[0];
+      const record = await recordLoginAttempt(emailHash, ipHash, false);
       if (record?.should_alert && record.event_type) {
         await logSecurityEvent({ type: record.event_type, emailHash, ipHash });
       }
@@ -135,12 +161,7 @@ export const signInWithPassword = createServerFn({ method: "POST" })
       throw new Error("Sign-in provider returned an incomplete session.");
     }
 
-    const { data: recordRows, error: recordError } = await supabaseAdmin.rpc(
-      "record_auth_login_attempt",
-      { p_email_hash: emailHash, p_ip_hash: ipHash, p_succeeded: true },
-    );
-    if (recordError) throw new Error("Unable to record the successful sign-in.");
-    const record = recordRows?.[0];
+    const record = await recordLoginAttempt(emailHash, ipHash, true);
     if (record?.should_alert && record.event_type) {
       await logSecurityEvent({
         type: record.event_type,
