@@ -174,3 +174,35 @@ export async function queryDarajaStkPush(
     resultDescription: result?.ResultDesc ?? result?.ResponseDescription ?? "",
   };
 }
+
+export async function registerDarajaC2bUrl(input: {
+  tenantId: string;
+  shortcode: string;
+  validationUrl: string;
+  confirmationUrl: string;
+}): Promise<void> {
+  const config = await loadConfig(input.tenantId);
+  for (const callbackUrl of [input.validationUrl, input.confirmationUrl]) {
+    if (new URL(callbackUrl).protocol !== "https:")
+      throw new Error("M-Pesa callbacks require a public HTTPS URL.");
+  }
+  const token = await accessToken(config);
+  const response = await fetch(`${baseUrl(config.environment)}/mpesa/c2b/v1/registerurl`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ShortCode: input.shortcode,
+      ResponseType: "Completed",
+      ConfirmationURL: input.confirmationUrl,
+      ValidationURL: input.validationUrl,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const result = (await response.json().catch(() => null)) as {
+    ResponseCode?: string | number;
+  } | null;
+  if (!response.ok || String(result?.ResponseCode) !== "0") {
+    console.error(`Daraja C2B URL registration failed [${response.status}]`);
+    throw new Error("Safaricom did not register the C2B callback for this shortcode.");
+  }
+}

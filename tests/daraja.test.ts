@@ -6,7 +6,7 @@ vi.mock("@/lib/tenant-service-secrets.server", () => ({
   loadTenantServiceSecrets: secretsMock.load,
 }));
 
-import { queryDarajaStkPush, startDarajaStkPush } from "@/lib/daraja.server";
+import { queryDarajaStkPush, registerDarajaC2bUrl, startDarajaStkPush } from "@/lib/daraja.server";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const PAYMENT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -76,6 +76,50 @@ describe("tenant Daraja STK Push", () => {
       Timestamp: "20261024150000",
     });
     expect(request.Password).toBe(btoa(`174379passkey${request.Timestamp}`));
+  });
+
+  it("registers tenant C2B validation and confirmation callbacks", async () => {
+    const fetchSpy = stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "access-token" })
+        : Response.json({ ResponseCode: "0" }),
+    );
+
+    await registerDarajaC2bUrl({
+      tenantId: TENANT,
+      shortcode: "123456",
+      validationUrl: "https://portal.test/api/public/mpesa/c2b-validation/path",
+      confirmationUrl: "https://portal.test/api/public/mpesa/c2b/path",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(fetchSpy.mock.calls[1][0]).toBe(
+      "https://sandbox.safaricom.co.ke/mpesa/c2b/v1/registerurl",
+    );
+    expect(JSON.parse(String(fetchSpy.mock.calls[1][1]?.body))).toEqual({
+      ShortCode: "123456",
+      ResponseType: "Completed",
+      ValidationURL: "https://portal.test/api/public/mpesa/c2b-validation/path",
+      ConfirmationURL: "https://portal.test/api/public/mpesa/c2b/path",
+    });
+  });
+
+  it("rejects C2B callback registration when Daraja does not accept a shortcode", async () => {
+    stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "access-token" })
+        : Response.json({ ResponseCode: "1" }),
+    );
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      registerDarajaC2bUrl({
+        tenantId: TENANT,
+        shortcode: "123456",
+        validationUrl: "https://portal.test/validate",
+        confirmationUrl: "https://portal.test/confirm",
+      }),
+    ).rejects.toThrow("Safaricom did not register the C2B callback");
   });
 
   it("does not expose provider response text when Daraja rejects a request", async () => {

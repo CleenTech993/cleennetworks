@@ -17,6 +17,7 @@ import {
 import {
   getTenantServiceStatus,
   removeTenantServiceCredentials,
+  registerTenantC2bCallbacks,
   saveTenantServiceCredentials,
 } from "@/lib/tenant-service.functions";
 
@@ -76,6 +77,24 @@ function ServiceSettings() {
       setForm({ ...initialForm, mpesaEnvironment: nextStatus.mpesaEnvironment });
       queryClient.setQueryData(["tenant-service-status"], nextStatus);
       toast.success("Saved service credentials removed.");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+  const registerC2b = useMutation({
+    mutationFn: () => registerTenantC2bCallbacks(),
+    onSuccess: ({ results }) => {
+      const registered = results.filter((result) => result.registered);
+      const failed = results.filter((result) => !result.registered);
+      if (registered.length) {
+        toast.success(
+          `C2B callbacks registered for: ${registered.map((item) => item.shortcode).join(", ")}`,
+        );
+      }
+      if (failed.length) {
+        toast.error(
+          `Safaricom did not register callbacks for: ${failed.map((item) => item.shortcode).join(", ")}. Check shortcode eligibility with Safaricom.`,
+        );
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -220,6 +239,14 @@ function ServiceSettings() {
       <Button
         className="ml-2 mt-5"
         variant="outline"
+        onClick={() => registerC2b.mutate()}
+        disabled={!status?.mpesaConfigured || registerC2b.isPending}
+      >
+        {registerC2b.isPending ? "Registering callbacks…" : "Register direct-payment callbacks"}
+      </Button>
+      <Button
+        className="ml-2 mt-5"
+        variant="outline"
         onClick={() => {
           if (window.confirm("Remove all saved M-Pesa and SMS credentials for this tenant?")) {
             remove.mutate();
@@ -229,6 +256,12 @@ function ServiceSettings() {
       >
         {remove.isPending ? "Removing…" : "Remove saved credentials"}
       </Button>
+      <p className="mt-3 max-w-3xl text-xs text-muted-foreground">
+        Register callbacks after entering PayBill and Till details in Receiving details and saving
+        your Daraja credentials. Incoming payments are recorded for staff review and do not renew
+        service until approved. Direct Till callback availability depends on Safaricom supporting
+        C2B URL registration for that shortcode.
+      </p>
     </div>
   );
 }

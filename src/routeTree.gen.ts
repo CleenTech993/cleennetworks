@@ -68,6 +68,8 @@ import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api
 import { Route as ApiPublicRouterInventoryTokenRouteImport } from './routes/api/public/router/inventory.$token'
 import { Route as ApiPublicRouterPppoeTokenRouteImport } from './routes/api/public/router/pppoe.$token'
 import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
+import { Route as ApiPublicMpesaC2bValidationTenantIdShortcodeRouteImport } from './routes/api/public/mpesa/c2b-validation.$tenantId.$shortcode'
+import { Route as ApiPublicMpesaC2bTenantIdShortcodeRouteImport } from './routes/api/public/mpesa/c2b.$tenantId.$shortcode'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -378,6 +380,18 @@ const ApiPublicRouterSyncTokenRoute =
     path: '/api/public/router/sync/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMpesaC2bValidationTenantIdShortcodeRoute =
+  ApiPublicMpesaC2bValidationTenantIdShortcodeRouteImport.update({
+    id: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode',
+    path: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicMpesaC2bTenantIdShortcodeRoute =
+  ApiPublicMpesaC2bTenantIdShortcodeRouteImport.update({
+    id: '/api/public/mpesa/c2b/$tenantId/$shortcode',
+    path: '/api/public/mpesa/c2b/$tenantId/$shortcode',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -439,6 +453,8 @@ export interface FileRoutesByFullPath {
   '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
+  '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  '/api/public/mpesa/c2b/$tenantId/$shortcode': typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -497,6 +513,8 @@ export interface FileRoutesByTo {
   '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
+  '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  '/api/public/mpesa/c2b/$tenantId/$shortcode': typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -559,6 +577,8 @@ export interface FileRoutesById {
   '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
+  '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  '/api/public/mpesa/c2b/$tenantId/$shortcode': typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -622,6 +642,8 @@ export interface FileRouteTypes {
     | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
+    | '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+    | '/api/public/mpesa/c2b/$tenantId/$shortcode'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -680,6 +702,8 @@ export interface FileRouteTypes {
     | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
+    | '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+    | '/api/public/mpesa/c2b/$tenantId/$shortcode'
   id:
     | '__root__'
     | '/'
@@ -741,6 +765,8 @@ export interface FileRouteTypes {
     | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
+    | '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+    | '/api/public/mpesa/c2b/$tenantId/$shortcode'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -765,6 +791,8 @@ export interface RootRouteChildren {
   ApiPublicRouterInventoryTokenRoute: typeof ApiPublicRouterInventoryTokenRoute
   ApiPublicRouterPppoeTokenRoute: typeof ApiPublicRouterPppoeTokenRoute
   ApiPublicRouterSyncTokenRoute: typeof ApiPublicRouterSyncTokenRoute
+  ApiPublicMpesaC2bValidationTenantIdShortcodeRoute: typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  ApiPublicMpesaC2bTenantIdShortcodeRoute: typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1182,6 +1210,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRouterSyncTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': {
+      id: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+      path: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+      fullPath: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+      preLoaderRoute: typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mpesa/c2b/$tenantId/$shortcode': {
+      id: '/api/public/mpesa/c2b/$tenantId/$shortcode'
+      path: '/api/public/mpesa/c2b/$tenantId/$shortcode'
+      fullPath: '/api/public/mpesa/c2b/$tenantId/$shortcode'
+      preLoaderRoute: typeof ApiPublicMpesaC2bTenantIdShortcodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1332,6 +1374,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicRouterInventoryTokenRoute: ApiPublicRouterInventoryTokenRoute,
   ApiPublicRouterPppoeTokenRoute: ApiPublicRouterPppoeTokenRoute,
   ApiPublicRouterSyncTokenRoute: ApiPublicRouterSyncTokenRoute,
+  ApiPublicMpesaC2bValidationTenantIdShortcodeRoute:
+    ApiPublicMpesaC2bValidationTenantIdShortcodeRoute,
+  ApiPublicMpesaC2bTenantIdShortcodeRoute:
+    ApiPublicMpesaC2bTenantIdShortcodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
