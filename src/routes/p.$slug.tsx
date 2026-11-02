@@ -383,10 +383,12 @@ function TvFlow({
   const [status, setStatus] = useState<TvStatus | null>(null);
 
   async function checkStatus() {
-    if (!mac) return;
+    if (!mac || !phone) return;
     setChecking(true);
     try {
-      const res = await fetch(`/api/public/portal/${slug}/tv?mac=${encodeURIComponent(mac)}`);
+      const res = await fetch(
+        `/api/public/portal/${slug}/tv?mac=${encodeURIComponent(mac)}&phone=${encodeURIComponent(phone)}`,
+      );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setStatus(json);
@@ -471,6 +473,17 @@ function TvFlow({
             className="mt-1"
           />
         </div>
+        <div>
+          <Label htmlFor="tv-phone">M-Pesa phone used for this TV</Label>
+          <Input
+            id="tv-phone"
+            inputMode="tel"
+            placeholder="07XXXXXXXX"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="mt-1"
+          />
+        </div>
       </div>
 
       {status && (
@@ -479,14 +492,14 @@ function TvFlow({
             ? `This TV is active until ${new Date(status.expires_at as string).toLocaleString()}. You can buy more time below.`
             : status.registered
               ? "This TV is registered but has no active plan."
-              : "This TV isn't registered yet."}
+              : "No TV found for that address and phone number."}
         </p>
       )}
       <Button
         variant="outline"
         size="sm"
         className="mt-3"
-        disabled={!mac || checking}
+        disabled={!mac || !phone || checking}
         onClick={checkStatus}
       >
         {checking ? "Checking…" : "Check TV status"}
@@ -508,17 +521,6 @@ function TvFlow({
         ))}
       </div>
 
-      <div className="mt-5">
-        <Label htmlFor="tv-phone">M-Pesa phone</Label>
-        <Input
-          id="tv-phone"
-          inputMode="tel"
-          placeholder="07XXXXXXXX"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="mt-1"
-        />
-      </div>
       <Button
         className="pt-btn mt-4 w-full"
         style={{ backgroundColor: primary }}
@@ -627,13 +629,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
 }
 
 interface StatusResp {
-  active: { amount: number; expires_at: string; mpesa_receipt: string | null } | null;
-  history: Array<{
-    amount: number;
-    status: string;
-    created_at: string;
-    mpesa_receipt: string | null;
-  }>;
+  active: { expires_at: string } | null;
 }
 
 function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
@@ -688,28 +684,9 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
               <p className="text-xs text-muted-foreground mt-1">
                 Expires {new Date(data.active.expires_at).toLocaleString()}
               </p>
-              <p className="text-xs text-muted-foreground">
-                Receipt {data.active.mpesa_receipt ?? "—"}
-              </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No active package on this number.</p>
-          )}
-          {data.history.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Recent transactions</p>
-              <ul className="space-y-1.5 text-xs">
-                {data.history.slice(0, 5).map((h, i) => (
-                  <li key={i} className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">
-                      {new Date(h.created_at).toLocaleString()}
-                    </span>
-                    <span>KES {Number(h.amount).toFixed(0)}</span>
-                    <span className="capitalize">{h.status}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
         </div>
       )}

@@ -149,6 +149,98 @@ export type Database = {
           },
         ]
       }
+      customers: {
+        Row: {
+          created_at: string
+          customer_type: string
+          email: string | null
+          expires_at: string | null
+          full_name: string | null
+          id: string
+          last_ip: string | null
+          last_mac: string | null
+          last_router_id: string | null
+          last_seen_at: string | null
+          package_id: string | null
+          phone: string | null
+          pppoe_password: string | null
+          pppoe_username: string | null
+          router_id: string | null
+          static_ip: string | null
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_type?: string
+          email?: string | null
+          expires_at?: string | null
+          full_name?: string | null
+          id?: string
+          last_ip?: string | null
+          last_mac?: string | null
+          last_router_id?: string | null
+          last_seen_at?: string | null
+          package_id?: string | null
+          phone?: string | null
+          pppoe_password?: string | null
+          pppoe_username?: string | null
+          router_id?: string | null
+          static_ip?: string | null
+          status?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_type?: string
+          email?: string | null
+          expires_at?: string | null
+          full_name?: string | null
+          id?: string
+          last_ip?: string | null
+          last_mac?: string | null
+          last_router_id?: string | null
+          last_seen_at?: string | null
+          package_id?: string | null
+          phone?: string | null
+          pppoe_password?: string | null
+          pppoe_username?: string | null
+          router_id?: string | null
+          static_ip?: string | null
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_last_router_id_fkey"
+            columns: ["last_router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       direct_mpesa_transactions: {
         Row: {
           amount: number
@@ -237,98 +329,6 @@ export type Database = {
           },
           {
             foreignKeyName: "direct_mpesa_transactions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      customers: {
-        Row: {
-          created_at: string
-          customer_type: string
-          email: string | null
-          expires_at: string | null
-          full_name: string | null
-          id: string
-          last_ip: string | null
-          last_mac: string | null
-          last_router_id: string | null
-          last_seen_at: string | null
-          package_id: string | null
-          phone: string | null
-          pppoe_password: string | null
-          pppoe_username: string | null
-          router_id: string | null
-          static_ip: string | null
-          status: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          customer_type?: string
-          email?: string | null
-          expires_at?: string | null
-          full_name?: string | null
-          id?: string
-          last_ip?: string | null
-          last_mac?: string | null
-          last_router_id?: string | null
-          last_seen_at?: string | null
-          package_id?: string | null
-          phone?: string | null
-          pppoe_password?: string | null
-          pppoe_username?: string | null
-          router_id?: string | null
-          static_ip?: string | null
-          status?: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          customer_type?: string
-          email?: string | null
-          expires_at?: string | null
-          full_name?: string | null
-          id?: string
-          last_ip?: string | null
-          last_mac?: string | null
-          last_router_id?: string | null
-          last_seen_at?: string | null
-          package_id?: string | null
-          phone?: string | null
-          pppoe_password?: string | null
-          pppoe_username?: string | null
-          router_id?: string | null
-          static_ip?: string | null
-          status?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "customers_last_router_id_fkey"
-            columns: ["last_router_id"]
-            isOneToOne: false
-            referencedRelation: "routers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_package_id_fkey"
-            columns: ["package_id"]
-            isOneToOne: false
-            referencedRelation: "packages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_router_id_fkey"
-            columns: ["router_id"]
-            isOneToOne: false
-            referencedRelation: "routers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "customers_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

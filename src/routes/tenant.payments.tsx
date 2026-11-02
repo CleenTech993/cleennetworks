@@ -75,12 +75,10 @@ function Payments() {
     },
   });
   const review = useMutation({
-    mutationFn: (input: {
-      transactionId: string;
-      action: "approve" | "reject";
-      customerId?: string;
-      packageId?: string;
-    }) => reviewDirectMpesaTransaction({ data: input }),
+    mutationFn: (input:
+      | { transactionId: string; action: "reject" }
+      | { transactionId: string; action: "approve"; customerId: string; packageId: string }) =>
+      reviewDirectMpesaTransaction({ data: input }),
     onSuccess: () => {
       toast.success("Direct payment review saved.");
       queryClient.invalidateQueries({ queryKey: ["direct-mpesa-transactions"] });

@@ -44,7 +44,17 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   }
 
   if (String(callback.ResultCode) !== "0") {
-    await markPaymentFailed(payment.id, rawJson);
+    // A forged callback could cancel a legitimate pending payment. Confirm the
+    // cancellation with Daraja itself before marking anything failed.
+    try {
+      const verification = await queryDarajaStkPush(tenantId, checkoutId);
+      if (verification.resultCode !== null && verification.resultCode !== "0") {
+        await markPaymentFailed(payment.id, rawJson);
+      }
+    } catch (error) {
+      console.error("Daraja callback verification failed", error);
+      return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
+    }
     return Response.json({ ok: true, note: "Payment was not completed" });
   }
 
