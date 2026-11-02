@@ -164,11 +164,17 @@ function Overview() {
 
   const exportRevenueCSV = () => {
     if (!data?.leaderboard) return;
+    // Neutralize spreadsheet formula characters (=, +, -, @) at the start of a cell so a
+    // tenant-controlled name cannot execute as a formula when the report is opened.
+    const csvCell = (v: string) => {
+      const escaped = v.replace(/"/g, '""');
+      return /^[=+@\-]/.test(escaped) ? `'${escaped}` : escaped;
+    };
     const header = "Tenant,Slug,Status,Routers,Gross Turnover (KES),Platform Commission (KES),Transactions\n";
     const rows = data.leaderboard
       .map(
         (t) =>
-          `"${t.name}","${t.slug}","${t.status}",${t.routersCount},${t.gmv},${Math.round(t.commission)},${t.txCount}`
+          `"${csvCell(t.name)}","${csvCell(t.slug)}","${csvCell(t.status)}",${t.routersCount},${t.gmv},${Math.round(t.commission)},${t.txCount}`
       )
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });

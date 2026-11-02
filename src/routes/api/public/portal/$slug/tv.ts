@@ -107,9 +107,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
         // Register the device, or update the existing one. Never touch status/expires_at of an
         // existing device here: a renewal must not switch off a TV that is still paid up.
+        // A renewal must come from the number the TV was registered with, so someone who only
+        // knows the MAC address cannot hijack or alter another customer's TV.
         const { data: existing } = await supabaseAdmin
           .from("tv_devices")
-          .select("id,status")
+          .select("id,status,phone")
           .eq("tenant_id", tenant.id)
           .eq("mac_address", mac)
           .maybeSingle();
@@ -122,10 +124,18 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
         let deviceId = existing?.id;
         if (existing) {
+          if (existing.phone !== phone) {
+            return Response.json(
+              {
+                error:
+                  "This phone number doesn't match the TV's registration. Use the number the TV was registered with.",
+              },
+              { status: 403 },
+            );
+          }
           await supabaseAdmin
             .from("tv_devices")
             .update({
-              phone,
               package_id: pkg.id,
               updated_at: now,
               ...(parsed.data.name ? { name: parsed.data.name } : {}),
