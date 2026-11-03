@@ -136,9 +136,18 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const host = getRequestHost();
         const lines: string[] = [
           "# NetGrid sync",
-          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5s on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5s } } on-error={}',
-          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=2s on-event="/system script run netgrid-wan" } else={ /system scheduler set [find name=netgrid-wan] interval=2s } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=1m on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=1m } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=30s on-event="/system script run netgrid-wan" } else={ /system scheduler set [find name=netgrid-wan] interval=30s } } on-error={}',
           "/system script",
+          ":do { remove [find where name=netgrid-sync] } on-error={}",
+          `:do { add name=netgrid-sync source={
+  :do {
+    /tool fetch url="https://${host}/api/public/router/sync/${params.token}" dst-path=netgrid-sync.rsc mode=https
+    :delay 1s
+    /import file-name=netgrid-sync.rsc verbose=no
+    /file remove [find name=netgrid-sync.rsc]
+  } on-error={ :log warning "NetGrid: user sync failed" }
+} } on-error={}`,
           ":do { remove [find where name=netgrid-heartbeat] } on-error={}",
           `:do { add name=netgrid-heartbeat source={
   :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
@@ -161,8 +170,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
     /tool fetch url="https://${host}/api/public/router/heartbeat/${params.token}" http-method=post http-data=$d mode=https keep-result=no
   } on-error={ :log warning "NetGrid: heartbeat failed" }
 } } on-error={}`,
-          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=2s on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=2s on-event="/system script run netgrid-heartbeat" } } on-error={}',
-          ":do { /system script run netgrid-heartbeat } on-error={}",
+          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=30s on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=30s on-event="/system script run netgrid-heartbeat" } } on-error={}',
         ];
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
@@ -264,7 +272,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             }),
           );
         }
-        lines.push(':log info "NetGrid: users synced"', "");
+        lines.push(':log info "NetGrid: users synced"', ':do { /file remove [find name=netgrid-sync.rsc] } on-error={}', "");
 
         // Record that this router just received a sync, so the dashboard can show whether routers are
         // really syncing. Best effort: if the column does not exist yet this fails quietly.
