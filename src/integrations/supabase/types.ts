@@ -93,6 +93,30 @@ export type Database = {
           },
         ]
       }
+      auth_login_attempts: {
+        Row: {
+          attempted_at: string
+          email_hash: string
+          id: number
+          ip_hash: string
+          succeeded: boolean
+        }
+        Insert: {
+          attempted_at?: string
+          email_hash: string
+          id?: number
+          ip_hash: string
+          succeeded: boolean
+        }
+        Update: {
+          attempted_at?: string
+          email_hash?: string
+          id?: number
+          ip_hash?: string
+          succeeded?: boolean
+        }
+        Relationships: []
+      }
       captive_portals: {
         Row: {
           background_url: string | null
@@ -779,6 +803,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_billing_config: {
+        Row: {
+          commission_tracking_starts_at: string
+          id: number
+        }
+        Insert: {
+          commission_tracking_starts_at?: string
+          id?: number
+        }
+        Update: {
+          commission_tracking_starts_at?: string
+          id?: number
+        }
+        Relationships: []
       }
       platform_commissions: {
         Row: {
@@ -1860,7 +1899,47 @@ export type Database = {
         Args: { p_full_name?: string; p_name: string; p_slug: string }
         Returns: string
       }
+      check_auth_login_throttle: {
+        Args: { p_email_hash: string; p_ip_hash: string }
+        Returns: {
+          blocked: boolean
+          retry_after_seconds: number
+        }[]
+      }
       check_router_liveness: { Args: { p_stale?: string }; Returns: number }
+      claim_platform_invoice_emails: {
+        Args: { p_limit?: number; p_now?: string }
+        Returns: {
+          collected_at: string | null
+          commission_amount: number
+          commission_rate_pct: number | null
+          created_at: string
+          due_at: string | null
+          email_attempted_at: string | null
+          email_error: string | null
+          email_sent_at: string | null
+          email_status: string
+          gross_amount: number
+          id: string
+          invoice_number: string | null
+          issued_at: string | null
+          mpesa_receipt: string | null
+          period_end: string
+          period_start: string
+          status: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "platform_commissions"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      generate_monthly_platform_commission_invoices: {
+        Args: { p_now?: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1878,8 +1957,20 @@ export type Database = {
       }
       is_aal2: { Args: never; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      record_auth_login_attempt: {
+        Args: { p_email_hash: string; p_ip_hash: string; p_succeeded: boolean }
+        Returns: {
+          attempt_count: number
+          event_type: string
+          should_alert: boolean
+        }[]
+      }
       record_pppoe_sessions: {
         Args: { p_router_id: string; p_sessions: Json; p_tenant_id: string }
+        Returns: number
+      }
+      refresh_overdue_tenant_billing: {
+        Args: { p_now?: string }
         Returns: number
       }
       rollup_router_metrics: { Args: never; Returns: undefined }

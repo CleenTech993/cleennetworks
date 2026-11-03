@@ -30,6 +30,12 @@ migration_order() {
     echo "$f"
   done
   if [[ $drizzle_done -eq 0 ]]; then for d in drizzle/migrations/000*.sql; do echo "$d"; done; fi
+
+  # Late drizzle pass. The sign-in throttle drop (0004_remove_login_throttle) ran
+  # live after 20261105000000_login_abuse_protection created the function, but the
+  # drizzle track is applied BEFORE the supabase migrations here, so re-run the
+  # idempotent drop after everything to keep scratch builds matching the live DB.
+  echo drizzle/migrations/0004_remove_login_throttle.sql
 }
 
 # init_db <name>: empty database with the Supabase stub (auth/storage/roles) installed.
