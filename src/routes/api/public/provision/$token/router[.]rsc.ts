@@ -224,7 +224,7 @@ add name=netgrid-sync source={
     /tool fetch url="${p.syncUrl}" dst-path=netgrid-sync.rsc mode=https
     :delay 1s
     /import file-name=netgrid-sync.rsc verbose=no
-    /file remove [find name=netgrid-sync.rsc]
+    :do { /file remove [find name=netgrid-sync.rsc] } on-error={}
   } on-error={ :log warning "NetGrid: user sync failed" }
 }
 
@@ -282,7 +282,7 @@ ${routerosInstallLoginPage({ loginUrl: p.loginUrl, marker: p.marker })}
   /tool fetch url="${p.syncUrl}" dst-path=netgrid-sync.rsc mode=https
   :delay 2s
   /import file-name=netgrid-sync.rsc verbose=no
-  /file remove [find name=netgrid-sync.rsc]
+  :do { /file remove [find name=netgrid-sync.rsc] } on-error={}
 } on-error={ :log warning "NetGrid: initial sync failed" }
 :put "NetGrid auto-config applied. Portal: ${p.portalUrl}"
 `;

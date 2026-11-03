@@ -85,7 +85,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,bound_mac,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used"])
+            .in("status", ["unused", "used", "active"])
             .or(`expires_at.is.null,expires_at.gt.${now}`),
           supabaseAdmin
             .from("packages")
@@ -140,12 +140,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=30s on-event="/system script run netgrid-wan" } else={ :if ([/system scheduler get [find name=netgrid-wan] interval] != 30s) do={ /system scheduler set [find name=netgrid-wan] interval=30s } } } on-error={}',
           "/system script",
           // NetGrid scripts
-          `:do { add name=netgrid-sync source={
+          `:do { :if ([:len [find name=netgrid-sync]] = 0) do={ add name=netgrid-sync source={
   :do {
     /tool fetch url="https://${host}/api/public/router/sync/${params.token}" dst-path=netgrid-sync.rsc mode=https
     :delay 1s
     /import file-name=netgrid-sync.rsc verbose=no
-    /file remove [find name=netgrid-sync.rsc]
+    :do { /file remove [find name=netgrid-sync.rsc] } on-error={}
   } on-error={ :log warning "NetGrid: user sync failed" }
 } } on-error={}`,
           // NetGrid heartbeat script
@@ -208,10 +208,23 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used"])
+            .in("status", ["unused", "used", "active"])
             .or(`expires_at.is.null,expires_at.gt.${now}`);
           if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
           voucherRows = retry.error ? null : retry.data;
+          if (!voucherRows) {
+            const fallback = await supabaseAdmin
+              .from("vouchers")
+              .select("code,status,expires_at,package_id")
+              .eq("tenant_id", router.tenant_id)
+              .in("status", ["unused", "used", "active"]);
+            if (!fallback.error && fallback.data) {
+              const nowMs = Date.now();
+              voucherRows = fallback.data.filter(
+                (v) => !v.expires_at || new Date(v.expires_at).getTime() > nowMs,
+              );
+            }
+          }
         }
         if (serviceRestricted) {
           lines.push(...buildHotspotSuspendLines());
