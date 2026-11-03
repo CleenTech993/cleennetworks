@@ -257,7 +257,7 @@ add name=netgrid-heartbeat source={
 remove [find name~"netgrid-"]
 add name=netgrid-wan interval=30s on-event="/system script run netgrid-wan"
 add name=netgrid-ifaces interval=1m on-event="/system script run netgrid-ifaces"
-add name=netgrid-sync interval=1m on-event="/system script run netgrid-sync"
+add name=netgrid-sync interval=10s on-event="/system script run netgrid-sync"
 add name=netgrid-heartbeat interval=30s on-event="/system script run netgrid-heartbeat"
 
 # --- LAN ports join the hotspot bridge LAST ---
@@ -281,7 +281,8 @@ ${routerosInstallLoginPage({ loginUrl: p.loginUrl, marker: p.marker })}
 :do {
   /tool fetch url="${p.syncUrl}" dst-path=netgrid-sync.rsc mode=https
   :delay 2s
-  /import file-name=netgrid-sync.rsc verbose=yes
+  /import file-name=netgrid-sync.rsc verbose=no
+  /file remove [find name=netgrid-sync.rsc]
 } on-error={ :log warning "NetGrid: initial sync failed" }
 :put "NetGrid auto-config applied. Portal: ${p.portalUrl}"
 `;

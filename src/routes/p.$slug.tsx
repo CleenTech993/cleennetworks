@@ -898,7 +898,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
         </p>
         {done === "activating" && (
           <p className="mt-1 text-sm text-muted-foreground">
-            This can take up to two minutes. Please keep this page open — it retries automatically.
+            Connecting your device to the Wi-Fi network now. Please keep this page open — connecting automatically.
           </p>
         )}
         {done === "stalled" && (
