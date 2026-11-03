@@ -493,14 +493,14 @@ with expected(ord, track, migration, kind, ident) as (values
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_email_hash_check'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_ip_hash_check'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_pkey'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'function', 'public.check_auth_login_throttle(p_email_hash text, p_ip_hash text)'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'function', 'public.record_auth_login_attempt(p_email_hash text, p_ip_hash text, p_succeeded boolean)'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_email_time_idx'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_ip_time_idx'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_pkey'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_time_idx'),
   (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'rls', 'public.auth_login_attempts'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'table', 'public.auth_login_attempts')
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'table', 'public.auth_login_attempts'),
+  (38, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.
