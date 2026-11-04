@@ -5,7 +5,6 @@ import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { expiryFrom } from "@/lib/duration";
 import { canResumeVoucher, normalizeMac } from "@/lib/devices";
-import { canResumeVoucher, normalizeMac } from "@/lib/devices";
 import {
   tenantServiceRestriction,
   tenantServiceRestrictionMessage,
