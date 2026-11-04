@@ -107,7 +107,7 @@ export function buildDeviceMonitorLines(targets: MonitorTarget[], reportUrl: str
     "  :foreach id in=$ngInvIds do={",
     `    :if ([:len [/tool netwatch find where comment=("${NETWATCH_PREFIX}" . $id)]] = 0) do={`,
     "      :local pos [:find $ngInvIds $id]",
-    `      /tool netwatch add host=($ngInvIps->$pos) interval=30s timeout=2s comment=("${NETWATCH_PREFIX}" . $id)`,
+    `      /tool netwatch add host=($ngInvIps->$pos) interval=2m timeout=2s comment=("${NETWATCH_PREFIX}" . $id)`,
     "    }",
     "  }",
     '} on-error={ :log warning "NetGrid: device monitor sync failed" }',

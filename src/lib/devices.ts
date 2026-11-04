@@ -140,7 +140,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
     const mac =
       v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
     lines.push(
-      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=default comment="netgrid-voucher" } on-error={} }`,
+      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=default comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" comment="netgrid-voucher" } on-error={} } } }`,
     );
   }
   if (valid.length > 0) {
@@ -266,6 +266,6 @@ export function buildDeviceAgentLines(pushUrl: string): string[] {
     "/system script",
     ":do { remove [find where name=netgrid-devices] } on-error={}",
     `:do { add name=netgrid-devices source={${source}} } on-error={}`,
-    ':if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=2m on-event="/system script run netgrid-devices" }',
+    ':do { :if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=5m on-event="/system script run netgrid-devices" } else={ /system scheduler set [find where name=netgrid-devices] interval=5m } } on-error={}',
   ];
 }
