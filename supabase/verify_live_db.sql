@@ -471,7 +471,9 @@ with expected(ord, track, migration, kind, ident) as (values
   (31, 'supabase', '20261101000000_tenant_owned_services.sql', 'rls', 'public.tenant_service_secrets'),
   (31, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.platform_commissions'),
   (31, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.tenant_service_secrets'),
-  (32, 'supabase', '20261102000000_daraja_only.sql', 'constraintdef', 'public.payments.payments_provider_check#945f1ba9')
+  (32, 'supabase', '20261102000000_daraja_only.sql', 'constraintdef', 'public.payments.payments_provider_check#945f1ba9'),
+  (33, 'supabase', '20261103000000_isolate_portal_asset_uploads.sql', 'none', ''),
+  (34, 'supabase', '20261104000000_lock_bootstrap_tenant.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.
