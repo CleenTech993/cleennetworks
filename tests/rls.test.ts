@@ -65,18 +65,30 @@ async function makeUser(label: string): Promise<Ctx> {
   await admin.from("profiles").upsert({ id: userId, email }, { onConflict: "id" });
 
   const slug = `t-${label}-${stamp}`.toLowerCase().slice(0, 60);
-  const { data: tenantId, error: bErr } = await client.rpc("bootstrap_tenant", {
-    p_name: `Tenant ${label}`,
-    p_slug: slug,
-    p_full_name: `User ${label}`,
-  });
+  // Workspaces are granted by a super admin, not self-served: bootstrap_tenant is no longer callable by
+  // signed-in users, so the test fixtures create the tenant and admin role the way approval does.
+  const { data: tenant, error: bErr } = await admin
+    .from("tenants")
+    .insert({ name: `Tenant ${label}`, slug })
+    .select("id")
+    .single();
   if (bErr) throw bErr;
+  const tenantId = tenant.id as string;
+  const { error: pErr } = await admin
+    .from("profiles")
+    .update({ tenant_id: tenantId, full_name: `User ${label}` })
+    .eq("id", userId);
+  if (pErr) throw pErr;
+  const { error: rErr } = await admin
+    .from("user_roles")
+    .insert({ user_id: userId, role: "tenant_admin", tenant_id: tenantId });
+  if (rErr) throw rErr;
 
   return {
     email,
     password,
     userId,
-    tenantId: tenantId as string,
+    tenantId,
     client,
     ids: {},
   };
