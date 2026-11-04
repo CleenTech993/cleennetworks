@@ -19,7 +19,7 @@ import { setDeviceBlocked, unbindVoucherDevice } from "@/lib/device.functions";
 
 export const Route = createFileRoute("/tenant/devices")({ component: Devices });
 
-// Routers report every minute, so a device is "online" if it was seen in the last 5.
+// Routers report every 2 minutes, so a device is "online" if it was seen in the last 5.
 const ONLINE_MS = 5 * 60 * 1000;
 
 function ago(iso: string) {
@@ -28,18 +28,6 @@ function ago(iso: string) {
   if (s < 5400) return `${Math.round(s / 60)} min ago`;
   if (s < 129_600) return `${Math.round(s / 3600)} h ago`;
   return `${Math.round(s / 86_400)} d ago`;
-}
-
-function duration(seconds: number | null) {
-  if (seconds == null) return "—";
-  const totalMinutes = Math.floor(seconds / 60);
-  const days = Math.floor(totalMinutes / 1440);
-  const hours = Math.floor((totalMinutes % 1440) / 60);
-  const minutes = totalMinutes % 60;
-  if (days) return `${days}d ${hours}h ${minutes}m`;
-  if (hours) return `${hours}h ${minutes}m`;
-  if (minutes) return `${minutes}m`;
-  return `${seconds}s`;
 }
 
 function Devices() {
@@ -64,19 +52,6 @@ function Devices() {
     queryKey: ["devices-routers"],
     queryFn: async () => {
       const { data, error } = await supabase.from("routers").select("id,name");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-  const { data: sessions = [] } = useQuery({
-    queryKey: ["router-hotspot-sessions"],
-    refetchInterval: 30_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("router_hotspot_sessions")
-        .select("id,router_id,mac,hostname,voucher_code,started_at,ended_at,duration_seconds,session_uptime_seconds")
-        .order("started_at", { ascending: false })
-        .limit(200);
       if (error) throw error;
       return data ?? [];
     },
@@ -113,7 +88,7 @@ function Devices() {
     onSuccess: (_r, v) => {
       toast.success(
         v.blocked
-          ? "Device blocked. The router applies it within about 5 minutes."
+          ? "Device blocked. The router applies it within about 2 minutes."
           : "Device unblocked",
       );
       void qc.invalidateQueries({ queryKey: ["router-devices"] });
@@ -136,7 +111,7 @@ function Devices() {
     <div>
       <PageHeader
         title="Devices"
-        description="Every device seen on your hotspots. Vouchers are tied to one device MAC; recent session durations help investigate customer reports."
+        description="Every device seen on your hotspots. One package works on one device; sharing a connection from a phone is blocked."
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Online now" value={counts.online} />
@@ -273,7 +248,7 @@ function Devices() {
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                     {devices.length === 0
-                      ? "No devices reported yet. Routers send their device list every minute once they have synced."
+                      ? "No devices reported yet. Routers send their device list every 2 minutes once they have synced."
                       : "No devices match this filter."}
                   </td>
                 </tr>
@@ -285,61 +260,6 @@ function Devices() {
           Unknown = seen on the hotspot but not linked to any voucher or paid TV (for example
           someone browsing the login page). Showing the latest 500 devices.
         </p>
-      </div>
-
-      <div className="mt-6 rounded-xl border bg-card">
-        <div className="border-b p-4">
-          <h3 className="font-semibold">Recent voucher sessions</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Router-reported durations are sampled once per minute; ended sessions may be approximate by up to a minute.
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2 text-left">Voucher</th>
-                <th className="px-4 py-2 text-left">Device</th>
-                <th className="px-4 py-2 text-left">Router</th>
-                <th className="px-4 py-2 text-left">Started</th>
-                <th className="px-4 py-2 text-left">Ended</th>
-                <th className="px-4 py-2 text-right">Internet time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((session) => (
-                <tr key={session.id} className="border-t">
-                  <td className="px-4 py-2 font-mono text-xs">{session.voucher_code}</td>
-                  <td className="px-4 py-2">
-                    <p className="font-medium">{session.hostname || "Unnamed device"}</p>
-                    <p className="font-mono text-xs text-muted-foreground">{session.mac}</p>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {routerName.get(session.router_id) ?? "—"}
-                  </td>
-                  <td className="px-4 py-2 text-xs">{new Date(session.started_at).toLocaleString()}</td>
-                  <td className="px-4 py-2 text-xs">
-                    {session.ended_at ? (
-                      new Date(session.ended_at).toLocaleString()
-                    ) : (
-                      <Badge variant="success">Online</Badge>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-right font-medium">
-                    {duration(session.ended_at ? session.duration_seconds : session.session_uptime_seconds)}
-                  </td>
-                </tr>
-              ))}
-              {sessions.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    No voucher sessions recorded yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
       </div>
     </div>
   );

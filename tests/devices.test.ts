@@ -48,7 +48,7 @@ describe("deviceLimitOf", () => {
 describe("parseDeviceReport", () => {
   it("parses well-formed records", () => {
     const r = parseDeviceReport(
-      "aa:bb:cc:dd:ee:02|10.5.50.20|Johns-iPhone|ABCDEF2345|true|0|00:02:30;AA:BB:CC:DD:EE:04|10.5.50.21|||false|1|;",
+      "aa:bb:cc:dd:ee:02|10.5.50.20|Johns-iPhone|ABCDEF2345|true|0;AA:BB:CC:DD:EE:04|10.5.50.21|||false|1;",
     );
     expect(r).toEqual([
       {
@@ -58,7 +58,6 @@ describe("parseDeviceReport", () => {
         user: "ABCDEF2345",
         authorized: true,
         tether: false,
-        sessionUptimeSeconds: 150,
       },
       {
         mac: "AA:BB:CC:DD:EE:04",
@@ -67,7 +66,6 @@ describe("parseDeviceReport", () => {
         user: null,
         authorized: false,
         tether: true,
-        sessionUptimeSeconds: null,
       },
     ]);
   });
@@ -87,11 +85,6 @@ describe("parseDeviceReport", () => {
     expect(r[0]!.ip).toBe("10.0.0.3");
   });
 
-  it("keeps accepting older six-field reports without session telemetry", () => {
-    expect(parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|phone|CODE1234|true|0")[0])
-      .toMatchObject({ sessionUptimeSeconds: null });
-  });
-
   it("neutralises hostile hostnames, users and IPs chosen by the customer's device", () => {
     const [d] = parseDeviceReport(
       'AA:BB:CC:DD:EE:02|999.1.1.1|x"$(evil) /system reset|bad user!|true|0',
@@ -103,12 +96,12 @@ describe("parseDeviceReport", () => {
   });
 
   it("drops records with the wrong number of fields (a forged delimiter in a name cannot add devices)", () => {
-    // a hostname containing separators produces an invalid fragment, not a second usable MAC
+    // a hostname "x;AA:..:99|1.1.1.1|y" turns one record into a fragment plus a fake record
     expect(
-      parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|x;not-a-mac|1.1.1.1|y|||false|0"),
+      parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|x;AA:BB:CC:DD:EE:99|1.1.1.1|y|||false|0"),
     ).toEqual([]);
     expect(parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|h||false")).toEqual([]); // too few
-      expect(parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|h||false|0|extra|too-many")).toEqual([]); // too many
+    expect(parseDeviceReport("AA:BB:CC:DD:EE:02|10.0.0.1|h||false|0|extra")).toEqual([]); // too many
   });
 
   it("caps the number of devices per report", () => {
@@ -121,7 +114,7 @@ describe("parseDeviceReport", () => {
 });
 
 describe("buildHotspotUserLines diagnostics", () => {
-  const voucher = (code: string) => ({ code, bound_mac: null });
+  const voucher = (code: string) => ({ code, bound_mac: null, limit: 1 });
 
   it("logs a warning when fewer voucher users exist on the router than were sent", () => {
     const out = buildHotspotUserLines([voucher("AAAA111111"), voucher("BBBB222222")]).join("\n");
@@ -148,7 +141,7 @@ describe("buildHotspotUserLines", () => {
     buildHotspotUserLines(v).join("\n");
 
   it("pins a one-device voucher to its MAC and uses the 1-device profile", () => {
-    const out = joined([{ code: "ABC123XYZ9", bound_mac: "AA:BB:CC:DD:EE:02" }]);
+    const out = joined([{ code: "ABC123XYZ9", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 }]);
     expect(out).toContain(
       'add name="ABC123XYZ9" password="ABC123XYZ9" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
     );
@@ -166,43 +159,43 @@ describe("buildHotspotUserLines", () => {
     });
   });
 
-  it("pins every voucher to one MAC even when its package allows multiple devices", () => {
-    const out = joined([{ code: "FAMILY0001", bound_mac: "AA:BB:CC:DD:EE:02" }]);
-    expect(out).toContain("profile=netgrid-d1");
-    expect(out).toContain("add name=netgrid-d1 shared-users=1");
-    expect(out).toContain("mac-address=AA:BB:CC:DD:EE:02");
+  it("does not pin a multi-device voucher but caps simultaneous devices", () => {
+    const out = joined([{ code: "FAMILY0001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 3 }]);
+    expect(out).toContain("profile=netgrid-d3");
+    expect(out).toContain("add name=netgrid-d3 shared-users=3");
+    expect(out).not.toContain("mac-address=AA:BB");
   });
 
   it("leaves an unbound voucher unpinned and ignores an invalid MAC", () => {
     const out = joined([
-      { code: "FRESH00001", bound_mac: null },
-      { code: "BADMAC0001", bound_mac: "01:00:5E:00:00:01" },
+      { code: "FRESH00001", bound_mac: null, limit: 1 },
+      { code: "BADMAC0001", bound_mac: "01:00:5E:00:00:01", limit: 1 },
     ]);
     expect(out).not.toContain("mac-address=");
   });
 
   it("skips codes that are not script-safe", () => {
     const out = joined([
-      { code: 'EVIL"; /x', bound_mac: null },
-      { code: "GOOD000001", bound_mac: null },
+      { code: 'EVIL"; /x', bound_mac: null, limit: 1 },
+      { code: "GOOD000001", bound_mac: null, limit: 1 },
     ]);
     expect(out).not.toContain("EVIL");
     expect(out).toContain("GOOD000001");
   });
 
-  it("removes old users, defines the one-device profile, then adds users", () => {
-    const lines = buildHotspotUserLines([{ code: "ORDER00001", bound_mac: null }]);
+  it("removes old users, then defines profiles, then adds users (order matters on the router)", () => {
+    const lines = buildHotspotUserLines([{ code: "ORDER00001", bound_mac: null, limit: 2 }]);
     const idx = (needle: string) => lines.findIndex((l) => l.includes(needle));
     expect(idx('remove [find comment="netgrid-voucher"]')).toBeLessThan(idx("add name=netgrid-d1"));
-    expect(idx("add name=netgrid-d1")).toBeLessThan(idx('add name="ORDER00001"'));
+    expect(idx("add name=netgrid-d2")).toBeLessThan(idx('add name="ORDER00001"'));
   });
 
   it("emits balanced RouterOS syntax", () => {
     expect(
       balanced(
         joined([
-          { code: "OKCODE0001", bound_mac: "AA:BB:CC:DD:EE:02" },
-          { code: "OKCODE0002", bound_mac: null },
+          { code: "OKCODE0001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 },
+          { code: "OKCODE0002", bound_mac: null, limit: 4 },
         ]),
       ),
     ).toBe(true);
@@ -212,13 +205,12 @@ describe("buildHotspotUserLines", () => {
 describe("buildHotspotVoucherRefreshLines", () => {
   it("adds only missing vouchers and does not rebuild the managed user list", () => {
     const lines = buildHotspotVoucherRefreshLines([
-      { code: "FASTCODE01", bound_mac: "AA:BB:CC:DD:EE:02" },
-      { code: 'bad"code', bound_mac: null },
+      { code: "FASTCODE01", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 },
+      { code: 'bad"code', bound_mac: null, limit: 1 },
     ]);
     const script = lines.join("\n");
     expect(script).toContain('find where name="FASTCODE01"');
     expect(script).toContain("mac-address=AA:BB:CC:DD:EE:02");
-    expect(script).toContain('set [find where name="FASTCODE01"]');
     expect(script).not.toContain('remove [find comment="netgrid-voucher"]');
     expect(script).not.toContain('bad"code');
     expect(balanced(script)).toBe(true);
@@ -303,39 +295,32 @@ describe("buildDeviceAgentLines", () => {
   it("creates the scheduler only when missing (re-creating it every sync would reset its timer)", () => {
     const sched = buildDeviceAgentLines(URL_OK).find((l) => l.includes("scheduler add"))!;
     expect(sched).toMatch(
-      /^:do \{ :if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/,
+      /^:if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/,
     );
-    expect(sched).toContain("interval=1m");
+    expect(sched).toContain("interval=5m");
   });
 
   it("posts the report to the endpoint it parses", () => {
     const plain = buildDeviceAgentLines(URL_OK).join("\n").replace(/\\\$/g, "$");
     expect(plain).toContain(`/tool fetch url="${URL_OK}" http-method=post http-data=$d`);
     // the record layout the script builds is the one parseDeviceReport reads
-    expect(plain).toContain(
-      '$mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . "|" . $sessionUp',
-    );
-  });
-
-  it("includes the versioned URL and session uptime in the report script", () => {
-    const lines = buildDeviceAgentLines(`${URL_OK}?v=2`);
-    const script = lines.find((line) => line.includes("add name=netgrid-devices source"))!;
-    expect(script).toContain(`${URL_OK}?v=2`);
-    expect(script).toContain("/ip hotspot active get $active uptime");
-    expect(script).toContain("$tt . \"|\" . $sessionUp");
-    expect(balanced(script)).toBe(true);
+    expect(plain).toContain('$mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt');
   });
 });
 
 describe("canResumeVoucher", () => {
   const MAC = "AA:BB:CC:DD:EE:01";
   it("lets the device that redeemed a one-device voucher present it again", () => {
-    expect(canResumeVoucher(MAC, MAC)).toBe(true);
+    expect(canResumeVoucher(1, MAC, MAC)).toBe(true);
   });
-  it("never lets another device, or an unidentified one, take over a voucher", () => {
-    expect(canResumeVoucher("AA:BB:CC:DD:EE:02", MAC)).toBe(false);
-    expect(canResumeVoucher(null, MAC)).toBe(false);
-    expect(canResumeVoucher(MAC, null)).toBe(false);
-    expect(canResumeVoucher(null, null)).toBe(false);
+  it("never lets another device, or an unidentified one, take over a one-device voucher", () => {
+    expect(canResumeVoucher(1, "AA:BB:CC:DD:EE:02", MAC)).toBe(false);
+    expect(canResumeVoucher(1, null, MAC)).toBe(false);
+    expect(canResumeVoucher(1, MAC, null)).toBe(false);
+    expect(canResumeVoucher(1, null, null)).toBe(false);
+  });
+  it("lets any device use a multi-device voucher (the router enforces the limit)", () => {
+    expect(canResumeVoucher(3, "AA:BB:CC:DD:EE:02", MAC)).toBe(true);
+    expect(canResumeVoucher(3, null, null)).toBe(true);
   });
 });

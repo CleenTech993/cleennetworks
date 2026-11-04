@@ -46,11 +46,9 @@ open the router and generate a new setup command, then run it.
 /ip dns static print where name~"hotspot"
 ```
 
-- The voucher is missing from `hotspot user print`: run `/system script run netgrid-sync` and check again.
-  New vouchers are then polled every 10 seconds; the router also needs to have the latest sync script.
+- The voucher is missing from `hotspot user print`: it has not reached the router yet (the router learns
+  about new vouchers every ~2 minutes). Run `/system script run netgrid-sync` and check again.
 - The user's `mac-address` is not the customer's phone: the voucher is pinned to another device.
-- Session durations appear under **Devices → Recent voucher sessions** after the router has reported
-  at least once. Durations are sampled every minute, so an ended session can be approximate by up to a minute.
 - `login.html` missing: the sync restores it on its next run (look for `hotspot login page restored`).
 
 Watch a login attempt live:

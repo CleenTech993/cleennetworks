@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { expiryFrom } from "@/lib/duration";
-import { canResumeVoucher, normalizeMac } from "@/lib/devices";
+import { canResumeVoucher, deviceLimitOf, normalizeMac } from "@/lib/devices";
 import {
   tenantServiceRestriction,
   tenantServiceRestrictionMessage,
@@ -43,39 +43,38 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
 
         const { data: v } = await supabaseAdmin
           .from("vouchers")
-          .select("id,status,expires_at,package_id,payment_id,used_by_mac,bound_mac")
+          .select("id,status,expires_at,package_id,payment_id,used_by_mac")
           .eq("tenant_id", tenant.id)
           .eq("code", parsed.data.code.trim().toUpperCase())
           .maybeSingle();
         if (!v) return Response.json({ error: "Invalid voucher" }, { status: 404 });
 
         const code = parsed.data.code.trim().toUpperCase();
+        // One package = one device: pin the voucher to the device that redeems it. The router
+        // refuses the code from any other device (written to the router on the next sync).
         const mac = parsed.data.mac ? normalizeMac(parsed.data.mac) : null;
-        if (!mac)
-          return Response.json(
-            {
-              error:
-                "Open the portal from the Wi-Fi sign-in page so we can bind this voucher to your device.",
-            },
-            { status: 400 },
-          );
 
         const { data: pkg } = v.package_id
           ? await supabaseAdmin
               .from("packages")
-              .select("duration_value,duration_unit")
+              .select("duration_value,duration_unit,device_limit")
               .eq("id", v.package_id)
               .eq("tenant_id", tenant.id)
               .maybeSingle()
           : { data: null };
-        // The same MAC can retry the router login while a fresh voucher is being synced.
+        const deviceLimit = deviceLimitOf(pkg);
+
+        // Redeeming only marks the voucher used in the database; the customer is then sent to the
+        // router to log in, which can fail for a while (the router learns about new vouchers on its
+        // next sync). That must not lock the customer out: the device that redeemed the code (or
+        // any device, for a multi-device package, where the router enforces the limit) may
+        // present it again so the portal can retry the router login.
         const resume = (row: {
           status: string;
           expires_at: string | null;
           used_by_mac?: string | null;
-          bound_mac?: string | null;
         }) => {
-          if (row.status !== "used" || !canResumeVoucher(mac, row.bound_mac ?? row.used_by_mac))
+          if (row.status !== "used" || !canResumeVoucher(deviceLimit, mac, row.used_by_mac))
             return null;
           if (row.expires_at && new Date(row.expires_at) < new Date()) {
             return Response.json({ error: "Voucher expired" }, { status: 400 });
@@ -119,9 +118,15 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           used_by_mac: mac,
           expires_at: expiresAt,
         };
-        const pin = { bound_mac: mac };
+        const pin = deviceLimit === 1 && mac ? { bound_mac: mac } : {};
 
-        const { data: redeemed, error } = await redeemNow({ ...base, ...pin });
+        let { data: redeemed, error } = await redeemNow({ ...base, ...pin });
+        // Deployed before the device-management migration was applied: redeem without the pin
+        // rather than locking every customer out.
+        if (error && pin.bound_mac && /bound_mac/.test(error.message ?? "")) {
+          console.warn("vouchers.bound_mac is missing; apply the device_management migration");
+          ({ data: redeemed, error } = await redeemNow(base));
+        }
         // A database failure is not "already used": say so, and leave the voucher untouched so the
         // customer can simply try again.
         if (error) {
@@ -136,7 +141,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           // That request has redeemed it, so this one resumes rather than being told "already used".
           const { data: now } = await supabaseAdmin
             .from("vouchers")
-            .select("status,expires_at,used_by_mac,bound_mac")
+            .select("status,expires_at,used_by_mac")
             .eq("id", v.id)
             .eq("tenant_id", tenant.id)
             .maybeSingle();

@@ -15,6 +15,7 @@ import {
   buildHotspotVoucherRefreshLines,
   buildHotspotUserLines,
   buildTetherLines,
+  deviceLimitOf,
   type SyncVoucher,
 } from "@/lib/devices";
 import { authenticateRouter } from "@/lib/router-auth.server";
@@ -52,20 +53,42 @@ async function voucherRefreshResponse(router: { id: string; tenant_id: string })
     });
   }
 
-  const voucherQuery = await supabaseAdmin
+  const queryVouchers = (includeMac: boolean) =>
+    supabaseAdmin
       .from("vouchers")
-      .select("code,expires_at,bound_mac")
+      .select(includeMac ? "code,expires_at,bound_mac,package_id" : "code,expires_at,package_id")
       .eq("tenant_id", router.tenant_id)
       .in("status", ["unused", "used", "active"])
       .or(`expires_at.is.null,expires_at.gt.${now}`);
+
+  let voucherQuery = await queryVouchers(true);
+  if (voucherQuery.error && /bound_mac/.test(voucherQuery.error.message ?? ""))
+    voucherQuery = await queryVouchers(false);
   if (voucherQuery.error || !voucherQuery.data) {
     console.error("sync: fast voucher query failed", voucherQuery.error);
     return new Response("# voucher sync unavailable\n", { status: 503 });
   }
 
+  const packageIds = [
+    ...new Set(voucherQuery.data.flatMap((voucher) => (voucher.package_id ? [voucher.package_id] : []))),
+  ];
+  const packages = packageIds.length
+    ? await supabaseAdmin
+        .from("packages")
+        .select("id,device_limit")
+        .eq("tenant_id", router.tenant_id)
+        .in("id", packageIds)
+    : { data: [], error: null };
+  if (packages.error || !packages.data) {
+    console.error("sync: fast voucher package query failed", packages.error);
+    return new Response("# voucher sync unavailable\n", { status: 503 });
+  }
+
+  const limitByPackage = new Map(packages.data.map((pkg) => [pkg.id, deviceLimitOf(pkg)]));
   const vouchers: SyncVoucher[] = voucherQuery.data.map((voucher) => ({
     code: voucher.code,
-    bound_mac: voucher.bound_mac ?? null,
+    bound_mac: "bound_mac" in voucher ? (voucher.bound_mac ?? null) : null,
+    limit: voucher.package_id ? (limitByPackage.get(voucher.package_id) ?? 1) : 1,
   }));
   return new Response(buildHotspotVoucherRefreshLines(vouchers).join("\n"), {
     headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
@@ -103,6 +126,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           { data: vouchers, error: vouchersError },
           { data: packages, error: packagesError },
           { data: tvs, error: tvsError },
+          { data: hotspotPkgs },
           { data: blocked, error: blockedError },
           { data: routerRow, error: routerRowError },
           { data: monitored, error: monitoredError },
@@ -142,6 +166,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .eq("tenant_id", router.tenant_id)
             .eq("status", "active")
             .gt("expires_at", now),
+          // Device limit of each hotspot/voucher package (one package = one device by default).
+          supabaseAdmin
+            .from("packages")
+            .select("id,device_limit")
+            .eq("tenant_id", router.tenant_id)
+            .in("kind", ["hotspot", "voucher"]),
           // Devices the tenant blocked, on any of its routers.
           supabaseAdmin
             .from("router_devices")
@@ -232,17 +262,35 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
               ? skipped("smart TV", tvsError)
               : buildTvSyncLines(tvs)),
         );
-        // Every voucher belongs to one MAC, independent of the package's device limit.
+        // Hotspot vouchers: one package = one device (shared-users limit + MAC pinned from the database).
         // If the voucher list cannot be read, the router must KEEP its current voucher users: an empty
-        // list would delete every one of them. Never fall back to a query without bound_mac.
-        const voucherRows = vouchersError ? null : vouchers;
+        // list would delete every one of them. A missing bound_mac column (migration not applied yet)
+        // is retried without it, so vouchers keep working, just without the device pin.
+        type VoucherRow = { code: string; bound_mac?: string | null; package_id: string | null };
+        let voucherRows: VoucherRow[] | null = vouchers;
+        if (!serviceRestricted && vouchersError) {
+          console.warn(
+            "sync: voucher query failed, retrying without bound_mac:",
+            vouchersError.message,
+          );
+          const retry = await supabaseAdmin
+            .from("vouchers")
+            .select("code,status,expires_at,package_id")
+            .eq("tenant_id", router.tenant_id)
+            .in("status", ["unused", "used", "active"])
+            .or(`expires_at.is.null,expires_at.gt.${now}`);
+          if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
+          voucherRows = retry.error ? null : retry.data;
+        }
 
         if (serviceRestricted) {
           lines.push(...buildHotspotSuspendLines());
         } else if (voucherRows) {
+          const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
           const syncVouchers: SyncVoucher[] = voucherRows.map((v) => ({
             code: v.code,
             bound_mac: v.bound_mac ?? null,
+            limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
           }));
           lines.push(...buildHotspotUserLines(syncVouchers));
         } else {
@@ -265,7 +313,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
 
         // Diagnostics and agents
         lines.push(
-          ...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}?v=2`),
+          ...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`),
         );
         lines.push(
           ...buildPppoeAgentLines(`https://${host}/api/public/router/pppoe/${params.token}`),

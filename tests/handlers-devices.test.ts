@@ -24,22 +24,10 @@ const MAC_A = "AA:BB:CC:DD:EE:02";
 const MAC_B = "AA:BB:CC:DD:EE:04";
 const MAC_TV = "AA:BB:CC:DD:EE:70";
 
-const rec = (
-  mac: string,
-  ip: string,
-  host: string,
-  user: string,
-  auth: boolean,
-  tether = 0,
-  uptime = "",
-) => `${mac}|${ip}|${host}|${user}|${auth}|${tether}|${uptime};`;
+const rec = (mac: string, ip: string, host: string, user: string, auth: boolean, tether = 0) =>
+  `${mac}|${ip}|${host}|${user}|${auth}|${tether};`;
 const send = (token: string, body: string) =>
-  call(Devices, "POST", {
-    url: `https://portal.test/api/public/router/devices/${token}?v=2`,
-    params: { token },
-    rawBody: body,
-    ip: freshIp(),
-  });
+  call(Devices, "POST", { params: { token }, rawBody: body, ip: freshIp() });
 const voucher = (code: string) => h.db.rows("vouchers").find((v) => v.code === code)!;
 const devices = () => h.db.rows("router_devices");
 
@@ -184,7 +172,7 @@ describe("device report endpoint", () => {
     expect(devices()[0]!.registered_kind).toBe("tv");
   });
 
-  it("redeems and pins a voucher to the MAC that logged in directly on the router", async () => {
+  it("redeems and pins a one-device voucher that was logged in directly on the router", async () => {
     const token = await issueDeviceToken(R1);
     await send(token, rec(MAC_A, "10.5.50.20", "phone", "ONEDEV0001", true));
     const v = voucher("ONEDEV0001");
@@ -200,13 +188,11 @@ describe("device report endpoint", () => {
     expect(d.voucher_code).toBe("ONEDEV0001");
   });
 
-  it("pins a voucher to one MAC even when its package allows several devices", async () => {
+  it("does not pin a voucher whose package allows several devices", async () => {
     const token = await issueDeviceToken(R1);
     await send(token, rec(MAC_A, "10.5.50.20", "phone", "FAMILY0003", true));
     expect(voucher("FAMILY0003").status).toBe("used");
-    expect(voucher("FAMILY0003").bound_mac).toBe(MAC_A);
-    await send(token, rec(MAC_B, "10.5.50.21", "tablet", "FAMILY0003", true));
-    expect(voucher("FAMILY0003").bound_mac).toBe(MAC_A);
+    expect(voucher("FAMILY0003").bound_mac).toBeNull();
   });
 
   it("pins an already-used voucher to the first device seen, and never overwrites an existing pin", async () => {
@@ -234,36 +220,6 @@ describe("device report endpoint", () => {
     expect(voucher("ONEDEV0001").status).toBe("unused");
     expect(voucher("RIVALCODE2").status).toBe("unused");
     expect(voucher("RIVALCODE2").bound_mac).toBeNull();
-  });
-
-  it("records sampled voucher session duration and closes the row after disconnect", async () => {
-    const token = await issueDeviceToken(R1);
-    await send(token, rec(MAC_A, "10.5.50.20", "phone", "ONEDEV0001", true, 0, "00:01:30"));
-    const [active] = h.db.rows("router_hotspot_sessions");
-    expect(active).toMatchObject({
-      router_id: R1,
-      tenant_id: T,
-      mac: MAC_A,
-      voucher_code: "ONEDEV0001",
-      duration_seconds: 90,
-    });
-    expect(active.ended_at).toBeUndefined();
-
-    await send(token, "");
-    const [ended] = h.db.rows("router_hotspot_sessions");
-    expect(ended.duration_seconds).toBe(90);
-    expect(ended.ended_at).toBeTruthy();
-  });
-
-  it("keeps device reports working when session history has not been migrated yet", async () => {
-    const token = await issueDeviceToken(R1);
-    h.db.failNext("router_hotspot_sessions", "select", "relation does not exist");
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const res = await send(token, rec(MAC_A, "10.5.50.20", "phone", "", false));
-
-    expect(res.status).toBe(200);
-    expect(devices().some((device) => device.mac === MAC_A)).toBe(true);
   });
 
   it("cannot be tricked by a device name that contains the record separators", async () => {
@@ -299,14 +255,14 @@ describe("sync script: device features", () => {
   const sync = async (token: string) =>
     (await call(Sync, "GET", { params: { token }, ip: freshIp() })).text();
 
-  it("pins every voucher to one MAC regardless of package device limit", async () => {
+  it("pins one-device vouchers to their MAC and caps shared ones", async () => {
     const text = await sync(await issueDeviceToken(R1));
     expect(text).toContain(
       `add name="PINNED0001" password="PINNED0001" server=netgrid-hs profile=netgrid-d1 mac-address=${MAC_B}`,
     );
     expect(text).toMatch(/add name="ONEDEV0001"[^\n]*profile=netgrid-d1 comment/);
-    expect(text).toMatch(/add name="FAMILY0003"[^\n]*profile=netgrid-d1 comment/);
-    expect(text).toContain("add name=netgrid-d1 shared-users=1");
+    expect(text).toMatch(/add name="FAMILY0003"[^\n]*profile=netgrid-d3 comment/);
+    expect(text).toContain("add name=netgrid-d3 shared-users=3");
     expect(text).not.toContain("RIVALCODE2");
   });
 
@@ -334,15 +290,15 @@ describe("sync script: device features", () => {
   it("points the report script at the device token, never the bootstrap token", async () => {
     const token = await issueDeviceToken(R1);
     const text = await sync(token);
-    expect(text).toContain(`https://portal.test/api/public/router/devices/${token}?v=2`);
+    expect(text).toContain(`https://portal.test/api/public/router/devices/${token}`);
     expect(text).not.toContain("boot".padEnd(32, "x"));
   });
 
-  it("does not sync unbound vouchers when the bound_mac column is unavailable", async () => {
+  it("keeps vouchers working when the bound_mac column has not been migrated yet", async () => {
     h.db.failNext("vouchers", "select", "column vouchers.bound_mac does not exist");
     const text = await sync(await issueDeviceToken(R1));
-    expect(text).not.toContain('add name="ONEDEV0001"');
-    expect(text).toContain("voucher list unavailable, keeping current vouchers");
+    expect(text).toMatch(/add name="ONEDEV0001"[^\n]*profile=netgrid-d1 comment/);
+    expect(text).not.toContain("mac-address=AA:BB");
   });
 
   it("never wipes the router's vouchers when the voucher list cannot be read at all", async () => {
