@@ -254,10 +254,10 @@ add name=netgrid-heartbeat source={
 
 /system scheduler
 remove [find name~"netgrid-"]
-add name=netgrid-wan interval=2s on-event="/system script run netgrid-wan"
-add name=netgrid-ifaces interval=1m on-event="/system script run netgrid-ifaces"
-add name=netgrid-sync interval=5s on-event="/system script run netgrid-sync"
-add name=netgrid-heartbeat interval=2s on-event="/system script run netgrid-heartbeat"
+add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan"
+add name=netgrid-ifaces interval=5m on-event="/system script run netgrid-ifaces"
+add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync"
+add name=netgrid-heartbeat interval=1m on-event="/system script run netgrid-heartbeat"
 
 # --- LAN ports join the hotspot bridge LAST ---
 # Moving the port you are connected through (cable, Wi-Fi or MAC-Winbox) into a new bridge can cut
