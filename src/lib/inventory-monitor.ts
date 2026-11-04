@@ -90,8 +90,8 @@ export function buildDeviceMonitorLines(targets: MonitorTarget[], reportUrl: str
     "    }",
     "  }",
     "  :if ([:len [/system scheduler find where name=netgrid-inventory]] = 0) do={",
-    '    /system scheduler add name=netgrid-inventory interval=1m on-event="/system script run netgrid-inventory"',
-    "  }",
+    '    /system scheduler add name=netgrid-inventory interval=5m on-event="/system script run netgrid-inventory"',
+    "  } else={ /system scheduler set [find where name=netgrid-inventory] interval=5m }",
     // netwatch entries: drop stale ones, fix changed IPs, add missing ones
     `  :foreach n in=[/tool netwatch find where comment~"^${NETWATCH_PREFIX}"] do={`,
     "    :local c [/tool netwatch get $n comment]",

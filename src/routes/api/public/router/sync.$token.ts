@@ -136,8 +136,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const host = getRequestHost();
         const lines: string[] = [
           "# NetGrid sync",
-          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5s on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5s } } on-error={}',
-          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=2s on-event="/system script run netgrid-wan" } else={ /system scheduler set [find name=netgrid-wan] interval=2s } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5m } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan" } else={ /system scheduler set [find name=netgrid-wan] interval=1m } } on-error={}',
           "/system script",
           ":do { remove [find where name=netgrid-heartbeat] } on-error={}",
           `:do { add name=netgrid-heartbeat source={
@@ -161,7 +161,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
     /tool fetch url="https://${host}/api/public/router/heartbeat/${params.token}" http-method=post http-data=$d mode=https keep-result=no
   } on-error={ :log warning "NetGrid: heartbeat failed" }
 } } on-error={}`,
-          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=2s on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=2s on-event="/system script run netgrid-heartbeat" } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=1m on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=1m on-event="/system script run netgrid-heartbeat" } } on-error={}',
           ":do { /system script run netgrid-heartbeat } on-error={}",
         ];
 
