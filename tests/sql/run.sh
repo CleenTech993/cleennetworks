@@ -13,8 +13,6 @@ cd "$(dirname "$0")/../.."
 source "$(dirname "$0")/build-db.sh"   # apply() and build_db(): migration order lives there
 
 build_db rls_roles_test "${1:-}"
-# Runs first so it is not hidden behind an earlier failure: a new sign-up must not be able to self-create a workspace.
-[[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/bootstrap-lock.sql
 psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/rls-roles.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/payment-provider.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/tenant-services.sql

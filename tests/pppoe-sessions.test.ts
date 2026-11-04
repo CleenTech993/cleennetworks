@@ -125,10 +125,10 @@ describe("buildPppoeAgentLines", () => {
   const URL = "https://portal.example.com/api/public/router/pppoe/abcDEF123_-token";
   const script = buildPppoeAgentLines(URL).join("\n");
 
-  it("installs a script and a 2 minute scheduler named netgrid-pppoe", () => {
+  it("installs a script and a 5 minute scheduler named netgrid-pppoe", () => {
     expect(script).toContain("add name=netgrid-pppoe source={");
     expect(script).toContain(
-      '/system scheduler add name=netgrid-pppoe interval=2m on-event="/system script run netgrid-pppoe"',
+      '/system scheduler add name=netgrid-pppoe interval=5m on-event="/system script run netgrid-pppoe"',
     );
   });
 

@@ -281,7 +281,7 @@ describe("buildDeviceAgentLines", () => {
     expect(sched).toMatch(
       /^:if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/,
     );
-    expect(sched).toContain("interval=2m");
+    expect(sched).toContain("interval=5m");
   });
 
   it("posts the report to the endpoint it parses", () => {

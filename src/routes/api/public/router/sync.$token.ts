@@ -85,7 +85,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,bound_mac,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used", "active"])
+            .in("status", ["unused", "used"])
             .or(`expires_at.is.null,expires_at.gt.${now}`),
           supabaseAdmin
             .from("packages")
@@ -136,19 +136,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         const host = getRequestHost();
         const lines: string[] = [
           "# NetGrid sync",
-          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=10s on-event="/system script run netgrid-sync" } else={ :if ([/system scheduler get [find name=netgrid-sync] interval] != 10s) do={ /system scheduler set [find name=netgrid-sync] interval=10s } } } on-error={}',
-          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=30s on-event="/system script run netgrid-wan" } else={ :if ([/system scheduler get [find name=netgrid-wan] interval] != 30s) do={ /system scheduler set [find name=netgrid-wan] interval=30s } } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5m } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan" } else={ /system scheduler set [find name=netgrid-wan] interval=1m } } on-error={}',
           "/system script",
-          // NetGrid scripts
-          `:do { :if ([:len [find name=netgrid-sync]] = 0) do={ add name=netgrid-sync source={
-  :do {
-    /tool fetch url="https://${host}/api/public/router/sync/${params.token}" dst-path=netgrid-sync.rsc mode=https
-    :delay 1s
-    /import file-name=netgrid-sync.rsc verbose=no
-    :do { /file remove [find name=netgrid-sync.rsc] } on-error={}
-  } on-error={ :log warning "NetGrid: user sync failed" }
-} } on-error={}`,
-          // NetGrid heartbeat script
+          ":do { remove [find where name=netgrid-heartbeat] } on-error={}",
           `:do { add name=netgrid-heartbeat source={
   :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
   :local r [/system resource get];
@@ -170,7 +161,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
     /tool fetch url="https://${host}/api/public/router/heartbeat/${params.token}" http-method=post http-data=$d mode=https keep-result=no
   } on-error={ :log warning "NetGrid: heartbeat failed" }
 } } on-error={}`,
-          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=30s on-event="/system script run netgrid-heartbeat" } else={ :if ([/system scheduler get [find name=netgrid-heartbeat] interval] != 30s) do={ /system scheduler set [find name=netgrid-heartbeat] interval=30s on-event="/system script run netgrid-heartbeat" } } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=1m on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=1m on-event="/system script run netgrid-heartbeat" } } on-error={}',
+          ":do { /system script run netgrid-heartbeat } on-error={}",
         ];
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
@@ -208,23 +200,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used", "active"])
+            .in("status", ["unused", "used"])
             .or(`expires_at.is.null,expires_at.gt.${now}`);
           if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
           voucherRows = retry.error ? null : retry.data;
-          if (!voucherRows) {
-            const fallback = await supabaseAdmin
-              .from("vouchers")
-              .select("code,status,expires_at,package_id")
-              .eq("tenant_id", router.tenant_id)
-              .in("status", ["unused", "used", "active"]);
-            if (!fallback.error && fallback.data) {
-              const nowMs = Date.now();
-              voucherRows = fallback.data.filter(
-                (v) => !v.expires_at || new Date(v.expires_at).getTime() > nowMs,
-              );
-            }
-          }
         }
         if (serviceRestricted) {
           lines.push(...buildHotspotSuspendLines());
@@ -285,7 +264,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             }),
           );
         }
-        lines.push(':log info "NetGrid: users synced"', ':do { /file remove [find name=netgrid-sync.rsc] } on-error={}', "");
+        lines.push(':log info "NetGrid: users synced"', "");
 
         // Record that this router just received a sync, so the dashboard can show whether routers are
         // really syncing. Best effort: if the column does not exist yet this fails quietly.
