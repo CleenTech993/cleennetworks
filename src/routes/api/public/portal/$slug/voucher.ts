@@ -5,6 +5,10 @@ import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { expiryFrom } from "@/lib/duration";
 import { canResumeVoucher, deviceLimitOf, normalizeMac } from "@/lib/devices";
+import {
+  tenantServiceRestriction,
+  tenantServiceRestrictionMessage,
+} from "@/lib/platform-billing.server";
 
 const Schema = z.object({ code: z.string().min(4).max(40), mac: z.string().optional() });
 
@@ -29,6 +33,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
+        const restriction = await tenantServiceRestriction(tenant.id);
+        if (restriction) {
+          return Response.json(
+            { error: tenantServiceRestrictionMessage(restriction) },
+            { status: 423 },
+          );
+        }
 
         const { data: v } = await supabaseAdmin
           .from("vouchers")

@@ -82,12 +82,29 @@ export interface SyncCustomer {
   expires_at: string | null;
   router_id: string | null;
   package_id: string | null;
+  data_used_bytes?: number | string | null;
 }
 
 export interface SyncPackage {
   id: string;
   download_kbps: number | null;
   upload_kbps: number | null;
+  data_limit_mb?: number | null;
+  unlimited?: boolean | null;
+  fup_download_kbps?: number | null;
+  fup_upload_kbps?: number | null;
+}
+
+export function pppoeFupExceeded(
+  usedBytes: number | string | null | undefined,
+  pkg: Pick<SyncPackage, "data_limit_mb" | "unlimited">,
+): boolean {
+  if (pkg.unlimited || !pkg.data_limit_mb || pkg.data_limit_mb <= 0) return false;
+  try {
+    return BigInt(String(usedBytes ?? 0)) >= BigInt(pkg.data_limit_mb) * 1_048_576n;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -123,11 +140,25 @@ export function buildPppoeSyncLines(opts: {
     let profile = DEFAULT_PPPOE_PROFILE;
     const pkg = c.package_id ? pkgById.get(c.package_id) : undefined;
     if (pkg) {
-      const limit = pppoeRateLimit(pkg.download_kbps, pkg.upload_kbps);
       const name = pppoeProfileName(pkg.id);
-      if (limit && name !== DEFAULT_PPPOE_PROFILE) {
-        profile = name;
-        profiles.set(name, limit);
+      if (name !== DEFAULT_PPPOE_PROFILE) {
+        const fupEnabled =
+          pppoeFupExceeded(c.data_used_bytes, pkg) &&
+          !!pkg.fup_download_kbps &&
+          !!pkg.fup_upload_kbps &&
+          (pkg.download_kbps == null ||
+            pkg.download_kbps <= 0 ||
+            pkg.fup_download_kbps < pkg.download_kbps) &&
+          (pkg.upload_kbps == null ||
+            pkg.upload_kbps <= 0 ||
+            pkg.fup_upload_kbps < pkg.upload_kbps);
+        const rateLimit = fupEnabled
+          ? pppoeRateLimit(pkg.fup_download_kbps ?? null, pkg.fup_upload_kbps ?? null)
+          : pppoeRateLimit(pkg.download_kbps, pkg.upload_kbps);
+        if (rateLimit) {
+          profile = fupEnabled ? `${name}-fup` : name;
+          profiles.set(profile, rateLimit);
+        }
       }
     }
     secrets.push({ name: c.pppoe_username, password: c.pppoe_password, profile });

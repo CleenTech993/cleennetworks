@@ -17,6 +17,12 @@ export const PORTAL_THEME_IDS = [
   "block",
   "venue",
   "lite",
+  "festive",
+  "celebration",
+  "tropical",
+  "ramadan",
+  "safari",
+  "custom",
 ] as const;
 export type PortalThemeId = (typeof PORTAL_THEME_IDS)[number];
 export const DEFAULT_PORTAL_THEME: PortalThemeId = "classic";

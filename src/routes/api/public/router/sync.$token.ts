@@ -11,6 +11,7 @@ import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import {
   buildBlockLines,
   buildDeviceAgentLines,
+  buildHotspotSuspendLines,
   buildHotspotUserLines,
   buildTetherLines,
   deviceLimitOf,
@@ -26,8 +27,12 @@ import { tooManyRequests } from "@/lib/rate-limit.server";
  * logged on the server and on the router.
  */
 function skipped(section: string, error: { message: string } | null | undefined): string[] {
-  console.error(`sync: ${section} could not be read, router keeps its current state: ${error?.message}`);
-  return [`:log warning "NetGrid: ${section} sync skipped (database problem), keeping current settings"`];
+  console.error(
+    `sync: ${section} could not be read, router keeps its current state: ${error?.message}`,
+  );
+  return [
+    `:log warning "NetGrid: ${section} sync skipped (database problem), keeping current settings"`,
+  ];
 }
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
@@ -50,7 +55,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
 
         const now = new Date().toISOString();
         const [
-          { data: tenant },
+          { data: tenant, error: tenantError },
           { data: customers, error: customersError },
           { data: vouchers, error: vouchersError },
           { data: packages, error: packagesError },
@@ -60,12 +65,18 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           { data: routerRow, error: routerRowError },
           { data: monitored, error: monitoredError },
         ] = await Promise.all([
-          supabaseAdmin.from("tenants").select("slug").eq("id", router.tenant_id).single(),
+          supabaseAdmin
+            .from("tenants")
+            .select("slug,status,billing_suspended_at")
+            .eq("id", router.tenant_id)
+            .single(),
           // Only this router's clients, plus clients the tenant explicitly assigned to "All routers"
           // (router_id null). Other routers' credentials are never even read for this request.
           supabaseAdmin
             .from("customers")
-            .select("pppoe_username,pppoe_password,status,expires_at,router_id,package_id")
+            .select(
+              "pppoe_username,pppoe_password,status,expires_at,router_id,package_id,data_used_bytes",
+            )
             .eq("tenant_id", router.tenant_id)
             .eq("customer_type", "pppoe")
             .eq("status", "active")
@@ -74,11 +85,13 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,bound_mac,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used"])
+            .in("status", ["unused", "used", "active"])
             .or(`expires_at.is.null,expires_at.gt.${now}`),
           supabaseAdmin
             .from("packages")
-            .select("id,download_kbps,upload_kbps")
+            .select(
+              "id,download_kbps,upload_kbps,data_limit_mb,unlimited,fup_download_kbps,fup_upload_kbps",
+            )
             .eq("tenant_id", router.tenant_id)
             .eq("kind", "pppoe"),
           supabaseAdmin
@@ -110,13 +123,32 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .not("ip_address", "is", null),
         ]);
 
+        if (tenantError || !tenant) {
+          console.error("sync: tenant billing status could not be read", tenantError);
+          return new Response("# tenant billing status unavailable; sync aborted\n", {
+            status: 503,
+            headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+          });
+        }
+        const serviceRestricted =
+          tenant.status === "suspended" || Boolean(tenant.billing_suspended_at);
+
         const host = getRequestHost();
         const lines: string[] = [
           "# NetGrid sync",
-          ":do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5s on-event=\"/system script run netgrid-sync\" } else={ /system scheduler set [find name=netgrid-sync] interval=5s } } on-error={}",
-          ":do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=2s on-event=\"/system script run netgrid-wan\" } else={ /system scheduler set [find name=netgrid-wan] interval=2s } } on-error={}",
+          ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=10s on-event="/system script run netgrid-sync" } else={ :if ([/system scheduler get [find name=netgrid-sync] interval] != 10s) do={ /system scheduler set [find name=netgrid-sync] interval=10s } } } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=30s on-event="/system script run netgrid-wan" } else={ :if ([/system scheduler get [find name=netgrid-wan] interval] != 30s) do={ /system scheduler set [find name=netgrid-wan] interval=30s } } } on-error={}',
           "/system script",
-          ":do { remove [find where name=netgrid-heartbeat] } on-error={}",
+          // NetGrid scripts
+          `:do { :if ([:len [find name=netgrid-sync]] = 0) do={ add name=netgrid-sync source={
+  :do {
+    /tool fetch url="https://${host}/api/public/router/sync/${params.token}" dst-path=netgrid-sync.rsc mode=https
+    :delay 1s
+    /import file-name=netgrid-sync.rsc verbose=no
+    :do { /file remove [find name=netgrid-sync.rsc] } on-error={}
+  } on-error={ :log warning "NetGrid: user sync failed" }
+} } on-error={}`,
+          // NetGrid heartbeat script
           `:do { add name=netgrid-heartbeat source={
   :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
   :local r [/system resource get];
@@ -138,25 +170,36 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
     /tool fetch url="https://${host}/api/public/router/heartbeat/${params.token}" http-method=post http-data=$d mode=https keep-result=no
   } on-error={ :log warning "NetGrid: heartbeat failed" }
 } } on-error={}`,
-          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=2s on-event="/system script run netgrid-heartbeat" } else={ /system scheduler set [find name=netgrid-heartbeat] interval=2s on-event="/system script run netgrid-heartbeat" } } on-error={}',
-          ':do { /system script run netgrid-heartbeat } on-error={}',
+          ':do { :if ([:len [/system scheduler find name=netgrid-heartbeat]] = 0) do={ /system scheduler add name=netgrid-heartbeat interval=30s on-event="/system script run netgrid-heartbeat" } else={ :if ([/system scheduler get [find name=netgrid-heartbeat] interval] != 30s) do={ /system scheduler set [find name=netgrid-heartbeat] interval=30s on-event="/system script run netgrid-heartbeat" } } } on-error={}',
         ];
 
         // PPPoE: secrets + per-package speed profiles; expired/removed clients are disconnected.
         lines.push(
           ...(customersError || packagesError || !customers || !packages
-            ? skipped("PPPoE", customersError ?? packagesError)
-            : buildPppoeSyncLines({ routerId: router.id, customers, packages })),
+            ? serviceRestricted
+              ? buildPppoeSyncLines({ routerId: router.id, customers: [], packages: [] })
+              : skipped("PPPoE", customersError ?? packagesError)
+            : buildPppoeSyncLines({
+                routerId: router.id,
+                customers: serviceRestricted ? [] : customers,
+                packages: serviceRestricted ? [] : packages,
+              })),
         );
         // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
-        lines.push(...(tvsError || !tvs ? skipped("smart TV", tvsError) : buildTvSyncLines(tvs)));
+        lines.push(
+          ...(serviceRestricted
+            ? buildTvSyncLines([])
+            : tvsError || !tvs
+              ? skipped("smart TV", tvsError)
+              : buildTvSyncLines(tvs)),
+        );
         // Hotspot vouchers: one package = one device (shared-users limit + MAC pinned from the database).
         // If the voucher list cannot be read, the router must KEEP its current voucher users: an empty
         // list would delete every one of them. A missing bound_mac column (migration not applied yet)
         // is retried without it, so vouchers keep working, just without the device pin.
         type VoucherRow = { code: string; bound_mac?: string | null; package_id: string | null };
         let voucherRows: VoucherRow[] | null = vouchers;
-        if (vouchersError) {
+        if (!serviceRestricted && vouchersError) {
           console.warn(
             "sync: voucher query failed, retrying without bound_mac:",
             vouchersError.message,
@@ -165,12 +208,27 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used"])
+            .in("status", ["unused", "used", "active"])
             .or(`expires_at.is.null,expires_at.gt.${now}`);
           if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
           voucherRows = retry.error ? null : retry.data;
+          if (!voucherRows) {
+            const fallback = await supabaseAdmin
+              .from("vouchers")
+              .select("code,status,expires_at,package_id")
+              .eq("tenant_id", router.tenant_id)
+              .in("status", ["unused", "used", "active"]);
+            if (!fallback.error && fallback.data) {
+              const nowMs = Date.now();
+              voucherRows = fallback.data.filter(
+                (v) => !v.expires_at || new Date(v.expires_at).getTime() > nowMs,
+              );
+            }
+          }
         }
-        if (voucherRows) {
+        if (serviceRestricted) {
+          lines.push(...buildHotspotSuspendLines());
+        } else if (voucherRows) {
           const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
           const syncVouchers: SyncVoucher[] = voucherRows.map((v) => ({
             code: v.code,
@@ -227,7 +285,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             }),
           );
         }
-        lines.push(':log info "NetGrid: users synced"', "");
+        lines.push(':log info "NetGrid: users synced"', ':do { /file remove [find name=netgrid-sync.rsc] } on-error={}', "");
 
         // Record that this router just received a sync, so the dashboard can show whether routers are
         // really syncing. Best effort: if the column does not exist yet this fails quietly.

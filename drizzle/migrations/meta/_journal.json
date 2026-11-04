@@ -29,6 +29,13 @@
       "when": 1793551072676,
       "tag": "0003_bind_portal_assets_uploads_to_tenant",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793618009713,
+      "tag": "0004_remove_login_throttle",
+      "breakpoints": true
     }
   ]
 }

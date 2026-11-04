@@ -1,8 +1,12 @@
 import type { Tables } from "@/integrations/supabase/types";
 
 type RouterRow = Tables<"routers">;
-/** The only fields liveness needs, so callers that select just these columns can use it too. */
-type CheckIn = Pick<RouterRow, "last_heartbeat_at" | "last_seen_at">;
+/** The only fields liveness needs. Both are optional so callers that select just one of them
+ *  (or neither, for legacy rows) can still use these helpers. */
+export type CheckIn = {
+  last_heartbeat_at?: string | null;
+  last_seen_at?: string | null;
+};
 
 /** A router counts as live if it checked in within this window (it heartbeats every minute). */
 export const LIVE_WINDOW_MS = 3 * 60 * 1000;

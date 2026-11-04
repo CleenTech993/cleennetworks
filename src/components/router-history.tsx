@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { buildRouterSlaReportCsv } from "@/lib/router-sla-report";
 
 const RANGES = {
   "24h": 24 * 3600e3,
@@ -56,7 +58,7 @@ export function RouterHistory({
 }) {
   const [range, setRange] = useState<RangeKey>("24h");
 
-  const { data: events = [] } = useQuery({
+  const { data: events = [], isLoading: loadingEvents } = useQuery({
     queryKey: ["uptime-events", routerId],
     queryFn: async () => {
       const since = new Date(Date.now() - RANGES["12m"]).toISOString();
@@ -110,8 +112,44 @@ export function RouterHistory({
       : d.toLocaleDateString();
   };
 
+  function exportSlaReport() {
+    const now = Date.now();
+    const windowMs = RANGES[range];
+    const uptimePercent = uptimePct(events, windowMs, lastHeartbeat, createdAt);
+    const csv = buildRouterSlaReportCsv({
+      routerId,
+      range,
+      generatedAt: new Date(now).toISOString(),
+      periodStart: new Date(Math.max(now - windowMs, new Date(createdAt).getTime())).toISOString(),
+      periodEnd: new Date(now).toISOString(),
+      uptimePercent,
+      slaTarget: 99.5,
+      outages: events,
+    });
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `router-sla-${routerId}-${range}-${new Date(now).toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   return (
     <div className="mt-6 space-y-4">
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={exportSlaReport}
+          disabled={loadingEvents}
+        >
+          <Download className="h-4 w-4" />
+          Export SLA report
+        </Button>
+      </div>
       <div className="grid gap-4 md:grid-cols-4">
         {(Object.keys(RANGES) as RangeKey[]).map((k) => {
           const p = uptimePct(events, RANGES[k], lastHeartbeat, createdAt);

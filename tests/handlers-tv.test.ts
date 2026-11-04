@@ -221,17 +221,17 @@ describe("smart TV registration", () => {
     expect(h.db.rows("payments")[0].status).toBe("failed");
   });
 
-  it("allows 5 registrations a minute per IP, then answers 429", async () => {
+  it("allows repeated STK prompts from the same IP without an application attempt cap", async () => {
     daraja();
     const ip = freshIp();
     const statuses: number[] = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       statuses.push(
         (await register(valid({ mac: `AA:BB:CC:DD:EE:${(i + 16).toString(16)}` }), ip)).status,
       );
     }
-    expect(statuses.slice(0, 5).every((s) => s !== 429)).toBe(true);
-    expect(statuses[5]).toBe(429);
+    expect(statuses).toEqual(Array(8).fill(200));
+    expect(darajaMock.start).toHaveBeenCalledTimes(8);
   });
 });
 

@@ -24,6 +24,10 @@ The app sends STK Push requests to the tenant's Daraja account and routes callba
 query the STK request before issuing a voucher. Configure Daraja with the deployed HTTPS callback URL
 if the Daraja app requires callback allowlisting.
 
+Incoming C2B callback URLs are registered with the Daraja C2B v2 RegisterURL endpoint. C2B v2 can
+mask the payer's MSISDN in its callback; the app stores the phone as unavailable in that case and
+does not use a partial number to suggest a PPPoE customer.
+
 SMS uses the tenant's own Africa's Talking balance. If the username is `sandbox`, the app uses the
 Africa's Talking sandbox endpoint.
 
@@ -39,8 +43,10 @@ This ledger does not initiate a deduction or move funds automatically.
 
 Tenant Console → Notifications displays an address based on the tenant slug when
 `TENANT_EMAIL_DOMAIN` is configured. This is only an address alias: configure SMTP and domain routing
-with the platform's email provider before using it. The app does not currently send tenant-branded
-mail through SMTP; Supabase Auth email delivery remains configured separately in Supabase.
+with the platform's email provider before using it. Monthly platform commission invoices are sent
+to the tenant's configured support / invoice email using the platform SMTP relay. Configure the SMTP
+environment variables and scheduled billing job described in [platform-billing.md](./platform-billing.md).
+Supabase Auth email delivery remains configured separately in Supabase.
 
 The Daraja-only migration marks any older non-Daraja payments still pending at cutover as failed.
 Completed historical payments remain available for reporting; they cannot be processed through

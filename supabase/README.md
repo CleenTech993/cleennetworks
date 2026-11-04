@@ -97,6 +97,40 @@ marked failed, and completed historical records remain available for reporting. 
 only the platform's C2B receiving shortcode. Tenants pay platform commission by separate C2B transfer;
 `platform_commissions` records the amount due and the manually confirmed M-Pesa receipt.
 
-Portal image uploads are isolated by tenant and authenticated user under `portal-assets`. The public
-read behavior is unchanged; restrictive insert/update policies require tenant-admin membership and
-the uploader's own user-id folder.
+## Mandatory MFA for console access
+
+`20261104000000_mandatory_mfa.sql` changes `public.is_aal2()` so authenticated business-table
+access always requires a second-factor (`aal2`) session, including for users who have not enrolled
+an MFA factor yet. Tenant and super-admin console routes send users without a verified factor to
+the required enrollment flow; password-only sessions cannot access business data. Apply this
+migration after the optional-MFA migration and regenerate `verify_live_db.sql` using the steps above.
+Tenant admins can reset MFA for other users in their tenant from Team; super admins can reset any
+other account from Users. A reset removes the user's factors and revokes their active sessions, but
+does not disable the MFA requirement: the user must enroll and verify a new factor before console
+access is restored.
+
+The application does not impose a failed-password lockout or attempt limit. Repeated failures and
+sign-ins from new locations are still recorded as security alerts. Supabase Auth may independently
+rate-limit sign-in requests.
+
+Users can manage their own active sessions from tenant Settings: signing out other sessions keeps
+the current browser active, while signing out all devices revokes every session and returns the
+current browser to sign-in. These actions are recorded in the audit log.
+
+The login protection migration stores only HMAC fingerprints of normalized email addresses and
+client IPs. Five failed password attempts for an email or twenty for an IP within fifteen minutes
+temporarily block sign-in until the rolling window expires. A successful sign-in clears failures
+for that email. Repeated failures and a returning account signing in from a new IP create security
+events in the existing audit log for super-admin review.
+This only protects the application's sign-in flow; direct calls to Supabase Auth do not pass through
+these counters, so keep Supabase's provider-side rate limits enabled and use edge/WAF controls where
+available.
+
+## PPPoE fair usage
+
+`20261107000000_pppoe_fup_usage.sql` adds per-package PPPoE data allowances and reduced upload/download
+speeds. The router agent attempts to report session byte counters every two minutes; the database
+accumulates counter deltas and blocks browser edits to usage values. Usage resets when a package is
+changed or its expiry is extended. A customer switches to the package's FUP profile at the next
+router sync after reaching the allowance. If a router does not expose session counters, it continues
+reporting connectivity but cannot accumulate usage for FUP enforcement.

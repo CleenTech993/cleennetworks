@@ -17,6 +17,9 @@ export interface PppoeSession {
   username: string;
   mac: string;
   ip: string | null;
+  session_id?: string;
+  bytes_in?: string;
+  bytes_out?: string;
 }
 
 function cleanIp(raw: string | undefined): string | null {
@@ -27,7 +30,7 @@ function cleanIp(raw: string | undefined): string | null {
 
 /**
  * Parses the body pushed by the router: records separated by ";" (or newlines), fields by "|":
- *   username|mac|ip
+ *   username|mac|ip|session-id|bytes-in|bytes-out
  * The body comes from a device on the customer's network, so every field is validated and anything
  * malformed is dropped (a crafted name cannot forge extra records because "|" and ";" are separators
  * and are not in the allowed character set).
@@ -38,12 +41,30 @@ export function parsePppoeReport(body: string): PppoeSession[] {
   for (const rec of body.split(/;|\r?\n/)) {
     if (out.length >= MAX_PPPOE_SESSIONS_PER_REPORT) break;
     const parts = rec.trim().split("|");
-    if (parts.length !== 3) continue;
+    if (parts.length !== 3 && parts.length !== 6) continue;
     const username = (parts[0] ?? "").trim();
     const mac = normalizeMac(parts[1] ?? "");
     if (!SAFE_NAME.test(username) || !mac || !isUsableMac(mac) || seen.has(username)) continue;
+    const sessionId = (parts[3] ?? "").trim();
+    const bytesIn = (parts[4] ?? "").trim();
+    const bytesOut = (parts[5] ?? "").trim();
+    let usage: Pick<PppoeSession, "session_id" | "bytes_in" | "bytes_out"> = {};
+    if (parts.length === 6) {
+      const validUsage =
+        /^[A-Za-z0-9._:-]{1,128}$/.test(sessionId) &&
+        /^\d{1,19}$/.test(bytesIn) &&
+        /^\d{1,19}$/.test(bytesOut);
+      if (validUsage) {
+        if (
+          BigInt(bytesIn) <= 9_223_372_036_854_775_807n &&
+          BigInt(bytesOut) <= 9_223_372_036_854_775_807n
+        ) {
+          usage = { session_id: sessionId, bytes_in: bytesIn, bytes_out: bytesOut };
+        }
+      }
+    }
     seen.add(username);
-    out.push({ username, mac, ip: cleanIp(parts[2]) });
+    out.push({ username, mac, ip: cleanIp(parts[2]), ...usage });
   }
   return out;
 }
@@ -73,7 +94,16 @@ const PPPOE_SCRIPT = `
       :local u [/ppp active get $a name]
       :local m [:tostr [/ppp active get $a caller-id]]
       :local ip [:tostr [/ppp active get $a address]]
-      :set d ($d . $u . "|" . $m . "|" . $ip . ";")
+      :local rec ($u . "|" . $m . "|" . $ip)
+      :do {
+        :local sid [:tostr [/ppp active get $a session-id]]
+        :local bi [:tostr [/ppp active get $a bytes-in]]
+        :local bo [:tostr [/ppp active get $a bytes-out]]
+        :if (($sid != "") && ($bi != "") && ($bo != "")) do={
+          :set rec ($rec . "|" . $sid . "|" . $bi . "|" . $bo)
+        }
+      } on-error={}
+      :set d ($d . $rec . ";")
       :set n ($n + 1)
       :if ([:len $d] > 3000) do={
         :do { /tool fetch url="__URL__" http-method=post http-data=$d mode=https keep-result=no } on-error={ :log warning "NetGrid: PPPoE report failed" }

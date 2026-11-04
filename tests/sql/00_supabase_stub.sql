@@ -3,7 +3,6 @@ DO $$ BEGIN
   CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE SCHEMA IF NOT EXISTS auth;
-CREATE SCHEMA IF NOT EXISTS storage;
 CREATE TABLE IF NOT EXISTS auth.users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text, raw_user_meta_data jsonb DEFAULT '{}'::jsonb);
 CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
 CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(auth.jwt() ->> 'sub', '')::uuid $$;
@@ -11,6 +10,7 @@ GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA auth TO anon, authenticated, service_role;
 -- Minimal storage schema stand-in: migrations may add policies on storage.objects
 -- and use the storage.foldername path helper, as on a real Supabase project.
+CREATE SCHEMA IF NOT EXISTS storage;
 CREATE OR REPLACE FUNCTION storage.foldername(name text) RETURNS text[]
 LANGUAGE plpgsql IMMUTABLE AS $$
 DECLARE _parts text[];
@@ -23,18 +23,9 @@ CREATE TABLE IF NOT EXISTS storage.objects (
   bucket_id text,
   name text,
   owner uuid,
+  owner_id text,
   created_at timestamptz DEFAULT now()
 );
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
-GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated, service_role;
-CREATE POLICY "test broad portal asset uploads" ON storage.objects
-  FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'portal-assets');
-CREATE POLICY "test broad portal asset updates" ON storage.objects
-  FOR UPDATE TO authenticated
-  USING (bucket_id = 'portal-assets')
-  WITH CHECK (bucket_id = 'portal-assets');
 CREATE TABLE IF NOT EXISTS auth.mfa_factors (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,

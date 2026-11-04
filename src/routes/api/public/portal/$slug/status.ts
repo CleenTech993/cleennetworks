@@ -21,23 +21,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/status")({
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
 
         const normalized = normalizePhone(phone);
+        // Only the active subscription is disclosed, and only to the number itself:
+        // full purchase history is never returned to an unverified caller.
         const { data: payments } = await supabaseAdmin
           .from("payments")
-          .select("amount,status,expires_at,mpesa_receipt,created_at")
+          .select("status,expires_at")
           .eq("tenant_id", tenant.id)
           .eq("phone", normalized)
           .order("created_at", { ascending: false })
           .limit(10);
 
-        // Phone number alone is public info: never return payment ids (they unlock
-        // payment-status) or voucher codes, and mask receipts.
-        const mask = (r: string | null) => (r ? `••••${r.slice(-4)}` : null);
-        const list = (payments ?? []).map((p) => ({ ...p, mpesa_receipt: mask(p.mpesa_receipt) }));
-        const active =
-          list.find(
-            (p) => p.status === "success" && p.expires_at && new Date(p.expires_at) > new Date(),
-          ) ?? null;
-        return Response.json({ active, history: list });
+        const activeRow = (payments ?? []).find(
+          (p) => p.status === "success" && p.expires_at && new Date(p.expires_at) > new Date(),
+        );
+        return Response.json({
+          active: activeRow ? { expires_at: activeRow.expires_at } : null,
+        });
       },
     },
   },

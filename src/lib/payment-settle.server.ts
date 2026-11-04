@@ -29,24 +29,27 @@ export interface SettleInput {
  */
 export async function settlePayment(i: SettleInput): Promise<"settled" | "already"> {
   const { payment } = i;
-  const { data: claimed } = await supabaseAdmin
+  const { data: claimed, error: claimError } = await supabaseAdmin
     .from("payments")
     .update({ status: "processing" })
     .eq("id", payment.id)
     .in("status", ["pending", "failed"])
     .select("id")
     .maybeSingle();
+  if (claimError) throw claimError;
   if (!claimed) return "already";
 
   try {
     let voucherCode: string | null = null;
     let expiresAt: string | null = null;
     if (payment.package_id) {
-      const { data: pkg } = await supabaseAdmin
+      const { data: pkg, error: packageError } = await supabaseAdmin
         .from("packages")
         .select("kind,duration_value,duration_unit")
         .eq("id", payment.package_id)
         .maybeSingle();
+      if (packageError) throw packageError;
+      if (!pkg) throw new Error("Payment package not found");
       if (pkg?.duration_value && pkg?.duration_unit) {
         expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
       }
@@ -66,10 +69,11 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
           payment.expires_at ??
           renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
         if (!payment.expires_at) {
-          await supabaseAdmin
+          const { error } = await supabaseAdmin
             .from("payments")
             .update({ expires_at: expiresAt })
             .eq("id", payment.id);
+          if (error) throw error;
         }
         if (dev.status !== "blocked") {
           const { error: dErr } = await supabaseAdmin
@@ -117,9 +121,10 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
 
 /** Records a gateway failure without ever overwriting a payment that is paid or being paid. */
 export async function markPaymentFailed(paymentId: string, raw: Json): Promise<void> {
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("payments")
     .update({ status: "failed", raw_callback: raw })
     .eq("id", paymentId)
     .in("status", ["pending", "failed"]);
+  if (error) throw error;
 }

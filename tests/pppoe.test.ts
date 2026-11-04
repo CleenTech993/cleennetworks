@@ -4,6 +4,7 @@ import {
   formatSpeed,
   pppoeProfileName,
   pppoeRateLimit,
+  pppoeFupExceeded,
   renewedExpiry,
   validatePppoeCredentials,
 } from "../src/lib/pppoe";
@@ -63,6 +64,12 @@ describe("speed + profile helpers", () => {
     expect(formatSpeed(512)).toBe("512 kbps");
     expect(formatSpeed(null)).toBe("Unlimited");
   });
+  it("detects allowance exhaustion without imposing a cap on unlimited plans", () => {
+    expect(pppoeFupExceeded(1_048_575, { data_limit_mb: 1, unlimited: false })).toBe(false);
+    expect(pppoeFupExceeded(1_048_576, { data_limit_mb: 1, unlimited: false })).toBe(true);
+    expect(pppoeFupExceeded(2_000_000, { data_limit_mb: 1, unlimited: true })).toBe(false);
+    expect(pppoeFupExceeded(2_000_000, { data_limit_mb: null, unlimited: false })).toBe(false);
+  });
 });
 
 describe("renewedExpiry", () => {
@@ -84,6 +91,26 @@ describe("buildPppoeSyncLines", () => {
     expect(out).toContain(
       'add name="john.home" password="secret12" service=pppoe profile=ng-3f9a1c2b comment="netgrid"',
     );
+  });
+  it("switches an over-limit customer to the package FUP speed profile", () => {
+    const lines = buildPppoeSyncLines({
+      routerId: ROUTER,
+      customers: [client({ data_used_bytes: 1_048_576 })],
+      packages: [
+        {
+          id: PKG,
+          download_kbps: 5000,
+          upload_kbps: 2000,
+          data_limit_mb: 1,
+          fup_download_kbps: 512,
+          fup_upload_kbps: 256,
+        },
+      ],
+      now: NOW,
+    }).join("\n");
+    expect(lines).toContain('/ppp profile add name="ng-3f9a1c2b-fup"');
+    expect(lines).toContain('rate-limit="256k/512k"');
+    expect(lines).toContain("profile=ng-3f9a1c2b-fup");
   });
   it("uses the default profile when the package has no speed limit or no package", () => {
     expect(build([client()], null, null)).toContain("profile=netgrid-pppoe comment");

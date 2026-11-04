@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/super-admin/billing")({ component: Billing });
@@ -9,26 +11,23 @@ function Billing() {
   const { data } = useQuery({
     queryKey: ["saas-billing"],
     queryFn: async () => {
-      const { data: tenants } = await supabase
-        .from("tenants")
-        .select("id,status,platform_commission_pct");
-      const { data: payments } = await supabase
-        .from("payments")
-        .select("tenant_id,amount")
-        .eq("status", "success");
+      const [
+        { data: tenants, error: tenantError },
+        { data: payments, error: paymentError },
+        { data: invoices, error: invoiceError },
+      ] = await Promise.all([
+        supabase.from("tenants").select("id,status"),
+        supabase.from("payments").select("tenant_id,amount").eq("status", "success"),
+        supabase.from("platform_commissions").select("commission_amount,status"),
+      ]);
+      if (tenantError) throw tenantError;
+      if (paymentError) throw paymentError;
+      if (invoiceError) throw invoiceError;
       const gmv = (payments ?? []).reduce((s, p) => s + Number(p.amount), 0);
-
-      const pctById = new Map<string, number>();
-      for (const t of tenants ?? []) pctById.set(t.id, Number(t.platform_commission_pct ?? 5));
-      const commission = (payments ?? []).reduce(
-        (s, p) => s + (Number(p.amount) * (pctById.get(p.tenant_id) ?? 5)) / 100,
-        0,
-      );
-
-      const { data: settlements } = await supabase.from("settlements").select("status,net_amount");
-      const owed = (settlements ?? [])
-        .filter((s) => s.status !== "paid")
-        .reduce((s, r) => s + Number(r.net_amount), 0);
+      const commission = (invoices ?? []).reduce((s, row) => s + Number(row.commission_amount), 0);
+      const owed = (invoices ?? [])
+        .filter((row) => row.status === "pending")
+        .reduce((s, row) => s + Number(row.commission_amount), 0);
 
       return {
         tenants: tenants?.length ?? 0,
@@ -44,8 +43,11 @@ function Billing() {
     <div>
       <PageHeader
         title="SaaS Billing"
-        description="GMV across all tenants, platform commission earned, settlements outstanding."
+        description="Monthly commission invoices, platform commission earned, and overdue balances."
       />
+      <Button asChild className="mb-5">
+        <Link to="/super-admin/settlements">Manage invoices and receipts</Link>
+      </Button>
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
           label="Tenants"
@@ -58,14 +60,14 @@ function Billing() {
           hint="All-time, successful"
         />
         <StatCard
-          label="Platform commission (KES)"
+          label="Commission invoiced (KES)"
           value={data ? Math.round(data.commission).toLocaleString() : "—"}
-          hint="Earned across all tenants"
+          hint="Total issued platform commissions"
         />
         <StatCard
-          label="Owed to tenants (KES)"
+          label="Outstanding commission (KES)"
           value={data ? Math.round(data.owed).toLocaleString() : "—"}
-          hint="Pending settlements"
+          hint="Unpaid invoices"
         />
       </div>
       <div className="mt-6 rounded-xl border bg-card p-6">

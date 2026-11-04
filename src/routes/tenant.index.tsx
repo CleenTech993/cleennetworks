@@ -277,7 +277,7 @@ function Overview() {
                         borderRadius: "8px",
                         fontSize: "12px",
                       }}
-                      formatter={(val: number | string | undefined) => [
+                      formatter={(val: unknown) => [
                         `KES ${Number(val ?? 0).toLocaleString()}`,
                         "Revenue",
                       ]}

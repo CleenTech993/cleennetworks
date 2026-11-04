@@ -35,6 +35,7 @@ import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tena
 import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
 import { Route as TenantAuditRouteImport } from './routes/tenant.audit'
+import { Route as TenantBillingRouteImport } from './routes/tenant.billing'
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 import { Route as TenantDevicesRouteImport } from './routes/tenant.devices'
 import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
@@ -51,6 +52,7 @@ import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
 import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
+import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
@@ -68,6 +70,8 @@ import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api
 import { Route as ApiPublicRouterInventoryTokenRouteImport } from './routes/api/public/router/inventory.$token'
 import { Route as ApiPublicRouterPppoeTokenRouteImport } from './routes/api/public/router/pppoe.$token'
 import { Route as ApiPublicRouterSyncTokenRouteImport } from './routes/api/public/router/sync.$token'
+import { Route as ApiPublicMpesaC2bValidationTenantIdShortcodeRouteImport } from './routes/api/public/mpesa/c2b-validation.$tenantId.$shortcode'
+import { Route as ApiPublicMpesaC2bTenantIdShortcodeRouteImport } from './routes/api/public/mpesa/c2b.$tenantId.$shortcode'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -199,6 +203,11 @@ const TenantAuditRoute = TenantAuditRouteImport.update({
   path: '/audit',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantBillingRoute = TenantBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantCustomersRoute = TenantCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
@@ -278,6 +287,11 @@ const TenantToolsRoute = TenantToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
   getParentRoute: () => TenantRoute,
+} as any)
+const ApiCronPlatformBillingRoute = ApiCronPlatformBillingRouteImport.update({
+  id: '/api/cron/platform-billing',
+  path: '/api/cron/platform-billing',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
   id: '/$id',
@@ -378,6 +392,18 @@ const ApiPublicRouterSyncTokenRoute =
     path: '/api/public/router/sync/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMpesaC2bValidationTenantIdShortcodeRoute =
+  ApiPublicMpesaC2bValidationTenantIdShortcodeRouteImport.update({
+    id: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode',
+    path: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicMpesaC2bTenantIdShortcodeRoute =
+  ApiPublicMpesaC2bTenantIdShortcodeRouteImport.update({
+    id: '/api/public/mpesa/c2b/$tenantId/$shortcode',
+    path: '/api/public/mpesa/c2b/$tenantId/$shortcode',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -403,6 +429,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/audit': typeof TenantAuditRoute
+  '/tenant/billing': typeof TenantBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
@@ -422,6 +449,7 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
@@ -439,6 +467,8 @@ export interface FileRoutesByFullPath {
   '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
+  '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  '/api/public/mpesa/c2b/$tenantId/$shortcode': typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -461,6 +491,7 @@ export interface FileRoutesByTo {
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/audit': typeof TenantAuditRoute
+  '/tenant/billing': typeof TenantBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
@@ -480,6 +511,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
+  '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
@@ -497,6 +529,8 @@ export interface FileRoutesByTo {
   '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
+  '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  '/api/public/mpesa/c2b/$tenantId/$shortcode': typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -523,6 +557,7 @@ export interface FileRoutesById {
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
   '/tenant/audit': typeof TenantAuditRoute
+  '/tenant/billing': typeof TenantBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
@@ -542,6 +577,7 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
@@ -559,6 +595,8 @@ export interface FileRoutesById {
   '/api/public/router/inventory/$token': typeof ApiPublicRouterInventoryTokenRoute
   '/api/public/router/pppoe/$token': typeof ApiPublicRouterPppoeTokenRoute
   '/api/public/router/sync/$token': typeof ApiPublicRouterSyncTokenRoute
+  '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  '/api/public/mpesa/c2b/$tenantId/$shortcode': typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -586,6 +624,7 @@ export interface FileRouteTypes {
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/audit'
+    | '/tenant/billing'
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
@@ -605,6 +644,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
@@ -622,6 +662,8 @@ export interface FileRouteTypes {
     | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
+    | '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+    | '/api/public/mpesa/c2b/$tenantId/$shortcode'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -644,6 +686,7 @@ export interface FileRouteTypes {
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/audit'
+    | '/tenant/billing'
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
@@ -663,6 +706,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/super-admin'
     | '/tenant'
+    | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
@@ -680,6 +724,8 @@ export interface FileRouteTypes {
     | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
+    | '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+    | '/api/public/mpesa/c2b/$tenantId/$shortcode'
   id:
     | '__root__'
     | '/'
@@ -705,6 +751,7 @@ export interface FileRouteTypes {
     | '/super-admin/tenants'
     | '/super-admin/users'
     | '/tenant/audit'
+    | '/tenant/billing'
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
@@ -724,6 +771,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
     | '/api/public/mpesa/callback/$tenantId'
@@ -741,6 +789,8 @@ export interface FileRouteTypes {
     | '/api/public/router/inventory/$token'
     | '/api/public/router/pppoe/$token'
     | '/api/public/router/sync/$token'
+    | '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+    | '/api/public/mpesa/c2b/$tenantId/$shortcode'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -755,6 +805,7 @@ export interface RootRouteChildren {
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   PSlugRoute: typeof PSlugRoute
+  ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
@@ -765,6 +816,8 @@ export interface RootRouteChildren {
   ApiPublicRouterInventoryTokenRoute: typeof ApiPublicRouterInventoryTokenRoute
   ApiPublicRouterPppoeTokenRoute: typeof ApiPublicRouterPppoeTokenRoute
   ApiPublicRouterSyncTokenRoute: typeof ApiPublicRouterSyncTokenRoute
+  ApiPublicMpesaC2bValidationTenantIdShortcodeRoute: typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRoute
+  ApiPublicMpesaC2bTenantIdShortcodeRoute: typeof ApiPublicMpesaC2bTenantIdShortcodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -951,6 +1004,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantAuditRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/billing': {
+      id: '/tenant/billing'
+      path: '/billing'
+      fullPath: '/tenant/billing'
+      preLoaderRoute: typeof TenantBillingRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/tenant/customers': {
       id: '/tenant/customers'
       path: '/customers'
@@ -1062,6 +1122,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tenant/tools'
       preLoaderRoute: typeof TenantToolsRouteImport
       parentRoute: typeof TenantRoute
+    }
+    '/api/cron/platform-billing': {
+      id: '/api/cron/platform-billing'
+      path: '/api/cron/platform-billing'
+      fullPath: '/api/cron/platform-billing'
+      preLoaderRoute: typeof ApiCronPlatformBillingRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/tenant/routers/$id': {
       id: '/tenant/routers/$id'
@@ -1182,6 +1249,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicRouterSyncTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mpesa/c2b-validation/$tenantId/$shortcode': {
+      id: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+      path: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+      fullPath: '/api/public/mpesa/c2b-validation/$tenantId/$shortcode'
+      preLoaderRoute: typeof ApiPublicMpesaC2bValidationTenantIdShortcodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/mpesa/c2b/$tenantId/$shortcode': {
+      id: '/api/public/mpesa/c2b/$tenantId/$shortcode'
+      path: '/api/public/mpesa/c2b/$tenantId/$shortcode'
+      fullPath: '/api/public/mpesa/c2b/$tenantId/$shortcode'
+      preLoaderRoute: typeof ApiPublicMpesaC2bTenantIdShortcodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1244,6 +1325,7 @@ const TenantRoutersRouteWithChildren = TenantRoutersRoute._addFileChildren(
 
 interface TenantRouteChildren {
   TenantAuditRoute: typeof TenantAuditRoute
+  TenantBillingRoute: typeof TenantBillingRoute
   TenantCustomersRoute: typeof TenantCustomersRoute
   TenantDevicesRoute: typeof TenantDevicesRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
@@ -1265,6 +1347,7 @@ interface TenantRouteChildren {
 
 const TenantRouteChildren: TenantRouteChildren = {
   TenantAuditRoute: TenantAuditRoute,
+  TenantBillingRoute: TenantBillingRoute,
   TenantCustomersRoute: TenantCustomersRoute,
   TenantDevicesRoute: TenantDevicesRoute,
   TenantHotspotRoute: TenantHotspotRoute,
@@ -1320,6 +1403,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuperAdminRoute: SuperAdminRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   PSlugRoute: PSlugRoute,
+  ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
   ApiPublicProvisionTokenLoginDothtmlRoute:
@@ -1332,6 +1416,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicRouterInventoryTokenRoute: ApiPublicRouterInventoryTokenRoute,
   ApiPublicRouterPppoeTokenRoute: ApiPublicRouterPppoeTokenRoute,
   ApiPublicRouterSyncTokenRoute: ApiPublicRouterSyncTokenRoute,
+  ApiPublicMpesaC2bValidationTenantIdShortcodeRoute:
+    ApiPublicMpesaC2bValidationTenantIdShortcodeRoute,
+  ApiPublicMpesaC2bTenantIdShortcodeRoute:
+    ApiPublicMpesaC2bTenantIdShortcodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

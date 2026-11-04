@@ -140,7 +140,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
     const mac =
       v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
     lines.push(
-      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=default comment="netgrid-voucher" } on-error={} }`,
+      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=default comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" comment="netgrid-voucher" } on-error={} } } }`,
     );
   }
   if (valid.length > 0) {
@@ -152,6 +152,15 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
     );
   }
   return lines;
+}
+
+/** Disconnects active voucher sessions before removing the tenant's managed hotspot users. */
+export function buildHotspotSuspendLines(): string[] {
+  return [
+    "/ip hotspot user",
+    ':foreach u in=[find where comment="netgrid-voucher"] do={ :local n [get $u name]; :do { /ip hotspot active remove [find where user=$n] } on-error={} }',
+    ':do { remove [find where comment="netgrid-voucher"] } on-error={}',
+  ];
 }
 
 /** Devices the tenant blocked: no hotspot access, and any running session is dropped at once. */

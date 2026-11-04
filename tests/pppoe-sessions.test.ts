@@ -18,6 +18,35 @@ describe("parsePppoeReport", () => {
     ]);
   });
 
+  it("reads optional session counters and preserves legacy records without them", () => {
+    expect(
+      parsePppoeReport(
+        "alice|AA:BB:CC:DD:EE:01|10.10.0.2|sess-123|1000|2000;bob|AA:BB:CC:DD:EE:02|10.10.0.3",
+      ),
+    ).toEqual([
+      {
+        username: "alice",
+        mac: "AA:BB:CC:DD:EE:01",
+        ip: "10.10.0.2",
+        session_id: "sess-123",
+        bytes_in: "1000",
+        bytes_out: "2000",
+      },
+      { username: "bob", mac: "AA:BB:CC:DD:EE:02", ip: "10.10.0.3" },
+    ]);
+  });
+
+  it("keeps the session but drops malformed or out-of-range usage counters", () => {
+    expect(
+      parsePppoeReport(
+        "alice|AA:BB:CC:DD:EE:01|10.10.0.2|sess-1|x|2000;bob|AA:BB:CC:DD:EE:02|10.10.0.3|sess-2|9223372036854775808|0",
+      ),
+    ).toEqual([
+      { username: "alice", mac: "AA:BB:CC:DD:EE:01", ip: "10.10.0.2" },
+      { username: "bob", mac: "AA:BB:CC:DD:EE:02", ip: "10.10.0.3" },
+    ]);
+  });
+
   it("accepts newlines as separators and tolerates empty input", () => {
     expect(
       parsePppoeReport("alice|AA:BB:CC:DD:EE:01|10.0.0.2\nbob|AA:BB:CC:DD:EE:02|10.0.0.3"),
@@ -113,6 +142,10 @@ describe("buildPppoeAgentLines", () => {
     expect(script).toContain("/ppp active find where service=pppoe");
     expect(script).toContain("caller-id");
     expect(script).toContain("address");
+    expect(script).toContain("bytes-in");
+    expect(script).toContain("bytes-out");
+    expect(script).toContain("session-id");
+    expect(script).toContain(':local rec ($u . "|" . $m . "|" . $ip)');
   });
 
   it("posts to the router's own URL, and in batches so a long list cannot overflow a RouterOS string", () => {
@@ -132,7 +165,9 @@ describe("buildPppoeAgentLines", () => {
   });
 
   it("has balanced braces, so the import cannot break the rest of the sync script", () => {
-    const body = script.includes(":do { add name=netgrid-pppoe") ? script.slice(script.indexOf(":do { add name=netgrid-pppoe")) : script.slice(script.indexOf("source={"));
+    const body = script.includes(":do { add name=netgrid-pppoe")
+      ? script.slice(script.indexOf(":do { add name=netgrid-pppoe"))
+      : script.slice(script.indexOf("source={"));
     const open = (body.match(/\{/g) ?? []).length;
     const close = (body.match(/\}/g) ?? []).length;
     expect(open).toBe(close);

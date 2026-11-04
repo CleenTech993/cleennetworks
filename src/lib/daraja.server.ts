@@ -158,19 +158,73 @@ export async function queryDarajaStkPush(
     ResultDesc?: string;
     ResponseCode?: string | number;
     ResponseDescription?: string;
+    errorMessage?: string;
+    errorCode?: string;
   } | null;
+
+  const desc =
+    result?.ResultDesc ??
+    result?.ResponseDescription ??
+    result?.errorMessage ??
+    "";
+
+  // Safaricom returns "The transaction is being processed" while prompt is waiting for user PIN
+  const isProcessing =
+    desc.toLowerCase().includes("processing") ||
+    desc.toLowerCase().includes("in process") ||
+    desc.toLowerCase().includes("unable to lock");
+
+  if (isProcessing) {
+    return {
+      resultCode: null,
+      resultDescription: desc || "The transaction is being processed",
+    };
+  }
+
   const resultCode = result?.ResultCode;
   const responseCode = result?.ResponseCode;
   if (
-    !response.ok ||
-    (responseCode !== undefined && String(responseCode) !== "0") ||
+    (!response.ok && resultCode === undefined) ||
+    (responseCode !== undefined && String(responseCode) !== "0" && resultCode === undefined) ||
     (resultCode === undefined && responseCode === undefined)
   ) {
-    console.error(`Daraja STK query failed [${response.status}]`);
+    console.error(`Daraja STK query failed [${response.status}]`, desc);
     throw new Error("Could not verify the M-Pesa payment.");
   }
   return {
     resultCode: resultCode === undefined ? null : String(resultCode),
-    resultDescription: result?.ResultDesc ?? result?.ResponseDescription ?? "",
+    resultDescription: desc,
   };
+}
+
+export async function registerDarajaC2bUrl(input: {
+  tenantId: string;
+  shortcode: string;
+  validationUrl: string;
+  confirmationUrl: string;
+}): Promise<void> {
+  const config = await loadConfig(input.tenantId);
+  for (const callbackUrl of [input.validationUrl, input.confirmationUrl]) {
+    if (new URL(callbackUrl).protocol !== "https:")
+      throw new Error("M-Pesa callbacks require a public HTTPS URL.");
+  }
+  const token = await accessToken(config);
+  const response = await fetch(`${baseUrl(config.environment)}/mpesa/c2b/v2/registerurl`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      ShortCode: input.shortcode,
+      ResponseType: "Completed",
+      ConfirmationURL: input.confirmationUrl,
+      ValidationURL: input.validationUrl,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const result = (await response.json().catch(() => null)) as {
+    ResponseCode?: string | number;
+  } | null;
+  if (!response.ok || !["0", "00000000"].includes(String(result?.ResponseCode))) {
+    console.error(`Daraja C2B URL registration failed [${response.status}]`);
+    throw new Error("Safaricom did not register the C2B callback for this shortcode.");
+  }
 }

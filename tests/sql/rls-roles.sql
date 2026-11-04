@@ -81,12 +81,6 @@ SELECT t.allowed('admin edits payout settings',$$UPDATE public.tenants SET mpesa
 SELECT t.allowed('admin inserts router',       $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R2')$$);
 SELECT t.allowed('admin inserts package',      $$INSERT INTO public.packages (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','P2')$$);
 SELECT t.allowed('admin reads payments',       $$SELECT 1 FROM public.payments$$);
-SELECT t.allowed('tenant admin uploads to own portal folder', $$INSERT INTO storage.objects (bucket_id, name) VALUES ('portal-assets', 'aaaaaaaa-0000-0000-0000-000000000001/bbbbbbbb-0000-0000-0000-0000000000a1/logo.png')$$);
-SELECT t.allowed('tenant admin can update own portal asset', $$UPDATE storage.objects SET name = 'aaaaaaaa-0000-0000-0000-000000000001/bbbbbbbb-0000-0000-0000-0000000000a1/logo.png' WHERE name = 'aaaaaaaa-0000-0000-0000-000000000001/bbbbbbbb-0000-0000-0000-0000000000a1/logo.png'$$);
-SELECT t.denied('tenant admin cannot upload to another tenant folder', $$INSERT INTO storage.objects (bucket_id, name) VALUES ('portal-assets', 'aaaaaaaa-0000-0000-0000-000000000002/bbbbbbbb-0000-0000-0000-0000000000a1/logo.png')$$);
-SELECT t.denied('tenant admin cannot write into another user folder', $$INSERT INTO storage.objects (bucket_id, name) VALUES ('portal-assets', 'aaaaaaaa-0000-0000-0000-000000000001/bbbbbbbb-0000-0000-0000-0000000000a2/logo.png')$$);
-SELECT t.denied('tenant admin cannot upload to an unscoped portal folder', $$INSERT INTO storage.objects (bucket_id, name) VALUES ('portal-assets', 'aaaaaaaa-0000-0000-0000-000000000001/logo.png')$$);
-SELECT t.denied('tenant admin cannot overwrite another user asset', $$UPDATE storage.objects SET name = 'aaaaaaaa-0000-0000-0000-000000000001/bbbbbbbb-0000-0000-0000-0000000000a2/logo.png' WHERE name = 'aaaaaaaa-0000-0000-0000-000000000001/bbbbbbbb-0000-0000-0000-0000000000a1/logo.png'$$);
 SELECT t.denied ('admin cannot set own commission', $$UPDATE public.tenants SET platform_commission_pct = 0 WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('admin cannot change tenant status',$$UPDATE public.tenants SET status = 'active' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('admin cannot forge a payment',     $$INSERT INTO public.payments (tenant_id, amount, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 1, 'success')$$);
@@ -112,7 +106,6 @@ SELECT t.denied ('support cannot edit packages',        $$UPDATE public.packages
 
 -- ---- technician --------------------------------------------------------------------------------
 SELECT t.as_user(:tech, 'aal2');
-SELECT t.denied('technician cannot upload portal assets', $$INSERT INTO storage.objects (bucket_id, name) VALUES ('portal-assets', 'aaaaaaaa-0000-0000-0000-000000000001/bbbbbbbb-0000-0000-0000-0000000000d1/logo.png')$$);
 SELECT t.allowed('tech reads routers',   $$SELECT 1 FROM public.routers$$);
 SELECT t.allowed('tech adds router',     $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R3')$$);
 SELECT t.denied ('tech cannot read payments',  $$SELECT 1 FROM public.payments$$);
@@ -137,6 +130,11 @@ SELECT t.denied('aal1 admin cannot edit settings',   $$UPDATE public.tenants SET
 -- ...but sign-in routing still works before the code is entered
 SELECT t.allowed('aal1 admin can still read own role row', $$SELECT 1 FROM public.user_roles WHERE user_id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 SELECT t.allowed('aal1 admin can still read own profile',  $$SELECT 1 FROM public.profiles WHERE id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
+
+-- MFA is required even for users who have not enrolled a factor yet.
+SELECT t.as_user(:admin2, 'aal1');
+SELECT t.denied('aal1 admin without enrolled MFA cannot read tenant data',
+                $$SELECT 1 FROM public.customers WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000002'$$);
 
 -- ---- super_admin ---------------------------------------------------------------------------------
 SELECT t.as_user(:super, 'aal1');

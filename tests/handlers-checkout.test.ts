@@ -151,87 +151,17 @@ describe("checkout", () => {
     expect(h.db.rows("payments")[0].status).toBe("failed");
   });
 
-  describe("per-phone abuse limits", () => {
-    it("blocks a second prompt within 60s, sends nothing and leaves no junk row", async () => {
-      const darajaSpy = daraja();
-      expect((await checkout({ packageId: PKG, phone: "0712345678" })).status).toBe(200);
-      advance(5_000);
-      const res = await checkout({ packageId: PKG, phone: "0712345678" });
-      expect(res.status).toBe(429);
-      expect(Number(res.headers.get("retry-after"))).toBeGreaterThan(0);
-      expect(darajaSpy).toHaveBeenCalledTimes(1);
-      expect(h.db.rows("payments")).toHaveLength(1);
-    });
+  it("allows repeated prompts for the same phone without an application attempt cap", async () => {
+    const darajaSpy = daraja();
+    const ip = freshIp();
+    const responses = [];
+    for (let i = 0; i < 8; i++) {
+      responses.push(await checkout({ packageId: PKG, phone: "0712345678" }, ip));
+      advance(1_000);
+    }
 
-    it("allows 3 attempts in 10 minutes, then blocks the 4th", async () => {
-      const darajaSpy = daraja();
-      for (let i = 0; i < 3; i++) {
-        expect((await checkout({ packageId: PKG, phone: "0712345678" })).status).toBe(200);
-        advance(61_000);
-      }
-      const res = await checkout({ packageId: PKG, phone: "0712345678" });
-      expect(res.status).toBe(429);
-      expect(darajaSpy).toHaveBeenCalledTimes(3);
-      expect(h.db.rows("payments")).toHaveLength(3);
-    });
-
-    it("lets the same number back in once the window has passed", async () => {
-      daraja();
-      for (let i = 0; i < 3; i++) {
-        await checkout({ packageId: PKG, phone: "0712345678" });
-        advance(61_000);
-      }
-      advance(10 * 60_000);
-      expect((await checkout({ packageId: PKG, phone: "0712345678" })).status).toBe(200);
-    });
-
-    it("counts the same phone across tenants and across different IPs", async () => {
-      const darajaSpy = daraja();
-      expect((await checkout({ packageId: PKG, phone: "0712345678" }, "7.7.7.7")).status).toBe(200);
-      advance(2_000);
-      expect((await checkout({ packageId: PKG, phone: "0712345678" }, "8.8.8.8")).status).toBe(429);
-      expect(darajaSpy).toHaveBeenCalledTimes(1);
-    });
-
-    it("does not throttle different numbers against each other", async () => {
-      daraja();
-      expect((await checkout({ packageId: PKG, phone: "0712345678" })).status).toBe(200);
-      expect((await checkout({ packageId: PKG, phone: "0722345678" })).status).toBe(200);
-    });
-
-    it("sends exactly one prompt when a burst of requests hits the same number", async () => {
-      const darajaSpy = daraja();
-      const ip = freshIp();
-      const results = await Promise.all(
-        Array.from({ length: 5 }, () => checkout({ packageId: PKG, phone: "0712345678" }, ip)),
-      );
-      expect(results.filter((r) => r.status === 200)).toHaveLength(1);
-      expect(results.filter((r) => r.status === 429)).toHaveLength(4);
-      expect(darajaSpy).toHaveBeenCalledTimes(1);
-      expect(h.db.rows("payments")).toHaveLength(1);
-    });
-
-    it("fails closed (no prompt sent) if the attempts lookup errors", async () => {
-      const darajaSpy = daraja();
-      h.db.failNext("payments", "select");
-      vi.spyOn(console, "error").mockImplementation(() => {});
-      const res = await checkout({ packageId: PKG, phone: "0712345678" });
-      expect(res.status).toBe(503);
-      expect(darajaSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("per-IP limit", () => {
-    it("allows 6 requests a minute per portal per IP, then answers 429", async () => {
-      daraja();
-      const ip = freshIp();
-      const statuses: number[] = [];
-      for (let i = 0; i < 7; i++) {
-        // distinct numbers so only the IP limiter is in play
-        statuses.push((await checkout({ packageId: PKG, phone: `07${10 + i}345678` }, ip)).status);
-      }
-      expect(statuses.slice(0, 6)).toEqual([200, 200, 200, 200, 200, 200]);
-      expect(statuses[6]).toBe(429);
-    });
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(darajaSpy).toHaveBeenCalledTimes(8);
+    expect(h.db.rows("payments")).toHaveLength(8);
   });
 });

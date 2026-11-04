@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, CheckCircle2, Tv } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,6 +77,45 @@ function sessionStore(): Storage | null {
   }
 }
 
+async function copyVoucher(code: string) {
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(code);
+      copied = true;
+    }
+  } catch {
+    // Some captive-portal browsers expose the API but reject clipboard writes.
+  }
+  if (!copied) {
+    const input = document.createElement("textarea");
+    input.value = code;
+    input.setAttribute("readonly", "");
+    input.style.position = "fixed";
+    input.style.opacity = "0";
+    document.body.appendChild(input);
+    try {
+      input.select();
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    } finally {
+      input.remove();
+    }
+  }
+  if (copied) toast.success("Voucher copied");
+  else toast.error("Could not copy the voucher. Please select and copy it manually.");
+}
+
+function VoucherCopyButton({ code }: { code: string }) {
+  return (
+    <Button variant="outline" className="mx-auto mt-3 flex" onClick={() => void copyVoucher(code)}>
+      <Copy aria-hidden="true" />
+      Copy voucher
+    </Button>
+  );
+}
+
 function PortalPage() {
   const [tab, setTab] = useState("buy");
   useEffect(() => {
@@ -91,7 +130,16 @@ function PortalPage() {
     queryKey: ["portal", slug],
     queryFn: async () => {
       const res = await fetch(`/api/public/portal/${slug}`);
-      if (!res.ok) throw new Error("Portal unavailable");
+      if (!res.ok) {
+        let message = "Portal unavailable.";
+        try {
+          const json = await res.json();
+          if (typeof json.error === "string") message = json.error;
+        } catch {
+          // Use the generic message when the server does not return JSON.
+        }
+        throw new Error(message);
+      }
       return res.json();
     },
   });
@@ -112,13 +160,18 @@ function PortalPage() {
   if (error || !data) {
     return (
       <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">
-        Portal not found.
+        {error instanceof Error ? error.message : "Portal not found."}
       </div>
     );
   }
 
   return (
-    <PortalThemeFrame themeId={themeId} brand={brand} backgroundUrl={data.portal?.background_url} className="min-h-screen">
+    <PortalThemeFrame
+      themeId={themeId}
+      brand={brand}
+      backgroundUrl={data.portal?.background_url}
+      className="min-h-screen"
+    >
       <PortalHeader
         theme={theme}
         name={data.tenant.name}
@@ -218,7 +271,17 @@ function BuyFlow({
     }
   }
 
-  if (paymentId) return <PaymentWaiting slug={slug} paymentId={paymentId} primary={primary} />;
+  if (paymentId)
+    return (
+      <PaymentWaiting
+        key={paymentId}
+        slug={slug}
+        paymentId={paymentId}
+        primary={primary}
+        retrying={submitting}
+        onTryAgain={() => void pay()}
+      />
+    );
 
   return (
     <div>
@@ -265,31 +328,63 @@ function PaymentWaiting({
   paymentId,
   primary,
   tv = false,
+  retrying = false,
+  onTryAgain,
 }: {
   slug: string;
   paymentId: string;
   primary: string;
   tv?: boolean;
+  retrying?: boolean;
+  onTryAgain?: () => void;
 }) {
   const [status, setStatus] = useState<string>("pending");
   const [voucher, setVoucher] = useState<string | null>(null);
+  const [autoConnecting, setAutoConnecting] = useState(false);
+  const autoConnectAttempted = useRef(false);
 
   useEffect(() => {
     let active = true;
-    const t = setInterval(async () => {
-      const res = await fetch(`/api/public/portal/${slug}/payment-status?id=${paymentId}`);
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!active) return;
-      setStatus(json.status);
-      if (json.voucher_code) setVoucher(json.voucher_code);
-      if (json.status === "success" || json.status === "failed") clearInterval(t);
-    }, 3000);
+    let timer: number | undefined;
+    let controller: AbortController | undefined;
+    const poll = async () => {
+      controller = new AbortController();
+      try {
+        const res = await fetch(`/api/public/portal/${slug}/payment-status?id=${paymentId}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (!active) return;
+          setStatus(json.status);
+          if (json.voucher_code) setVoucher(json.voucher_code);
+          if (json.status === "success" || json.status === "failed") return;
+        }
+      } catch (error) {
+        if (!active) return;
+        console.warn("Payment status check failed; it will be retried.", error);
+      }
+      if (active) timer = window.setTimeout(() => void poll(), 3000);
+    };
+    void poll();
     return () => {
       active = false;
-      clearInterval(t);
+      if (timer !== undefined) window.clearTimeout(timer);
+      controller?.abort();
     };
   }, [paymentId, slug]);
+
+  useEffect(() => {
+    if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
+    const store = sessionStore();
+    const params = routerParams(window.location.search, store);
+    const target = buildHotspotLoginRedirect(params.login, voucher);
+    if (!target) return;
+    autoConnectAttempted.current = true;
+    setAutoConnecting(true);
+    rememberVoucher(store, voucher);
+    window.location.assign(target);
+  }, [status, tv, voucher]);
 
   if (status === "success" && tv) {
     return (
@@ -307,15 +402,18 @@ function PaymentWaiting({
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
-        <h2 className="mt-3 text-lg font-semibold">You're online</h2>
+        <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {autoConnecting
+            ? "Connecting you to Wi-Fi…"
+            : "Your voucher is ready. Use it on the Wi-Fi login page."}
+        </p>
         {voucher && (
           <>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Use this voucher on the Wi-Fi page:
-            </p>
             <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-lg tracking-widest">
               {voucher}
             </p>
+            <VoucherCopyButton code={voucher} />
           </>
         )}
       </div>
@@ -326,6 +424,23 @@ function PaymentWaiting({
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <p className="font-medium">Payment failed</p>
         <p className="mt-1 text-sm text-muted-foreground">Please try again.</p>
+        {onTryAgain && (
+          <Button
+            className="pt-btn mt-4 w-full"
+            style={{ backgroundColor: primary }}
+            disabled={retrying}
+            onClick={onTryAgain}
+          >
+            {retrying ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden="true" />
+                Sending prompt…
+              </>
+            ) : (
+              "Try again"
+            )}
+          </Button>
+        )}
       </div>
     );
   }
@@ -333,7 +448,10 @@ function PaymentWaiting({
     <div className="pt-surface rounded-xl border bg-card p-6 text-center">
       <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
       <p className="mt-3 font-medium">Waiting for M-Pesa…</p>
-      <p className="mt-1 text-sm text-muted-foreground">Approve the prompt on your phone.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Approve the prompt on your phone. We’ll keep checking until M-Pesa confirms payment or
+        reports the request cancelled or failed.
+      </p>
     </div>
   );
 }
@@ -366,10 +484,12 @@ function TvFlow({
   const [status, setStatus] = useState<TvStatus | null>(null);
 
   async function checkStatus() {
-    if (!mac) return;
+    if (!mac || !phone) return;
     setChecking(true);
     try {
-      const res = await fetch(`/api/public/portal/${slug}/tv?mac=${encodeURIComponent(mac)}`);
+      const res = await fetch(
+        `/api/public/portal/${slug}/tv?mac=${encodeURIComponent(mac)}&phone=${encodeURIComponent(phone)}`,
+      );
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setStatus(json);
@@ -405,7 +525,15 @@ function TvFlow({
   if (paymentId) {
     return (
       <div className="space-y-3">
-        <PaymentWaiting slug={slug} paymentId={paymentId} primary={primary} tv />
+        <PaymentWaiting
+          key={paymentId}
+          slug={slug}
+          paymentId={paymentId}
+          primary={primary}
+          tv
+          retrying={submitting}
+          onTryAgain={() => void pay()}
+        />
         {randomized && (
           <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
             This looks like a private (randomised) Wi-Fi address. Make sure it is the address your
@@ -454,6 +582,17 @@ function TvFlow({
             className="mt-1"
           />
         </div>
+        <div>
+          <Label htmlFor="tv-phone">M-Pesa phone used for this TV</Label>
+          <Input
+            id="tv-phone"
+            inputMode="tel"
+            placeholder="07XXXXXXXX"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="mt-1"
+          />
+        </div>
       </div>
 
       {status && (
@@ -462,14 +601,14 @@ function TvFlow({
             ? `This TV is active until ${new Date(status.expires_at as string).toLocaleString()}. You can buy more time below.`
             : status.registered
               ? "This TV is registered but has no active plan."
-              : "This TV isn't registered yet."}
+              : "No TV found for that address and phone number."}
         </p>
       )}
       <Button
         variant="outline"
         size="sm"
         className="mt-3"
-        disabled={!mac || checking}
+        disabled={!mac || !phone || checking}
         onClick={checkStatus}
       >
         {checking ? "Checking…" : "Check TV status"}
@@ -491,17 +630,6 @@ function TvFlow({
         ))}
       </div>
 
-      <div className="mt-5">
-        <Label htmlFor="tv-phone">M-Pesa phone</Label>
-        <Input
-          id="tv-phone"
-          inputMode="tel"
-          placeholder="07XXXXXXXX"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="mt-1"
-        />
-      </div>
       <Button
         className="pt-btn mt-4 w-full"
         style={{ backgroundColor: primary }}
@@ -561,9 +689,12 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
             ` · ${result.remaining_minutes} min left`}
         </p>
         {result.voucher_code && (
-          <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-sm tracking-widest">
-            {result.voucher_code}
-          </p>
+          <>
+            <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-sm tracking-widest">
+              {result.voucher_code}
+            </p>
+            <VoucherCopyButton code={result.voucher_code} />
+          </>
         )}
       </div>
     );
@@ -610,13 +741,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
 }
 
 interface StatusResp {
-  active: { amount: number; expires_at: string; mpesa_receipt: string | null } | null;
-  history: Array<{
-    amount: number;
-    status: string;
-    created_at: string;
-    mpesa_receipt: string | null;
-  }>;
+  active: { expires_at: string } | null;
 }
 
 function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
@@ -671,28 +796,9 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
               <p className="text-xs text-muted-foreground mt-1">
                 Expires {new Date(data.active.expires_at).toLocaleString()}
               </p>
-              <p className="text-xs text-muted-foreground">
-                Receipt {data.active.mpesa_receipt ?? "—"}
-              </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No active package on this number.</p>
-          )}
-          {data.history.length > 0 && (
-            <div className="mt-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Recent transactions</p>
-              <ul className="space-y-1.5 text-xs">
-                {data.history.slice(0, 5).map((h, i) => (
-                  <li key={i} className="flex justify-between gap-2">
-                    <span className="text-muted-foreground">
-                      {new Date(h.created_at).toLocaleString()}
-                    </span>
-                    <span>KES {Number(h.amount).toFixed(0)}</span>
-                    <span className="capitalize">{h.status}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
           )}
         </div>
       )}
@@ -792,7 +898,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
         </p>
         {done === "activating" && (
           <p className="mt-1 text-sm text-muted-foreground">
-            This can take up to two minutes. Please keep this page open — it retries automatically.
+            Connecting your device to the Wi-Fi network now. Please keep this page open — connecting automatically.
           </p>
         )}
         {done === "stalled" && (

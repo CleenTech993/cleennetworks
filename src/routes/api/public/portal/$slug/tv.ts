@@ -6,6 +6,10 @@ import { normalizePhone } from "@/lib/mpesa.server";
 import { startDarajaStkPush } from "@/lib/daraja.server";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { isRandomizedMac, normalizeMac } from "@/lib/tv";
+import {
+  tenantServiceRestriction,
+  tenantServiceRestrictionMessage,
+} from "@/lib/platform-billing.server";
 
 // Smart-TV registration. A TV cannot show the captive portal, so the customer registers its MAC
 // address from a phone, pays, and the payment callback activates the device. The router picks it
@@ -27,8 +31,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
       GET: async ({ request, params }) => {
         if (!rateLimit(`tvstatus:${params.slug}:${clientIp(request)}`, 20, 60_000))
           return tooManyRequests();
-        const mac = normalizeMac(new URL(request.url).searchParams.get("mac") ?? "");
+        const url = new URL(request.url);
+        const mac = normalizeMac(url.searchParams.get("mac") ?? "");
         if (!mac) return Response.json({ error: BAD_MAC }, { status: 400 });
+        // Only the phone number the TV was registered with may query it: a MAC alone is
+        // guessable, so requiring both stops status lookups of other people's TVs.
+        const phone = normalizePhone(url.searchParams.get("phone") ?? "");
+        if (!phone) return Response.json({ error: "Phone number required" }, { status: 400 });
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
@@ -36,12 +45,20 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
+        const restriction = await tenantServiceRestriction(tenant.id);
+        if (restriction) {
+          return Response.json(
+            { error: tenantServiceRestrictionMessage(restriction) },
+            { status: 423 },
+          );
+        }
 
         const { data: tv } = await supabaseAdmin
           .from("tv_devices")
           .select("status,expires_at")
           .eq("tenant_id", tenant.id)
           .eq("mac_address", mac)
+          .eq("phone", phone)
           .maybeSingle();
         const active =
           !!tv && tv.status === "active" && !!tv.expires_at && new Date(tv.expires_at) > new Date();
@@ -54,8 +71,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
       // Register (or renew) a TV and start the M-Pesa payment.
       POST: async ({ request, params }) => {
-        if (!rateLimit(`tv:${params.slug}:${clientIp(request)}`, 5, 60_000))
-          return tooManyRequests();
         let body: unknown;
         try {
           body = await request.json();
@@ -75,6 +90,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
+        const restriction = await tenantServiceRestriction(tenant.id);
+        if (restriction) {
+          return Response.json(
+            { error: tenantServiceRestrictionMessage(restriction) },
+            { status: 423 },
+          );
+        }
 
         const { data: pkg } = await supabaseAdmin
           .from("packages")
@@ -101,9 +123,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
         // Register the device, or update the existing one. Never touch status/expires_at of an
         // existing device here: a renewal must not switch off a TV that is still paid up.
+        // A renewal must come from the number the TV was registered with, so someone who only
+        // knows the MAC address cannot hijack or alter another customer's TV.
         const { data: existing } = await supabaseAdmin
           .from("tv_devices")
-          .select("id,status")
+          .select("id,status,phone")
           .eq("tenant_id", tenant.id)
           .eq("mac_address", mac)
           .maybeSingle();
@@ -116,10 +140,18 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
         let deviceId = existing?.id;
         if (existing) {
+          if (existing.phone !== phone) {
+            return Response.json(
+              {
+                error:
+                  "This phone number doesn't match the TV's registration. Use the number the TV was registered with.",
+              },
+              { status: 403 },
+            );
+          }
           await supabaseAdmin
             .from("tv_devices")
             .update({
-              phone,
               package_id: pkg.id,
               updated_at: now,
               ...(parsed.data.name ? { name: parsed.data.name } : {}),

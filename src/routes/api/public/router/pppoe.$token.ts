@@ -5,7 +5,7 @@ import { authenticateRouter } from "@/lib/router-auth.server";
 import { parsePppoeReport } from "@/lib/pppoe-sessions";
 
 // PPPoE session report pushed by the router every 2 minutes (see buildPppoeAgentLines).
-// Body: records "username|mac|ip" separated by ";".
+// Body: records "username|mac|ip|session-id|bytes-in|bytes-out" separated by ";".
 //
 // The MAC is the session's caller-id. It is stored on the client so the console can show it and
 // whether the client is connected. Only clients that belong to THIS router (or are still
@@ -28,7 +28,14 @@ export const Route = createFileRoute("/api/public/router/pppoe/$token")({
         const { error } = await supabaseAdmin.rpc("record_pppoe_sessions", {
           p_router_id: router.id,
           p_tenant_id: router.tenant_id,
-          p_sessions: sessions.map((s) => ({ username: s.username, mac: s.mac, ip: s.ip })),
+          p_sessions: sessions.map((s) => ({
+            username: s.username,
+            mac: s.mac,
+            ip: s.ip,
+            session_id: s.session_id ?? null,
+            bytes_in: s.bytes_in ?? null,
+            bytes_out: s.bytes_out ?? null,
+          })),
         });
         if (error) {
           console.error("pppoe report failed", error);

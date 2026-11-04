@@ -1,12 +1,5 @@
 import { useState, useRef } from "react";
-import {
-  UploadCloud,
-  Image as ImageIcon,
-  X,
-  RefreshCw,
-  Link as LinkIcon,
-  Check,
-} from "lucide-react";
+import { UploadCloud, Image as ImageIcon, X, RefreshCw, Link as LinkIcon, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,23 +86,14 @@ export function ImageUploader({
       // Try uploading to Supabase Storage if bucket exists
       if (tenantId) {
         try {
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
-          if (userError) throw userError;
-          if (!user) throw new Error("Sign in to upload portal images.");
-
           const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-          const fileName = `${tenantId}/${user.id}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+          const fileName = `${tenantId}/${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
           const { data: uploadData, error: uploadErr } = await supabase.storage
             .from("portal-assets")
             .upload(fileName, file, { upsert: true });
 
           if (!uploadErr && uploadData?.path) {
-            const { data: pubData } = supabase.storage
-              .from("portal-assets")
-              .getPublicUrl(uploadData.path);
+            const { data: pubData } = supabase.storage.from("portal-assets").getPublicUrl(uploadData.path);
             if (pubData?.publicUrl) {
               onChange(pubData.publicUrl);
               toast.success("Image uploaded successfully");
@@ -240,3 +224,4 @@ export function ImageUploader({
     </div>
   );
 }
+

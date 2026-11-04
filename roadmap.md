@@ -1,6 +1,5 @@
 # Roadmap
 
-## Open tasks
-- [x] Router↔platform communication over HTTPS only (WireGuard removed 2026-10-03)
-- [ ] Phase 3 NOC UI: Interfaces/Internet quality/Traffic tabs on router detail page (data ingestion done, UI pending).
-- [x] Fixed .rsc import syntax error (line 42 flood-ping do-block) — replaced with /ping loop; user must re-run provisioning command.
+1. Remove the sign-in security limit (failed-password lockout) — migration applied via tool (drizzle/migrations/0004_remove_login_throttle.sql); remaining: db:verify-gen + test:sql + typecheck.
+2. Support chat that answers customer questions from help docs and order data, with human handoff when unsure — pending; needs conversation shape and storage choices from the user.
+3. Optimize platform load on MikroTik resources (CPU/RAM) — audit polling: router 2-min sync scheduler, heartbeat/telemetry cadence, dashboard 30s refresh; reduce frequency and batch calls.

@@ -6,17 +6,23 @@ import type { AppRole } from "@/lib/permissions";
 export async function requireConsole(opts: { superAdmin?: boolean } = {}): Promise<AppRole[]> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw redirect({ to: "/login" });
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  // Only enforce aal2 when the admin has activated MFA (nextLevel is aal2)
-  if (aal?.nextLevel === "aal2" && aal?.currentLevel !== "aal2") {
-    throw redirect({ to: "/mfa" });
-  }
-  const { data: roles } = await supabase
+  const { data: roles, error: rolesError } = await supabase
     .from("user_roles")
     .select("role")
     .eq("user_id", data.user.id);
+  if (rolesError) throw rolesError;
   if (!roles || roles.length === 0) throw redirect({ to: "/pending" });
   if (opts.superAdmin && !roles.some((r) => r.role === "super_admin"))
     throw redirect({ to: "/tenant" });
+
+  const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+  if (factorsError) throw factorsError;
+  const hasVerifiedFactor = factors?.totp.some((factor) => factor.status === "verified") ?? false;
+  const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aalError) throw aalError;
+  if (hasVerifiedFactor && aal?.currentLevel !== "aal2") {
+    throw redirect({ to: "/mfa" });
+  }
+
   return roles.map((r) => r.role as AppRole);
 }
