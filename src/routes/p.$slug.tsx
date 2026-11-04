@@ -208,7 +208,13 @@ function PortalPage() {
               </TabsTrigger>
             </TabsList>
             <TabsContent value="buy" className="mt-4">
-              <BuyFlow slug={slug} packages={data.packages} primary={primary} theme={theme} />
+              <BuyFlow
+                slug={slug}
+                packages={data.packages}
+                primary={primary}
+                theme={theme}
+                payeeName={data.tenant.name}
+              />
             </TabsContent>
             <TabsContent value="reconnect" className="mt-4">
               <ReconnectFlow slug={slug} primary={primary} />
@@ -220,7 +226,13 @@ function PortalPage() {
               <VoucherFlow slug={slug} primary={primary} />
             </TabsContent>
             <TabsContent value="tv" className="mt-4">
-              <TvFlow slug={slug} packages={data.packages} primary={primary} theme={theme} />
+              <TvFlow
+                slug={slug}
+                packages={data.packages}
+                primary={primary}
+                theme={theme}
+                payeeName={data.tenant.name}
+              />
             </TabsContent>
           </Tabs>
 
@@ -240,11 +252,13 @@ function BuyFlow({
   packages,
   primary,
   theme,
+  payeeName,
 }: {
   slug: string;
   packages: PortalData["packages"];
   primary: string;
   theme: PortalThemeDef;
+  payeeName: string;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
@@ -278,8 +292,10 @@ function BuyFlow({
         slug={slug}
         paymentId={paymentId}
         primary={primary}
+        payeeName={payeeName}
         retrying={submitting}
         onTryAgain={() => void pay()}
+        onChangePhone={() => setPaymentId(null)}
       />
     );
 
@@ -310,6 +326,10 @@ function BuyFlow({
           onChange={(e) => setPhone(e.target.value)}
           className="mt-1"
         />
+        <p className="mt-2 text-xs text-muted-foreground">
+          M-Pesa payment to <span className="font-medium text-foreground">{payeeName}</span>. The
+          prompt uses the official business name registered to its PayBill.
+        </p>
       </div>
       <Button
         className="pt-btn mt-4 w-full"
@@ -327,6 +347,7 @@ function PaymentWaiting({
   slug,
   paymentId,
   primary,
+  payeeName,
   tv = false,
   retrying = false,
   onTryAgain,
@@ -334,9 +355,11 @@ function PaymentWaiting({
   slug: string;
   paymentId: string;
   primary: string;
+  payeeName: string;
   tv?: boolean;
   retrying?: boolean;
   onTryAgain?: () => void;
+  onChangePhone?: () => void;
 }) {
   const [status, setStatus] = useState<string>("pending");
   const [voucher, setVoucher] = useState<string | null>(null);
@@ -438,10 +461,17 @@ function PaymentWaiting({
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <p className="font-medium">Payment failed</p>
-        <p className="mt-1 text-sm text-muted-foreground">Please try again.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          The M-Pesa payment to {payeeName} was not completed. Check the phone number and try again.
+        </p>
+        {onChangePhone && (
+          <Button className="mt-4 w-full" variant="outline" onClick={onChangePhone}>
+            Change phone number
+          </Button>
+        )}
         {onTryAgain && (
           <Button
-            className="pt-btn mt-4 w-full"
+            className="pt-btn mt-3 w-full"
             style={{ backgroundColor: primary }}
             disabled={retrying}
             onClick={onTryAgain}
@@ -482,11 +512,13 @@ function TvFlow({
   packages,
   primary,
   theme,
+  payeeName,
 }: {
   slug: string;
   packages: PortalData["packages"];
   primary: string;
   theme: PortalThemeDef;
+  payeeName: string;
 }) {
   const [mac, setMac] = useState("");
   const [name, setName] = useState("");
@@ -545,9 +577,11 @@ function TvFlow({
           slug={slug}
           paymentId={paymentId}
           primary={primary}
+          payeeName={payeeName}
           tv
           retrying={submitting}
           onTryAgain={() => void pay()}
+          onChangePhone={() => setPaymentId(null)}
         />
         {randomized && (
           <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
@@ -607,6 +641,9 @@ function TvFlow({
             onChange={(e) => setPhone(e.target.value)}
             className="mt-1"
           />
+          <p className="mt-2 text-xs text-muted-foreground">
+            M-Pesa payment to <span className="font-medium text-foreground">{payeeName}</span>.
+          </p>
         </div>
       </div>
 

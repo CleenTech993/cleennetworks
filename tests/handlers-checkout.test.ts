@@ -80,7 +80,7 @@ describe("checkout", () => {
       amount: 50,
       phone: "254712345678",
       paymentId: body.paymentId,
-      description: "hotspot",
+      description: "Acme",
       callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
     });
 
@@ -148,6 +148,7 @@ describe("checkout", () => {
     expect(res.status).toBe(502);
     expect(text).not.toContain("abc123");
     expect(text).not.toContain("INTERNAL");
+    expect(text).toContain("contact Acme to verify the PayBill's Daraja setup");
     expect(h.db.rows("payments")[0].status).toBe("failed");
   });
 

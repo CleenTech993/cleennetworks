@@ -129,7 +129,7 @@ describe("smart TV registration", () => {
         tenantId: TENANT,
         amount: 30,
         phone: "254712345678",
-        description: "Smart TV",
+        description: "Acme",
         callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
       }),
     );

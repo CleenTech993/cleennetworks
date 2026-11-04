@@ -86,7 +86,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
-          .select("id")
+          .select("id,name")
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return Response.json({ error: "Portal not found" }, { status: 404 });
@@ -207,7 +207,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
             amount,
             phone,
             paymentId: pay.id,
-            description: "Smart TV",
+            description: tenant.name || "Smart TV",
             callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
           });
           await supabaseAdmin
@@ -227,7 +227,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           console.error("tv checkout: STK push failed", e);
           await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
           return Response.json(
-            { error: "We couldn't send the M-Pesa prompt. Please check the number and try again." },
+            {
+              error: `We couldn't start the M-Pesa prompt. Check the phone number and try again. If it still fails, contact ${tenant.name || "the provider"} to verify the PayBill's Daraja setup.`,
+            },
             { status: 502 },
           );
         }
