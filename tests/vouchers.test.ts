@@ -132,6 +132,10 @@ describe("router login retry", () => {
     };
   };
 
+  it("keeps retrying longer than the router's five-minute voucher sync interval", () => {
+    expect(LOGIN_RETRY_WINDOW_MS).toBeGreaterThan(5 * 60_000);
+  });
+
   it("knows when the router sent the customer back after refusing a login", () => {
     expect(routerLoginFailed("?router=r1&login=x&failed=1")).toBe(true);
     expect(routerLoginFailed("?router=r1&login=x")).toBe(false);

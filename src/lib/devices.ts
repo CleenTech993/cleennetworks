@@ -154,6 +154,34 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   return lines;
 }
 
+/** Adds missing voucher users without rebuilding the full list on the fast refresh schedule. */
+export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string[] {
+  const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
+  const limits = [...new Set(valid.map((v) => v.limit))].sort((a, b) => a - b);
+  const lines = ["/ip hotspot user profile"];
+
+  for (const limit of limits) {
+    const profile = userProfileName(limit);
+    lines.push(
+      `:do { :if ([:len [find name=${profile}]] = 0) do={ add name=${profile} shared-users=${limit} } } on-error={}`,
+    );
+  }
+
+  lines.push("/ip hotspot user");
+  for (const voucher of valid) {
+    const profile = userProfileName(voucher.limit);
+    const mac =
+      voucher.limit === 1 && voucher.bound_mac && isUsableMac(voucher.bound_mac)
+        ? ` mac-address=${voucher.bound_mac}`
+        : "";
+    const user = `name="${voucher.code}" password="${voucher.code}" profile=${profile}${mac} comment="netgrid-voucher"`;
+    lines.push(
+      `:if ([:len [find where name="${voucher.code}"]] = 0) do={ :do { add ${user} server=netgrid-hs } on-error={ :do { add ${user} } on-error={} } }`,
+    );
+  }
+  return lines;
+}
+
 /** Disconnects active voucher sessions before removing the tenant's managed hotspot users. */
 export function buildHotspotSuspendLines(): string[] {
   return [

@@ -266,10 +266,30 @@ describe("sync script scoping", () => {
   });
 
   it("only includes this tenant's live vouchers", async () => {
-    const { text } = await sync(await issueDeviceToken(R1));
+    const token = await issueDeviceToken(R1);
+    const { text } = await sync(token);
     expect(text).toContain("UNUSED2345");
     expect(text).toContain("USED22345A");
     for (const s of ["EXPIRED234", "RIVALCODE2"]) expect(text).not.toContain(s);
+    expect(text).toContain(`sync/${token}?vouchers=1`);
+    expect(text).toContain('interval=10s on-event="/system script run netgrid-voucher-sync"');
+  });
+
+  it("serves new vouchers through the lightweight poll without returning full router sync data", async () => {
+    const token = await issueDeviceToken(R1);
+    const res = await call(Sync, "GET", {
+      url: `https://portal.test/api/public/router/sync/${token}?vouchers=1`,
+      params: { token },
+      ip: freshIp(),
+    });
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(text).toContain('name="UNUSED2345"');
+    expect(text).toContain('name="USED22345A"');
+    expect(text).not.toContain("EXPIRED234");
+    expect(text).not.toContain("RIVALCODE2");
+    expect(text).not.toContain("alicepass1");
+    expect(text).not.toContain("/ppp secret");
   });
 
   it("embeds the device token (not the bootstrap token) in the login-page URL", async () => {
@@ -315,6 +335,7 @@ describe("router.rsc provisioning", () => {
       "/ip hotspot profile",
       ":do { add name=netgrid-hs interface=netgrid-lan",
       "add name=netgrid-sync interval=5m",
+      "add name=netgrid-voucher-sync interval=10s",
       "add name=netgrid-heartbeat",
     ]) {
       expect(at(earlier), earlier).toBeLessThan(portMove);
@@ -337,7 +358,9 @@ describe("router.rsc provisioning", () => {
     const lines = script.split("\n");
     const bare = lines.filter((l) => /^add (name|address|chain|service-name|dst-host)=/.test(l));
     // the only unguarded adds left are the scheduler/script definitions (which already tolerate re-runs)
-    expect(bare.filter((l) => !/^add name=netgrid-(wan|ifaces|sync|heartbeat)/.test(l))).toEqual([]);
+    expect(
+      bare.filter((l) => !/^add name=netgrid-(wan|ifaces|sync|voucher-sync|heartbeat)/.test(l)),
+    ).toEqual([]);
   });
 
   it("is structurally sound: balanced quotes and brackets, and no \\$ outside quoted strings", async () => {

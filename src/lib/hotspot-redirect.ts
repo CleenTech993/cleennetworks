@@ -56,8 +56,8 @@ export function routerLoginFailed(search: string): boolean {
 // ---------------------------------------------------------------------------------------------
 
 export const LOGIN_RETRY_DELAY_MS = 2_000;
-/** A little longer than two sync intervals. */
-export const LOGIN_RETRY_WINDOW_MS = 4 * 60_000;
+/** Covers the five-minute full-sync cycle while a router installs the fast voucher poll. */
+export const LOGIN_RETRY_WINDOW_MS = 7 * 60_000;
 const VOUCHER_KEYS = { code: "ng_voucher", at: "ng_voucher_at" } as const;
 const REMEMBERABLE_CODE = /^[A-Za-z0-9._@-]{1,64}$/;
 

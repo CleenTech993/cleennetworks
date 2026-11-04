@@ -82,6 +82,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           callbackUrl,
           interfacesUrl: `https://${host}/api/public/router/interfaces/${token}`,
           syncUrl: `https://${host}/api/public/router/sync/${token}`,
+          voucherSyncUrl: `https://${host}/api/public/router/sync/${token}?vouchers=1`,
           loginUrl,
           marker,
         });
@@ -104,6 +105,7 @@ function buildRsc(p: {
   callbackUrl: string;
   interfacesUrl: string;
   syncUrl: string;
+  voucherSyncUrl: string;
   loginUrl: string;
   marker: string;
 }) {
@@ -227,6 +229,18 @@ add name=netgrid-sync source={
   } on-error={ :log warning "NetGrid: user sync failed" }
 }
 
+# Fast pickup of newly generated voucher users
+/system script
+remove [find name=netgrid-voucher-sync]
+add name=netgrid-voucher-sync source={
+  :do {
+    /tool fetch url="${p.voucherSyncUrl}" dst-path=netgrid-vouchers.rsc mode=https
+    :delay 1s
+    /import file-name=netgrid-vouchers.rsc verbose=no
+    :do { /file remove [find name=netgrid-vouchers.rsc] } on-error={}
+  } on-error={ :log warning "NetGrid: voucher refresh failed" }
+}
+
 # Heartbeat script: sends metrics via HTTP POST body so spaces and special characters never break the URL
 remove [find name=netgrid-heartbeat]
 add name=netgrid-heartbeat source={
@@ -257,6 +271,7 @@ remove [find name~"netgrid-"]
 add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan"
 add name=netgrid-ifaces interval=5m on-event="/system script run netgrid-ifaces"
 add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync"
+add name=netgrid-voucher-sync interval=10s on-event="/system script run netgrid-voucher-sync"
 add name=netgrid-heartbeat interval=1m on-event="/system script run netgrid-heartbeat"
 
 # --- LAN ports join the hotspot bridge LAST ---

@@ -378,7 +378,7 @@ function PaymentWaiting({
     if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
     const store = sessionStore();
     const params = routerParams(window.location.search, store);
-    const target = buildHotspotLoginRedirect(params.login, voucher);
+    const target = buildHotspotLoginRedirect(params.login || "http://10.5.50.1/login", voucher);
     if (!target) return;
     autoConnectAttempted.current = true;
     setAutoConnecting(true);
@@ -414,6 +414,21 @@ function PaymentWaiting({
               {voucher}
             </p>
             <VoucherCopyButton code={voucher} />
+            <Button
+              className="pt-btn mt-4 w-full"
+              style={{ backgroundColor: primary }}
+              onClick={() => {
+                const store = sessionStore();
+                const params = routerParams(window.location.search, store);
+                const target = buildHotspotLoginRedirect(params.login || "http://10.5.50.1/login", voucher);
+                if (target) {
+                  rememberVoucher(store, voucher);
+                  window.location.assign(target);
+                }
+              }}
+            >
+              Connect to Wi-Fi now
+            </Button>
           </>
         )}
       </div>
@@ -822,7 +837,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
     const saved = recallVoucher(store);
     if (!saved) return;
     const target = buildHotspotLoginRedirect(
-      routerParams(window.location.search, store).login,
+      routerParams(window.location.search, store).login || "http://10.5.50.1/login",
       saved.code,
     );
     if (!target) return;
@@ -841,7 +856,10 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
     const store = sessionStore();
     const saved = recallVoucher(store);
     const target = saved
-      ? buildHotspotLoginRedirect(routerParams(window.location.search, store).login, saved.code)
+      ? buildHotspotLoginRedirect(
+          routerParams(window.location.search, store).login || "http://10.5.50.1/login",
+          saved.code,
+        )
       : null;
     if (!saved || !target) return setDone(null);
     rememberVoucher(store, saved.code); // restart the retry window
@@ -866,12 +884,12 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       const redeemed: string = json.code ?? code;
       rememberVoucher(store, redeemed);
       // Hand the browser to the router so the device is actually logged in.
-      const target = buildHotspotLoginRedirect(params.login, redeemed);
+      const target = buildHotspotLoginRedirect(params.login || "http://10.5.50.1/login", redeemed);
       if (target) {
-        setDone("activating");
+        setDone("connecting");
         setTimeout(() => {
           window.location.href = target;
-        }, 2000);
+        }, 300);
       } else {
         setDone("accepted");
       }
@@ -898,7 +916,8 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
         </p>
         {done === "activating" && (
           <p className="mt-1 text-sm text-muted-foreground">
-            This can take up to two minutes. Please keep this page open — it retries automatically.
+            This can take several minutes while the Wi-Fi syncs your voucher. Please keep this page
+            open; it retries automatically.
           </p>
         )}
         {done === "stalled" && (

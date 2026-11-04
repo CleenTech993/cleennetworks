@@ -4,6 +4,7 @@ import {
   canResumeVoucher,
   buildDeviceAgentLines,
   buildHotspotSuspendLines,
+  buildHotspotVoucherRefreshLines,
   buildHotspotUserLines,
   buildTetherLines,
   deviceLimitOf,
@@ -198,6 +199,21 @@ describe("buildHotspotUserLines", () => {
         ]),
       ),
     ).toBe(true);
+  });
+});
+
+describe("buildHotspotVoucherRefreshLines", () => {
+  it("adds only missing vouchers and does not rebuild the managed user list", () => {
+    const lines = buildHotspotVoucherRefreshLines([
+      { code: "FASTCODE01", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 },
+      { code: 'bad"code', bound_mac: null, limit: 1 },
+    ]);
+    const script = lines.join("\n");
+    expect(script).toContain('find where name="FASTCODE01"');
+    expect(script).toContain("mac-address=AA:BB:CC:DD:EE:02");
+    expect(script).not.toContain('remove [find comment="netgrid-voucher"]');
+    expect(script).not.toContain('bad"code');
+    expect(balanced(script)).toBe(true);
   });
 });
 
