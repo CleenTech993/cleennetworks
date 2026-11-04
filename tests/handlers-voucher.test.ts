@@ -14,10 +14,15 @@ import { Route } from "@/routes/api/public/portal/$slug/voucher";
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const OTHER = "99999999-9999-9999-9999-999999999999";
 const PKG = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const DEFAULT_MAC = "AA:BB:CC:DD:EE:FF";
 const hoursFromNow = (iso: unknown) => (new Date(String(iso)).getTime() - Date.now()) / 3_600_000;
 
 const redeem = (body: unknown, ip = freshIp(), slug = "acme") =>
-  call(Route, "POST", { body, ip, params: { slug } });
+  call(Route, "POST", {
+    body: { ...(body as Record<string, unknown>), mac: (body as Record<string, unknown>).mac ?? DEFAULT_MAC },
+    ip,
+    params: { slug },
+  });
 const voucher = (code: string) => h.db.rows("vouchers").find((v) => v.code === code)!;
 
 beforeEach(() => {
@@ -98,6 +103,16 @@ describe("voucher redemption", () => {
     expect((await redeem({ code: "  abcd2345 " })).status).toBe(200);
   });
 
+  it("requires a router-provided MAC before redeeming a voucher", async () => {
+    const res = await call(Route, "POST", {
+      body: { code: "ABCD2345" },
+      ip: freshIp(),
+      params: { slug: "acme" },
+    });
+    expect(res.status).toBe(400);
+    expect(voucher("ABCD2345").status).toBe("unused");
+  });
+
   it("refuses used, expired and unknown codes with distinct errors", async () => {
     expect(await json(await redeem({ code: "USED2345" }))).toMatchObject({
       error: "Voucher already used",
@@ -121,7 +136,9 @@ describe("voucher redemption", () => {
   it("lets exactly one of several simultaneous redemptions win", async () => {
     const ip = freshIp();
     const results = await Promise.all(
-      Array.from({ length: 6 }, (_, i) => redeem({ code: "ABCD2345", mac: `mac-${i}` }, ip)),
+      Array.from({ length: 6 }, (_, i) =>
+        redeem({ code: "ABCD2345", mac: `AA:BB:CC:DD:EE:${i.toString(16).padStart(2, "0")}` }, ip),
+      ),
     );
     expect(results.filter((r) => r.status === 200)).toHaveLength(1);
     expect(results.filter((r) => r.status === 400)).toHaveLength(5);
@@ -152,14 +169,14 @@ describe("voucher redemption", () => {
     expect((await json(loser)).error).toBe("Voucher already used");
   });
 
-  it("on a multi-device package, the loser of a race from another device resumes too", async () => {
+  it("on a multi-device package, a different device cannot resume a redeemed voucher", async () => {
     h.db.rows("packages")[0].device_limit = 3;
     const ip = freshIp();
     const results = await Promise.all([
       redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0A" }, ip),
       redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:0B" }, ip),
     ]);
-    expect(results.map((r) => r.status)).toEqual([200, 200]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 400]);
   });
 
   it("lets the device that redeemed a voucher present it again (router login can fail at first)", async () => {
@@ -187,7 +204,7 @@ describe("voucher redemption", () => {
     expect((await json(again)).error).toMatch(/expired/i);
   });
 
-  it("lets every device of a multi-device package present the code", async () => {
+  it("does not let a multi-device package reuse one voucher from another MAC", async () => {
     const MULTI = "cccccccc-cccc-cccc-cccc-cccccccccccc";
     h.db.seed("packages", [
       { id: MULTI, tenant_id: TENANT, duration_value: 3, duration_unit: "hours", device_limit: 3 },
@@ -204,9 +221,11 @@ describe("voucher redemption", () => {
       },
     ]);
     expect((await redeem({ code: "MULTI234", mac: "AA:BB:CC:DD:EE:0A" })).status).toBe(200);
-    const second = await redeem({ code: "MULTI234", mac: "AA:BB:CC:DD:EE:0B" });
-    expect(second.status).toBe(200);
-    expect(await json(second)).toMatchObject({ resumed: true });
+    const sameDevice = await redeem({ code: "MULTI234", mac: "AA:BB:CC:DD:EE:0A" });
+    expect(sameDevice.status).toBe(200);
+    expect(await json(sameDevice)).toMatchObject({ resumed: true });
+    const secondDevice = await redeem({ code: "MULTI234", mac: "AA:BB:CC:DD:EE:0B" });
+    expect(secondDevice.status).toBe(400);
   });
 
   it("rejects bad input and unknown portals", async () => {
@@ -238,21 +257,21 @@ describe("when the database misbehaves", () => {
     expect(voucher("ABCD2345").status).toBe("unused"); // nothing was consumed, the customer can retry
   });
 
-  it("still redeems when the bound_mac column has not been migrated yet", async () => {
+  it("fails closed when the required bound_mac column is not deployed", async () => {
     h.db.failNext(
       "vouchers",
       "update",
       "Could not find the 'bound_mac' column of 'vouchers' in the schema cache",
     );
     const res = await redeem({ code: "ABCD2345", mac: MAC });
-    expect(res.status).toBe(200);
-    expect(voucher("ABCD2345").status).toBe("used");
-    expect(voucher("ABCD2345").bound_mac).toBeUndefined(); // could not pin, but the customer is not locked out
+    expect(res.status).toBe(500);
+    expect(voucher("ABCD2345").status).toBe("unused");
+    expect(voucher("ABCD2345").bound_mac).toBeUndefined();
   });
 
   it("a genuinely used voucher is still reported as already used", async () => {
     expect((await redeem({ code: "ABCD2345" })).status).toBe(200);
-    const again = await redeem({ code: "ABCD2345" });
+    const again = await redeem({ code: "ABCD2345", mac: "AA:BB:CC:DD:EE:01" });
     expect(again.status).toBe(400);
     expect((await json(again)).error).toMatch(/already used/i);
   });

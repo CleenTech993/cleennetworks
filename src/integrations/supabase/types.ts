@@ -1059,6 +1059,66 @@ export type Database = {
           },
         ]
       }
+      router_hotspot_sessions: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          hostname: string | null
+          id: string
+          last_seen_at: string
+          mac: string
+          router_id: string
+          session_uptime_seconds: number
+          started_at: string
+          tenant_id: string
+          voucher_code: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          hostname?: string | null
+          id?: string
+          last_seen_at: string
+          mac: string
+          router_id: string
+          session_uptime_seconds: number
+          started_at: string
+          tenant_id: string
+          voucher_code: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          hostname?: string | null
+          id?: string
+          last_seen_at?: string
+          mac?: string
+          router_id?: string
+          session_uptime_seconds?: number
+          started_at?: string
+          tenant_id?: string
+          voucher_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_hotspot_sessions_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "router_hotspot_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       router_interfaces: {
         Row: {
           disabled: boolean

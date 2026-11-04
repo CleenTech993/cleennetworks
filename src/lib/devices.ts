@@ -1,19 +1,17 @@
 // Customer device management helpers. Pure functions (no env / DB access) so they are unit-testable.
 //
 // How the pieces fit together:
-//   * One package = one device. Each hotspot voucher is a router "hotspot user" in a profile with
-//     shared-users=<device_limit>, so a code can never be online on more devices than allowed at
-//     once. When the limit is 1 the user is also pinned to a single MAC (vouchers.bound_mac), so
-//     the code cannot be moved to another device later either.
+//   * Each voucher is bound to one MAC and one router hotspot session at a time.
 //   * No tethering / phone-to-phone hotspot. A phone that shares its connection forwards the
 //     packets of the devices behind it, and forwarding lowers the IP TTL by 1. The router sets
 //     TTL=1 on everything it sends to customers: the phone itself still accepts such packets, but
 //     it cannot forward them, so devices behind it get nothing. Separately, traffic arriving with
 //     TTL 63/127 (a 64/128 device one hop further away) puts the sender on an address list that
 //     the device report uses to flag "tethering suspected".
-//   * Every 2 minutes the router reports the devices on the hotspot to the platform.
+//   * Every minute the router reports hotspot devices and active session uptime to the platform.
 
 import { isUsableMac, normalizeMac } from "./tv";
+import { parseRouterOsDuration } from "./router-health";
 
 export { normalizeMac, isUsableMac };
 
@@ -33,18 +31,9 @@ export function deviceLimitOf(pkg: { device_limit: number | null } | null | unde
 
 export const userProfileName = (limit: number) => `netgrid-d${limit}`;
 
-/**
- * May an already-redeemed voucher be presented to the portal again? A one-device plan only by the
- * device that redeemed it (matched by MAC); a multi-device plan by any device, because the router
- * enforces the device limit (shared-users). Never lets a different device take over a one-device code.
- */
-export function canResumeVoucher(
-  limit: number,
-  mac: string | null,
-  usedByMac: string | null | undefined,
-): boolean {
-  if (limit > 1) return true;
-  return !!mac && !!usedByMac && mac === usedByMac;
+/** An already-redeemed voucher may only be resumed by its bound device. */
+export function canResumeVoucher(mac: string | null, boundMac: string | null | undefined): boolean {
+  return !!mac && !!boundMac && mac === boundMac;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -59,6 +48,7 @@ export interface DeviceRecord {
   user: string | null;
   authorized: boolean;
   tether: boolean;
+  sessionUptimeSeconds: number | null;
 }
 
 function cleanIp(raw: string | undefined): string | null {
@@ -77,7 +67,7 @@ function cleanHostname(raw: string | undefined): string | null {
 
 /**
  * Parses the body pushed by the router: records separated by ";" (or newlines), fields by "|":
- *   mac|ip|hostname|user|authorized|tether
+ *   mac|ip|hostname|user|authorized|tether|uptime
  * Everything comes from a device on the customer's LAN (hostnames are chosen by the customer),
  * so every field is validated and anything malformed is dropped.
  */
@@ -87,7 +77,7 @@ export function parseDeviceReport(body: string): DeviceRecord[] {
   for (const rec of body.split(/;|\r?\n/)) {
     if (out.length >= MAX_DEVICES_PER_REPORT) break;
     const parts = rec.trim().split("|");
-    if (parts.length !== 6) continue;
+    if (parts.length !== 6 && parts.length !== 7) continue;
     const mac = normalizeMac(parts[0] ?? "");
     if (!mac || seen.has(mac)) continue;
     seen.add(mac);
@@ -99,6 +89,7 @@ export function parseDeviceReport(body: string): DeviceRecord[] {
       user: SAFE_CODE.test(user) ? user : null,
       authorized: (parts[4] ?? "").trim() === "true",
       tether: (parts[5] ?? "").trim() === "1",
+      sessionUptimeSeconds: parts.length === 7 ? parseRouterOsDuration(parts[6]) : null,
     });
   }
   return out;
@@ -111,8 +102,6 @@ export function parseDeviceReport(body: string): DeviceRecord[] {
 export interface SyncVoucher {
   code: string;
   bound_mac: string | null;
-  /** From the voucher's package (packages.device_limit). */
-  limit: number;
 }
 
 /**
@@ -121,26 +110,20 @@ export interface SyncVoucher {
  */
 export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
-  const limits = [...new Set([1, ...valid.map((v) => v.limit)])].sort((a, b) => a - b);
 
   const lines = [
     "/ip hotspot user",
     ':do { remove [find comment="netgrid-voucher"] } on-error={}',
     "/ip hotspot user profile",
   ];
-  for (const n of limits) {
-    const p = userProfileName(n);
-    lines.push(
-      `:do { :if ([:len [find name=${p}]] = 0) do={ add name=${p} shared-users=${n} } else={ set [find name=${p}] shared-users=${n} } } on-error={}`,
-    );
-  }
+  lines.push(
+    ':do { :if ([:len [find name=netgrid-d1]] = 0) do={ add name=netgrid-d1 shared-users=1 } else={ set [find name=netgrid-d1] shared-users=1 } } on-error={}',
+  );
   lines.push("/ip hotspot user");
   for (const v of valid) {
-    // Only a one-device plan can be pinned to a single MAC.
-    const mac =
-      v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
+    const mac = v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
     lines.push(
-      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=default comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" comment="netgrid-voucher" } on-error={} } } }`,
+      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=netgrid-d1${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=netgrid-d1${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=default comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" comment="netgrid-voucher" } on-error={} } } }`,
     );
   }
   if (valid.length > 0) {
@@ -157,26 +140,20 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
 /** Adds missing voucher users without rebuilding the full list on the fast refresh schedule. */
 export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
-  const limits = [...new Set(valid.map((v) => v.limit))].sort((a, b) => a - b);
-  const lines = ["/ip hotspot user profile"];
+  const lines = [
+    "/ip hotspot user profile",
+    ':do { :if ([:len [find name=netgrid-d1]] = 0) do={ add name=netgrid-d1 shared-users=1 } } on-error={}',
+    "/ip hotspot user",
+  ];
 
-  for (const limit of limits) {
-    const profile = userProfileName(limit);
-    lines.push(
-      `:do { :if ([:len [find name=${profile}]] = 0) do={ add name=${profile} shared-users=${limit} } } on-error={}`,
-    );
-  }
-
-  lines.push("/ip hotspot user");
   for (const voucher of valid) {
-    const profile = userProfileName(voucher.limit);
     const mac =
-      voucher.limit === 1 && voucher.bound_mac && isUsableMac(voucher.bound_mac)
+      voucher.bound_mac && isUsableMac(voucher.bound_mac)
         ? ` mac-address=${voucher.bound_mac}`
-        : "";
-    const user = `name="${voucher.code}" password="${voucher.code}" profile=${profile}${mac} comment="netgrid-voucher"`;
+        : " mac-address=00:00:00:00:00:00";
+    const user = `name="${voucher.code}" password="${voucher.code}" server=netgrid-hs profile=netgrid-d1${mac} comment="netgrid-voucher"`;
     lines.push(
-      `:if ([:len [find where name="${voucher.code}"]] = 0) do={ :do { add ${user} server=netgrid-hs } on-error={ :do { add ${user} } on-error={} } }`,
+      `:if ([:len [find where name="${voucher.code}"]] = 0) do={ :do { add ${user} } on-error={} } else={ :do { set [find where name="${voucher.code}"] password="${voucher.code}" server=netgrid-hs profile=netgrid-d1${mac} comment="netgrid-voucher" } on-error={} }`,
     );
   }
   return lines;
@@ -207,7 +184,7 @@ export function buildBlockLines(macs: string[]): string[] {
 /**
  * Anti-tethering. Detection (address list of suspects) is always on; the TTL=1 rule that actually
  * stops sharing is added only when the router's block_tethering switch is on. Rules are rebuilt
- * each sync, so flipping the switch takes effect within 2 minutes.
+ * each sync, so flipping the switch takes effect within 5 minutes.
  */
 export function buildTetherLines(blockTethering: boolean): string[] {
   const lines = [
@@ -244,8 +221,13 @@ const DEVICE_SCRIPT = `
       :local usr ""
       :local hn ""
       :local tt 0
+      :local sessionUp ""
       :local act [/ip hotspot active find where mac-address=$m]
-      :if ([:len $act] > 0) do={ :set usr [/ip hotspot active get [:pick $act 0] user] }
+      :if ([:len $act] > 0) do={
+        :local active [:pick $act 0]
+        :set usr [/ip hotspot active get $active user]
+        :set sessionUp [/ip hotspot active get $active uptime]
+      }
       :do {
         :local ls [/ip dhcp-server lease find where mac-address=$m]
         :if ([:len $ls] > 0) do={
@@ -265,7 +247,7 @@ const DEVICE_SCRIPT = `
         }
       } on-error={}
       :if ([:len [/ip firewall address-list find where list=${TETHER_LIST} and address=$ip]] > 0) do={ :set tt 1 }
-      :set d ($d . $mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . ";")
+      :set d ($d . $mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . "|" . $sessionUp . ";")
       :set n ($n + 1)
     } on-error={}
   }
@@ -273,11 +255,11 @@ const DEVICE_SCRIPT = `
 :do { /tool fetch url="__URL__" http-method=post http-data=$d mode=https keep-result=no } on-error={ :log warning "NetGrid: device report failed" }
 `;
 
-const PUSH_URL = /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/api\/public\/router\/devices\/[A-Za-z0-9_-]+$/;
+const PUSH_URL = /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/api\/public\/router\/devices\/[A-Za-z0-9_-]+(?:\?v=2)?$/;
 
 /**
- * Installs the report script and its 2-minute scheduler on the router. Because the sync script is
- * fetched every 2 minutes, routers that were provisioned before this feature existed pick it up
+ * Installs the report script and its 1-minute scheduler on the router. Because the full sync script is
+ * fetched every 5 minutes, routers that were provisioned before this feature existed pick it up
  * automatically. The scheduler is only created when missing: re-creating it on every sync would
  * keep resetting its timer.
  */
@@ -294,6 +276,6 @@ export function buildDeviceAgentLines(pushUrl: string): string[] {
     "/system script",
     ":do { remove [find where name=netgrid-devices] } on-error={}",
     `:do { add name=netgrid-devices source={${source}} } on-error={}`,
-    ':do { :if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=5m on-event="/system script run netgrid-devices" } else={ /system scheduler set [find where name=netgrid-devices] interval=5m } } on-error={}',
+    ':do { :if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=1m on-event="/system script run netgrid-devices" } else={ /system scheduler set [find where name=netgrid-devices] interval=1m } } on-error={}',
   ];
 }
