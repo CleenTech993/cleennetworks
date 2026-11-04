@@ -181,96 +181,98 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
         }
 
         if (sessionTelemetry) {
-          const active = new Map(
-            records
-              .filter((r) => r.authorized && r.user && r.sessionUptimeSeconds !== null)
-              .flatMap((r) => {
-                const voucher = r.user ? voucherByCode.get(r.user) : undefined;
-                if (
-                  !voucher ||
-                  voucher.status === "unused" ||
-                  (voucher.bound_mac && voucher.bound_mac !== r.mac) ||
-                  (voucher.used_by_mac && voucher.used_by_mac !== r.mac)
-                )
-                  return [];
-                return [[r.mac, { record: r, voucher_code: voucher.code }] as const];
-              }),
-          );
-          const { data: openSessions, error: sessionReadError } = await supabaseAdmin
-            .from("router_hotspot_sessions")
-            .select("id,mac,voucher_code,started_at,session_uptime_seconds")
-            .eq("router_id", router.id)
-            .is("ended_at", null);
-          if (sessionReadError || !openSessions) {
-            console.error("hotspot session history read failed", sessionReadError);
-            return new Response("session history unavailable", { status: 500 });
-          }
+          try {
+            const active = new Map(
+              records
+                .filter((r) => r.authorized && r.user && r.sessionUptimeSeconds !== null)
+                .flatMap((r) => {
+                  const voucher = r.user ? voucherByCode.get(r.user) : undefined;
+                  if (
+                    !voucher ||
+                    voucher.status === "unused" ||
+                    (voucher.bound_mac && voucher.bound_mac !== r.mac) ||
+                    (voucher.used_by_mac && voucher.used_by_mac !== r.mac)
+                  )
+                    return [];
+                  return [[r.mac, { record: r, voucher_code: voucher.code }] as const];
+                }),
+            );
+            const { data: openSessions, error: sessionReadError } = await supabaseAdmin
+              .from("router_hotspot_sessions")
+              .select("id,mac,voucher_code,started_at,session_uptime_seconds")
+              .eq("router_id", router.id)
+              .is("ended_at", null);
+            if (sessionReadError || !openSessions) {
+              throw sessionReadError ?? new Error("No session history rows returned");
+            }
 
-          const starts = new Map<string, Record<string, unknown>>();
-          for (const [mac, session] of active) {
-            const record = session.record;
-            const uptime = record.sessionUptimeSeconds!;
-            starts.set(mac, {
-              tenant_id: tenantId,
-              router_id: router.id,
-              mac,
-              hostname: record.hostname,
-              voucher_code: session.voucher_code,
-              started_at: new Date(Date.parse(now) - uptime * 1000).toISOString(),
-              last_seen_at: now,
-              session_uptime_seconds: uptime,
-              duration_seconds: uptime,
-            });
-          }
+            const starts = new Map<string, Record<string, unknown>>();
+            for (const [mac, session] of active) {
+              const record = session.record;
+              const uptime = record.sessionUptimeSeconds!;
+              starts.set(mac, {
+                tenant_id: tenantId,
+                router_id: router.id,
+                mac,
+                hostname: record.hostname,
+                voucher_code: session.voucher_code,
+                started_at: new Date(Date.parse(now) - uptime * 1000).toISOString(),
+                last_seen_at: now,
+                session_uptime_seconds: uptime,
+                duration_seconds: uptime,
+              });
+            }
 
-          const handled = new Set<string>();
-          for (const session of openSessions) {
-            const current = starts.get(session.mac);
-            const reset =
-              current &&
-              (current.voucher_code !== session.voucher_code ||
-                Number(current.session_uptime_seconds) < Number(session.session_uptime_seconds));
-            if (current && !reset) {
+            const handled = new Set<string>();
+            for (const session of openSessions) {
+              const current = starts.get(session.mac);
+              const reset =
+                current &&
+                (current.voucher_code !== session.voucher_code ||
+                  Number(current.session_uptime_seconds) < Number(session.session_uptime_seconds));
+              if (current && !reset) {
+                const { error } = await supabaseAdmin
+                  .from("router_hotspot_sessions")
+                  .update({
+                    hostname: current.hostname,
+                    last_seen_at: now,
+                    session_uptime_seconds: current.session_uptime_seconds,
+                    duration_seconds: current.duration_seconds,
+                  })
+                  .eq("id", session.id);
+                if (error) {
+                  throw error;
+                }
+                handled.add(session.mac);
+                continue;
+              }
+
+              const endedAt = reset ? String(current.started_at) : now;
               const { error } = await supabaseAdmin
                 .from("router_hotspot_sessions")
                 .update({
-                  hostname: current.hostname,
-                  last_seen_at: now,
-                  session_uptime_seconds: current.session_uptime_seconds,
-                  duration_seconds: current.duration_seconds,
+                  ended_at: endedAt,
+                  duration_seconds: session.session_uptime_seconds,
                 })
                 .eq("id", session.id);
               if (error) {
-                console.error("hotspot session history update failed", error);
-                return new Response("session history unavailable", { status: 500 });
+                throw error;
               }
-              handled.add(session.mac);
-              continue;
             }
 
-            const endedAt = reset ? String(current.started_at) : now;
-            const { error } = await supabaseAdmin
-              .from("router_hotspot_sessions")
-              .update({
-                ended_at: endedAt,
-                duration_seconds: session.session_uptime_seconds,
-              })
-              .eq("id", session.id);
-            if (error) {
-              console.error("hotspot session close failed", error);
-              return new Response("session history unavailable", { status: 500 });
+            const newSessions = [...starts]
+              .filter(([mac]) => !handled.has(mac))
+              .map(([, session]) => session);
+            if (newSessions.length) {
+              const { error } = await supabaseAdmin
+                .from("router_hotspot_sessions")
+                .insert(newSessions);
+              if (error) {
+                throw error;
+              }
             }
-          }
-
-          const newSessions = [...starts]
-            .filter(([mac]) => !handled.has(mac))
-            .map(([, session]) => session);
-          if (newSessions.length) {
-            const { error } = await supabaseAdmin.from("router_hotspot_sessions").insert(newSessions);
-            if (error) {
-              console.error("hotspot session history insert failed", error);
-              return new Response("session history unavailable", { status: 500 });
-            }
+          } catch (error) {
+            console.warn("hotspot session history unavailable; device report was accepted", error);
           }
         }
 

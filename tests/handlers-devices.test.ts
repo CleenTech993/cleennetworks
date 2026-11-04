@@ -255,6 +255,17 @@ describe("device report endpoint", () => {
     expect(ended.ended_at).toBeTruthy();
   });
 
+  it("keeps device reports working when session history has not been migrated yet", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db.failNext("router_hotspot_sessions", "select", "relation does not exist");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const res = await send(token, rec(MAC_A, "10.5.50.20", "phone", "", false));
+
+    expect(res.status).toBe(200);
+    expect(devices().some((device) => device.mac === MAC_A)).toBe(true);
+  });
+
   it("cannot be tricked by a device name that contains the record separators", async () => {
     const token = await issueDeviceToken(R1);
     const forged = `${MAC_A}|10.5.50.20|x;${MAC_B}|10.5.50.21|y|ONEDEV0001|true|0|false|0;`;
