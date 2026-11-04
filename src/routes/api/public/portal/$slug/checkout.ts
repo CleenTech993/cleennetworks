@@ -86,7 +86,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               amount,
               phone,
               paymentId: pay.id,
-              description: tenant.name || "Internet",
+              description: `${tenant.name || "Internet"} - ${pkg.name}`,
+              accountReference: pkg.name,
               callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
             });
           } catch (e) {

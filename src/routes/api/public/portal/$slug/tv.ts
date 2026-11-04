@@ -100,7 +100,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
 
         const { data: pkg } = await supabaseAdmin
           .from("packages")
-          .select("id,price,kind,active,duration_value,duration_unit")
+          .select("id,name,price,kind,active,duration_value,duration_unit")
           .eq("id", parsed.data.packageId)
           .eq("tenant_id", tenant.id)
           .maybeSingle();
@@ -207,7 +207,8 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
             amount,
             phone,
             paymentId: pay.id,
-            description: tenant.name || "Smart TV",
+            description: `${tenant.name || "Internet"} - ${pkg.name}`,
+            accountReference: pkg.name,
             callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
           });
           await supabaseAdmin

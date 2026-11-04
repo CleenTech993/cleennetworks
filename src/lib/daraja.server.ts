@@ -82,6 +82,7 @@ export async function startDarajaStkPush(input: {
   paymentId: string;
   callbackUrl: string;
   description: string;
+  accountReference?: string;
 }): Promise<{ checkoutRequestId: string; merchantRequestId: string }> {
   const config = await loadConfig(input.tenantId);
   const phone = normalizePhone(input.phone);
@@ -91,6 +92,10 @@ export async function startDarajaStkPush(input: {
     throw new Error("The payment amount must be a positive whole number.");
   if (new URL(input.callbackUrl).protocol !== "https:")
     throw new Error("M-Pesa callbacks require a public HTTPS URL.");
+  const accountReference =
+    (input.accountReference ?? "").replace(/[^A-Za-z0-9]/g, "").slice(0, 12) ||
+    input.paymentId.replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
+  const description = input.description.replace(/[^A-Za-z0-9 ._-]/g, " ").trim().slice(0, 30);
   const timestamp = darajaTimestamp();
   const token = await accessToken(config);
   const response = await fetch(`${baseUrl(config.environment)}/mpesa/stkpush/v1/processrequest`, {
@@ -106,8 +111,8 @@ export async function startDarajaStkPush(input: {
       PartyB: config.shortcode,
       PhoneNumber: phone,
       CallBackURL: input.callbackUrl,
-      AccountReference: input.paymentId.replaceAll("-", "").slice(0, 12),
-      TransactionDesc: input.description.slice(0, 30),
+      AccountReference: accountReference,
+      TransactionDesc: description || "Internet",
     }),
     signal: AbortSignal.timeout(15_000),
   });

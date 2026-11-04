@@ -80,7 +80,8 @@ describe("checkout", () => {
       amount: 50,
       phone: "254712345678",
       paymentId: body.paymentId,
-      description: "Acme",
+      description: "Acme - 1 hour",
+      accountReference: "1 hour",
       callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
     });
 

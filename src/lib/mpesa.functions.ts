@@ -24,6 +24,11 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
       .single();
     if (pErr || !profile?.tenant_id) throw new Error("No tenant context");
     const tenantId = profile.tenant_id as string;
+    const { data: tenant } = await supabaseAdmin
+      .from("tenants")
+      .select("name")
+      .eq("id", tenantId)
+      .maybeSingle();
 
     const { data: pkg, error: kErr } = await supabase
       .from("packages")
@@ -58,7 +63,8 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
       amount,
       phone: data.phone,
       paymentId: pay.id,
-      description: pkg.kind ?? "Internet",
+      description: `${tenant?.name || "Internet"} - ${pkg.name}`,
+      accountReference: pkg.name,
       callbackUrl,
     }).catch(async (e) => {
       await supabaseAdmin.from("payments").delete().eq("id", pay.id);
