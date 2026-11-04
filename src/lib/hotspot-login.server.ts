@@ -52,7 +52,7 @@ function renderBody({ portalUrl, routerId }: LoginPageInput): string {
   // router just refused a login. Only a fixed flag is passed on, never the error text itself, so
   // nothing the customer typed can be reflected into the page.
   const failed = "$(if error)&failed=1$(endif)";
-  const noJsUrl = `${base}&mac=$(mac)&ip=$(ip)&login=$(link-login-only)${failed}`;
+  const noJsUrl = `${base}&mac=$(mac)&ip=$(ip)&login=$(link-login-only)&dst=$(link-orig)${failed}`;
   return [
     // Only for browsers with scripting off. A plain meta refresh here used to race the script below:
     // after 1 second it re-navigated to a URL WITHOUT the login link and cancelled the real one.
@@ -66,6 +66,7 @@ function renderBody({ portalUrl, routerId }: LoginPageInput): string {
     `  + "&mac=" + encodeURIComponent("$(mac)")`,
     `  + "&ip=" + encodeURIComponent("$(ip)")`,
     `  + "&login=" + encodeURIComponent("$(link-login-only)")`,
+    `  + "&dst=" + encodeURIComponent("$(link-orig)")`,
     `  + "${failed}");`,
     `</script>`,
     `</body></html>`,

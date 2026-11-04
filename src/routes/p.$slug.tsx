@@ -53,6 +53,7 @@ interface PortalData {
     primary_color: string | null;
     welcome_text: string | null;
     terms_text: string | null;
+    post_login_url: string | null;
     enable_voucher: boolean;
     enable_otp: boolean;
     theme?: string | null;
@@ -214,6 +215,7 @@ function PortalPage() {
                 primary={primary}
                 theme={theme}
                 payeeName={data.tenant.name}
+                postLoginUrl={data.portal?.post_login_url}
               />
             </TabsContent>
             <TabsContent value="reconnect" className="mt-4">
@@ -223,7 +225,11 @@ function PortalPage() {
               <StatusFlow slug={slug} primary={primary} />
             </TabsContent>
             <TabsContent value="voucher" className="mt-4">
-              <VoucherFlow slug={slug} primary={primary} />
+              <VoucherFlow
+                slug={slug}
+                primary={primary}
+                postLoginUrl={data.portal?.post_login_url}
+              />
             </TabsContent>
             <TabsContent value="tv" className="mt-4">
               <TvFlow
@@ -232,6 +238,7 @@ function PortalPage() {
                 primary={primary}
                 theme={theme}
                 payeeName={data.tenant.name}
+                postLoginUrl={data.portal?.post_login_url}
               />
             </TabsContent>
           </Tabs>
@@ -253,12 +260,14 @@ function BuyFlow({
   primary,
   theme,
   payeeName,
+  postLoginUrl,
 }: {
   slug: string;
   packages: PortalData["packages"];
   primary: string;
   theme: PortalThemeDef;
   payeeName: string;
+  postLoginUrl?: string | null;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
@@ -293,6 +302,7 @@ function BuyFlow({
         paymentId={paymentId}
         primary={primary}
         payeeName={payeeName}
+        postLoginUrl={postLoginUrl}
         retrying={submitting}
         onTryAgain={() => void pay()}
         onChangePhone={() => setPaymentId(null)}
@@ -348,6 +358,7 @@ function PaymentWaiting({
   paymentId,
   primary,
   payeeName,
+  postLoginUrl,
   tv = false,
   retrying = false,
   onTryAgain,
@@ -356,6 +367,7 @@ function PaymentWaiting({
   paymentId: string;
   primary: string;
   payeeName: string;
+  postLoginUrl?: string | null;
   tv?: boolean;
   retrying?: boolean;
   onTryAgain?: () => void;
@@ -401,13 +413,17 @@ function PaymentWaiting({
     if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
     const store = sessionStore();
     const params = routerParams(window.location.search, store);
-    const target = buildHotspotLoginRedirect(params.login || "http://10.5.50.1/login", voucher);
+    const target = buildHotspotLoginRedirect(
+      params.login || "http://10.5.50.1/login",
+      voucher,
+      postLoginUrl || params.destination,
+    );
     if (!target) return;
     autoConnectAttempted.current = true;
     setAutoConnecting(true);
     rememberVoucher(store, voucher);
     window.location.assign(target);
-  }, [status, tv, voucher]);
+  }, [status, tv, voucher, postLoginUrl]);
 
   if (status === "success" && tv) {
     return (
@@ -443,7 +459,11 @@ function PaymentWaiting({
               onClick={() => {
                 const store = sessionStore();
                 const params = routerParams(window.location.search, store);
-                const target = buildHotspotLoginRedirect(params.login || "http://10.5.50.1/login", voucher);
+                const target = buildHotspotLoginRedirect(
+                  params.login || "http://10.5.50.1/login",
+                  voucher,
+                  postLoginUrl || params.destination,
+                );
                 if (target) {
                   rememberVoucher(store, voucher);
                   window.location.assign(target);
@@ -513,12 +533,14 @@ function TvFlow({
   primary,
   theme,
   payeeName,
+  postLoginUrl,
 }: {
   slug: string;
   packages: PortalData["packages"];
   primary: string;
   theme: PortalThemeDef;
   payeeName: string;
+  postLoginUrl?: string | null;
 }) {
   const [mac, setMac] = useState("");
   const [name, setName] = useState("");
@@ -578,6 +600,7 @@ function TvFlow({
           paymentId={paymentId}
           primary={primary}
           payeeName={payeeName}
+          postLoginUrl={postLoginUrl}
           tv
           retrying={submitting}
           onTryAgain={() => void pay()}
@@ -858,7 +881,15 @@ function StatusFlow({ slug, primary }: { slug: string; primary: string }) {
   );
 }
 
-function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
+function VoucherFlow({
+  slug,
+  primary,
+  postLoginUrl,
+}: {
+  slug: string;
+  primary: string;
+  postLoginUrl?: string | null;
+}) {
   const [code, setCode] = useState("");
   const [done, setDone] = useState<"connecting" | "activating" | "stalled" | "accepted" | null>(
     null,
@@ -876,6 +907,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
     const target = buildHotspotLoginRedirect(
       routerParams(window.location.search, store).login || "http://10.5.50.1/login",
       saved.code,
+      postLoginUrl || routerParams(window.location.search, store).destination,
     );
     if (!target) return;
     if (!saved.retry) {
@@ -887,7 +919,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       window.location.href = target;
     }, LOGIN_RETRY_DELAY_MS);
     return () => clearTimeout(t);
-  }, []);
+  }, [postLoginUrl]);
 
   function tryAgain() {
     const store = sessionStore();
@@ -896,6 +928,7 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       ? buildHotspotLoginRedirect(
           routerParams(window.location.search, store).login || "http://10.5.50.1/login",
           saved.code,
+          postLoginUrl || routerParams(window.location.search, store).destination,
         )
       : null;
     if (!saved || !target) return setDone(null);
@@ -921,7 +954,11 @@ function VoucherFlow({ slug, primary }: { slug: string; primary: string }) {
       const redeemed: string = json.code ?? code;
       rememberVoucher(store, redeemed);
       // Hand the browser to the router so the device is actually logged in.
-      const target = buildHotspotLoginRedirect(params.login || "http://10.5.50.1/login", redeemed);
+      const target = buildHotspotLoginRedirect(
+        params.login || "http://10.5.50.1/login",
+        redeemed,
+        postLoginUrl || params.destination,
+      );
       if (target) {
         setDone("connecting");
         setTimeout(() => {

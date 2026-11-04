@@ -20,7 +20,8 @@ describe("hotspot login page", () => {
   });
 
   it("leaves MikroTik hotspot variables for the router to substitute", () => {
-    for (const v of ["$(mac)", "$(ip)", "$(link-login-only)"]) expect(html).toContain(v);
+    for (const v of ["$(mac)", "$(ip)", "$(link-login-only)", "$(link-orig)"])
+      expect(html).toContain(v);
   });
 
   it("never lets the no-script fallback race the script (it dropped the router's login link)", () => {
@@ -34,6 +35,7 @@ describe("hotspot login page", () => {
     expect(links.length).toBeGreaterThan(0);
     for (const l of links) expect(l).toContain("login=$(link-login-only)");
     expect(html).toContain('"&login=" + encodeURIComponent("$(link-login-only)")');
+    expect(html).toContain('"&dst=" + encodeURIComponent("$(link-orig)")');
   });
 
   it("embeds the marker the router uses to detect stale/missing pages", () => {

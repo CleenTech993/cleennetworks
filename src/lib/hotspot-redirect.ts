@@ -24,16 +24,33 @@ export function parseHotspotLoginUrl(raw: string | null | undefined): URL | null
   return u;
 }
 
+/** Accept only absolute HTTP(S) destinations without embedded credentials. */
+export function parseHotspotDestinationUrl(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  try {
+    const url = new URL(raw.trim());
+    if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password)
+      return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 /** Voucher codes are the hotspot username AND password (see the router sync script). */
 export function buildHotspotLoginRedirect(
   raw: string | null | undefined,
   code: string,
+  destination?: string | null,
 ): string | null {
   const u = parseHotspotLoginUrl(raw);
   if (!u) return null;
   const out = new URL(`${u.origin}/login`);
   out.searchParams.set("username", code);
   out.searchParams.set("password", code);
+  const dst =
+    parseHotspotDestinationUrl(destination) ?? parseHotspotDestinationUrl(u.searchParams.get("dst"));
+  if (dst) out.searchParams.set("dst", dst);
   return out.toString();
 }
 
@@ -94,15 +111,16 @@ export function recallVoucher(
 export interface RouterParams {
   login: string | null;
   mac: string | null;
+  destination: string | null;
 }
 type ParamStore = Pick<Storage, "getItem" | "setItem">;
-const STORE_KEYS = { login: "ng_login", mac: "ng_mac" } as const;
+const STORE_KEYS = { login: "ng_login", mac: "ng_mac", destination: "ng_dst" } as const;
 
 /** Reads the router's parameters from the URL query, saving them; falls back to what was saved. */
 export function routerParams(search: string, store: ParamStore | null): RouterParams {
   const q = new URLSearchParams(search);
-  const out: RouterParams = { login: q.get("login"), mac: q.get("mac") };
-  for (const k of ["login", "mac"] as const) {
+  const out: RouterParams = { login: q.get("login"), mac: q.get("mac"), destination: q.get("dst") };
+  for (const k of ["login", "mac", "destination"] as const) {
     try {
       const present = out[k];
       if (present) store?.setItem(STORE_KEYS[k], present);

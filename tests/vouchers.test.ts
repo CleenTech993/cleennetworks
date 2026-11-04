@@ -3,6 +3,7 @@ import { expiryFrom } from "../src/lib/duration";
 import {
   buildHotspotLoginRedirect,
   LOGIN_RETRY_WINDOW_MS,
+  parseHotspotDestinationUrl,
   parseHotspotLoginUrl,
   recallVoucher,
   rememberVoucher,
@@ -69,6 +70,30 @@ describe("hotspot login redirect", () => {
     expect(url.searchParams.has("stale")).toBe(false);
   });
 
+  it("sets the tenant destination after login, or preserves MikroTik's original destination by default", () => {
+    const configured = new URL(
+      buildHotspotLoginRedirect(
+        "http://10.5.50.1/login?dst=https%3A%2F%2Fexample.org%2Fnews",
+        "ABC123",
+        "https://tenant.example/app",
+      )!,
+    );
+    expect(configured.searchParams.get("dst")).toBe("https://tenant.example/app");
+
+    const original = new URL(
+      buildHotspotLoginRedirect(
+        "http://10.5.50.1/login?dst=https%3A%2F%2Fexample.org%2Fnews",
+        "ABC123",
+      )!,
+    );
+    expect(original.searchParams.get("dst")).toBe("https://example.org/news");
+  });
+
+  it("rejects unsafe tenant destinations", () => {
+    for (const destination of ["javascript:alert(1)", "http://user:pass@example.com", "not a URL"])
+      expect(parseHotspotDestinationUrl(destination)).toBeNull();
+  });
+
   it("returns null when there is no safe login link", () => {
     expect(buildHotspotLoginRedirect("http://evil.example/login", "X")).toBeNull();
     expect(buildHotspotLoginRedirect(null, "X")).toBeNull();
@@ -84,12 +109,13 @@ describe("routerParams", () => {
     };
   };
   const q =
-    "?router=r1&mac=AA%3ABB%3ACC%3ADD%3AEE%3A02&ip=10.5.50.20&login=http%3A%2F%2Fhotspot.netgrid%2Flogin";
+    "?router=r1&mac=AA%3ABB%3ACC%3ADD%3AEE%3A02&ip=10.5.50.20&login=http%3A%2F%2Fhotspot.netgrid%2Flogin&dst=https%3A%2F%2Fnews.example%2Farticle";
 
   it("reads the router's parameters from the URL", () => {
     expect(routerParams(q, memory())).toEqual({
       login: "http://hotspot.netgrid/login",
       mac: "AA:BB:CC:DD:EE:02",
+      destination: "https://news.example/article",
     });
   });
 
@@ -99,11 +125,13 @@ describe("routerParams", () => {
     expect(routerParams("", store)).toEqual({
       login: "http://hotspot.netgrid/login",
       mac: "AA:BB:CC:DD:EE:02",
+      destination: "https://news.example/article",
     });
   });
 
   it("works without storage, and when storage throws", () => {
     expect(routerParams(q, null).login).toBe("http://hotspot.netgrid/login");
+    expect(routerParams(q, null).destination).toBe("https://news.example/article");
     const broken = {
       getItem: () => {
         throw new Error("blocked");
@@ -113,7 +141,7 @@ describe("routerParams", () => {
       },
     };
     expect(routerParams(q, broken).login).toBe("http://hotspot.netgrid/login");
-    expect(routerParams("", broken)).toEqual({ login: null, mac: null });
+    expect(routerParams("", broken)).toEqual({ login: null, mac: null, destination: null });
   });
 
   it("a remembered link is still validated before anything is sent to it", () => {

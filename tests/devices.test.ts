@@ -148,6 +148,15 @@ describe("buildHotspotUserLines", () => {
     expect(out).toContain("add name=netgrid-d1 shared-users=1");
   });
 
+  it("disconnects sessions only when their managed voucher is no longer live", () => {
+    const out = joined([{ code: "LIVE000001", bound_mac: null, limit: 1 }]);
+    expect(out).toContain(':local ngCurrentVouchers [:toarray "LIVE000001"]');
+    expect(out).toContain("/ip hotspot active");
+    expect(out).toContain('[:typeof [:find $ngCurrentVouchers $ngCode]] = "nil"');
+    expect(out).toContain("remove $ngActive");
+    expect(out).toContain('find where comment="netgrid-voucher"');
+  });
+
   describe("buildHotspotSuspendLines", () => {
     it("disconnects current managed hotspot sessions before removing managed users", () => {
       const lines = buildHotspotSuspendLines().join("\n");
@@ -210,8 +219,11 @@ describe("buildHotspotVoucherRefreshLines", () => {
     ]);
     const script = lines.join("\n");
     expect(script).toContain('find where name="FASTCODE01"');
+    expect(script).toContain("/ip hotspot active");
+    expect(script).toContain('[:toarray "FASTCODE01"]');
     expect(script).toContain("mac-address=AA:BB:CC:DD:EE:02");
-    expect(script).not.toContain('remove [find comment="netgrid-voucher"]');
+    expect(script).toContain("remove $ngActive");
+    expect(script).toContain('find where comment="netgrid-voucher"');
     expect(script).not.toContain('bad"code');
     expect(balanced(script)).toBe(true);
   });
@@ -295,7 +307,7 @@ describe("buildDeviceAgentLines", () => {
   it("creates the scheduler only when missing (re-creating it every sync would reset its timer)", () => {
     const sched = buildDeviceAgentLines(URL_OK).find((l) => l.includes("scheduler add"))!;
     expect(sched).toMatch(
-      /^:if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/,
+      /^:do \{ :if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/,
     );
     expect(sched).toContain("interval=5m");
   });

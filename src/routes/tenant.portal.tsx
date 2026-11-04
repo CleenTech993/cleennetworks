@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { PortalPreview } from "@/components/portal/preview";
 import { ThemePicker } from "@/components/portal/theme-picker";
+import { parseHotspotDestinationUrl } from "@/lib/hotspot-redirect";
 import { ImageUploader } from "@/components/portal/image-uploader";
 import {
   normalizeHex,
@@ -117,6 +118,7 @@ function PortalSettings() {
     background_url: "",
     welcome_text: "",
     terms_text: "",
+    post_login_url: "",
     enable_voucher: true,
     enable_otp: true,
   });
@@ -130,6 +132,7 @@ function PortalSettings() {
         background_url: data.background_url ?? "",
         welcome_text: data.welcome_text ?? "",
         terms_text: data.terms_text ?? "",
+        post_login_url: data.post_login_url ?? "",
         enable_voucher: data.enable_voucher ?? true,
         enable_otp: data.enable_otp ?? true,
       });
@@ -139,7 +142,11 @@ function PortalSettings() {
   const save = useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error("No tenant");
-      const payload = { tenant_id: tenantId, ...form };
+      const redirectInput = form.post_login_url.trim();
+      const postLoginUrl = redirectInput ? parseHotspotDestinationUrl(redirectInput) : null;
+      if (redirectInput && !postLoginUrl)
+        throw new Error("Enter a valid http or https destination URL.");
+      const payload = { tenant_id: tenantId, ...form, post_login_url: postLoginUrl };
       if (data?.id) {
         const { error } = await supabase.from("captive_portals").update(payload).eq("id", data.id);
         if (error) throw error;
@@ -315,6 +322,24 @@ function PortalSettings() {
                   placeholder="Fair use policy applies. Commercial spamming and unauthorized peer-to-peer distribution is prohibited."
                   className="mt-1 text-xs"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="pc-post-login-url" className="text-xs">
+                  After-connection destination URL
+                </Label>
+                <Input
+                  id="pc-post-login-url"
+                  type="url"
+                  maxLength={2048}
+                  value={form.post_login_url}
+                  onChange={(e) => setForm({ ...form, post_login_url: e.target.value })}
+                  placeholder="https://your-system.example"
+                  className="mt-1 text-xs"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  After login, send customers here. Leave blank to return them to the page they originally opened.
+                </p>
               </div>
 
               <div className="flex items-center gap-6 pt-2">

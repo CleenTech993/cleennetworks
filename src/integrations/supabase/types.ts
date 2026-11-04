@@ -130,6 +130,7 @@ export type Database = {
           enable_voucher: boolean | null
           id: string
           logo_url: string | null
+          post_login_url: string | null
           primary_color: string | null
           tenant_id: string
           terms_text: string | null
@@ -143,6 +144,7 @@ export type Database = {
           enable_voucher?: boolean | null
           id?: string
           logo_url?: string | null
+          post_login_url?: string | null
           primary_color?: string | null
           tenant_id: string
           terms_text?: string | null
@@ -156,6 +158,7 @@ export type Database = {
           enable_voucher?: boolean | null
           id?: string
           logo_url?: string | null
+          post_login_url?: string | null
           primary_color?: string | null
           tenant_id?: string
           terms_text?: string | null

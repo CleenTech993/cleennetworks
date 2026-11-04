@@ -115,6 +115,18 @@ export interface SyncVoucher {
   limit: number;
 }
 
+function buildExpiredVoucherCleanupLines(vouchers: SyncVoucher[]): string[] {
+  const validCodes = vouchers.filter((v) => SAFE_CODE.test(v.code)).map((v) => v.code);
+  const codeList = validCodes.length ? validCodes.join(",") : "#";
+  return [
+    `:local ngCurrentVouchers [:toarray "${codeList}"]`,
+    "/ip hotspot active",
+    ':foreach ngActive in=[find] do={ :local ngCode [get $ngActive user]; :if ([:len [/ip hotspot user find where name=$ngCode comment="netgrid-voucher"]] > 0) do={ :if ([:typeof [:find $ngCurrentVouchers $ngCode]] = "nil") do={ remove $ngActive } } }',
+    "/ip hotspot user",
+    ':foreach ngUser in=[find where comment="netgrid-voucher"] do={ :local ngCode [get $ngUser name]; :if ([:typeof [:find $ngCurrentVouchers $ngCode]] = "nil") do={ remove $ngUser } }',
+  ];
+}
+
 /**
  * Hotspot voucher users. They are removed and re-created on every sync, so everything the router
  * must know (device limit, pinned MAC) is emitted here from the database each time.
@@ -124,8 +136,8 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   const limits = [...new Set([1, ...valid.map((v) => v.limit)])].sort((a, b) => a - b);
 
   const lines = [
+    ...buildExpiredVoucherCleanupLines(valid),
     "/ip hotspot user",
-    ':do { remove [find comment="netgrid-voucher"] } on-error={}',
     "/ip hotspot user profile",
   ];
   for (const n of limits) {
@@ -158,7 +170,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
 export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
   const limits = [...new Set(valid.map((v) => v.limit))].sort((a, b) => a - b);
-  const lines = ["/ip hotspot user profile"];
+  const lines = [...buildExpiredVoucherCleanupLines(valid), "/ip hotspot user profile"];
 
   for (const limit of limits) {
     const profile = userProfileName(limit);

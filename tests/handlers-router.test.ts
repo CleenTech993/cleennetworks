@@ -271,6 +271,7 @@ describe("sync script scoping", () => {
     expect(text).toContain("UNUSED2345");
     expect(text).toContain("USED22345A");
     for (const s of ["EXPIRED234", "RIVALCODE2"]) expect(text).not.toContain(s);
+    expect(text).toContain(':local ngCurrentVouchers [:toarray "UNUSED2345,USED22345A"]');
     expect(text).toContain(`sync/${token}?vouchers=1`);
     expect(text).toContain('interval=10s on-event="/system script run netgrid-voucher-sync"');
   });
@@ -286,6 +287,7 @@ describe("sync script scoping", () => {
     expect(res.status).toBe(200);
     expect(text).toContain('name="UNUSED2345"');
     expect(text).toContain('name="USED22345A"');
+    expect(text).toContain(':local ngCurrentVouchers [:toarray "UNUSED2345,USED22345A"]');
     expect(text).not.toContain("EXPIRED234");
     expect(text).not.toContain("RIVALCODE2");
     expect(text).not.toContain("alicepass1");

@@ -52,6 +52,7 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
               terms_text: portal.terms_text,
               enable_voucher: portal.enable_voucher,
               enable_otp: portal.enable_otp,
+              post_login_url: portal.post_login_url,
               theme: resolveThemeId((portal as { theme?: unknown }).theme),
             }
           : null;
