@@ -34,7 +34,7 @@ describe("router monitor script", () => {
     expect(text).toContain(':global ngInvIps [:toarray "10.0.0.5,10.0.0.6"]');
     expect(text).toContain(`:global ngInvUrl "${URL}"`);
     expect(text).toContain("/system script add name=netgrid-inventory");
-    expect(text).toContain("/system scheduler add name=netgrid-inventory interval=1m");
+    expect(text).toContain("/system scheduler add name=netgrid-inventory interval=5m");
     expect(text).toContain("/tool netwatch add host=($ngInvIps->$pos)");
     expect(text).toContain("/tool netwatch remove $n");
   });
