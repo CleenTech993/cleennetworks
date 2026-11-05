@@ -4,6 +4,7 @@ import { decryptSecret, encryptSecret } from "@/lib/secret-crypto.server";
 export const TENANT_SERVICE_SECRET_NAMES = [
   "MPESA_ENV",
   "MPESA_MERCHANT_TYPE",
+  "MPESA_BUSINESS_SHORTCODE",
   "MPESA_SHORTCODE",
   "MPESA_CONSUMER_KEY",
   "MPESA_CONSUMER_SECRET",

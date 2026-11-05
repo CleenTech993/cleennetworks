@@ -22,6 +22,7 @@ import {
 const initialForm = {
   mpesaEnvironment: "sandbox" as "sandbox" | "production",
   mpesaMerchantType: "paybill" as "paybill" | "buygoods",
+  mpesaBusinessShortcode: "",
   mpesaShortcode: "",
   mpesaConsumerKey: "",
   mpesaConsumerSecret: "",
@@ -165,7 +166,12 @@ export function TenantServiceCredentials() {
           </div>
           {status?.shortcodeLast4 && (
             <p className="mb-3 text-xs text-muted-foreground">
-              Saved shortcode ending in {status.shortcodeLast4}
+              Saved merchant shortcode ending in {status.shortcodeLast4}
+            </p>
+          )}
+          {form.mpesaMerchantType === "buygoods" && status?.businessShortcodeLast4 && (
+            <p className="mb-3 text-xs text-muted-foreground">
+              Saved STK business shortcode ending in {status.businessShortcodeLast4}
             </p>
           )}
           <div className="space-y-3">
@@ -212,6 +218,19 @@ export function TenantServiceCredentials() {
                 : "PayBill shortcode",
               "Your Daraja Business Shortcode",
             )}
+            {form.mpesaMerchantType === "buygoods" && (
+              <>
+                {field(
+                  "mpesaBusinessShortcode",
+                  "Lipa na M-Pesa Online shortcode",
+                  "Shortcode linked to the STK passkey",
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Use the shortcode associated with these STK credentials. The Till above is sent as
+                  the receiving PartyB.
+                </p>
+              </>
+            )}
             {field("mpesaConsumerKey", "Consumer key", "Enter to replace the saved key", true)}
             {field(
               "mpesaConsumerSecret",
@@ -221,7 +240,7 @@ export function TenantServiceCredentials() {
             )}
             {field(
               "mpesaPasskey",
-              "Lipa na M-Pesa passkey",
+              "Lipa na M-Pesa passkey (for STK shortcode)",
               "Enter to replace the saved passkey",
               true,
             )}

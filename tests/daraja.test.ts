@@ -131,6 +131,7 @@ describe("tenant Daraja STK Push", () => {
     secretsMock.load.mockResolvedValue({
       MPESA_ENV: "production",
       MPESA_MERCHANT_TYPE: "buygoods",
+      MPESA_BUSINESS_SHORTCODE: "654321",
       MPESA_SHORTCODE: "123456",
       MPESA_CONSUMER_KEY: "consumer-key",
       MPESA_CONSUMER_SECRET: "consumer-secret",
@@ -154,16 +155,30 @@ describe("tenant Daraja STK Push", () => {
       callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
       description: "Internet",
     });
+    await queryDarajaStkPush(TENANT, "ws_CO_buygoods");
 
     const request = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body));
     expect(request).toMatchObject({
-      BusinessShortCode: "123456",
+      BusinessShortCode: "654321",
       TransactionType: "CustomerBuyGoodsOnline",
       PartyB: "123456",
+      PartyA: "254712345678",
+      PhoneNumber: "254712345678",
     });
+    expect(request.Password).toBe(btoa(`654321passkey${request.Timestamp}`));
     expect(fetchSpy.mock.calls[1][0]).toBe(
       "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
     );
+    const queryCall = fetchSpy.mock.calls.find(([url]) =>
+      String(url).endsWith("/stkpushquery/v1/query"),
+    );
+    expect(queryCall).toBeDefined();
+    const query = JSON.parse(String(queryCall?.[1]?.body));
+    expect(query).toMatchObject({
+      BusinessShortCode: "654321",
+      CheckoutRequestID: "ws_CO_buygoods",
+    });
+    expect(query.Password).toBe(btoa(`654321passkey${query.Timestamp}`));
   });
 
   it("reuses the tenant OAuth token until it approaches expiry", async () => {

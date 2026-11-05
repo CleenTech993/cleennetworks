@@ -5,7 +5,8 @@ import { loadTenantServiceSecrets } from "@/lib/tenant-service-secrets.server";
 type DarajaConfig = {
   environment: "sandbox" | "production";
   merchantType: "paybill" | "buygoods";
-  shortcode: string;
+  businessShortcode: string;
+  merchantShortcode: string;
   consumerKey: string;
   consumerSecret: string;
   passkey: string;
@@ -14,8 +15,14 @@ type DarajaConfig = {
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 function configFrom(secrets: Awaited<ReturnType<typeof loadTenantServiceSecrets>>): DarajaConfig {
-  const { MPESA_ENV, MPESA_SHORTCODE, MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_PASSKEY } =
-    secrets;
+  const {
+    MPESA_ENV,
+    MPESA_BUSINESS_SHORTCODE,
+    MPESA_SHORTCODE,
+    MPESA_CONSUMER_KEY,
+    MPESA_CONSUMER_SECRET,
+    MPESA_PASSKEY,
+  } = secrets;
   const { MPESA_MERCHANT_TYPE } = secrets;
   if (!MPESA_SHORTCODE || !MPESA_CONSUMER_KEY || !MPESA_CONSUMER_SECRET || !MPESA_PASSKEY) {
     throw new Error("Complete the tenant's M-Pesa Daraja credentials before accepting payments.");
@@ -26,7 +33,8 @@ function configFrom(secrets: Awaited<ReturnType<typeof loadTenantServiceSecrets>
   return {
     environment: MPESA_ENV,
     merchantType: MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill",
-    shortcode: MPESA_SHORTCODE,
+    businessShortcode: MPESA_BUSINESS_SHORTCODE?.trim() || MPESA_SHORTCODE,
+    merchantShortcode: MPESA_SHORTCODE,
     consumerKey: MPESA_CONSUMER_KEY,
     consumerSecret: MPESA_CONSUMER_SECRET,
     passkey: MPESA_PASSKEY,
@@ -42,7 +50,13 @@ function baseUrl(environment: DarajaConfig["environment"]): string {
 async function accessToken(config: DarajaConfig): Promise<string> {
   const cacheKey = createHash("sha256")
     .update(
-      [config.environment, config.shortcode, config.consumerKey, config.consumerSecret].join("\0"),
+      [
+        config.environment,
+        config.businessShortcode,
+        config.merchantShortcode,
+        config.consumerKey,
+        config.consumerSecret,
+      ].join("\0"),
     )
     .digest("hex");
   const cached = tokenCache.get(cacheKey);
@@ -96,7 +110,7 @@ function darajaTimestamp(date = new Date()): string {
 }
 
 function password(config: DarajaConfig, timestamp: string): string {
-  return btoa(`${config.shortcode}${config.passkey}${timestamp}`);
+  return btoa(`${config.businessShortcode}${config.passkey}${timestamp}`);
 }
 
 function safeResponseDescription(value: string | undefined): string | undefined {
@@ -142,14 +156,14 @@ export async function startDarajaStkPush(input: {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      BusinessShortCode: config.shortcode,
+      BusinessShortCode: config.businessShortcode,
       Password: password(config, timestamp),
       Timestamp: timestamp,
       TransactionType:
         config.merchantType === "buygoods" ? "CustomerBuyGoodsOnline" : "CustomerPayBillOnline",
       Amount: amount,
       PartyA: phone,
-      PartyB: config.shortcode,
+      PartyB: config.merchantShortcode,
       PhoneNumber: phone,
       CallBackURL: input.callbackUrl,
       AccountReference: accountReference,
@@ -206,7 +220,7 @@ export async function queryDarajaStkPush(
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      BusinessShortCode: config.shortcode,
+      BusinessShortCode: config.businessShortcode,
       Password: password(config, timestamp),
       Timestamp: timestamp,
       CheckoutRequestID: checkoutRequestId,

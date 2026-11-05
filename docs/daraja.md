@@ -8,7 +8,8 @@ payment provider.
 As a tenant admin, open **Tenant Console → Notifications** and enter:
 
 - Daraja environment (`sandbox` or `production`)
-- Merchant type (`PayBill` or `Buy Goods (Till)`) and business shortcode
+- Merchant type (`PayBill` or `Buy Goods (Till)`) and merchant shortcode
+- For Buy Goods, the Lipa na M-Pesa Online shortcode associated with the STK passkey, if different from the Till
 - Consumer key and consumer secret
 - Lipa na M-Pesa passkey
 - Africa's Talking username and API key for tenant-funded SMS (optional sender ID)
@@ -26,7 +27,10 @@ if the Daraja app requires callback allowlisting.
 
 PayBill checkouts use `CustomerPayBillOnline`; Buy Goods checkouts use `CustomerBuyGoodsOnline`.
 Existing tenants default to PayBill until they select their merchant type in Tenant Console →
-Notifications.
+Notifications. For Buy Goods, `BusinessShortCode` and the STK password use the Lipa na M-Pesa Online
+shortcode; `PartyB` uses the Till. `PartyA` and `PhoneNumber` both use the customer's normalized
+MSISDN. If the STK shortcode and Till are the same, the separate STK shortcode field can be left
+empty.
 
 Incoming C2B callback URLs are registered with the Daraja C2B v2 RegisterURL endpoint. C2B v2 can
 mask the payer's MSISDN in its callback; the app stores the phone as unavailable in that case and
