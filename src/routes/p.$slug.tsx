@@ -362,6 +362,7 @@ function PaymentWaiting({
   tv = false,
   retrying = false,
   onTryAgain,
+  onChangePhone,
 }: {
   slug: string;
   paymentId: string;
