@@ -34,3 +34,12 @@ CREATE TABLE IF NOT EXISTS auth.mfa_factors (
 CREATE SCHEMA IF NOT EXISTS cron;
 CREATE OR REPLACE FUNCTION cron.schedule(a text, b text, c text) RETURNS bigint LANGUAGE sql AS $$ SELECT 1::bigint $$;
 CREATE PUBLICATION supabase_realtime;
+
+-- Real Supabase has auth.role(): the "role" claim of the current JWT ('anon', 'authenticated', 'service_role').
+-- Newer migrations (for example platform commission invoices) call it.
+CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$
+  SELECT coalesce(
+    nullif(current_setting('request.jwt.claim.role', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role'
+  )
+$$;
