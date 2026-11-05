@@ -21,6 +21,7 @@ import {
 
 const initialForm = {
   mpesaEnvironment: "sandbox" as "sandbox" | "production",
+  mpesaMerchantType: "paybill" as "paybill" | "buygoods",
   mpesaShortcode: "",
   mpesaConsumerKey: "",
   mpesaConsumerSecret: "",
@@ -44,7 +45,11 @@ export function TenantServiceCredentials() {
 
   useEffect(() => {
     if (status) {
-      setForm((current) => ({ ...current, mpesaEnvironment: status.mpesaEnvironment }));
+      setForm((current) => ({
+        ...current,
+        mpesaEnvironment: status.mpesaEnvironment,
+        mpesaMerchantType: status.mpesaMerchantType,
+      }));
     }
   }, [status]);
 
@@ -63,7 +68,11 @@ export function TenantServiceCredentials() {
       });
     },
     onSuccess: (nextStatus) => {
-      setForm({ ...initialForm, mpesaEnvironment: nextStatus.mpesaEnvironment });
+      setForm({
+        ...initialForm,
+        mpesaEnvironment: nextStatus.mpesaEnvironment,
+        mpesaMerchantType: nextStatus.mpesaMerchantType,
+      });
       queryClient.setQueryData(["tenant-service-status"], nextStatus);
       toast.success("Service credentials saved securely.");
     },
@@ -73,7 +82,11 @@ export function TenantServiceCredentials() {
   const remove = useMutation({
     mutationFn: () => removeTenantServiceCredentials(),
     onSuccess: (nextStatus) => {
-      setForm({ ...initialForm, mpesaEnvironment: nextStatus.mpesaEnvironment });
+      setForm({
+        ...initialForm,
+        mpesaEnvironment: nextStatus.mpesaEnvironment,
+        mpesaMerchantType: nextStatus.mpesaMerchantType,
+      });
       queryClient.setQueryData(["tenant-service-status"], nextStatus);
       toast.success("Saved service credentials removed.");
     },
@@ -137,7 +150,7 @@ export function TenantServiceCredentials() {
             <div>
               <h3 className="font-semibold">M-Pesa Daraja</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                New portal purchases are sent directly to your PayBill account.
+                Portal purchases use your PayBill or Buy Goods shortcode.
               </p>
             </div>
             <Badge variant={status?.mpesaConfigured ? "default" : "secondary"}>
@@ -146,7 +159,7 @@ export function TenantServiceCredentials() {
                 : statusError
                   ? "Status unavailable"
                   : status?.mpesaConfigured
-                    ? "Connected"
+                    ? "Configured"
                     : "Not configured"}
             </Badge>
           </div>
@@ -174,7 +187,31 @@ export function TenantServiceCredentials() {
                 </SelectContent>
               </Select>
             </div>
-            {field("mpesaShortcode", "PayBill shortcode", "Your Daraja Business Shortcode")}
+            <div>
+              <Label>Merchant type</Label>
+              <Select
+                value={form.mpesaMerchantType}
+                disabled={isLoading}
+                onValueChange={(value: "paybill" | "buygoods") =>
+                  setForm({ ...form, mpesaMerchantType: value })
+                }
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="paybill">PayBill</SelectItem>
+                  <SelectItem value="buygoods">Buy Goods (Till)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {field(
+              "mpesaShortcode",
+              form.mpesaMerchantType === "buygoods"
+                ? "Buy Goods Till shortcode"
+                : "PayBill shortcode",
+              "Your Daraja Business Shortcode",
+            )}
             {field("mpesaConsumerKey", "Consumer key", "Enter to replace the saved key", true)}
             {field(
               "mpesaConsumerSecret",

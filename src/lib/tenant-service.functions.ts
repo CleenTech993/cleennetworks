@@ -59,6 +59,8 @@ async function getStatus(tenantId: string) {
     mpesaConfigured: mpesaFields.every(Boolean),
     mpesaEnvironment: (secrets.MPESA_ENV === "production" ? "production" : "sandbox") as
       "sandbox" | "production",
+    mpesaMerchantType: (secrets.MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill") as
+      "paybill" | "buygoods",
     shortcodeLast4: secrets.MPESA_SHORTCODE?.slice(-4) ?? null,
     smsConfigured: Boolean(secrets.AT_USERNAME && secrets.AT_API_KEY),
     smsSenderConfigured: Boolean(secrets.AT_SENDER_ID),
@@ -75,6 +77,7 @@ export const getTenantServiceStatus = createServerFn({ method: "POST" })
 const SaveSchema = z
   .object({
     mpesaEnvironment: z.enum(["sandbox", "production"]).optional(),
+    mpesaMerchantType: z.enum(["paybill", "buygoods"]).optional(),
     mpesaShortcode: z.string().trim().max(30).optional(),
     mpesaConsumerKey: z.string().trim().max(500).optional(),
     mpesaConsumerSecret: z.string().trim().max(500).optional(),
@@ -89,6 +92,7 @@ const SaveSchema = z
 
 const FIELD_NAMES = {
   mpesaEnvironment: "MPESA_ENV",
+  mpesaMerchantType: "MPESA_MERCHANT_TYPE",
   mpesaShortcode: "MPESA_SHORTCODE",
   mpesaConsumerKey: "MPESA_CONSUMER_KEY",
   mpesaConsumerSecret: "MPESA_CONSUMER_SECRET",
@@ -105,6 +109,7 @@ export const saveTenantServiceCredentials = createServerFn({ method: "POST" })
     const tenantId = await tenantAdminId(context.userId);
     const entries: [keyof typeof FIELD_NAMES, string | undefined][] = [
       ["mpesaEnvironment", data.mpesaEnvironment],
+      ["mpesaMerchantType", data.mpesaMerchantType],
       ["mpesaShortcode", data.mpesaShortcode],
       ["mpesaConsumerKey", data.mpesaConsumerKey],
       ["mpesaConsumerSecret", data.mpesaConsumerSecret],

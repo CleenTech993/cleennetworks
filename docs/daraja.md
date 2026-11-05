@@ -8,7 +8,7 @@ payment provider.
 As a tenant admin, open **Tenant Console → Notifications** and enter:
 
 - Daraja environment (`sandbox` or `production`)
-- Business shortcode / PayBill
+- Merchant type (`PayBill` or `Buy Goods (Till)`) and business shortcode
 - Consumer key and consumer secret
 - Lipa na M-Pesa passkey
 - Africa's Talking username and API key for tenant-funded SMS (optional sender ID)
@@ -23,6 +23,10 @@ The app sends STK Push requests to the tenant's Daraja account and routes callba
 `https://<app-domain>/api/public/mpesa/callback/<tenant-id>`. The app uses that tenant's credentials to
 query the STK request before issuing a voucher. Configure Daraja with the deployed HTTPS callback URL
 if the Daraja app requires callback allowlisting.
+
+PayBill checkouts use `CustomerPayBillOnline`; Buy Goods checkouts use `CustomerBuyGoodsOnline`.
+Existing tenants default to PayBill until they select their merchant type in Tenant Console →
+Notifications.
 
 Incoming C2B callback URLs are registered with the Daraja C2B v2 RegisterURL endpoint. C2B v2 can
 mask the payer's MSISDN in its callback; the app stores the phone as unavailable in that case and

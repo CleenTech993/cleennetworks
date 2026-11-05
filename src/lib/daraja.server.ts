@@ -4,6 +4,7 @@ import { loadTenantServiceSecrets } from "@/lib/tenant-service-secrets.server";
 
 type DarajaConfig = {
   environment: "sandbox" | "production";
+  merchantType: "paybill" | "buygoods";
   shortcode: string;
   consumerKey: string;
   consumerSecret: string;
@@ -15,6 +16,7 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 function configFrom(secrets: Awaited<ReturnType<typeof loadTenantServiceSecrets>>): DarajaConfig {
   const { MPESA_ENV, MPESA_SHORTCODE, MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_PASSKEY } =
     secrets;
+  const { MPESA_MERCHANT_TYPE } = secrets;
   if (!MPESA_SHORTCODE || !MPESA_CONSUMER_KEY || !MPESA_CONSUMER_SECRET || !MPESA_PASSKEY) {
     throw new Error("Complete the tenant's M-Pesa Daraja credentials before accepting payments.");
   }
@@ -23,6 +25,7 @@ function configFrom(secrets: Awaited<ReturnType<typeof loadTenantServiceSecrets>
   }
   return {
     environment: MPESA_ENV,
+    merchantType: MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill",
     shortcode: MPESA_SHORTCODE,
     consumerKey: MPESA_CONSUMER_KEY,
     consumerSecret: MPESA_CONSUMER_SECRET,
@@ -39,12 +42,7 @@ function baseUrl(environment: DarajaConfig["environment"]): string {
 async function accessToken(config: DarajaConfig): Promise<string> {
   const cacheKey = createHash("sha256")
     .update(
-      [
-        config.environment,
-        config.shortcode,
-        config.consumerKey,
-        config.consumerSecret,
-      ].join("\0"),
+      [config.environment, config.shortcode, config.consumerKey, config.consumerSecret].join("\0"),
     )
     .digest("hex");
   const cached = tokenCache.get(cacheKey);
@@ -101,6 +99,15 @@ function password(config: DarajaConfig, timestamp: string): string {
   return btoa(`${config.shortcode}${config.passkey}${timestamp}`);
 }
 
+function safeResponseDescription(value: string | undefined): string | undefined {
+  const description = value
+    ?.replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/\s+/g, " ")
+    .replace(/\b(?:254)?[17]\d{8}\b/g, "[phone]")
+    .slice(0, 160);
+  return description || undefined;
+}
+
 async function loadConfig(tenantId: string): Promise<DarajaConfig> {
   return configFrom(await loadTenantServiceSecrets(tenantId));
 }
@@ -125,7 +132,10 @@ export async function startDarajaStkPush(input: {
   const accountReference =
     (input.accountReference ?? "").replace(/[^A-Za-z0-9]/g, "").slice(0, 12) ||
     input.paymentId.replace(/[^A-Za-z0-9]/g, "").slice(0, 12);
-  const description = input.description.replace(/[^A-Za-z0-9 ._-]/g, " ").trim().slice(0, 30);
+  const description = input.description
+    .replace(/[^A-Za-z0-9 ._-]/g, " ")
+    .trim()
+    .slice(0, 30);
   const timestamp = darajaTimestamp();
   const token = await accessToken(config);
   const response = await fetch(`${baseUrl(config.environment)}/mpesa/stkpush/v1/processrequest`, {
@@ -135,7 +145,8 @@ export async function startDarajaStkPush(input: {
       BusinessShortCode: config.shortcode,
       Password: password(config, timestamp),
       Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
+      TransactionType:
+        config.merchantType === "buygoods" ? "CustomerBuyGoodsOnline" : "CustomerPayBillOnline",
       Amount: amount,
       PartyA: phone,
       PartyB: config.shortcode,
@@ -159,11 +170,25 @@ export async function startDarajaStkPush(input: {
     !result.CheckoutRequestID ||
     !result.MerchantRequestID
   ) {
-    console.error(`Daraja STK push failed [${response.status}]`);
+    console.error("Daraja STK push failed", {
+      environment: config.environment,
+      tenantId: input.tenantId,
+      paymentId: input.paymentId,
+      httpStatus: response.status,
+      responseCode: result?.ResponseCode,
+      responseDescription: safeResponseDescription(result?.ResponseDescription),
+    });
     throw new Error(
       "Could not send the M-Pesa prompt. Check the tenant's Daraja setup and try again.",
     );
   }
+  console.info("Daraja STK request accepted", {
+    environment: config.environment,
+    merchantType: config.merchantType,
+    tenantId: input.tenantId,
+    paymentId: input.paymentId,
+    checkoutRequestId: result.CheckoutRequestID,
+  });
   return {
     checkoutRequestId: result.CheckoutRequestID,
     merchantRequestId: result.MerchantRequestID,
@@ -197,11 +222,7 @@ export async function queryDarajaStkPush(
     errorCode?: string;
   } | null;
 
-  const desc =
-    result?.ResultDesc ??
-    result?.ResponseDescription ??
-    result?.errorMessage ??
-    "";
+  const desc = result?.ResultDesc ?? result?.ResponseDescription ?? result?.errorMessage ?? "";
 
   // Safaricom returns "The transaction is being processed" while prompt is waiting for user PIN
   const isProcessing =

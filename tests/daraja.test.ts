@@ -127,6 +127,45 @@ describe("tenant Daraja STK Push", () => {
     expect(request.Password).toBe(btoa(`174379passkey${request.Timestamp}`));
   });
 
+  it("uses CustomerBuyGoodsOnline for a Buy Goods shortcode", async () => {
+    secretsMock.load.mockResolvedValue({
+      MPESA_ENV: "production",
+      MPESA_MERCHANT_TYPE: "buygoods",
+      MPESA_SHORTCODE: "123456",
+      MPESA_CONSUMER_KEY: "consumer-key",
+      MPESA_CONSUMER_SECRET: "consumer-secret",
+      MPESA_PASSKEY: "passkey",
+    });
+    const fetchSpy = stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "access-token" })
+        : Response.json({
+            ResponseCode: "0",
+            CheckoutRequestID: "ws_CO_buygoods",
+            MerchantRequestID: "merchant-buygoods",
+          }),
+    );
+
+    await startDarajaStkPush({
+      tenantId: TENANT,
+      amount: 50,
+      phone: "0712345678",
+      paymentId: PAYMENT,
+      callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
+      description: "Internet",
+    });
+
+    const request = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body));
+    expect(request).toMatchObject({
+      BusinessShortCode: "123456",
+      TransactionType: "CustomerBuyGoodsOnline",
+      PartyB: "123456",
+    });
+    expect(fetchSpy.mock.calls[1][0]).toBe(
+      "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
+    );
+  });
+
   it("reuses the tenant OAuth token until it approaches expiry", async () => {
     secretsMock.load.mockResolvedValue({
       MPESA_ENV: "sandbox",
@@ -157,8 +196,9 @@ describe("tenant Daraja STK Push", () => {
     await startDarajaStkPush(input);
 
     expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/oauth/"))).toHaveLength(1);
-    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/stkpush/v1/processrequest")))
-      .toHaveLength(2);
+    expect(
+      fetchSpy.mock.calls.filter(([url]) => String(url).includes("/stkpush/v1/processrequest")),
+    ).toHaveLength(2);
   });
 
   it("registers tenant C2B validation and confirmation callbacks", async () => {
@@ -209,9 +249,16 @@ describe("tenant Daraja STK Push", () => {
     stubFetch((url) =>
       url.includes("/oauth/")
         ? Response.json({ access_token: "access-token" })
-        : Response.json({ errorMessage: "private account details" }, { status: 401 }),
+        : Response.json(
+            {
+              ResponseCode: "1",
+              ResponseDescription: "Invalid request for 254712345678",
+              errorMessage: "private account details",
+            },
+            { status: 401 },
+          ),
     );
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
     await expect(
       startDarajaStkPush({
@@ -223,6 +270,48 @@ describe("tenant Daraja STK Push", () => {
         description: "Internet",
       }),
     ).rejects.toThrow("Could not send the M-Pesa prompt");
+    expect(errorLog).toHaveBeenCalledWith(
+      "Daraja STK push failed",
+      expect.objectContaining({
+        environment: "sandbox",
+        httpStatus: 401,
+        responseCode: "1",
+        responseDescription: "Invalid request for [phone]",
+      }),
+    );
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain("254712345678");
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain("private account details");
+  });
+
+  it("logs a payment correlation id when Daraja accepts an STK request", async () => {
+    stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "access-token" })
+        : Response.json({
+            ResponseCode: "0",
+            CheckoutRequestID: "ws_CO_accepted",
+            MerchantRequestID: "merchant-accepted",
+          }),
+    );
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    await startDarajaStkPush({
+      tenantId: TENANT,
+      amount: 50,
+      phone: "254712345678",
+      paymentId: PAYMENT,
+      callbackUrl: "https://portal.test/callback",
+      description: "Internet",
+    });
+
+    expect(infoLog).toHaveBeenCalledWith(
+      "Daraja STK request accepted",
+      expect.objectContaining({
+        environment: "sandbox",
+        paymentId: PAYMENT,
+        checkoutRequestId: "ws_CO_accepted",
+      }),
+    );
   });
 
   it("does not confuse an accepted query request with a completed payment", async () => {

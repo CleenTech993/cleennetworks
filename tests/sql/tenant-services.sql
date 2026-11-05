@@ -2,7 +2,9 @@
 DO $$
 BEGIN
   INSERT INTO public.tenant_service_secrets (tenant_id, name, ciphertext, last4)
-  VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 'MPESA_CONSUMER_SECRET', 'v1.iv.ciphertext', 'cret');
+  VALUES
+    ('aaaaaaaa-0000-0000-0000-000000000001', 'MPESA_CONSUMER_SECRET', 'v1.iv.ciphertext', 'cret'),
+    ('aaaaaaaa-0000-0000-0000-000000000001', 'MPESA_MERCHANT_TYPE', 'v1.iv.ciphertext', 'oods');
 
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.tenant_service_secrets'::regclass) THEN
     RAISE EXCEPTION 'tenant service secrets must have RLS enabled';
