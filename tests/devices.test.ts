@@ -111,6 +111,29 @@ describe("parseDeviceReport", () => {
   });
 });
 
+describe("buildHotspotUserLines diagnostics", () => {
+  const voucher = (code: string) => ({ code, bound_mac: null, limit: 1 });
+
+  it("logs a warning when fewer voucher users exist on the router than were sent", () => {
+    const out = buildHotspotUserLines([voucher("AAAA111111"), voucher("BBBB222222")]).join("\n");
+    expect(out).toContain(":local ngWant 2");
+    expect(out).toContain('[/ip hotspot user find comment="netgrid-voucher"]');
+    expect(out).toContain(":log warning");
+    expect(out).toContain("hotspot server netgrid-hs");
+    // the check runs after every voucher has been added
+    expect(out.lastIndexOf('add name="BBBB222222"')).toBeLessThan(out.indexOf(":local ngWant"));
+  });
+
+  it("only counts vouchers that were really emitted (unsafe codes are skipped)", () => {
+    const out = buildHotspotUserLines([voucher("GOOD123456"), voucher('bad"code')]).join("\n");
+    expect(out).toContain(":local ngWant 1");
+  });
+
+  it("adds no check when there are no vouchers", () => {
+    expect(buildHotspotUserLines([]).join("\n")).not.toContain("ngWant");
+  });
+});
+
 describe("buildHotspotUserLines", () => {
   const joined = (v: Parameters<typeof buildHotspotUserLines>[0]) =>
     buildHotspotUserLines(v).join("\n");
