@@ -205,7 +205,7 @@ function Payments() {
       let pages = paymentPages?.pages ?? [];
       while (pages.length && pages[pages.length - 1]?.hasMore) {
         const result = await fetchNextPage();
-        if (result.isError) throw result.error;
+        if (result.isError || !result.data) throw result.error;
         pages = result.data.pages;
       }
       const allRows = pages.flatMap((page) => page.payments);
@@ -232,7 +232,7 @@ function Payments() {
       let pages = directPaymentPages?.pages ?? [];
       while (pages.length && pages[pages.length - 1]?.hasMore) {
         const result = await fetchMoreDirectPayments();
-        if (result.isError) throw result.error;
+        if (result.isError || !result.data) throw result.error;
         pages = result.data.pages;
       }
       const allTransactions = pages.flatMap((page) => page.transactions);
