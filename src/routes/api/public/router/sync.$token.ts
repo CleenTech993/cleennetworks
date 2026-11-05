@@ -69,8 +69,18 @@ async function voucherRefreshResponse(router: { id: string; tenant_id: string })
     return new Response("# voucher sync unavailable\n", { status: 503 });
   }
 
+  // The two select shapes above (with and without bound_mac) produce a union type the generated
+  // row parser cannot narrow, so the rows are pinned to one explicit shape here.
+  type RefreshVoucherRow = {
+    code: string;
+    expires_at: string | null;
+    bound_mac?: string | null;
+    package_id: string | null;
+  };
+  const voucherRows = voucherQuery.data as unknown as RefreshVoucherRow[];
+
   const packageIds = [
-    ...new Set(voucherQuery.data.flatMap((voucher) => (voucher.package_id ? [voucher.package_id] : []))),
+    ...new Set(voucherRows.flatMap((voucher) => (voucher.package_id ? [voucher.package_id] : []))),
   ];
   const packages = packageIds.length
     ? await supabaseAdmin
@@ -85,7 +95,7 @@ async function voucherRefreshResponse(router: { id: string; tenant_id: string })
   }
 
   const limitByPackage = new Map(packages.data.map((pkg) => [pkg.id, deviceLimitOf(pkg)]));
-  const vouchers: SyncVoucher[] = voucherQuery.data.map((voucher) => ({
+  const vouchers: SyncVoucher[] = voucherRows.map((voucher) => ({
     code: voucher.code,
     bound_mac: "bound_mac" in voucher ? (voucher.bound_mac ?? null) : null,
     limit: voucher.package_id ? (limitByPackage.get(voucher.package_id) ?? 1) : 1,
