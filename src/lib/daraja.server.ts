@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { normalizePhone } from "@/lib/mpesa.server";
 import { loadTenantServiceSecrets } from "@/lib/tenant-service-secrets.server";
 
@@ -8,6 +9,8 @@ type DarajaConfig = {
   consumerSecret: string;
   passkey: string;
 };
+
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
 function configFrom(secrets: Awaited<ReturnType<typeof loadTenantServiceSecrets>>): DarajaConfig {
   const { MPESA_ENV, MPESA_SHORTCODE, MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_PASSKEY } =
@@ -34,6 +37,19 @@ function baseUrl(environment: DarajaConfig["environment"]): string {
 }
 
 async function accessToken(config: DarajaConfig): Promise<string> {
+  const cacheKey = createHash("sha256")
+    .update(
+      [
+        config.environment,
+        config.shortcode,
+        config.consumerKey,
+        config.consumerSecret,
+      ].join("\0"),
+    )
+    .digest("hex");
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.token;
+
   const response = await fetch(
     `${baseUrl(config.environment)}/oauth/v1/generate?grant_type=client_credentials`,
     {
@@ -43,10 +59,24 @@ async function accessToken(config: DarajaConfig): Promise<string> {
       signal: AbortSignal.timeout(15_000),
     },
   );
-  const result = (await response.json().catch(() => null)) as { access_token?: string } | null;
+  const result = (await response.json().catch(() => null)) as {
+    access_token?: string;
+    expires_in?: string | number;
+  } | null;
   if (!response.ok || !result?.access_token) {
     console.error(`Daraja OAuth failed [${response.status}]`);
     throw new Error("Could not connect to the tenant's M-Pesa account.");
+  }
+  const expiresIn = Number(result.expires_in);
+  if (Number.isFinite(expiresIn) && expiresIn > 60) {
+    const now = Date.now();
+    for (const [key, value] of tokenCache) {
+      if (value.expiresAt <= now) tokenCache.delete(key);
+    }
+    tokenCache.set(cacheKey, {
+      token: result.access_token,
+      expiresAt: now + (expiresIn - 60) * 1000,
+    });
   }
   return result.access_token;
 }

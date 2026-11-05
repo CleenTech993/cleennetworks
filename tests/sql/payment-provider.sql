@@ -26,6 +26,23 @@ BEGIN
   INSERT INTO public.payments (tenant_id, amount, provider, status)
   VALUES (t, 10, 'intasend', 'success');
 
+  INSERT INTO public.payments (tenant_id, amount, status, merchant_request_id, created_at)
+  VALUES
+    (t, 10, 'pending', 'stale-pending', now() - interval '11 minutes'),
+    (t, 10, 'pending', 'recent-pending', now() - interval '9 minutes'),
+    (t, 10, 'failed', 'old-failed', now() - interval '1 day'),
+    (t, 10, 'success', 'old-success', now() - interval '1 day');
+
+  IF public.expire_stale_stk_payments() <> 1 THEN
+    RAISE EXCEPTION 'the STK sweep should expire only stale pending payments';
+  END IF;
+  IF (SELECT status FROM public.payments WHERE merchant_request_id = 'stale-pending') <> 'failed'
+     OR (SELECT status FROM public.payments WHERE merchant_request_id = 'recent-pending') <> 'pending'
+     OR (SELECT status FROM public.payments WHERE merchant_request_id = 'old-failed') <> 'failed'
+     OR (SELECT status FROM public.payments WHERE merchant_request_id = 'old-success') <> 'success' THEN
+    RAISE EXCEPTION 'the STK sweep changed a payment that should be retained';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public'

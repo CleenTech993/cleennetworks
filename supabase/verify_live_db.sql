@@ -549,7 +549,8 @@ with expected(ord, track, migration, kind, ident) as (values
   (40, 'supabase', '20261109000000_tenant_mfa_toggle.sql', 'none', ''),
   (41, 'supabase', '20261110000000_tenant_portal_redirect.sql', 'column', 'public.captive_portals.post_login_url'),
   (42, 'supabase', '20261111000000_lock_bootstrap_tenant.sql', 'none', ''),
-  (43, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
+  (43, 'supabase', '20261112000000_expire_stale_stk_payments.sql', 'function', 'public.expire_stale_stk_payments()'),
+  (44, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.

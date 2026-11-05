@@ -125,6 +125,19 @@ describe("captive portal payment status recovery", () => {
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
+  it("expires a stale pending payment when Daraja has no result", async () => {
+    h.db.rows("payments")[0].created_at = new Date(Date.now() - 11 * 60_000).toISOString();
+    darajaMock.query.mockResolvedValue({
+      resultCode: null,
+      resultDescription: "request accepted",
+    });
+
+    const response = await send();
+
+    expect(await json(response)).toMatchObject({ status: "failed" });
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
   it("does not query Daraja for a payment under another tenant", async () => {
     h.db.rows("payments")[0].tenant_id = OTHER_TENANT;
 

@@ -14,6 +14,7 @@ const Schema = z.object({
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
 });
+const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
 
 export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
   server: {
@@ -62,6 +63,46 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               { error: "This package cannot be paid for online." },
               { status: 400 },
             );
+          }
+
+          const staleBefore = new Date(Date.now() - STK_PENDING_TIMEOUT_MS).toISOString();
+          const { error: expireError } = await supabaseAdmin
+            .from("payments")
+            .update({ status: "failed" })
+            .eq("tenant_id", tenant.id)
+            .eq("phone", phone)
+            .eq("status", "pending")
+            .lt("created_at", staleBefore);
+          if (expireError) {
+            console.error("Could not expire stale STK payment", expireError);
+            return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          }
+
+          const { data: activePayment, error: activePaymentError } = await supabaseAdmin
+            .from("payments")
+            .select("id,package_id")
+            .eq("tenant_id", tenant.id)
+            .eq("phone", phone)
+            .eq("status", "pending")
+            .gte("created_at", staleBefore)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (activePaymentError) {
+            console.error("Could not check for an active STK payment", activePaymentError);
+            return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          }
+          if (activePayment) {
+            if (activePayment.package_id !== pkg.id) {
+              return Response.json(
+                { error: "A payment prompt is already active for this number. Complete it or wait for it to expire." },
+                { status: 409 },
+              );
+            }
+            return Response.json({
+              paymentId: activePayment.id,
+              message: "A payment prompt is already active for this number.",
+            });
           }
 
           const { data: pay, error: payErr } = await supabaseAdmin

@@ -153,17 +153,42 @@ describe("checkout", () => {
     expect(h.db.rows("payments")[0].status).toBe("failed");
   });
 
-  it("allows repeated prompts for the same phone without an application attempt cap", async () => {
+  it("reuses an active prompt for the same phone instead of sending a duplicate", async () => {
     const darajaSpy = daraja();
     const ip = freshIp();
-    const responses = [];
-    for (let i = 0; i < 8; i++) {
-      responses.push(await checkout({ packageId: PKG, phone: "0712345678" }, ip));
-      advance(1_000);
-    }
+    const first = await checkout({ packageId: PKG, phone: "0712345678" }, ip);
+    const firstBody = await json(first);
+    advance(1_000);
+    const second = await checkout({ packageId: PKG, phone: "0712345678" }, ip);
+    const secondBody = await json(second);
 
-    expect(responses.every((response) => response.status === 200)).toBe(true);
-    expect(darajaSpy).toHaveBeenCalledTimes(8);
-    expect(h.db.rows("payments")).toHaveLength(8);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(secondBody.paymentId).toBe(firstBody.paymentId);
+    expect(darajaSpy).toHaveBeenCalledTimes(1);
+    expect(h.db.rows("payments")).toHaveLength(1);
+  });
+
+  it("expires an old pending prompt and starts a fresh attempt", async () => {
+    const darajaSpy = daraja();
+    h.db.seed("payments", [
+      {
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        tenant_id: TENANT,
+        package_id: PKG,
+        phone: "254712345678",
+        amount: 50,
+        status: "pending",
+        provider: "daraja",
+        created_at: new Date(Date.now() - 11 * 60_000).toISOString(),
+      },
+    ]);
+
+    const response = await checkout({ packageId: PKG, phone: "0712345678" });
+
+    expect(response.status).toBe(200);
+    expect(h.db.rows("payments")[0].status).toBe("failed");
+    expect(h.db.rows("payments")).toHaveLength(2);
+    expect(darajaSpy).toHaveBeenCalledTimes(1);
   });
 });

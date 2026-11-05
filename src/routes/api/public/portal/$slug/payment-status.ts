@@ -5,6 +5,7 @@ import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 import { rateLimit } from "@/lib/rate-limit.server";
 
 const STK_RESULT_GRACE_MS = 2 * 60_000;
+const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
 
 export const Route = createFileRoute("/api/public/portal/$slug/payment-status")({
   server: {
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
 
         if (pay.status === "pending" && pay.provider === "daraja" && pay.checkout_request_id) {
           const canReconcile = rateLimit(`payment-reconcile:${tenant.id}:${pay.id}`, 1, 15_000);
+          let reconcileFailed = false;
           if (canReconcile) {
             try {
               const verification = await queryDarajaStkPush(tenant.id, pay.checkout_request_id);
@@ -72,8 +74,24 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
               }
             } catch (error) {
               console.warn("Could not reconcile pending Daraja payment with Daraja API", error);
+              reconcileFailed = true;
             }
+          }
 
+          const isStale = Date.now() - Date.parse(pay.created_at) >= STK_PENDING_TIMEOUT_MS;
+          if (isStale) {
+            try {
+              await markPaymentFailed(pay.id, { source: "stk_pending_timeout" });
+            } catch (error) {
+              console.error("Could not expire stale pending STK payment", error);
+              return Response.json({ error: "Could not check payment status" }, { status: 500 });
+            }
+          }
+          if (reconcileFailed && !isStale) {
+            return Response.json({ error: "Could not check payment status" }, { status: 502 });
+          }
+
+          if (canReconcile || isStale) {
             const { data: refreshed, error: refreshError } = await supabaseAdmin
               .from("payments")
               .select("status,mpesa_receipt,voucher_code")

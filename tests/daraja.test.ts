@@ -127,6 +127,40 @@ describe("tenant Daraja STK Push", () => {
     expect(request.Password).toBe(btoa(`174379passkey${request.Timestamp}`));
   });
 
+  it("reuses the tenant OAuth token until it approaches expiry", async () => {
+    secretsMock.load.mockResolvedValue({
+      MPESA_ENV: "sandbox",
+      MPESA_SHORTCODE: "987654",
+      MPESA_CONSUMER_KEY: "cached-consumer-key",
+      MPESA_CONSUMER_SECRET: "cached-consumer-secret",
+      MPESA_PASSKEY: "passkey",
+    });
+    const fetchSpy = stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "cached-access-token", expires_in: "3600" })
+        : Response.json({
+            ResponseCode: "0",
+            CheckoutRequestID: "ws_CO_cached",
+            MerchantRequestID: "merchant-cached",
+          }),
+    );
+
+    const input = {
+      tenantId: TENANT,
+      amount: 50,
+      phone: "0712345678",
+      paymentId: PAYMENT,
+      callbackUrl: `https://portal.test/api/public/mpesa/callback/${TENANT}`,
+      description: "Internet",
+    };
+    await startDarajaStkPush(input);
+    await startDarajaStkPush(input);
+
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/oauth/"))).toHaveLength(1);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/stkpush/v1/processrequest")))
+      .toHaveLength(2);
+  });
+
   it("registers tenant C2B validation and confirmation callbacks", async () => {
     const fetchSpy = stubFetch((url) =>
       url.includes("/oauth/")

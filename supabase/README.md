@@ -37,8 +37,8 @@ It matches objects by **name**. If one of the old June migrations (the ones that
 `PARTIAL` for an auto-generated name such as a `_pkey` or `_fkey`, don't re-run it: open that table in the Table Editor
 and compare first, because the table may have been created through the dashboard and named differently.
 
-It does **not** check row data, column defaults, grants or scheduled jobs. For the scheduled job run
-`select jobname, schedule from cron.job;` and expect the router liveness check.
+It does **not** check row data, column defaults, grants or scheduled jobs. For scheduled jobs run
+`select jobname, schedule from cron.job;` and expect the router liveness check and stale STK payment cleanup.
 
 Function bodies and check constraints are compared by definition only where a later migration **redefines one under
 the same name** (today: the `admin_approve_user` function and the `payments_provider_check` constraint).
@@ -96,6 +96,13 @@ gateway secrets. New payments use Daraja only; outstanding payments from the ret
 marked failed, and completed historical records remain available for reporting. Super admins manage
 only the platform's C2B receiving shortcode. Tenants pay platform commission by separate C2B transfer;
 `platform_commissions` records the amount due and the manually confirmed M-Pesa receipt.
+
+Pending STK attempts older than ten minutes are marked failed every five minutes by
+`expire_stale_stk_payments()`. Checkout also expires stale attempts for that phone and reuses an active
+pending prompt, which avoids issuing a duplicate prompt after a captive-portal refresh. Failed payment
+rows are retained for audit and reporting. The scheduled sweep requires `pg_cron`; without it, checkout
+expires stale attempts when that phone starts another payment, and the status endpoint expires them
+while the customer is still waiting.
 
 ## Mandatory MFA for console access
 
