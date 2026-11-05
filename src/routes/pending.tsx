@@ -5,7 +5,12 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/pending")({
-  head: () => ({ meta: [{ title: "Pending approval — NetGrid" }] }),
+  head: () => ({
+    meta: [
+      { title: "Pending approval — NetGrid" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: PendingPage,
 });
 

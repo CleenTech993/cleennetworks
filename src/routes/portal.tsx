@@ -11,6 +11,7 @@ const nav: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/portal")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) throw redirect({ to: "/login" });

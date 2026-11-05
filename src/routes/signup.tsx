@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Request access — NetGrid" }] }),
+  head: () => ({
+    meta: [{ title: "Request access — NetGrid" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: SignupPage,
 });
 

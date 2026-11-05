@@ -14,6 +14,7 @@ export const Route = createFileRoute("/mfa")({
     meta: [
       { title: "Verify sign-in — NetGrid" },
       { name: "description", content: "Two-step verification code." },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: MfaPage,

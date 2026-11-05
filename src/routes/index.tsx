@@ -7,11 +7,38 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "NetGrid: run your ISP and hotspot business" },
+      { title: "ISP Management Software for MikroTik | NetGrid" },
       {
         name: "description",
         content:
-          "Set up MikroTik routers, sell hotspot and PPPoE packages through M-Pesa, and see which sites are online, all from one console.",
+          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
+      },
+      { property: "og:title", content: "ISP Management Software for MikroTik | NetGrid" },
+      {
+        property: "og:description",
+        content:
+          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
+      },
+      { name: "twitter:title", content: "ISP Management Software for MikroTik | NetGrid" },
+      {
+        name: "twitter:description",
+        content:
+          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
+      },
+    ],
+    links: [{ rel: "canonical", href: "/" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "NetGrid",
+          applicationCategory: "BusinessApplication",
+          operatingSystem: "Web",
+          description:
+            "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring.",
+        }),
       },
     ],
   }),

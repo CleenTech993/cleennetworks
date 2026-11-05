@@ -9,7 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { signInWithPassword } from "@/lib/login.functions";
 
 export const Route = createFileRoute("/login")({
-  head: () => ({ meta: [{ title: "Sign in — NetGrid" }] }),
+  head: () => ({
+    meta: [{ title: "Sign in — NetGrid" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: LoginPage,
 });
 

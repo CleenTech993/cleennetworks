@@ -47,6 +47,7 @@ const ALL_NAV: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/tenant")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   // Session lives in browser storage; server render can't see it (that caused logout on refresh).
   ssr: false,
   beforeLoad: async ({ location }) => {

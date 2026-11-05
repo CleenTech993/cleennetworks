@@ -33,6 +33,7 @@ export const Route = createFileRoute("/p/$slug")({
         name: "description",
         content: "Buy internet access, redeem your voucher, or reconnect an active package.",
       },
+      { name: "robots", content: "noindex, nofollow" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
     ],
   }),

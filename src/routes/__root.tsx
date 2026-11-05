@@ -74,25 +74,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "NetGrid: run your ISP and hotspot business" },
+      { title: "ISP Management Software for MikroTik | NetGrid" },
       {
         name: "description",
         content:
-          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
+          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
       },
-      { property: "og:title", content: "NetGrid: run your ISP and hotspot business" },
+      { property: "og:title", content: "ISP Management Software for MikroTik | NetGrid" },
       {
         property: "og:description",
         content:
-          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
+          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
       },
+      { property: "og:site_name", content: "NetGrid" },
+      { property: "og:locale", content: "en_KE" },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:title", content: "NetGrid: run your ISP and hotspot business" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "ISP Management Software for MikroTik | NetGrid" },
       {
         name: "twitter:description",
         content:
-          "Enterprise multi-tenant ISP automation: hotspot, PPPoE, MikroTik provisioning, M-Pesa payments.",
+          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
       },
       {
         property: "og:image",
@@ -105,7 +107,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+    ],
     scripts: [
       {
         children:

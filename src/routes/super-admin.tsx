@@ -26,6 +26,7 @@ const nav: NavItem[] = [
 ];
 
 export const Route = createFileRoute("/super-admin")({
+  head: () => ({ meta: [{ name: "robots", content: "noindex, nofollow" }] }),
   ssr: false,
   beforeLoad: () => requireConsole({ superAdmin: true }),
   component: () => (

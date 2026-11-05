@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/forgot-password")({
-  head: () => ({ meta: [{ title: "Reset password — NetGrid" }] }),
+  head: () => ({
+    meta: [{ title: "Reset password — NetGrid" }, { name: "robots", content: "noindex, nofollow" }],
+  }),
   component: ForgotPasswordPage,
 });
 
