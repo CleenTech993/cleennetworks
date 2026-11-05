@@ -311,6 +311,16 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             : buildTetherLines(routerRow.block_tethering !== false)),
         );
 
+        // Keep customers signed in: RouterOS logs hotspot devices out by default after 5 idle
+        // minutes, and after 10 minutes without keepalive replies (a sleeping phone fails both).
+        // Customers experienced this as "the router keeps logging me out" and re-entering the
+        // voucher. Voucher expiry is enforced from the database, so the router adds no silent
+        // timeout of its own. Runs on every sync, so existing routers are fixed without re-running
+        // Setup.
+        lines.push(
+          ':do { /ip hotspot set [find name=netgrid-hs] idle-timeout=0s keepalive-timeout=0s } on-error={ :log warning "NetGrid: could not relax hotspot session timeouts" }',
+        );
+
         // Diagnostics and agents
         lines.push(
           ...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`),
