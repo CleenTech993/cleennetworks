@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { parseRouterOsDuration } from "@/lib/router-health";
+import { MIKROTIK_AGENT_CAPABILITIES } from "@/lib/device-management";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
 // Heartbeat from MikroTik routers. Optional query params push live metrics.
@@ -37,6 +38,10 @@ async function handleHeartbeat(request: Request, token: string) {
   };
 
   const patch: TablesUpdate<"routers"> = {
+    vendor: "mikrotik",
+    management_method: "routeros_agent",
+    management_status: "online",
+    capabilities: [...MIKROTIK_AGENT_CAPABILITIES],
     status: "online",
     last_seen_at: new Date().toISOString(),
     last_heartbeat_at: new Date().toISOString(),
@@ -67,9 +72,15 @@ async function handleHeartbeat(request: Request, token: string) {
   if (cpu != null) patch.cpu_usage = Math.round(cpu);
 
   const version = str("version");
-  if (version) patch.routeros_version = version;
+  if (version) {
+    patch.routeros_version = version;
+    patch.firmware_version = version;
+  }
   const board = str("board");
-  if (board) patch.board_name = board;
+  if (board) {
+    patch.board_name = board;
+    patch.device_family = board;
+  }
   const arch = str("arch");
   if (arch) patch.architecture = arch;
   const wanIp = str("wan-ip");

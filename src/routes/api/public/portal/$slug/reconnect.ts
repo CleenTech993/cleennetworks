@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { normalizePhone } from "@/lib/mpesa.server";
+import { extractMpesaReceiptCode } from "@/lib/mpesa-receipt";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import {
   tenantServiceRestriction,
@@ -12,7 +13,7 @@ import {
 // never be enough to retrieve a paid voucher. Phone, if given, is an extra filter.
 const Schema = z.object({
   phone: z.string().min(7).max(20).optional(),
-  mpesaCode: z.string().min(6).max(40),
+  mpesaCode: z.string().trim().min(6).max(1000),
 });
 
 export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
@@ -29,6 +30,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
         }
         const parsed = Schema.safeParse(body);
         if (!parsed.success) return Response.json({ error: parsed.error.message }, { status: 400 });
+        const mpesaCode = extractMpesaReceiptCode(parsed.data.mpesaCode);
+        if (!mpesaCode) {
+          return Response.json(
+            { error: "Paste a valid M-Pesa receipt code or its confirmation message." },
+            { status: 400 },
+          );
+        }
 
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
@@ -52,7 +60,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
           .order("created_at", { ascending: false })
           .limit(1);
 
-        q = q.eq("mpesa_receipt", parsed.data.mpesaCode.trim().toUpperCase());
+        q = q.eq("mpesa_receipt", mpesaCode);
         if (parsed.data.phone) q = q.eq("phone", normalizePhone(parsed.data.phone));
 
         const { data: pay } = await q.maybeSingle();

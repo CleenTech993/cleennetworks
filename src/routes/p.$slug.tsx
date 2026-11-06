@@ -6,6 +6,7 @@ import { CheckCircle2, Copy, Loader2, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   buildHotspotLoginRedirect,
@@ -795,14 +796,14 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
         />
       </div>
       <div>
-        <Label htmlFor="rcode">M-Pesa code</Label>
-        <Input
+        <Label htmlFor="rcode">M-Pesa message or transaction code</Label>
+        <Textarea
           id="rcode"
           autoCapitalize="characters"
-          placeholder="e.g. SFE1A2B3CD"
+          placeholder="Paste the full M-Pesa confirmation SMS or just its receipt code"
           value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          className="mt-1 font-mono tracking-widest"
+          onChange={(e) => setCode(e.target.value)}
+          className="mt-1 min-h-24 font-mono text-sm"
         />
       </div>
       <Button

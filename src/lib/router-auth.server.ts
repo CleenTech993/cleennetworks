@@ -99,7 +99,7 @@ export async function authenticateRouter(request: Request, token: string): Promi
 }
 
 export type BootstrapAuth =
-  | { ok: true; router: { id: string; name: string; tenant_id: string } }
+  | { ok: true; router: { id: string; name: string; tenant_id: string; vendor: string | null } }
   | { ok: false; blocked: boolean; expired: boolean };
 
 /** router.rsc: the 24h bootstrap token. */
@@ -118,7 +118,7 @@ export async function authenticateBootstrap(
 
   const { data: router } = await supabaseAdmin
     .from("routers")
-    .select("id,name,tenant_id,provision_token_expires_at")
+    .select("id,name,tenant_id,vendor,provision_token_expires_at")
     .eq("provision_token", token)
     .maybeSingle();
   if (!router) return miss();
@@ -128,7 +128,15 @@ export async function authenticateBootstrap(
   ) {
     return { ok: false, blocked: false, expired: true };
   }
-  return { ok: true, router: { id: router.id, name: router.name, tenant_id: router.tenant_id } };
+  return {
+    ok: true,
+    router: {
+      id: router.id,
+      name: router.name,
+      tenant_id: router.tenant_id,
+      vendor: router.vendor ?? null,
+    },
+  };
 }
 
 /**

@@ -143,7 +143,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   for (const n of limits) {
     const p = userProfileName(n);
     lines.push(
-      `:do { :if ([:len [find name=${p}]] = 0) do={ add name=${p} shared-users=${n} } else={ set [find name=${p}] shared-users=${n} } } on-error={}`,
+      `:do { :if ([:len [find name=${p}]] = 0) do={ add name=${p} shared-users=${n} idle-timeout=none keepalive-timeout=none session-timeout=0s } else={ set [find name=${p}] shared-users=${n} idle-timeout=none keepalive-timeout=none session-timeout=0s } } on-error={}`,
     );
   }
   lines.push("/ip hotspot user");
@@ -175,7 +175,7 @@ export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string
   for (const limit of limits) {
     const profile = userProfileName(limit);
     lines.push(
-      `:do { :if ([:len [find name=${profile}]] = 0) do={ add name=${profile} shared-users=${limit} } } on-error={}`,
+      `:do { :if ([:len [find name=${profile}]] = 0) do={ add name=${profile} shared-users=${limit} idle-timeout=none keepalive-timeout=none session-timeout=0s } else={ set [find name=${profile}] shared-users=${limit} idle-timeout=none keepalive-timeout=none session-timeout=0s } } on-error={}`,
     );
   }
 

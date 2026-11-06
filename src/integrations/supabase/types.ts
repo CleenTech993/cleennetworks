@@ -1378,9 +1378,12 @@ export type Database = {
           architecture: string | null
           block_tethering: boolean
           board_name: string | null
+          capabilities: Json
+          controller_version: string | null
           cpu_load: number | null
           cpu_usage: number | null
           created_at: string
+          device_family: string | null
           firmware_version: string | null
           free_memory_mb: number | null
           hdd_free_mb: number | null
@@ -1390,6 +1393,8 @@ export type Database = {
           last_seen_at: string | null
           last_sync_at: string | null
           legacy_token_auth: boolean
+          management_method: string | null
+          management_status: string
           mac_address: string | null
           model: string | null
           name: string
@@ -1405,6 +1410,7 @@ export type Database = {
           tenant_id: string
           total_memory_mb: number | null
           uptime_seconds: number | null
+          vendor: string
           voltage: number | null
           wan_ip: string | null
           wg_last_handshake_at: string | null
@@ -1415,9 +1421,12 @@ export type Database = {
           architecture?: string | null
           block_tethering?: boolean
           board_name?: string | null
+          capabilities?: Json
+          controller_version?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
           created_at?: string
+          device_family?: string | null
           firmware_version?: string | null
           free_memory_mb?: number | null
           hdd_free_mb?: number | null
@@ -1427,6 +1436,8 @@ export type Database = {
           last_seen_at?: string | null
           last_sync_at?: string | null
           legacy_token_auth?: boolean
+          management_method?: string | null
+          management_status?: string
           mac_address?: string | null
           model?: string | null
           name: string
@@ -1442,6 +1453,7 @@ export type Database = {
           tenant_id: string
           total_memory_mb?: number | null
           uptime_seconds?: number | null
+          vendor?: string
           voltage?: number | null
           wan_ip?: string | null
           wg_last_handshake_at?: string | null
@@ -1452,9 +1464,12 @@ export type Database = {
           architecture?: string | null
           block_tethering?: boolean
           board_name?: string | null
+          capabilities?: Json
+          controller_version?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
           created_at?: string
+          device_family?: string | null
           firmware_version?: string | null
           free_memory_mb?: number | null
           hdd_free_mb?: number | null
@@ -1464,6 +1479,8 @@ export type Database = {
           last_seen_at?: string | null
           last_sync_at?: string | null
           legacy_token_auth?: boolean
+          management_method?: string | null
+          management_status?: string
           mac_address?: string | null
           model?: string | null
           name?: string
@@ -1479,6 +1496,7 @@ export type Database = {
           tenant_id?: string
           total_memory_mb?: number | null
           uptime_seconds?: number | null
+          vendor?: string
           voltage?: number | null
           wan_ip?: string | null
           wg_last_handshake_at?: string | null

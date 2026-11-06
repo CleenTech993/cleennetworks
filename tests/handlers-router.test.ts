@@ -100,9 +100,24 @@ describe("device token generation", () => {
 describe("device endpoint authentication (heartbeat)", () => {
   it("accepts a device token and records metrics against that router only", async () => {
     const token = await issueDeviceToken(R1);
-    const res = await hb(token, freshIp(), "?cpu=12&mem-free=256&mem-total=1024");
+    const res = await hb(
+      token,
+      freshIp(),
+      "?cpu=12&mem-free=256&mem-total=1024&version=7.15&board=hAP-ac2&arch=arm64",
+    );
     expect(res.status).toBe(200);
-    expect(router(R1)).toMatchObject({ status: "online", cpu_load: 12, ram_usage: 75 });
+    expect(router(R1)).toMatchObject({
+      status: "online",
+      cpu_load: 12,
+      ram_usage: 75,
+      vendor: "mikrotik",
+      device_family: "hAP-ac2",
+      firmware_version: "7.15",
+      routeros_version: "7.15",
+      management_method: "routeros_agent",
+      management_status: "online",
+      capabilities: expect.arrayContaining(["health.read", "pppoe.configure"]),
+    });
     expect(router(R2).cpu_load).toBeUndefined();
     expect(router(R3).cpu_load).toBeUndefined();
     expect(h.db.rows("router_metrics")).toMatchObject([
@@ -322,8 +337,19 @@ describe("router.rsc provisioning", () => {
   const rsc = (token: string, ip = freshIp()) => call(Rsc, "GET", { params: { token }, ip });
   const credFor = (id: string) => h.db.rows("router_credentials").find((c) => c.router_id === id);
 
+  it("refuses to return a MikroTik script for another vendor", async () => {
+    router(R1).vendor = "tp_link_omada";
+
+    const response = await rsc(BOOT1);
+
+    expect(response.status).toBe(409);
+    expect(await response.text()).toContain("MikroTik provisioning is not supported");
+    expect(h.db.rows("router_credentials")).toHaveLength(0);
+  });
+
   it("moves the LAN ports into the hotspot bridge last, so a dropped session cannot leave a half-configured router", async () => {
     const script = await (await rsc(BOOT1)).text();
+    expect(script).toContain("idle-timeout=15m login-timeout=15m keepalive-timeout=none");
     const at = (s: string) => {
       const i = script.indexOf(s);
       expect(i, `missing: ${s}`).toBeGreaterThan(-1);

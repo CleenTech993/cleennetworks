@@ -563,7 +563,15 @@ with expected(ord, track, migration, kind, ident) as (values
   (46, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_router_active_idx'),
   (46, 'supabase', '20261115000000_router_support_sessions.sql', 'rls', 'public.router_support_sessions'),
   (46, 'supabase', '20261115000000_router_support_sessions.sql', 'table', 'public.router_support_sessions'),
-  (47, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.capabilities'),
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.controller_version'),
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.device_family'),
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.management_method'),
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.management_status'),
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.vendor'),
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'constraint', 'public.routers.routers_management_status_check'),
+  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'constraint', 'public.routers.routers_vendor_check'),
+  (48, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.

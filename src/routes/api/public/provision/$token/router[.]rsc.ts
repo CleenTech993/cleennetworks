@@ -27,6 +27,15 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           return new Response(msg, { status, headers: { "content-type": "text/plain" } });
         }
         const router = auth.router;
+        if (router.vendor && router.vendor !== "mikrotik") {
+          return new Response(
+            `# MikroTik provisioning is not supported for vendor ${router.vendor}. Use its official controller integration.\n`,
+            {
+              status: 409,
+              headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+            },
+          );
+        }
 
         // Everything that can fail without side effects happens before the old credential is replaced.
         const { data: tenant } = await supabaseAdmin
@@ -160,7 +169,8 @@ function buildRsc(p: {
 # --- Hotspot ---${ROUTEROS_PICK_HTML_DIR}/ip hotspot profile
 :do { add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=hotspot } on-error={ :log warning "NetGrid: hotspot profile failed" }
 /ip hotspot
-:do { add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof idle-timeout=0s keepalive-timeout=0s disabled=no } on-error={ :log warning "NetGrid: hotspot server failed" }
+# Expire inactive unauthorized portal hosts; voucher users have separate no-idle-timeout profiles.
+:do { add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof idle-timeout=15m login-timeout=15m keepalive-timeout=none disabled=no } on-error={ :log warning "NetGrid: hotspot server failed" }
 /ip hotspot user profile
 :do { add name=netgrid-d1 shared-users=1 } on-error={}
 

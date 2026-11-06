@@ -28,10 +28,18 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
+import type { DeviceVendor } from "@/lib/device-management";
 import { logAudit } from "@/lib/audit";
 
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
@@ -41,6 +49,7 @@ function RoutersPage() {
   const { tenantId } = useAuth();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [vendor, setVendor] = useState<DeviceVendor>("mikrotik");
 
   const { data: routers, isLoading } = useQuery({
     queryKey: ["routers"],
@@ -87,6 +96,7 @@ function RoutersPage() {
         .insert({
           tenant_id: tenantId,
           name,
+          vendor,
         })
         .select()
         .single();
@@ -94,15 +104,20 @@ function RoutersPage() {
       return data;
     },
     onSuccess: (data) => {
-      toast.success("Router added — copy the provisioning command below");
+      toast.success(
+        data.vendor === "mikrotik"
+          ? "MikroTik added — copy the provisioning command below"
+          : "Device added — check its management status before provisioning",
+      );
       qc.invalidateQueries({ queryKey: ["routers"] });
       setOpen(false);
       setName("");
+      setVendor("mikrotik");
       void logAudit({
         action: "create",
         resource: "router",
         resourceId: data?.id,
-        details: { name },
+        details: { name, vendor },
         tenantId,
       });
     },
@@ -160,11 +175,27 @@ function RoutersPage() {
     return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; :delay 1s; :execute {/import file-name=auto-config.rsc}`;
   }
 
+  function vendorLabel(value: string) {
+    if (value === "ruijie_reyee") return "Ruijie / Reyee";
+    if (value === "tp_link_omada") return "TP-Link Omada";
+    if (value === "mikrotik") return "MikroTik";
+    return value;
+  }
+
+  function managementLabel(router: {
+    management_status: string;
+    last_heartbeat_at: string | null;
+    last_seen_at: string | null;
+  }) {
+    if (router.management_status === "online" && !isRouterLive(router)) return "offline";
+    return router.management_status.replaceAll("_", " ");
+  }
+
   return (
     <div>
       <PageHeader
         title="Routers"
-        description="MikroTik devices, real-time connectivity and IP status."
+        description="Multi-vendor network devices, management status and real-time health."
         action={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -174,9 +205,9 @@ function RoutersPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>New router</DialogTitle>
+                <DialogTitle>Add network device</DialogTitle>
                 <DialogDescription>
-                  Give it a label. You'll get a one-line MikroTik provisioning command.
+                  Select the vendor. A setup command is generated only when a supported official adapter is available.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
@@ -187,6 +218,17 @@ function RoutersPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
+                <Label>Vendor</Label>
+                <Select value={vendor} onValueChange={(value: DeviceVendor) => setVendor(value)}>
+                  <SelectTrigger aria-label="Device vendor">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mikrotik">MikroTik RouterOS</SelectItem>
+                    <SelectItem value="ruijie_reyee">Ruijie / Reyee</SelectItem>
+                    <SelectItem value="tp_link_omada">TP-Link Omada</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <DialogFooter>
                 <Button onClick={() => addRouter.mutate()} disabled={!name || addRouter.isPending}>
@@ -203,7 +245,7 @@ function RoutersPage() {
       ) : !routers?.length ? (
         <EmptyState
           title="No routers yet"
-          description="Add a MikroTik device. We'll generate a zero-touch provisioning command you paste into the router terminal."
+          description="Add a device from a supported vendor. Setup options appear only when its official management interface is available."
         />
       ) : (
         <div className="space-y-3">
@@ -271,10 +313,13 @@ function RoutersPage() {
                             Health {score}%
                           </Badge>
                         )}
+                        <Badge variant="outline" className="capitalize">
+                          {managementLabel(r)}
+                        </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {r.board_name ?? r.model ?? "MikroTik Router"}
-                        {r.routeros_version && <span> · RouterOS v{r.routeros_version}</span>}
+                        {vendorLabel(r.vendor)} · {r.device_family ?? r.board_name ?? r.model ?? "model pending"}
+                        {r.firmware_version && <span> · {r.firmware_version}</span>}
                         {r.architecture && <span> · {r.architecture}</span>}
                       </p>
                     </div>
@@ -286,14 +331,18 @@ function RoutersPage() {
                         <Activity className="h-3.5 w-3.5 text-primary" /> View Details
                       </Link>
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 text-xs"
-                      onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}
-                    >
-                      Setup
-                    </Button>
+                    {r.vendor === "mikrotik" ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-xs"
+                        onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}
+                      >
+                        Setup
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No supported setup adapter</span>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -456,7 +505,8 @@ function RoutersPage() {
                 </div>
 
                 {/* Provisioning command drawer */}
-                {r.provision_token &&
+                {r.vendor === "mikrotik" &&
+                  r.provision_token &&
                   (r.status === "pending" || showCmd[r.id]) &&
                   (() => {
                     const expired =

@@ -145,7 +145,9 @@ describe("buildHotspotUserLines", () => {
     expect(out).toContain(
       'add name="ABC123XYZ9" password="ABC123XYZ9" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
     );
-    expect(out).toContain("add name=netgrid-d1 shared-users=1");
+    expect(out).toContain(
+      "add name=netgrid-d1 shared-users=1 idle-timeout=none keepalive-timeout=none session-timeout=0s",
+    );
   });
 
   it("disconnects sessions only when their managed voucher is no longer live", () => {
@@ -171,7 +173,9 @@ describe("buildHotspotUserLines", () => {
   it("does not pin a multi-device voucher but caps simultaneous devices", () => {
     const out = joined([{ code: "FAMILY0001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 3 }]);
     expect(out).toContain("profile=netgrid-d3");
-    expect(out).toContain("add name=netgrid-d3 shared-users=3");
+    expect(out).toContain(
+      "add name=netgrid-d3 shared-users=3 idle-timeout=none keepalive-timeout=none session-timeout=0s",
+    );
     expect(out).not.toContain("mac-address=AA:BB");
   });
 
@@ -219,6 +223,7 @@ describe("buildHotspotVoucherRefreshLines", () => {
     ]);
     const script = lines.join("\n");
     expect(script).toContain('find where name="FASTCODE01"');
+    expect(script).toContain("idle-timeout=none keepalive-timeout=none session-timeout=0s");
     expect(script).toContain("/ip hotspot active");
     expect(script).toContain('[:toarray "FASTCODE01"]');
     expect(script).toContain("mac-address=AA:BB:CC:DD:EE:02");
