@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Copy, Loader2, Tv } from "lucide-react";
+import { CheckCircle2, Copy, Loader2, Mail, MessageCircle, Phone, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +48,8 @@ interface PortalData {
     slug: string;
     primary_color: string | null;
     logo_url: string | null;
+    support_phone: string | null;
+    support_email: string | null;
   };
   portal: {
     logo_url: string | null;
@@ -188,6 +190,38 @@ function PortalPage() {
 
       <div className={theme.sheet ? "pt-sheet pt-6" : undefined}>
         <div className="mx-auto max-w-md px-4 pb-12">
+          <section className="pt-surface mb-4 rounded-xl border bg-card p-4">
+            <h2 className="font-semibold">Getting online</h2>
+            <ol className="mt-2 list-inside list-decimal space-y-2 text-sm text-muted-foreground">
+              <li>
+                Connect your device to this Wi-Fi. If the sign-in page doesn’t open, tap the Wi-Fi
+                sign-in notification or open your browser.
+              </li>
+              <li>
+                Choose <span className="font-medium text-foreground">Buy</span> for a new package
+                {data.portal?.enable_voucher !== false && (
+                  <>
+                    {" "}
+                    or <span className="font-medium text-foreground">Voucher</span> to enter your
+                    code
+                  </>
+                )}
+                . Follow the prompts to connect.
+              </li>
+              <li>
+                If you disconnect, reopen this page. For a paid package, choose{" "}
+                <span className="font-medium text-foreground">Reconnect</span> and enter the M-Pesa
+                receipt code from your SMS.
+                {data.portal?.enable_voucher !== false && (
+                  <>
+                    {" "}
+                    For a voucher, enter the same code again under{" "}
+                    <span className="font-medium text-foreground">Voucher</span>.
+                  </>
+                )}
+              </li>
+            </ol>
+          </section>
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger className="px-1 text-xs sm:text-sm" value="buy">
@@ -250,9 +284,67 @@ function PortalPage() {
               {data.portal.terms_text}
             </p>
           )}
+          <PortalSupport phone={data.tenant.support_phone} email={data.tenant.support_email} />
         </div>
       </div>
     </PortalThemeFrame>
+  );
+}
+
+function PortalSupport({ phone, email }: { phone: string | null; email: string | null }) {
+  const supportPhone = phone?.trim() ?? "";
+  const phoneDigits = supportPhone.replace(/\D/g, "");
+  const canCall = phoneDigits.length >= 8 && phoneDigits.length <= 15;
+  const whatsappNumber = supportPhone.startsWith("+")
+    ? canCall
+      ? phoneDigits
+      : null
+    : /^0[17]\d{8}$/.test(phoneDigits)
+      ? `254${phoneDigits.slice(1)}`
+      : /^254[17]\d{8}$/.test(phoneDigits)
+        ? phoneDigits
+        : null;
+  const supportEmail = email?.trim() ?? "";
+
+  return (
+    <section className="pt-surface mt-6 rounded-xl border bg-card p-4">
+      <h2 className="font-semibold">Need help connecting?</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Contact{" "}
+        {supportPhone || supportEmail
+          ? "your Wi-Fi provider"
+          : "the Wi-Fi provider or staff at this location"}{" "}
+        for help.
+      </p>
+      {(canCall || supportEmail || whatsappNumber) && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {canCall && (
+            <Button asChild size="sm" variant="outline">
+              <a href={`tel:${supportPhone.startsWith("+") ? `+${phoneDigits}` : phoneDigits}`}>
+                <Phone aria-hidden="true" />
+                Call {supportPhone}
+              </a>
+            </Button>
+          )}
+          {whatsappNumber && (
+            <Button asChild size="sm" variant="outline">
+              <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer">
+                <MessageCircle aria-hidden="true" />
+                WhatsApp
+              </a>
+            </Button>
+          )}
+          {supportEmail && (
+            <Button asChild size="sm" variant="outline">
+              <a href={`mailto:${encodeURIComponent(supportEmail)}`}>
+                <Mail aria-hidden="true" />
+                Email support
+              </a>
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 

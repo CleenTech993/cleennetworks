@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
       GET: async ({ params }) => {
         const { data: tenant } = await supabaseAdmin
           .from("tenants")
-          .select("id,name,slug,primary_color,logo_url")
+          .select("id,name,slug,primary_color,logo_url,support_phone,support_email")
           .eq("slug", params.slug)
           .maybeSingle();
         if (!tenant) return new Response("Not found", { status: 404 });
