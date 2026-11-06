@@ -11,7 +11,6 @@ import {
   Wifi,
   Wrench,
   TrendingUp,
-  Activity,
   ArrowUpRight,
   ShieldAlert,
 } from "lucide-react";
@@ -31,6 +30,8 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { hasAnyRole, REVENUE_ROLES } from "@/lib/permissions";
 import { isRouterLive } from "@/lib/router-health";
+import { countOnlineClients } from "@/lib/online-clients";
+import { CONNECTED_WINDOW_MS } from "@/lib/pppoe-sessions";
 
 export const Route = createFileRoute("/tenant/")({ component: Overview });
 
@@ -38,15 +39,27 @@ function Overview() {
   const { roles } = Route.useRouteContext();
   const showRevenue = hasAnyRole(roles, REVENUE_ROLES);
   const isAdmin = hasAnyRole(roles, ["tenant_admin"]);
+  const canSeeHotspotDevices = hasAnyRole(roles, ["tenant_admin", "technician", "support_staff"]);
 
   const { data } = useQuery({
-    queryKey: ["tenant-overview", showRevenue],
+    queryKey: ["tenant-overview", showRevenue, canSeeHotspotDevices],
     queryFn: async () => {
-      const [routers, customers, packages, sessions, payments] = await Promise.all([
-        supabase.from("routers").select("id,status,last_heartbeat_at"),
-        supabase.from("customers").select("id,status,customer_type,last_seen_at"),
+      const countNow = Date.now();
+      const devicesQuery = canSeeHotspotDevices
+        ? supabase
+            .from("router_devices")
+            .select("mac,router_id,authorized,blocked,last_seen_at")
+            .eq("authorized", true)
+            .eq("blocked", false)
+            .gte("last_seen_at", new Date(countNow - CONNECTED_WINDOW_MS).toISOString())
+        : Promise.resolve({ data: [], error: null });
+      const [routers, customers, packages, devices, payments] = await Promise.all([
+        supabase.from("routers").select("id,status,last_heartbeat_at,last_seen_at"),
+        supabase
+          .from("customers")
+          .select("id,status,customer_type,last_seen_at,expires_at,router_id,last_router_id"),
         supabase.from("packages").select("id", { count: "exact", head: true }),
-        supabase.from("sessions").select("id,status").eq("status", "active"),
+        devicesQuery,
         showRevenue
           ? supabase
               .from("payments")
@@ -56,10 +69,20 @@ function Overview() {
           : Promise.resolve({ data: [] as { amount: number | string; created_at: string }[] }),
       ]);
 
+      if (routers.error) throw routers.error;
+      if (customers.error) throw customers.error;
+      if (devices.error) throw devices.error;
+
       const allPayments = payments.data ?? [];
       const revenue = allPayments.reduce((s, p) => s + Number(p.amount), 0);
       const online = (routers.data ?? []).filter(isRouterLive).length;
       const allCust = customers.data ?? [];
+      const clientCounts = countOnlineClients({
+        routers: routers.data ?? [],
+        customers: allCust,
+        hotspotDevices: devices.data ?? [],
+        now: countNow,
+      });
       const activeCustomers = allCust.filter((c) => c.status === "active").length;
       const pppoeCount = allCust.filter((c) => c.customer_type === "pppoe").length;
       const hotspotCustCount = allCust.filter((c) => c.customer_type === "hotspot").length;
@@ -70,7 +93,11 @@ function Overview() {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
         const dayStr = d.toISOString().slice(0, 10);
-        const dayLabel = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+        const dayLabel = d.toLocaleDateString(undefined, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
         const dayPayments = allPayments.filter((p) => p.created_at?.startsWith(dayStr));
         const dayTotal = dayPayments.reduce((s, p) => s + Number(p.amount), 0);
         last7Days.push({ date: dayLabel, amount: dayTotal, count: dayPayments.length });
@@ -85,7 +112,8 @@ function Overview() {
         activeCustomers,
         pppoeCount,
         hotspotCustCount,
-        activeSessions: sessions.data?.length ?? 0,
+        onlineHotspot: canSeeHotspotDevices ? clientCounts.onlineHotspot : null,
+        onlinePppoe: clientCounts.onlinePppoe,
         packages: packages.count ?? 0,
         revenue,
         recentRevenue7d,
@@ -119,7 +147,7 @@ function Overview() {
         cta: "Open settings",
       },
     ],
-    [data]
+    [data],
   );
 
   const remaining = steps.filter((s) => !s.done).length;
@@ -199,7 +227,7 @@ function Overview() {
       </div>
 
       {/* Top Telemetry KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           icon={Router}
           label="Routers Fleet"
@@ -213,10 +241,16 @@ function Overview() {
           hint={`${data?.customers ?? 0} total accounts registered`}
         />
         <StatCard
-          icon={Activity}
-          label="Live Hotspot Sessions"
-          value={data?.activeSessions ?? "—"}
-          hint="Currently transmitting"
+          icon={Wifi}
+          label="Hotspot Clients Online"
+          value={data?.onlineHotspot ?? "—"}
+          hint="Recent authorized devices · live routers"
+        />
+        <StatCard
+          icon={Network}
+          label="PPPoE Clients Online"
+          value={data?.onlinePppoe ?? "—"}
+          hint="Recent sessions · live routers"
         />
         {showRevenue && (
           <StatCard
@@ -243,7 +277,10 @@ function Overview() {
                   Daily incoming payments across Hotspot vouchers and PPPoE renewals.
                 </p>
               </div>
-              <Badge variant="outline" className="w-fit text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+              <Badge
+                variant="outline"
+                className="w-fit text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+              >
                 KES {(data?.recentRevenue7d ?? 0).toLocaleString()} past 7d
               </Badge>
             </div>
@@ -251,14 +288,21 @@ function Overview() {
             <div className="h-64 w-full">
               {data?.chartData && data.chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <AreaChart
+                    data={data.chartData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
                     <defs>
                       <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
                         <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="hsl(var(--border))"
+                    />
                     <XAxis
                       dataKey="date"
                       tickLine={false}
@@ -302,7 +346,9 @@ function Overview() {
         )}
 
         {/* Subscriber & Package Breakdown */}
-        <div className={`rounded-xl border bg-card p-6 shadow-xs ${showRevenue ? "" : "lg:col-span-3"}`}>
+        <div
+          className={`rounded-xl border bg-card p-6 shadow-xs ${showRevenue ? "" : "lg:col-span-3"}`}
+        >
           <h3 className="font-semibold text-base mb-1">Subscriber Segments</h3>
           <p className="text-xs text-muted-foreground mb-6">
             Distribution across PPPoE fixed clients and Hotspot vouchers.
@@ -370,13 +416,18 @@ function Overview() {
                   <Check className="h-3.5 w-3.5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-medium ${s.done ? "text-muted-foreground line-through" : ""}`}>
+                  <p
+                    className={`text-sm font-medium ${s.done ? "text-muted-foreground line-through" : ""}`}
+                  >
                     {s.title}
                   </p>
                   <p className="text-sm text-muted-foreground">{s.body}</p>
                 </div>
                 {!s.done && (
-                  <Link to={s.to} className="shrink-0 text-sm font-medium text-primary hover:underline">
+                  <Link
+                    to={s.to}
+                    className="shrink-0 text-sm font-medium text-primary hover:underline"
+                  >
                     {s.cta}
                   </Link>
                 )}

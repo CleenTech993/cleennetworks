@@ -7,8 +7,8 @@
 import { isUsableMac, normalizeMac } from "./tv";
 
 export const MAX_PPPOE_SESSIONS_PER_REPORT = 500;
-/** The router reports every 2 minutes; a client counts as connected for a little over two reports. */
-export const CONNECTED_WINDOW_MS = 5 * 60 * 1000;
+/** Router device and PPPoE reports run every 5 minutes; allow two intervals plus a small buffer. */
+export const CONNECTED_WINDOW_MS = 11 * 60 * 1000;
 
 /** Same character set the sync script allows for PPPoE usernames. */
 const SAFE_NAME = /^[A-Za-z0-9._@-]{1,64}$/;
