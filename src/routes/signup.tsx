@@ -6,10 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { signInWithGoogle } from "@/lib/google-auth";
+import {
+  isStrongPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+} from "@/lib/password-policy";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
-    meta: [{ title: "Create ISP account — NetGrid" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [
+      { title: "Create ISP account — NetGrid" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
   }),
   component: SignupPage,
 });
@@ -21,10 +31,20 @@ function SignupPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!isStrongPassword(password)) {
+      toast.error(PASSWORD_REQUIREMENTS);
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
     setLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/pending`;
@@ -69,6 +89,16 @@ function SignupPage() {
     }
   }
 
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle(`${window.location.origin}/pending`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not continue with Google.");
+      setGoogleLoading(false);
+    }
+  }
+
   return (
     <AuthLayout
       title="Create your ISP workspace"
@@ -83,6 +113,20 @@ function SignupPage() {
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handleGoogleSignIn}
+          disabled={loading || googleLoading}
+        >
+          {googleLoading ? "Connecting to Google…" : "Continue with Google"}
+        </Button>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          <span>or create an account with email</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
         <div className="space-y-1.5">
           <Label htmlFor="name">Contact person name</Label>
           <Input
@@ -140,12 +184,27 @@ function SignupPage() {
             type="password"
             autoComplete="new-password"
             required
-            minLength={6}
+            minLength={PASSWORD_MIN_LENGTH}
+            maxLength={PASSWORD_MAX_LENGTH}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <p className="text-xs text-muted-foreground">{PASSWORD_REQUIREMENTS}</p>
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <div className="space-y-1.5">
+          <Label htmlFor="confirm-password">Confirm password</Label>
+          <Input
+            id="confirm-password"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={PASSWORD_MIN_LENGTH}
+            maxLength={PASSWORD_MAX_LENGTH}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+        </div>
+        <Button type="submit" className="w-full" disabled={loading || googleLoading}>
           {loading ? "Creating workspace…" : "Create ISP workspace"}
         </Button>
       </form>

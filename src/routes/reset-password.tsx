@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  isStrongPassword,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENTS,
+} from "@/lib/password-policy";
 
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
@@ -48,8 +54,8 @@ function ResetPasswordPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    if (!isStrongPassword(password)) {
+      toast.error(PASSWORD_REQUIREMENTS);
       return;
     }
     if (password !== confirm) {
@@ -96,7 +102,8 @@ function ResetPasswordPage() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -108,7 +115,8 @@ function ResetPasswordPage() {
               type="password"
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
+              maxLength={PASSWORD_MAX_LENGTH}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
             />

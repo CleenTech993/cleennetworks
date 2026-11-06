@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { signInWithGoogle } from "@/lib/google-auth";
 import { signInWithPassword } from "@/lib/login.functions";
 
 export const Route = createFileRoute("/login")({
@@ -20,6 +21,17 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  async function handleGoogleSignIn() {
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle(`${window.location.origin}/pending`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not sign in with Google.");
+      setGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,8 +128,22 @@ function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full" disabled={loading || googleLoading}>
           {loading ? "Signing in…" : "Sign in"}
+        </Button>
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="h-px flex-1 bg-border" />
+          <span>or</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handleGoogleSignIn}
+          disabled={loading || googleLoading}
+        >
+          {googleLoading ? "Connecting to Google…" : "Continue with Google"}
         </Button>
       </form>
     </AuthLayout>

@@ -8,7 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/pending")({
   head: () => ({
-    meta: [{ title: "Finish ISP setup — NetGrid" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [
+      { title: "Finish ISP setup — NetGrid" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
   }),
   component: PendingPage,
 });
@@ -43,9 +46,15 @@ function PendingPage() {
       }
 
       const metadata = user.user_metadata;
-      const name = typeof metadata["full_name"] === "string" ? metadata["full_name"] : "";
+      const name =
+        typeof metadata["full_name"] === "string"
+          ? metadata["full_name"]
+          : typeof metadata["name"] === "string"
+            ? metadata["name"]
+            : "";
       const org = typeof metadata["business_name"] === "string" ? metadata["business_name"] : "";
-      const contact = typeof metadata["business_phone"] === "string" ? metadata["business_phone"] : "";
+      const contact =
+        typeof metadata["business_phone"] === "string" ? metadata["business_phone"] : "";
       if (alive) {
         setEmail(user.email ?? null);
         setFullName(name);
@@ -66,6 +75,19 @@ function PendingPage() {
       }
       if (roles?.length) {
         const isSuperAdmin = roles.some((role) => role.role === "super_admin");
+        const { data: aal, error: aalError } =
+          await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalError) {
+          if (alive) {
+            setError(aalError.message);
+            setLoading(false);
+          }
+          return;
+        }
+        if (aal?.nextLevel === "aal2") {
+          navigate({ to: "/mfa" });
+          return;
+        }
         navigate({ to: isSuperAdmin ? "/super-admin" : "/tenant" });
         return;
       }

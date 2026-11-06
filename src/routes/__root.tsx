@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
+import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 function NotFoundComponent() {
   return (
@@ -74,6 +75,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "theme-color", content: "#103238" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "NetGrid" },
       { title: "ISP Management Software for MikroTik | NetGrid" },
       {
         name: "description",
@@ -110,6 +114,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/pwa-icon-192.png" },
     ],
     scripts: [
       {
@@ -157,6 +163,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthInvalidator />
       <Outlet />
+      <PwaInstallPrompt />
       <Toaster richColors position="top-right" />
     </QueryClientProvider>
   );
