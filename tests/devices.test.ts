@@ -159,6 +159,18 @@ describe("buildHotspotUserLines", () => {
     expect(out).toContain('find where comment="netgrid-voucher"');
   });
 
+  it("keeps live voucher users in place during sync so active sessions are not restarted", () => {
+    const out = joined([{ code: "LIVE000001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 }]);
+    expect(out).not.toContain('remove [find where comment="netgrid-voucher"]');
+    expect(out).toContain(':if ([:len [find where name="LIVE000001"]] = 0) do={');
+    expect(out).toContain(
+      'set [find where name="LIVE000001"] server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02 comment="netgrid-voucher"',
+    );
+    expect(out).toContain(
+      ':if ([:typeof [:find $ngCurrentVouchers $ngCode]] = "nil") do={ remove $ngActive }',
+    );
+  });
+
   describe("buildHotspotSuspendLines", () => {
     it("disconnects current managed hotspot sessions before removing managed users", () => {
       const lines = buildHotspotSuspendLines().join("\n");
@@ -196,11 +208,13 @@ describe("buildHotspotUserLines", () => {
     expect(out).toContain("GOOD000001");
   });
 
-  it("removes old users, then defines profiles, then adds users (order matters on the router)", () => {
+  it("defines profiles before adding missing users and updates existing users", () => {
     const lines = buildHotspotUserLines([{ code: "ORDER00001", bound_mac: null, limit: 2 }]);
     const idx = (needle: string) => lines.findIndex((l) => l.includes(needle));
-    expect(idx('remove [find comment="netgrid-voucher"]')).toBeLessThan(idx("add name=netgrid-d1"));
     expect(idx("add name=netgrid-d2")).toBeLessThan(idx('add name="ORDER00001"'));
+    expect(idx('add name="ORDER00001"')).toBeLessThan(
+      idx('set [find where name="ORDER00001"]'),
+    );
   });
 
   it("emits balanced RouterOS syntax", () => {

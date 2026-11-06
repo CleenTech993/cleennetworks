@@ -127,17 +127,13 @@ function buildExpiredVoucherCleanupLines(vouchers: SyncVoucher[]): string[] {
   ];
 }
 
-/**
- * Hotspot voucher users. They are removed and re-created on every sync, so everything the router
- * must know (device limit, pinned MAC) is emitted here from the database each time.
- */
+/** Keeps live voucher users in place; only missing users are added during sync. */
 export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
   const limits = [...new Set([1, ...valid.map((v) => v.limit)])].sort((a, b) => a - b);
 
   const lines = [
     ...buildExpiredVoucherCleanupLines(valid),
-    "/ip hotspot user",
     "/ip hotspot user profile",
   ];
   for (const n of limits) {
@@ -154,6 +150,15 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
     lines.push(
       `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=default comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" comment="netgrid-voucher" } on-error={} } } }`,
     );
+  }
+  for (const v of valid) {
+    const mac =
+      v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
+    lines.push(`:if ([:len [find where name="${v.code}"]] = 0) do={`);
+    lines.push(
+      `:do { set [find where name="${v.code}"] server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={}`,
+    );
+    lines.push("}");
   }
   if (valid.length > 0) {
     // Every add above swallows its error, so a router where they all fail (for example no hotspot
