@@ -35,6 +35,7 @@ import { Route as SuperAdminPaymentsRouteImport } from './routes/super-admin.pay
 import { Route as SuperAdminSettlementsRouteImport } from './routes/super-admin.settlements'
 import { Route as SuperAdminTenantsRouteImport } from './routes/super-admin.tenants'
 import { Route as SuperAdminUsersRouteImport } from './routes/super-admin.users'
+import { Route as SupportSessionSessionIdRouteImport } from './routes/support-session.$sessionId'
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
 import { Route as TenantAuditRouteImport } from './routes/tenant.audit'
 import { Route as TenantBillingRouteImport } from './routes/tenant.billing'
@@ -57,6 +58,7 @@ import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
+import { Route as ApiPublicRouterSupportSessionsSessionIdRouteImport } from './routes/api/public/router-support-sessions.$sessionId'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
 import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
 import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
@@ -205,6 +207,11 @@ const SuperAdminUsersRoute = SuperAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => SuperAdminRoute,
 } as any)
+const SupportSessionSessionIdRoute = SupportSessionSessionIdRouteImport.update({
+  id: '/support-session/$sessionId',
+  path: '/support-session/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TenantIndexRoute = TenantIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -315,6 +322,12 @@ const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   path: '/api/public/portal/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicRouterSupportSessionsSessionIdRoute =
+  ApiPublicRouterSupportSessionsSessionIdRouteImport.update({
+    id: '/api/public/router-support-sessions/$sessionId',
+    path: '/api/public/router-support-sessions/$sessionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMpesaCallbackTenantIdRoute =
   ApiPublicMpesaCallbackTenantIdRouteImport.update({
     id: '/api/public/mpesa/callback/$tenantId',
@@ -442,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
+  '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -466,6 +480,7 @@ export interface FileRoutesByFullPath {
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
+  '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
@@ -506,6 +521,7 @@ export interface FileRoutesByTo {
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
+  '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -530,6 +546,7 @@ export interface FileRoutesByTo {
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
+  '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
@@ -574,6 +591,7 @@ export interface FileRoutesById {
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
   '/super-admin/tenants': typeof SuperAdminTenantsRoute
   '/super-admin/users': typeof SuperAdminUsersRoute
+  '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -598,6 +616,7 @@ export interface FileRoutesById {
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
+  '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
@@ -643,6 +662,7 @@ export interface FileRouteTypes {
     | '/super-admin/settlements'
     | '/super-admin/tenants'
     | '/super-admin/users'
+    | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
     | '/tenant/customers'
@@ -667,6 +687,7 @@ export interface FileRouteTypes {
     | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
+    | '/api/public/router-support-sessions/$sessionId'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
@@ -707,6 +728,7 @@ export interface FileRouteTypes {
     | '/super-admin/settlements'
     | '/super-admin/tenants'
     | '/super-admin/users'
+    | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
     | '/tenant/customers'
@@ -731,6 +753,7 @@ export interface FileRouteTypes {
     | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
+    | '/api/public/router-support-sessions/$sessionId'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
@@ -774,6 +797,7 @@ export interface FileRouteTypes {
     | '/super-admin/settlements'
     | '/super-admin/tenants'
     | '/super-admin/users'
+    | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
     | '/tenant/customers'
@@ -798,6 +822,7 @@ export interface FileRouteTypes {
     | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
     | '/api/public/portal/$slug'
+    | '/api/public/router-support-sessions/$sessionId'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
@@ -831,8 +856,10 @@ export interface RootRouteChildren {
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   PSlugRoute: typeof PSlugRoute
+  SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
+  ApiPublicRouterSupportSessionsSessionIdRoute: typeof ApiPublicRouterSupportSessionsSessionIdRoute
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
@@ -1030,6 +1057,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuperAdminUsersRouteImport
       parentRoute: typeof SuperAdminRoute
     }
+    '/support-session/$sessionId': {
+      id: '/support-session/$sessionId'
+      path: '/support-session/$sessionId'
+      fullPath: '/support-session/$sessionId'
+      preLoaderRoute: typeof SupportSessionSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tenant/': {
       id: '/tenant/'
       path: '/'
@@ -1182,6 +1216,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/portal/$slug'
       fullPath: '/api/public/portal/$slug'
       preLoaderRoute: typeof ApiPublicPortalSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/router-support-sessions/$sessionId': {
+      id: '/api/public/router-support-sessions/$sessionId'
+      path: '/api/public/router-support-sessions/$sessionId'
+      fullPath: '/api/public/router-support-sessions/$sessionId'
+      preLoaderRoute: typeof ApiPublicRouterSupportSessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mpesa/callback/$tenantId': {
@@ -1445,8 +1486,11 @@ const rootRouteChildren: RootRouteChildren = {
   SuperAdminRoute: SuperAdminRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   PSlugRoute: PSlugRoute,
+  SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
+  ApiPublicRouterSupportSessionsSessionIdRoute:
+    ApiPublicRouterSupportSessionsSessionIdRoute,
   ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
   ApiPublicProvisionTokenLoginDothtmlRoute:
     ApiPublicProvisionTokenLoginDothtmlRoute,

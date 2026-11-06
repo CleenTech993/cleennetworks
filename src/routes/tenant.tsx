@@ -21,6 +21,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
+import { TenantWhatsAppSupport } from "@/components/tenant-whatsapp-support";
 import { requireConsole } from "@/lib/auth-guard";
 import { canAccessPage } from "@/lib/permissions";
 
@@ -63,7 +64,12 @@ function TenantLayout() {
   const { roles } = Route.useRouteContext();
   const nav = ALL_NAV.filter((item) => canAccessPage(roles, item.to));
   return (
-    <DashboardShell title="Tenant Console" subtitle="ISP operations" nav={nav}>
+    <DashboardShell
+      title="Tenant Console"
+      subtitle="ISP operations"
+      nav={nav}
+      headerAction={<TenantWhatsAppSupport />}
+    >
       <Outlet />
     </DashboardShell>
   );

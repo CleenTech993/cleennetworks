@@ -552,7 +552,18 @@ with expected(ord, track, migration, kind, ident) as (values
   (43, 'supabase', '20261112000000_expire_stale_stk_payments.sql', 'function', 'public.expire_stale_stk_payments()'),
   (44, 'supabase', '20261113000000_buygoods_stk_type.sql', 'none', ''),
   (45, 'supabase', '20261114000000_separate_stk_business_shortcode.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_business_shortcode_check'),
-  (46, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_access_count_check'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_check'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_created_by_fkey'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_pkey'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_router_id_fkey'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_tenant_id_fkey'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_one_active_per_router_idx'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_pkey'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_router_active_idx'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'rls', 'public.router_support_sessions'),
+  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'table', 'public.router_support_sessions'),
+  (47, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.

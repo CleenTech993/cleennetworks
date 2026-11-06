@@ -15,6 +15,11 @@ BEGIN
      OR has_table_privilege('anon', 'public.tenant_service_secrets', 'SELECT') THEN
     RAISE EXCEPTION 'browser roles must not have tenant secret table privileges';
   END IF;
+  IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.router_support_sessions'::regclass)
+     OR has_table_privilege('authenticated', 'public.router_support_sessions', 'SELECT')
+     OR has_table_privilege('anon', 'public.router_support_sessions', 'SELECT') THEN
+    RAISE EXCEPTION 'router support sessions must be isolated from browser database roles';
+  END IF;
 
   INSERT INTO public.platform_commissions
     (tenant_id, period_start, period_end, gross_amount, commission_amount)

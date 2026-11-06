@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useParams, useRouteContext } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -28,6 +28,7 @@ import { fmtUptime, healthScore, healthTone } from "@/lib/router-health";
 import { buildDoctorPaste } from "@/lib/router-doctor";
 import { syncStatus } from "@/lib/sync-status";
 import { InterfacesTab, QualityTab, TrafficTab } from "@/components/router-network";
+import { RouterSupportSessionButton } from "@/components/router-support-session-button";
 
 export const Route = createFileRoute("/tenant/routers/$id")({
   head: () => ({
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/tenant/routers/$id")({
 
 function RouterDetail() {
   const { id } = useParams({ from: "/tenant/routers/$id" });
+  const { roles } = useRouteContext({ from: "/tenant" });
   const { data: r, refetch } = useQuery({
     queryKey: ["router", id],
     queryFn: async () => {
@@ -105,6 +107,7 @@ function RouterDetail() {
         description={`${r.board_name ?? r.model ?? "MikroTik Router"} · RouterOS v${r.routeros_version ?? "?"} · ${r.architecture ?? ""}`}
         action={
           <div className="flex items-center gap-2">
+            {roles.includes("tenant_admin") && <RouterSupportSessionButton routerId={r.id} />}
             {live && (
               <Badge
                 variant={

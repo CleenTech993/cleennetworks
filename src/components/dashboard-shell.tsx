@@ -20,6 +20,7 @@ interface Props {
   title: string;
   subtitle?: string;
   nav: NavItem[];
+  headerAction?: ReactNode;
   children: ReactNode;
 }
 
@@ -92,7 +93,7 @@ function NavList({
   );
 }
 
-export function DashboardShell({ title, subtitle, nav, children }: Props) {
+export function DashboardShell({ title, subtitle, nav, headerAction, children }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -122,6 +123,7 @@ export function DashboardShell({ title, subtitle, nav, children }: Props) {
           </Sheet>
           <h1 className="min-w-0 truncate text-sm font-medium text-muted-foreground">{title}</h1>
           <div className="ml-auto flex items-center gap-2">
+            {headerAction}
             <RouterAlertsNotification isSuperAdmin={pathname.startsWith("/super-admin")} />
             <MfaSecurityDialog
               trigger={
