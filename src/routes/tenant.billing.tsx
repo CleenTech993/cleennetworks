@@ -1,11 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AlertCircle, Printer, ReceiptText } from "lucide-react";
+import { toast } from "sonner";
 import { EmptyState, PageHeader } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { getPlatformInvoicePaymentDetails } from "@/lib/platform-billing.functions";
+import { submitPlatformInvoiceReceipt } from "@/lib/platform-invoice.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -42,7 +45,9 @@ function errorMessage(error: unknown): string {
 
 function TenantBilling() {
   const { tenantId } = useAuth();
+  const queryClient = useQueryClient();
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [receipts, setReceipts] = useState<Record<string, string>>({});
   const {
     data: invoices,
     isLoading,
@@ -57,13 +62,23 @@ function TenantBilling() {
       const { data, error } = await supabase
         .from("platform_commissions")
         .select(
-          "id,invoice_number,period_start,period_end,gross_amount,commission_amount,commission_rate_pct,status,mpesa_receipt,issued_at,due_at,email_status,email_error,email_sent_at",
+          "id,invoice_number,period_start,period_end,gross_amount,commission_amount,commission_rate_pct,hotspot_gross_amount,pppoe_gross_amount,hotspot_commission_amount,pppoe_commission_amount,hotspot_commission_rate_pct,pppoe_commission_rate_pct,tenant_mpesa_receipt,status,mpesa_receipt,issued_at,due_at,email_status,email_error,email_sent_at",
         )
         .eq("tenant_id", tenantId!)
         .order("period_start", { ascending: false });
       if (error) throw error;
       return data;
     },
+  });
+  const submitReceipt = useMutation({
+    mutationFn: ({ invoiceId, receipt }: { invoiceId: string; receipt: string }) =>
+      submitPlatformInvoiceReceipt({ data: { invoiceId, receipt } }),
+    onSuccess: (_result, variables) => {
+      toast.success("Transaction code submitted");
+      setReceipts((current) => ({ ...current, [variables.invoiceId]: "" }));
+      void queryClient.invalidateQueries({ queryKey: ["tenant-platform-invoices", tenantId] });
+    },
+    onError: (submissionError: Error) => toast.error(submissionError.message),
   });
   const { data: paymentDetails, error: paymentDetailsError } = useQuery({
     queryKey: ["platform-invoice-payment-details"],
@@ -93,8 +108,9 @@ function TenantBilling() {
       <div className="mb-5 rounded-xl border bg-card p-4">
         <h2 className="font-semibold">How to pay</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Send the invoiced amount as a separate M-Pesa C2B payment to the platform shortcode.
-          Settlements are confirmed by the platform after receipt verification.
+          Pay the invoice total to the platform PayBill or Till, then enter the M-Pesa transaction
+          code below. A platform admin will compare it with the payment received before marking the
+          invoice paid.
         </p>
         <p className="mt-2 font-medium">
           Platform PayBill / Till: {paymentDetails?.shortcode ?? "Contact platform support"}
@@ -166,7 +182,13 @@ function TenantBilling() {
                             : "secondary"
                       }
                     >
-                      {invoice.status === "collected" ? "Paid" : isOverdue ? "Overdue" : "Unpaid"}
+                      {invoice.status === "collected"
+                        ? "Paid"
+                        : isOverdue
+                          ? "Overdue"
+                          : invoice.tenant_mpesa_receipt
+                            ? "Awaiting confirmation"
+                            : "Unpaid"}
                     </Badge>
                     {invoice.invoice_number && (
                       <Button variant="outline" size="sm" onClick={() => printInvoice(invoice.id)}>
@@ -196,9 +218,35 @@ function TenantBilling() {
                         <dt className="text-muted-foreground">Successful customer payments</dt>
                         <dd className="font-medium">{formatAmount(invoice.gross_amount)}</dd>
                       </div>
+                      {invoice.hotspot_gross_amount != null &&
+                        invoice.pppoe_gross_amount != null &&
+                        invoice.hotspot_commission_amount != null &&
+                        invoice.pppoe_commission_amount != null && (
+                          <>
+                            <div>
+                              <dt className="text-muted-foreground">
+                                Hotspot / voucher income ({invoice.hotspot_commission_rate_pct ?? 2}
+                                % commission)
+                              </dt>
+                              <dd className="font-medium">
+                                {formatAmount(invoice.hotspot_gross_amount)} ·{" "}
+                                {formatAmount(invoice.hotspot_commission_amount)} due
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">
+                                PPPoE income ({invoice.pppoe_commission_rate_pct ?? 1}% commission)
+                              </dt>
+                              <dd className="font-medium">
+                                {formatAmount(invoice.pppoe_gross_amount)} ·{" "}
+                                {formatAmount(invoice.pppoe_commission_amount)} due
+                              </dd>
+                            </div>
+                          </>
+                        )}
                       <div>
                         <dt className="text-muted-foreground">
-                          Commission
+                          Total commission due
                           {invoice.commission_rate_pct != null &&
                             ` (${invoice.commission_rate_pct}%)`}
                         </dt>
@@ -208,11 +256,51 @@ function TenantBilling() {
                       </div>
                       {invoice.mpesa_receipt && (
                         <div>
-                          <dt className="text-muted-foreground">Settlement receipt</dt>
+                          <dt className="text-muted-foreground">Confirmed payment code</dt>
                           <dd className="font-mono">{invoice.mpesa_receipt}</dd>
                         </div>
                       )}
+                      {invoice.tenant_mpesa_receipt && invoice.status === "pending" && (
+                        <div>
+                          <dt className="text-muted-foreground">Submitted transaction code</dt>
+                          <dd className="font-mono">{invoice.tenant_mpesa_receipt}</dd>
+                        </div>
+                      )}
                     </dl>
+
+                    {invoice.status === "pending" && (
+                      <div className="no-print mt-4 flex flex-wrap items-end gap-2 border-t pt-4">
+                        <div className="min-w-56 flex-1">
+                          <label
+                            htmlFor={`invoice-receipt-${invoice.id}`}
+                            className="text-sm font-medium"
+                          >
+                            M-Pesa transaction code
+                          </label>
+                          <Input
+                            id={`invoice-receipt-${invoice.id}`}
+                            value={receipts[invoice.id] ?? ""}
+                            maxLength={40}
+                            placeholder="e.g. QAB123XYZ"
+                            onChange={(event) =>
+                              setReceipts({ ...receipts, [invoice.id]: event.target.value })
+                            }
+                            className="mt-1 font-mono uppercase"
+                          />
+                        </div>
+                        <Button
+                          onClick={() =>
+                            submitReceipt.mutate({
+                              invoiceId: invoice.id,
+                              receipt: receipts[invoice.id] ?? "",
+                            })
+                          }
+                          disabled={submitReceipt.isPending || !(receipts[invoice.id] ?? "").trim()}
+                        >
+                          {submitReceipt.isPending ? "Submitting…" : "Submit code"}
+                        </Button>
+                      </div>
+                    )}
 
                     <div className="no-print mt-4 flex items-start gap-2 border-t pt-3 text-xs text-muted-foreground">
                       {invoice.email_status === "sent" ? (

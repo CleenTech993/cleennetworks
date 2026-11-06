@@ -2,16 +2,22 @@
 
 The platform calculates commission from successful tenant payments recorded in `payments`.
 Approved direct C2B payments are included because they are recorded as successful payments too.
-Each invoice uses the tenant's configured `platform_commission_pct`, stored at invoice issue time.
-Tracking begins when the billing migration is first applied; older payment history is not billed
-retroactively.
+Hotspot and voucher package income is charged at 2%, and PPPoE package income at 1%. Each invoice
+shows both income totals, both commission calculations, and the total due. Payments without a
+matching tenant package are excluded because they cannot be reliably classified. Tracking begins
+when the billing migration is first applied; older payment history is not billed retroactively.
+Already-issued invoices keep their original amounts; the new rates apply to invoices generated
+after the change.
 
 After each month closes in the `Africa/Nairobi` time zone, the scheduled job creates one invoice
 for each tenant with commission due. The due time is 72 hours after the invoice is generated.
 Invoices appear in **Tenant Console → Platform invoices** and **Super Admin → Platform commissions**.
-Tenants can print an invoice or save it as a PDF from the browser. The platform admin records the
-M-Pesa C2B receipt after verifying settlement. Once all overdue invoices are settled, customer
-service is restored automatically; tenant admin access remains available while service is paused.
+Tenants can print an invoice or save it as a PDF from the browser, then submit their M-Pesa
+transaction code. A Super Admin enters the received code; the invoice is marked paid only if it
+exactly matches the tenant-submitted code. This comparison does not independently verify the
+transaction with Safaricom, so the admin must first confirm the payment against M-Pesa records.
+Once all overdue invoices are settled, customer service is restored automatically; tenant admin
+access remains available while service is paused.
 
 ## Required deployment configuration
 

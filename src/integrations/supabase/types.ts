@@ -840,14 +840,21 @@ export type Database = {
           email_sent_at: string | null
           email_status: string
           gross_amount: number
+          hotspot_commission_amount: number | null
+          hotspot_commission_rate_pct: number | null
+          hotspot_gross_amount: number | null
           id: string
           invoice_number: string | null
           issued_at: string | null
           mpesa_receipt: string | null
           period_end: string
           period_start: string
+          pppoe_commission_amount: number | null
+          pppoe_commission_rate_pct: number | null
+          pppoe_gross_amount: number | null
           status: string
           tenant_id: string
+          tenant_mpesa_receipt: string | null
         }
         Insert: {
           collected_at?: string | null
@@ -860,14 +867,21 @@ export type Database = {
           email_sent_at?: string | null
           email_status?: string
           gross_amount?: number
+          hotspot_commission_amount?: number | null
+          hotspot_commission_rate_pct?: number | null
+          hotspot_gross_amount?: number | null
           id?: string
           invoice_number?: string | null
           issued_at?: string | null
           mpesa_receipt?: string | null
           period_end: string
           period_start: string
+          pppoe_commission_amount?: number | null
+          pppoe_commission_rate_pct?: number | null
+          pppoe_gross_amount?: number | null
           status?: string
           tenant_id: string
+          tenant_mpesa_receipt?: string | null
         }
         Update: {
           collected_at?: string | null
@@ -880,14 +894,21 @@ export type Database = {
           email_sent_at?: string | null
           email_status?: string
           gross_amount?: number
+          hotspot_commission_amount?: number | null
+          hotspot_commission_rate_pct?: number | null
+          hotspot_gross_amount?: number | null
           id?: string
           invoice_number?: string | null
           issued_at?: string | null
           mpesa_receipt?: string | null
           period_end?: string
           period_start?: string
+          pppoe_commission_amount?: number | null
+          pppoe_commission_rate_pct?: number | null
+          pppoe_gross_amount?: number | null
           status?: string
           tenant_id?: string
+          tenant_mpesa_receipt?: string | null
         }
         Relationships: [
           {
@@ -2023,14 +2044,21 @@ export type Database = {
           email_sent_at: string | null
           email_status: string
           gross_amount: number
+          hotspot_commission_amount: number | null
+          hotspot_commission_rate_pct: number | null
+          hotspot_gross_amount: number | null
           id: string
           invoice_number: string | null
           issued_at: string | null
           mpesa_receipt: string | null
           period_end: string
           period_start: string
+          pppoe_commission_amount: number | null
+          pppoe_commission_rate_pct: number | null
+          pppoe_gross_amount: number | null
           status: string
           tenant_id: string
+          tenant_mpesa_receipt: string | null
         }[]
         SetofOptions: {
           from: "*"

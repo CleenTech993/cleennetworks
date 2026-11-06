@@ -1,4 +1,4 @@
--- Tenant service credentials are server-only; commission data is super-admin-only.
+-- Tenant service credentials are server-only; invoice writes are restricted to server actions.
 DO $$
 BEGIN
   INSERT INTO public.tenant_service_secrets (tenant_id, name, ciphertext, last4)
@@ -56,10 +56,26 @@ SET ROLE authenticated;
 SELECT t.as_user('bbbbbbbb-0000-0000-0000-0000000000a1', 'aal2');
 SELECT t.denied('tenant admin cannot read platform commissions', $$SELECT 1 FROM public.platform_commissions$$);
 SELECT t.denied('tenant admin cannot change platform commissions', $$UPDATE public.platform_commissions SET status='collected'$$);
+SELECT t.denied(
+  'tenant admin cannot directly submit invoice receipt',
+  $$UPDATE public.platform_commissions SET tenant_mpesa_receipt='QAB123XYZ'$$
+);
 
 SELECT t.as_user('bbbbbbbb-0000-0000-0000-00000000000a', 'aal2');
 SELECT t.allowed('super admin can read platform commissions', $$SELECT 1 FROM public.platform_commissions$$);
-SELECT t.allowed('super admin can update platform commissions', $$UPDATE public.platform_commissions SET status='collected'$$);
+SELECT t.denied(
+  'super admin cannot mark invoice paid with mismatched receipt',
+  $$UPDATE public.platform_commissions
+    SET status='collected', tenant_mpesa_receipt='QAB123XYZ', mpesa_receipt='ABC987XYZ'$$
+);
+SELECT t.allowed(
+  'super admin can mark invoice paid with matching receipt',
+  $$UPDATE public.platform_commissions
+    SET status='collected',
+        tenant_mpesa_receipt='QAB123XYZ',
+        mpesa_receipt='QAB123XYZ',
+        collected_at=now()$$
+);
 
 SELECT t.as_user('bbbbbbbb-0000-0000-0000-0000000000a1', 'aal2');
 SELECT t.allowed(
@@ -89,6 +105,52 @@ SELECT public.approve_direct_mpesa_transaction(
   'bbbbbbbb-0000-0000-0000-0000000000a1'
 );
 RESET ROLE;
+
+INSERT INTO public.tenants (id, name, slug)
+VALUES ('cccccccc-0000-0000-0000-000000000003', 'Billing Test', 'billing-test');
+INSERT INTO public.packages (id, tenant_id, name, kind, price)
+VALUES
+  ('eeeeeeee-0000-0000-0000-000000000001',
+   'cccccccc-0000-0000-0000-000000000003', 'Hotspot test', 'hotspot', 100),
+  ('eeeeeeee-0000-0000-0000-000000000002',
+   'cccccccc-0000-0000-0000-000000000003', 'PPPoE test', 'pppoe', 500);
+INSERT INTO public.payments (tenant_id, package_id, amount, status, created_at)
+VALUES
+  ('cccccccc-0000-0000-0000-000000000003',
+   'eeeeeeee-0000-0000-0000-000000000001', 100, 'success', now()),
+  ('cccccccc-0000-0000-0000-000000000003',
+   'eeeeeeee-0000-0000-0000-000000000002', 500, 'success', now());
+
+DO $$
+DECLARE
+  v_invoice public.platform_commissions%ROWTYPE;
+  v_next_month timestamptz;
+  v_expected_month timestamptz;
+BEGIN
+  v_expected_month := date_trunc('month', now() AT TIME ZONE 'Africa/Nairobi')
+    AT TIME ZONE 'Africa/Nairobi';
+  v_next_month := (date_trunc('month', now() AT TIME ZONE 'Africa/Nairobi') + interval '1 month')
+    AT TIME ZONE 'Africa/Nairobi';
+  PERFORM public.generate_monthly_platform_commission_invoices(v_next_month);
+
+  SELECT * INTO v_invoice
+  FROM public.platform_commissions
+  WHERE tenant_id = 'cccccccc-0000-0000-0000-000000000003'
+    AND period_start = v_expected_month;
+
+  IF NOT FOUND
+     OR v_invoice.hotspot_gross_amount <> 100
+     OR v_invoice.pppoe_gross_amount <> 500
+     OR v_invoice.hotspot_commission_amount <> 2
+     OR v_invoice.pppoe_commission_amount <> 5
+     OR v_invoice.gross_amount <> 600
+     OR v_invoice.commission_amount <> 7
+     OR v_invoice.hotspot_commission_rate_pct <> 2
+     OR v_invoice.pppoe_commission_rate_pct <> 1
+  THEN
+    RAISE EXCEPTION 'tiered platform commission invoice was not calculated correctly';
+  END IF;
+END $$;
 
 DO $$
 DECLARE bad int;
@@ -126,6 +188,7 @@ END $$;
 
 DELETE FROM public.tenant_service_secrets WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
 DELETE FROM public.platform_commissions WHERE tenant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+DELETE FROM public.tenants WHERE id = 'cccccccc-0000-0000-0000-000000000003';
 
 DO $$
 DECLARE

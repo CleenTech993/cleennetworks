@@ -6,6 +6,7 @@ import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { confirmPlatformInvoiceReceipt } from "@/lib/platform-invoice.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/super-admin/settlements")({ component: Commissions });
@@ -35,23 +36,15 @@ function Commissions() {
     },
   });
 
-  const recordReceipt = useMutation({
-    mutationFn: async (commissionId: string) => {
-      const receipt = receipts[commissionId]?.trim().toUpperCase();
+  const confirmReceipt = useMutation({
+    mutationFn: async ({ commissionId, receipt }: { commissionId: string; receipt: string }) => {
       if (!receipt) throw new Error("Enter the M-Pesa receipt number first.");
-      const { error } = await supabase
-        .from("platform_commissions")
-        .update({
-          status: "collected",
-          mpesa_receipt: receipt,
-          collected_at: new Date().toISOString(),
-        })
-        .eq("id", commissionId)
-        .eq("status", "pending");
-      if (error) throw error;
+      return confirmPlatformInvoiceReceipt({
+        data: { invoiceId: commissionId, receipt },
+      });
     },
     onSuccess: () => {
-      toast.success("Commission receipt recorded");
+      toast.success("Payment code matched; invoice marked paid");
       queryClient.invalidateQueries({ queryKey: ["platform-commissions"] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -65,8 +58,9 @@ function Commissions() {
       />
       <div className="mb-6 rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground">
         Invoices are generated automatically after each completed month from successful payments.
-        Tenants have 72 hours after invoice issue to pay by C2B. Record a receipt only after
-        independently confirming the payment.
+        Hotspot and voucher income is charged at 2%; PPPoE income is charged at 1%. Tenants have 72
+        hours after invoice issue to pay. Verify each payment against the platform's M-Pesa records;
+        the invoice is marked paid only when your code exactly matches the tenant-submitted code.
       </div>
 
       {!rows?.length ? (
@@ -82,7 +76,7 @@ function Commissions() {
                 <th className="px-4 py-2.5 text-left">Tenant</th>
                 <th className="px-4 py-2.5 text-left">Invoice</th>
                 <th className="px-4 py-2.5 text-left">Period</th>
-                <th className="px-4 py-2.5 text-left">Gross</th>
+                <th className="px-4 py-2.5 text-left">Income breakdown</th>
                 <th className="px-4 py-2.5 text-left">Commission due</th>
                 <th className="px-4 py-2.5 text-left">Due / email</th>
                 <th className="px-4 py-2.5 text-left">Status / receipt</th>
@@ -106,9 +100,36 @@ function Commissions() {
                       { timeZone: "Africa/Nairobi" },
                     )}
                   </td>
-                  <td className="px-4 py-2.5">KES {Number(row.gross_amount).toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-xs">
+                    {row.hotspot_gross_amount != null && row.pppoe_gross_amount != null ? (
+                      <>
+                        <p>
+                          Hotspot / voucher: KES {Number(row.hotspot_gross_amount).toLocaleString()}
+                        </p>
+                        <p>PPPoE: KES {Number(row.pppoe_gross_amount).toLocaleString()}</p>
+                        <p className="mt-1 font-medium">
+                          Total: KES {Number(row.gross_amount).toLocaleString()}
+                        </p>
+                      </>
+                    ) : (
+                      <>KES {Number(row.gross_amount).toLocaleString()} (legacy)</>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 font-medium">
-                    KES {Number(row.commission_amount).toLocaleString()}
+                    {row.hotspot_commission_amount != null &&
+                    row.pppoe_commission_amount != null ? (
+                      <div className="text-xs">
+                        <p>
+                          Hotspot 2%: KES {Number(row.hotspot_commission_amount).toLocaleString()}
+                        </p>
+                        <p>PPPoE 1%: KES {Number(row.pppoe_commission_amount).toLocaleString()}</p>
+                        <p className="mt-1 font-semibold">
+                          Total: KES {Number(row.commission_amount).toLocaleString()}
+                        </p>
+                      </div>
+                    ) : (
+                      <>KES {Number(row.commission_amount).toLocaleString()}</>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-xs">
                     <p>
@@ -135,6 +156,12 @@ function Commissions() {
                         {row.mpesa_receipt}
                       </p>
                     )}
+                    {row.tenant_mpesa_receipt && row.status === "pending" && (
+                      <p className="mt-1 text-xs">
+                        Tenant submitted:{" "}
+                        <span className="font-mono">{row.tenant_mpesa_receipt}</span>
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     {row.status === "pending" && (
@@ -142,6 +169,7 @@ function Commissions() {
                         <Input
                           aria-label={`M-Pesa receipt for ${row.tenant.name}`}
                           placeholder="C2B receipt"
+                          maxLength={40}
                           value={receipts[row.id] ?? ""}
                           onChange={(event) =>
                             setReceipts({ ...receipts, [row.id]: event.target.value })
@@ -151,10 +179,15 @@ function Commissions() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => recordReceipt.mutate(row.id)}
-                          disabled={recordReceipt.isPending}
+                          onClick={() =>
+                            confirmReceipt.mutate({
+                              commissionId: row.id,
+                              receipt: receipts[row.id]?.trim() ?? "",
+                            })
+                          }
+                          disabled={confirmReceipt.isPending || !row.tenant_mpesa_receipt}
                         >
-                          Record
+                          Match & pay
                         </Button>
                       </div>
                     )}

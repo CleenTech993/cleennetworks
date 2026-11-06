@@ -10,7 +10,13 @@ export interface PlatformInvoiceEmail {
   dueAt: string;
   grossAmount: number;
   commissionAmount: number;
-  commissionRatePct: number;
+  commissionRatePct?: number;
+  hotspotGrossAmount?: number;
+  pppoeGrossAmount?: number;
+  hotspotCommissionAmount?: number;
+  pppoeCommissionAmount?: number;
+  hotspotCommissionRatePct?: number;
+  pppoeCommissionRatePct?: number;
   platformShortcode: string | null;
 }
 
@@ -65,11 +71,46 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
     dueAt: escapeHtml(formatDate(invoice.dueAt)),
     gross: escapeHtml(formatAmount(invoice.grossAmount)),
     commission: escapeHtml(formatAmount(invoice.commissionAmount)),
-    rate: escapeHtml(`${invoice.commissionRatePct}%`),
+    breakdown:
+      invoice.hotspotGrossAmount !== undefined &&
+      invoice.pppoeGrossAmount !== undefined &&
+      invoice.hotspotCommissionAmount !== undefined &&
+      invoice.pppoeCommissionAmount !== undefined &&
+      invoice.hotspotCommissionRatePct !== undefined &&
+      invoice.pppoeCommissionRatePct !== undefined
+        ? [
+            {
+              label: `Hotspot / voucher income (${invoice.hotspotCommissionRatePct}%)`,
+              income: formatAmount(invoice.hotspotGrossAmount),
+              commission: formatAmount(invoice.hotspotCommissionAmount),
+            },
+            {
+              label: `PPPoE income (${invoice.pppoeCommissionRatePct}%)`,
+              income: formatAmount(invoice.pppoeGrossAmount),
+              commission: formatAmount(invoice.pppoeCommissionAmount),
+            },
+          ]
+        : null,
+    rate:
+      invoice.commissionRatePct === undefined ? null : escapeHtml(`${invoice.commissionRatePct}%`),
     shortcode: invoice.platformShortcode
       ? `<p>Paybill/Till: <strong>${escapeHtml(invoice.platformShortcode)}</strong></p>`
       : "",
   };
+  const breakdownText = values.breakdown
+    ? [
+        `${values.breakdown[0].label}: ${values.breakdown[0].income}; commission ${values.breakdown[0].commission}`,
+        `${values.breakdown[1].label}: ${values.breakdown[1].income}; commission ${values.breakdown[1].commission}`,
+      ]
+    : [`Commission (${invoice.commissionRatePct}%): ${formatAmount(invoice.commissionAmount)}`];
+  const breakdownHtml = values.breakdown
+    ? values.breakdown
+        .map(
+          (line) =>
+            `<tr><td style="padding:8px;border-bottom:1px solid #ddd">${escapeHtml(line.label)}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">${escapeHtml(line.income)}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">${escapeHtml(line.commission)}</td></tr>`,
+        )
+        .join("")
+    : `<tr><td style="padding:8px;border-bottom:1px solid #ddd">Commission (${values.rate})</td><td colspan="2" style="padding:8px;border-bottom:1px solid #ddd;text-align:right"><strong>${values.commission}</strong></td></tr>`;
 
   await transport.sendMail({
     from,
@@ -83,7 +124,8 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
       `Issued: ${formatDate(invoice.issuedAt)}`,
       `Due: ${formatDate(invoice.dueAt)}`,
       `Customer payments: ${formatAmount(invoice.grossAmount)}`,
-      `Commission (${invoice.commissionRatePct}%): ${formatAmount(invoice.commissionAmount)}`,
+      ...breakdownText,
+      `Total commission due: ${formatAmount(invoice.commissionAmount)}`,
       invoice.platformShortcode ? `Platform Paybill/Till: ${invoice.platformShortcode}` : "",
       "",
       "Please settle the commission by the due date. Tenant customer service may be paused if the invoice remains unpaid.",
@@ -96,8 +138,12 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
       <p>Invoice <strong>${values.invoiceNumber}</strong> covers ${values.periodStart} to ${values.periodEnd}.</p>
       <p>Issued ${values.issuedAt}; due ${values.dueAt}.</p>
       <table style="border-collapse:collapse;width:100%">
-        <tr><td style="padding:8px;border-bottom:1px solid #ddd">Customer payments</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">${values.gross}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #ddd">Commission (${values.rate})</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right"><strong>${values.commission}</strong></td></tr>
+        <thead><tr><th style="padding:8px;text-align:left">Service</th><th style="padding:8px;text-align:right">Income</th><th style="padding:8px;text-align:right">Commission</th></tr></thead>
+        <tbody>${breakdownHtml}</tbody>
+        <tfoot>
+          <tr><td style="padding:8px;border-bottom:1px solid #ddd">Total customer payments</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">${values.gross}</td><td style="padding:8px;border-bottom:1px solid #ddd"></td></tr>
+          <tr><td colspan="2" style="padding:8px;font-weight:bold">Total commission due</td><td style="padding:8px;text-align:right"><strong>${values.commission}</strong></td></tr>
+        </tfoot>
       </table>
       ${values.shortcode}
       <p>Please settle the commission by the due date. Tenant customer service may be paused if the invoice remains unpaid.</p>

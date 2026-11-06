@@ -98,11 +98,22 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
           }
 
           try {
+            const tieredFields = [
+              invoice.hotspot_gross_amount,
+              invoice.pppoe_gross_amount,
+              invoice.hotspot_commission_amount,
+              invoice.pppoe_commission_amount,
+              invoice.hotspot_commission_rate_pct,
+              invoice.pppoe_commission_rate_pct,
+            ];
+            const hasTieredBreakdown = tieredFields.every((value) => typeof value === "number");
             if (
               !invoice.invoice_number ||
               !invoice.issued_at ||
               !invoice.due_at ||
-              invoice.commission_rate_pct === null
+              (!hasTieredBreakdown &&
+                (typeof invoice.commission_rate_pct !== "number" ||
+                  invoice.commission_rate_pct === null))
             ) {
               throw new Error("Invoice fields are incomplete.");
             }
@@ -116,7 +127,16 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
               dueAt: invoice.due_at,
               grossAmount: Number(invoice.gross_amount),
               commissionAmount: Number(invoice.commission_amount),
-              commissionRatePct: Number(invoice.commission_rate_pct),
+              ...(hasTieredBreakdown
+                ? {
+                    hotspotGrossAmount: Number(invoice.hotspot_gross_amount),
+                    pppoeGrossAmount: Number(invoice.pppoe_gross_amount),
+                    hotspotCommissionAmount: Number(invoice.hotspot_commission_amount),
+                    pppoeCommissionAmount: Number(invoice.pppoe_commission_amount),
+                    hotspotCommissionRatePct: Number(invoice.hotspot_commission_rate_pct),
+                    pppoeCommissionRatePct: Number(invoice.pppoe_commission_rate_pct),
+                  }
+                : { commissionRatePct: Number(invoice.commission_rate_pct) }),
               platformShortcode: platformConfig?.shortcode ?? null,
             });
           } catch (error) {

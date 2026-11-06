@@ -26,7 +26,6 @@ import {
   Plus,
   Search,
   Building2,
-  Percent,
   Router as RouterIcon,
   ShieldAlert,
   ShieldCheck,
@@ -62,13 +61,11 @@ function Tenants() {
   // Create form state
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [commissionPct, setCommissionPct] = useState("5.0");
   const [slugTouched, setSlugTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
-  const [editCommissionPct, setEditCommissionPct] = useState("5.0");
   const [editStatus, setEditStatus] = useState("active");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
@@ -78,10 +75,7 @@ function Tenants() {
     queryKey: ["all-tenants-super"],
     queryFn: async () => {
       const [tenantsRes, routersRes, paymentsRes] = await Promise.all([
-        supabase
-          .from("tenants")
-          .select("*")
-          .order("created_at", { ascending: false }),
+        supabase.from("tenants").select("*").order("created_at", { ascending: false }),
         supabase.from("routers").select("id,tenant_id,status"),
         supabase.from("payments").select("tenant_id,amount").eq("status", "success"),
       ]);
@@ -127,7 +121,6 @@ function Tenants() {
   const resetCreate = () => {
     setName("");
     setSlug("");
-    setCommissionPct("5.0");
     setSlugTouched(false);
   };
 
@@ -137,16 +130,10 @@ function Tenants() {
     if (!/^[a-z0-9-]{3,60}$/.test(slug))
       return toast.error("Slug must be 3–60 chars: lowercase letters, digits, hyphens");
 
-    const comm = parseFloat(commissionPct);
-    if (isNaN(comm) || comm < 0 || comm > 100) {
-      return toast.error("Commission percentage must be between 0 and 100");
-    }
-
     setSaving(true);
     const { error } = await supabase.from("tenants").insert({
       name: trimmedName,
       slug,
-      platform_commission_pct: comm,
       status: "active",
     });
     setSaving(false);
@@ -161,7 +148,6 @@ function Tenants() {
   const openEditModal = (t: TenantRow) => {
     setEditingTenant(t);
     setEditName(t.name);
-    setEditCommissionPct(String(t.platform_commission_pct ?? 5));
     setEditStatus(t.status);
     setEditEmail(t.support_email ?? "");
     setEditPhone(t.support_phone ?? "");
@@ -172,17 +158,11 @@ function Tenants() {
     const trimmed = editName.trim();
     if (!trimmed) return toast.error("Name cannot be empty");
 
-    const comm = parseFloat(editCommissionPct);
-    if (isNaN(comm) || comm < 0 || comm > 100) {
-      return toast.error("Commission must be between 0 and 100%");
-    }
-
     setSavingEdit(true);
     const { error } = await supabase
       .from("tenants")
       .update({
         name: trimmed,
-        platform_commission_pct: comm,
         status: editStatus,
         support_email: editEmail.trim() || null,
         support_phone: editPhone.trim() || null,
@@ -224,7 +204,7 @@ function Tenants() {
     <div className="space-y-6">
       <PageHeader
         title="Tenant ISP & Quota Governance"
-        description="Manage ISP organizations, configure platform commission tiers, and oversee tenant lifecycles."
+        description="Manage ISP organizations and tenant lifecycles. Platform commission is fixed at 2% for hotspot / voucher income and 1% for PPPoE income."
         action={
           <Dialog
             open={openCreate}
@@ -270,22 +250,10 @@ function Tenants() {
                     Captive portal will resolve at /p/{slug || "slug"}
                   </p>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="t-comm">Platform Commission Rate (%)</Label>
-                  <div className="relative">
-                    <Input
-                      id="t-comm"
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      max="100"
-                      value={commissionPct}
-                      onChange={(e) => setCommissionPct(e.target.value)}
-                    />
-                    <Percent className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Platform takes this percentage of gross payments during settlement reconciliation.
+                <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                  <p className="font-medium">Platform commission</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Fixed at 2% of hotspot / voucher income and 1% of PPPoE income.
                   </p>
                 </div>
               </div>
@@ -314,7 +282,9 @@ function Tenants() {
           icon={ShieldCheck}
           label="Active & Operating"
           value={activeCount}
-          hint={tenants.length ? `${Math.round((activeCount / tenants.length) * 100)}% active` : "—"}
+          hint={
+            tenants.length ? `${Math.round((activeCount / tenants.length) * 100)}% active` : "—"
+          }
         />
         <StatCard
           icon={ShieldAlert}
@@ -413,7 +383,7 @@ function Tenants() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant="outline" className="font-mono text-xs">
-                        {t.platform_commission_pct ?? 5}%
+                        Hotspot 2% · PPPoE 1%
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs font-medium">
@@ -481,25 +451,6 @@ function Tenants() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="edit-comm">Platform Commission Rate (%)</Label>
-                <div className="relative">
-                  <Input
-                    id="edit-comm"
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="100"
-                    value={editCommissionPct}
-                    onChange={(e) => setEditCommissionPct(e.target.value)}
-                  />
-                  <Percent className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Custom rate applied to all automated settlement calculations for this ISP.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
                 <Label htmlFor="edit-status">Account Lifecycle Status</Label>
                 <Select value={editStatus} onValueChange={setEditStatus}>
                   <SelectTrigger id="edit-status">
@@ -536,7 +487,11 @@ function Tenants() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingTenant(null)} disabled={savingEdit}>
+              <Button
+                variant="outline"
+                onClick={() => setEditingTenant(null)}
+                disabled={savingEdit}
+              >
                 Cancel
               </Button>
               <Button onClick={handleSaveEdit} disabled={savingEdit}>

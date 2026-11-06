@@ -43,38 +43,44 @@ function Overview() {
   const { data, refetch, isFetching } = useQuery({
     queryKey: ["super-overview", timeframe],
     queryFn: async () => {
-      const [tenantsRes, routersRes, customersRes, paymentsRes, sessionsRes] = await Promise.all([
-        supabase
-          .from("tenants")
-          .select("id,name,slug,status,platform_commission_pct,created_at"),
-        supabase
-          .from("routers")
-          .select("id,name,status,tenant_id,last_heartbeat_at,cpu_load,cpu_usage"),
-        supabase.from("customers").select("id,customer_type,status"),
-        supabase
-          .from("payments")
-          .select("amount,status,created_at,tenant_id")
-          .eq("status", "success")
-          .order("created_at", { ascending: true }),
-        supabase.from("sessions").select("id,status").eq("status", "active"),
-      ]);
+      const [tenantsRes, routersRes, customersRes, paymentsRes, packagesRes, sessionsRes] =
+        await Promise.all([
+          supabase.from("tenants").select("id,name,slug,status,created_at"),
+          supabase
+            .from("routers")
+            .select("id,name,status,tenant_id,last_heartbeat_at,cpu_load,cpu_usage"),
+          supabase.from("customers").select("id,customer_type,status"),
+          supabase
+            .from("payments")
+            .select("amount,status,created_at,tenant_id,package_id")
+            .eq("status", "success")
+            .order("created_at", { ascending: true }),
+          supabase.from("packages").select("id,tenant_id,kind"),
+          supabase.from("sessions").select("id,status").eq("status", "active"),
+        ]);
 
       const tenants = tenantsRes.data ?? [];
       const routers = routersRes.data ?? [];
       const customers = customersRes.data ?? [];
       const payments = paymentsRes.data ?? [];
+      if (paymentsRes.error) throw paymentsRes.error;
+      if (packagesRes.error) throw packagesRes.error;
+      const packagesById = new Map((packagesRes.data ?? []).map((pkg) => [pkg.id, pkg]));
       const sessions = sessionsRes.data ?? [];
 
-      const commissionMap = new Map<string, number>();
-      for (const t of tenants) {
-        commissionMap.set(t.id, Number(t.platform_commission_pct ?? 5));
-      }
+      const estimatedCommission = (payment: (typeof payments)[number]) => {
+        const pkg = payment.package_id ? packagesById.get(payment.package_id) : undefined;
+        if (!pkg || pkg.tenant_id !== payment.tenant_id) return 0;
+        const rate =
+          pkg.kind === "pppoe" ? 0.01 : ["hotspot", "voucher"].includes(pkg.kind) ? 0.02 : 0;
+        return Number(payment.amount) * rate;
+      };
 
       const totalGMV = payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const totalCommission = payments.reduce((sum, p) => {
-        const pct = commissionMap.get(p.tenant_id) ?? 5;
-        return sum + (Number(p.amount) * pct) / 100;
-      }, 0);
+      const totalCommission = payments.reduce(
+        (sum, payment) => sum + estimatedCommission(payment),
+        0,
+      );
 
       const onlineRouters = routers.filter(isRouterLive).length;
       const offlineRouters = routers.length - onlineRouters;
@@ -83,10 +89,11 @@ function Overview() {
       const hotspotCustCount = customers.filter((c) => c.customer_type === "hotspot").length;
 
       // Group payments by tenant for leaderboard
-      const tenantSpend = new Map<string, { gmv: number; count: number }>();
+      const tenantSpend = new Map<string, { gmv: number; commission: number; count: number }>();
       for (const p of payments) {
-        const cur = tenantSpend.get(p.tenant_id) ?? { gmv: 0, count: 0 };
+        const cur = tenantSpend.get(p.tenant_id) ?? { gmv: 0, commission: 0, count: 0 };
         cur.gmv += Number(p.amount);
+        cur.commission += estimatedCommission(p);
         cur.count += 1;
         tenantSpend.set(p.tenant_id, cur);
       }
@@ -99,9 +106,7 @@ function Overview() {
 
       const leaderboard = tenants
         .map((t) => {
-          const stats = tenantSpend.get(t.id) ?? { gmv: 0, count: 0 };
-          const commPct = commissionMap.get(t.id) ?? 5;
-          const commEarned = (stats.gmv * commPct) / 100;
+          const stats = tenantSpend.get(t.id) ?? { gmv: 0, commission: 0, count: 0 };
           return {
             id: t.id,
             name: t.name,
@@ -109,8 +114,7 @@ function Overview() {
             status: t.status,
             routersCount: tenantRouterCounts.get(t.id) ?? 0,
             gmv: stats.gmv,
-            commission: commEarned,
-            commPct,
+            commission: stats.commission,
             txCount: stats.count,
           };
         })
@@ -130,10 +134,7 @@ function Overview() {
 
         const dayPayments = payments.filter((p) => p.created_at.slice(0, 10) === dayStr);
         const dayGmv = dayPayments.reduce((s, p) => s + Number(p.amount), 0);
-        const dayComm = dayPayments.reduce((s, p) => {
-          const pct = commissionMap.get(p.tenant_id) ?? 5;
-          return s + (Number(p.amount) * pct) / 100;
-        }, 0);
+        const dayComm = dayPayments.reduce((sum, payment) => sum + estimatedCommission(payment), 0);
 
         const currentEntry = days[days.length - 1];
         currentEntry.gmv = dayGmv;
@@ -170,11 +171,12 @@ function Overview() {
       const escaped = v.replace(/"/g, '""');
       return /^[=+@\-]/.test(escaped) ? `'${escaped}` : escaped;
     };
-    const header = "Tenant,Slug,Status,Routers,Gross Turnover (KES),Platform Commission (KES),Transactions\n";
+    const header =
+      "Tenant,Slug,Status,Routers,Gross Turnover (KES),Estimated Platform Commission (KES),Transactions\n";
     const rows = data.leaderboard
       .map(
         (t) =>
-          `"${csvCell(t.name)}","${csvCell(t.slug)}","${csvCell(t.status)}",${t.routersCount},${t.gmv},${Math.round(t.commission)},${t.txCount}`
+          `"${csvCell(t.name)}","${csvCell(t.slug)}","${csvCell(t.status)}",${t.routersCount},${t.gmv},${Math.round(t.commission)},${t.txCount}`,
       )
       .join("\n");
     const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
@@ -227,15 +229,19 @@ function Overview() {
         />
         <StatCard
           icon={TrendingUp}
-          label="Platform Net Commission"
+          label="Estimated Platform Commission"
           value={data ? `KES ${Math.round(data.totalCommission).toLocaleString()}` : "—"}
-          hint="Calculated from tenant commission tiers"
+          hint="2% hotspot / voucher, 1% PPPoE; unclassified payments excluded"
         />
         <StatCard
           icon={Building2}
           label="Active ISP Tenants"
           value={data ? `${data.activeTenants} / ${data.tenantsCount}` : "—"}
-          hint={data ? `${Math.round((data.activeTenants / (data.tenantsCount || 1)) * 100)}% active rate` : undefined}
+          hint={
+            data
+              ? `${Math.round((data.activeTenants / (data.tenantsCount || 1)) * 100)}% active rate`
+              : undefined
+          }
         />
         <StatCard
           icon={RouterIcon}
@@ -250,13 +256,19 @@ function Overview() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold tracking-tight">Cross-Tenant Financial Analytics</h2>
-              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Cross-Tenant Financial Analytics
+              </h2>
+              <Badge
+                variant="outline"
+                className="text-xs bg-primary/10 text-primary border-primary/20"
+              >
                 <Sparkles className="h-3 w-3 mr-1" /> Enterprise Telemetry
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Gross platform payment volume compared to net retained SaaS commission.
+              Gross payment volume compared with commission estimated at the fixed 2% / 1% service
+              rates. Unclassified payments are excluded from commission.
             </p>
           </div>
 
@@ -292,7 +304,13 @@ function Overview() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted/40" />
-              <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} textAnchor="middle" />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                textAnchor="middle"
+              />
               <YAxis
                 tickLine={false}
                 axisLine={false}
@@ -358,7 +376,10 @@ function Overview() {
               <Server className="h-4 w-4 text-primary" />
               Router Infrastructure
             </h3>
-            <Link to="/super-admin/noc" className="text-xs text-primary hover:underline flex items-center">
+            <Link
+              to="/super-admin/noc"
+              className="text-xs text-primary hover:underline flex items-center"
+            >
               Open NOC <ArrowUpRight className="h-3 w-3 ml-0.5" />
             </Link>
           </div>
@@ -368,7 +389,7 @@ function Overview() {
                 <span className="text-muted-foreground">Fleet Online Ratio</span>
                 <span className="font-semibold">
                   {data?.routersCount
-                    ? `${Math.round(((data.onlineRouters) / data.routersCount) * 100)}%`
+                    ? `${Math.round((data.onlineRouters / data.routersCount) * 100)}%`
                     : "0%"}
                 </span>
               </div>
@@ -377,7 +398,7 @@ function Overview() {
                   className="h-full bg-emerald-500 transition-all duration-500"
                   style={{
                     width: data?.routersCount
-                      ? `${Math.round(((data.onlineRouters) / data.routersCount) * 100)}%`
+                      ? `${Math.round((data.onlineRouters / data.routersCount) * 100)}%`
                       : "0%",
                   }}
                 />
@@ -502,7 +523,7 @@ function Overview() {
                 <th className="px-4 py-3 text-center">Routers</th>
                 <th className="px-4 py-3 text-right">Transactions</th>
                 <th className="px-4 py-3 text-right">Gross GMV</th>
-                <th className="px-4 py-3 text-right">Platform Fee</th>
+                <th className="px-4 py-3 text-right">Estimated Platform Fee</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -521,7 +542,10 @@ function Overview() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={t.status === "active" ? "default" : "secondary"} className="capitalize">
+                    <Badge
+                      variant={t.status === "active" ? "default" : "secondary"}
+                      className="capitalize"
+                    >
                       {t.status}
                     </Badge>
                   </td>
@@ -534,7 +558,7 @@ function Overview() {
                     <div className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
                       KES {Math.round(t.commission).toLocaleString()}
                     </div>
-                    <div className="text-[10px] text-muted-foreground">{t.commPct}% tier</div>
+                    <div className="text-[10px] text-muted-foreground">Hotspot 2% · PPPoE 1%</div>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link to="/super-admin/tenants">
