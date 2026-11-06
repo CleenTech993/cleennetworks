@@ -169,8 +169,8 @@ function buildRsc(p: {
 # --- Hotspot ---${ROUTEROS_PICK_HTML_DIR}/ip hotspot profile
 :do { add name=netgrid-hsprof hotspot-address=10.5.50.1 dns-name=hotspot.netgrid login-by=http-chap,http-pap,mac-cookie html-directory=hotspot } on-error={ :log warning "NetGrid: hotspot profile failed" }
 /ip hotspot
-# Expire inactive unauthorized portal hosts; voucher users have separate no-idle-timeout profiles.
-:do { add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof idle-timeout=15m login-timeout=15m keepalive-timeout=none disabled=no } on-error={ :log warning "NetGrid: hotspot server failed" }
+# Keep authorized hotspot clients online; individual voucher expiry is enforced separately.
+:do { add name=netgrid-hs interface=netgrid-lan address-pool=netgrid-hs-pool profile=netgrid-hsprof idle-timeout=none login-timeout=15m keepalive-timeout=none disabled=no } on-error={ :log warning "NetGrid: hotspot server failed" }
 /ip hotspot user profile
 :do { add name=netgrid-d1 shared-users=1 } on-error={}
 

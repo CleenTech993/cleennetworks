@@ -289,6 +289,10 @@ describe("sync script scoping", () => {
     expect(text).toContain(':local ngCurrentVouchers [:toarray "UNUSED2345,USED22345A"]');
     expect(text).toContain(`sync/${token}?vouchers=1`);
     expect(text).toContain('interval=10s on-event="/system script run netgrid-voucher-sync"');
+    expect(text).toContain(
+      "/ip hotspot set [find name=netgrid-hs] idle-timeout=none keepalive-timeout=none",
+    );
+    expect(text).not.toContain("idle-timeout=0s keepalive-timeout=0s");
   });
 
   it("serves new vouchers through the lightweight poll without returning full router sync data", async () => {
@@ -349,7 +353,7 @@ describe("router.rsc provisioning", () => {
 
   it("moves the LAN ports into the hotspot bridge last, so a dropped session cannot leave a half-configured router", async () => {
     const script = await (await rsc(BOOT1)).text();
-    expect(script).toContain("idle-timeout=15m login-timeout=15m keepalive-timeout=none");
+    expect(script).toContain("idle-timeout=none login-timeout=15m keepalive-timeout=none");
     const at = (s: string) => {
       const i = script.indexOf(s);
       expect(i, `missing: ${s}`).toBeGreaterThan(-1);
