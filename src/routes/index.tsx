@@ -59,14 +59,17 @@ const payments = [
 ];
 
 const steps = [
-  { title: "Add a router", body: "Name it in the console and copy the setup line it generates." },
   {
-    title: "Paste it into the MikroTik terminal",
-    body: "The router configures hotspot, PPPoE and reporting by itself, then restarts.",
+    title: "Create your ISP workspace",
+    body: "Enter your business name, contact person, phone and email. Verify your email if prompted—no super-admin approval is needed.",
   },
   {
-    title: "Customers pay and get online",
-    body: "They buy a package with M-Pesa on your branded portal and receive a voucher right away.",
+    title: "Connect your MikroTik",
+    body: "Add a router in the console and paste the generated setup command into its terminal.",
+  },
+  {
+    title: "Configure services and go live",
+    body: "Set up hotspot or PPPoE packages, your branded portal and your M-Pesa collections.",
   },
 ];
 
@@ -99,7 +102,12 @@ const features = [
   {
     icon: Shield,
     title: "Separate workspaces",
-    body: "Every ISP gets an isolated workspace, with roles for admins, technicians and support.",
+    body: "Every ISP gets an isolated workspace. Team members can hold multiple roles, such as technician and billing agent.",
+  },
+  {
+    icon: CreditCard,
+    title: "Clear monthly platform invoices",
+    body: "Hotspot and voucher income is charged 2%; PPPoE income is charged 1%. Review the monthly breakdown and submit your M-Pesa payment code in the console.",
   },
 ];
 
@@ -113,7 +121,7 @@ function Landing() {
             <Link to="/login">Sign in</Link>
           </Button>
           <Button asChild size="sm">
-            <Link to="/signup">Request access</Link>
+            <Link to="/signup">Create ISP account</Link>
           </Button>
         </nav>
       </header>
@@ -130,7 +138,7 @@ function Landing() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link to="/signup">Request access</Link>
+                <Link to="/signup">Create ISP account</Link>
               </Button>
               <Button asChild size="lg" variant="outline">
                 <Link to="/login">Sign in</Link>
@@ -185,7 +193,7 @@ function Landing() {
         <section className="border-y bg-card/60">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
             <h2 className="max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">
-              From a new router to paying customers
+              Start without waiting for approval
             </h2>
             <ol className="mt-10 grid gap-8 md:grid-cols-3">
               {steps.map((s, i) => (
@@ -200,6 +208,24 @@ function Landing() {
                 </li>
               ))}
             </ol>
+            <div className="mt-10 rounded-xl border bg-background p-5">
+              <h3 className="font-semibold">Monthly platform commission</h3>
+              <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                <p className="rounded-lg bg-muted/50 p-3">
+                  <span className="font-medium">Hotspot / voucher:</span> 2% of successful income
+                </p>
+                <p className="rounded-lg bg-muted/50 p-3">
+                  <span className="font-medium">PPPoE:</span> 1% of successful income
+                </p>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                You receive a monthly invoice with both income totals and the amount due. Pay to
+                the platform account shown in your console, submit your M-Pesa transaction code,
+                and the payment is confirmed when a platform admin matches the code. Your workspace
+                is created as soon as setup is complete; only email verification is required when
+                enabled for your account.
+              </p>
+            </div>
           </div>
         </section>
 

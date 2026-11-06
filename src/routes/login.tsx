@@ -81,9 +81,9 @@ function LoginPage() {
       description="Welcome back. Sign in to your console."
       footer={
         <>
-          New here?{" "}
+          New ISP?{" "}
           <Link to="/signup" className="font-medium text-primary hover:underline">
-            Request access
+            Create an account
           </Link>
         </>
       }

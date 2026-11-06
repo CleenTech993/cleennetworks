@@ -86,22 +86,27 @@ export const listTeam = createServerFn({ method: "POST" })
 const AddSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   fullName: z.string().trim().min(1).max(100),
-  role: z.enum(TEAM_ROLES),
+  roles: z
+    .array(z.enum(TEAM_ROLES))
+    .min(1)
+    .max(TEAM_ROLES.length)
+    .transform((roles) => [...new Set(roles)]),
   password: z.string().min(8).max(72),
 });
 
 export const addTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => AddSchema.parse(input))
+  .inputValidator((input: unknown) => AddSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true; existing: boolean } | Fail> => {
+    const input = AddSchema.parse(data);
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
 
-    // Did this person already sign up on their own (and is still waiting for approval)?
+    // Reuse an existing platform account when it has not yet been assigned access.
     const { data: existing } = await supabaseAdmin
       .from("profiles")
       .select("id")
-      .eq("email", data.email)
+      .eq("email", input.email)
       .maybeSingle();
 
     let userId: string;
@@ -121,10 +126,10 @@ export const addTeamMember = createServerFn({ method: "POST" })
       userId = existing.id; // pending self-signup: attach them, keep their own password
     } else {
       const { data: res, error } = await supabaseAdmin.auth.admin.createUser({
-        email: data.email,
-        password: data.password,
+        email: input.email,
+        password: input.password,
         email_confirm: true,
-        user_metadata: { full_name: data.fullName },
+        user_metadata: { full_name: input.fullName },
       });
       if (error || !res.user)
         return { ok: false, error: error?.message ?? "Could not create the account." };
@@ -140,7 +145,7 @@ export const addTeamMember = createServerFn({ method: "POST" })
     const { error: pErr } = await supabaseAdmin
       .from("profiles")
       .upsert(
-        { id: userId, email: data.email, full_name: data.fullName, tenant_id: tenantId },
+        { id: userId, email: input.email, full_name: input.fullName, tenant_id: tenantId },
         { onConflict: "id" },
       );
     if (pErr) {
@@ -150,7 +155,13 @@ export const addTeamMember = createServerFn({ method: "POST" })
 
     const { error: rErr } = await supabaseAdmin
       .from("user_roles")
-      .insert({ user_id: userId, role: data.role, tenant_id: tenantId });
+      .insert(
+        input.roles.map((role) => ({
+          user_id: userId,
+          role,
+          tenant_id: tenantId,
+        })),
+      );
     if (rErr) {
       await rollback();
       return { ok: false, error: rErr.message };
@@ -159,30 +170,33 @@ export const addTeamMember = createServerFn({ method: "POST" })
     return { ok: true, existing: !created };
   });
 
-const RoleSchema = z.object({ userId: z.string().uuid(), role: z.enum(TEAM_ROLES) });
+const RoleSchema = z.object({
+  userId: z.string().uuid(),
+  roles: z
+    .array(z.enum(TEAM_ROLES))
+    .min(1)
+    .max(TEAM_ROLES.length)
+    .transform((roles) => [...new Set(roles)]),
+});
 
 export const updateTeamMemberRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => RoleSchema.parse(input))
+  .inputValidator((input: unknown) => RoleSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
+    const input = RoleSchema.parse(data);
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
-    if (data.userId === context.userId)
+    if (input.userId === context.userId)
       return { ok: false, error: "You can't change your own role." };
-    if (!(await isMemberOf(tenantId, data.userId)))
+    if (!(await isMemberOf(tenantId, input.userId)))
       return { ok: false, error: "Member not found." };
 
-    const { error: dErr } = await supabaseAdmin
-      .from("user_roles")
-      .delete()
-      .eq("tenant_id", tenantId)
-      .eq("user_id", data.userId);
-    if (dErr) return { ok: false, error: dErr.message };
-
-    const { error: iErr } = await supabaseAdmin
-      .from("user_roles")
-      .insert({ user_id: data.userId, role: data.role, tenant_id: tenantId });
-    if (iErr) return { ok: false, error: iErr.message };
+    const { error } = await supabaseAdmin.rpc("update_tenant_member_roles", {
+      p_actor_id: context.userId,
+      p_user_id: input.userId,
+      p_roles: input.roles,
+    });
+    if (error) return { ok: false, error: error.message };
     return { ok: true };
   });
 
@@ -190,26 +204,16 @@ const RemoveSchema = z.object({ userId: z.string().uuid() });
 
 export const removeTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => RemoveSchema.parse(input))
+  .inputValidator((input: unknown) => RemoveSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
+    const input = RemoveSchema.parse(data);
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
-    if (data.userId === context.userId) return { ok: false, error: "You can't remove yourself." };
-    if (!(await isMemberOf(tenantId, data.userId)))
-      return { ok: false, error: "Member not found." };
-
-    const { error } = await supabaseAdmin
-      .from("user_roles")
-      .delete()
-      .eq("tenant_id", tenantId)
-      .eq("user_id", data.userId);
+    if (input.userId === context.userId) return { ok: false, error: "You can't remove yourself." };
+    const { error } = await supabaseAdmin.rpc("remove_tenant_member", {
+      p_actor_id: context.userId,
+      p_user_id: input.userId,
+    });
     if (error) return { ok: false, error: error.message };
-
-    // Detach from the tenant; with no roles left they land on the "pending" page if they sign in.
-    await supabaseAdmin
-      .from("profiles")
-      .update({ tenant_id: null })
-      .eq("id", data.userId)
-      .eq("tenant_id", tenantId);
     return { ok: true };
   });

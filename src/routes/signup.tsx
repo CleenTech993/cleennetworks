@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
-    meta: [{ title: "Request access — NetGrid" }, { name: "robots", content: "noindex, nofollow" }],
+    meta: [{ title: "Create ISP account — NetGrid" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: SignupPage,
 });
@@ -17,6 +17,8 @@ export const Route = createFileRoute("/signup")({
 function SignupPage() {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,18 +31,36 @@ function SignupPage() {
       const { data: signup, error: signErr } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo: redirectUrl, data: { full_name: fullName } },
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            full_name: fullName.trim(),
+            business_name: businessName.trim(),
+            business_phone: phone.trim(),
+          },
+        },
       });
       if (signErr) throw signErr;
       if (!signup.user) throw new Error("Signup failed");
 
       if (!signup.session) {
-        toast.success("Check your email to confirm your account.");
+        toast.success("Check your email to verify your account and create your ISP workspace.");
         navigate({ to: "/login" });
         return;
       }
 
-      toast.success("Account created. A super admin will review your access.");
+      const { error: onboardingError } = await supabase.rpc("provision_isp_tenant", {
+        p_business_name: businessName.trim(),
+        p_phone: phone.trim(),
+        p_full_name: fullName.trim(),
+      });
+      if (onboardingError) {
+        toast.error(onboardingError.message);
+        navigate({ to: "/pending" });
+        return;
+      }
+
+      toast.success("ISP workspace created. You can start setting up your network.");
       navigate({ to: "/pending" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Signup failed");
@@ -51,8 +71,8 @@ function SignupPage() {
 
   return (
     <AuthLayout
-      title="Request access"
-      description="A super admin reviews each request and assigns you to a workspace."
+      title="Create your ISP workspace"
+      description="Enter your ISP and contact details. Verify your email if prompted, then start setup—no admin approval required."
       footer={
         <>
           Already have an account?{" "}
@@ -64,13 +84,42 @@ function SignupPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="name">Your name</Label>
+          <Label htmlFor="name">Contact person name</Label>
           <Input
             id="name"
             autoComplete="name"
             required
+            minLength={2}
+            maxLength={100}
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="business-name">Business / ISP name</Label>
+          <Input
+            id="business-name"
+            autoComplete="organization"
+            required
+            minLength={2}
+            maxLength={120}
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="phone">Business contact phone</Label>
+          <Input
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            inputMode="tel"
+            placeholder="+254 7xx xxx xxx"
+            pattern="\+?[0-9][0-9 ()-]{6,19}"
+            title="Enter a valid phone number"
+            required
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
           />
         </div>
         <div className="space-y-1.5">
@@ -97,7 +146,7 @@ function SignupPage() {
           />
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Submitting…" : "Request access"}
+          {loading ? "Creating workspace…" : "Create ISP workspace"}
         </Button>
       </form>
     </AuthLayout>

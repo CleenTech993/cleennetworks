@@ -1,5 +1,5 @@
--- 20261111000000_lock_bootstrap_tenant.sql: a freshly signed-up user must NOT be able to create a workspace and
--- make themselves its admin. Workspaces are granted only through super-admin approval.
+-- 20261111000000_lock_bootstrap_tenant.sql: the legacy bootstrap function must remain unavailable.
+-- New ISP workspaces use the separately validated self-service provisioning function.
 DO $$
 DECLARE
   uid constant uuid := 'bbbbbbbb-0000-4000-8000-0000000000aa';

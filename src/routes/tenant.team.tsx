@@ -27,13 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import {
   addTeamMember,
@@ -75,7 +69,7 @@ function TeamPage() {
   const refresh = () => qc.invalidateQueries({ queryKey: ["team"] });
 
   const changeRole = useMutation({
-    mutationFn: (v: { userId: string; role: TeamRole }) => updateTeamMemberRole({ data: v }),
+    mutationFn: (v: { userId: string; roles: TeamRole[] }) => updateTeamMemberRole({ data: v }),
     onSuccess: (r) => {
       if (r.ok) toast.success("Role updated");
       else toast.error(r.error);
@@ -128,7 +122,7 @@ function TeamPage() {
               <tr>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Email</th>
-                <th className="px-4 py-2">Role</th>
+                <th className="px-4 py-2">Roles</th>
                 <th className="px-4 py-2 text-right">Action</th>
               </tr>
             </thead>
@@ -148,25 +142,35 @@ function TeamPage() {
                     <td className="px-4 py-2">{m.email ?? "—"}</td>
                     <td className="px-4 py-2">
                       {self ? (
-                        <Badge>{ROLE_LABEL[m.roles[0]] ?? m.roles[0]}</Badge>
+                        <div className="flex flex-wrap gap-1">
+                          {m.roles.map((role) => (
+                            <Badge key={role}>{ROLE_LABEL[role]}</Badge>
+                          ))}
+                        </div>
                       ) : (
-                        <Select
-                          value={m.roles[0]}
-                          onValueChange={(v) =>
-                            changeRole.mutate({ userId: m.id, role: v as TeamRole })
-                          }
-                        >
-                          <SelectTrigger className="h-8 w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map((r) => (
-                              <SelectItem key={r} value={r}>
-                                {ROLE_LABEL[r]}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="grid gap-1.5 sm:grid-cols-2">
+                          {ROLES.map((role) => (
+                            <label key={role} className="flex items-center gap-2 text-xs">
+                              <Checkbox
+                                checked={m.roles.includes(role)}
+                                disabled={
+                                  changeRole.isPending ||
+                                  (m.roles.length === 1 && m.roles.includes(role))
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (!checked && m.roles.length === 1) return;
+                                  changeRole.mutate({
+                                    userId: m.id,
+                                    roles: checked
+                                      ? [...m.roles, role]
+                                      : m.roles.filter((assigned) => assigned !== role),
+                                  });
+                                }}
+                              />
+                              {ROLE_LABEL[role]}
+                            </label>
+                          ))}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-2 text-right">
@@ -228,7 +232,7 @@ function AddMemberDialog({
 }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<TeamRole>("technician");
+  const [roles, setRoles] = useState<TeamRole[]>(["technician"]);
   const [password, setPassword] = useState(() => generatePassword());
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
@@ -236,7 +240,7 @@ function AddMemberDialog({
   function reset() {
     setFullName("");
     setEmail("");
-    setRole("technician");
+    setRoles(["technician"]);
     setPassword(generatePassword());
     setCreated(null);
   }
@@ -248,7 +252,7 @@ function AddMemberDialog({
   async function submit() {
     setBusy(true);
     try {
-      const res = await addTeamMember({ data: { fullName, email, role, password } });
+      const res = await addTeamMember({ data: { fullName, email, roles, password } });
       if (!res.ok) {
         toast.error(res.error);
         return;
@@ -325,20 +329,25 @@ function AddMemberDialog({
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <div>
-                <Label>Role</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as TeamRole)}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ROLES.map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {ROLE_LABEL[r]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-2">
+                <Label>Roles</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {ROLES.map((roleOption) => (
+                    <label key={roleOption} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={roles.includes(roleOption)}
+                        onCheckedChange={(checked) =>
+                          setRoles((current) =>
+                            checked
+                              ? [...current, roleOption]
+                              : current.filter((role) => role !== roleOption),
+                          )
+                        }
+                      />
+                      {ROLE_LABEL[roleOption]}
+                    </label>
+                  ))}
+                </div>
               </div>
               <div>
                 <Label htmlFor="tm-pass">Temporary password</Label>
@@ -366,7 +375,13 @@ function AddMemberDialog({
               </Button>
               <Button
                 onClick={submit}
-                disabled={busy || !fullName.trim() || !email.trim() || password.length < 8}
+                disabled={
+                  busy ||
+                  !fullName.trim() ||
+                  !email.trim() ||
+                  roles.length === 0 ||
+                  password.length < 8
+                }
               >
                 {busy ? "Adding…" : "Add member"}
               </Button>

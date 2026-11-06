@@ -2089,6 +2089,10 @@ export type Database = {
       }
       is_aal2: { Args: never; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      provision_isp_tenant: {
+        Args: { p_business_name: string; p_full_name: string; p_phone: string }
+        Returns: string
+      }
       record_auth_login_attempt: {
         Args: { p_email_hash: string; p_ip_hash: string; p_succeeded: boolean }
         Returns: {
@@ -2106,6 +2110,10 @@ export type Database = {
         Returns: number
       }
       rollup_router_metrics: { Args: never; Returns: undefined }
+      remove_tenant_member: {
+        Args: { p_actor_id: string; p_user_id: string }
+        Returns: undefined
+      }
       rotate_router_token: {
         Args: { p_revoke_device?: boolean; p_router_id: string }
         Returns: string
@@ -2113,6 +2121,14 @@ export type Database = {
       tenants_with_role: {
         Args: { _roles: Database["public"]["Enums"]["app_role"][] }
         Returns: string[]
+      }
+      update_tenant_member_roles: {
+        Args: {
+          p_actor_id: string
+          p_roles: Database["public"]["Enums"]["app_role"][]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       user_tenant_id: { Args: { _user_id: string }; Returns: string }
     }

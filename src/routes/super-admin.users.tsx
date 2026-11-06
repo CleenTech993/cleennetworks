@@ -101,7 +101,7 @@ function Users() {
     <div>
       <PageHeader
         title="Users"
-        description="Approve new signups and manage roles across all tenants."
+        description="Manage users and assign platform roles. New ISPs create their own workspace during signup."
       />
       {!profiles?.length ? (
         <EmptyState
@@ -131,7 +131,7 @@ function Users() {
                     <td className="px-4 py-2">{u.email ?? "—"}</td>
                     <td className="px-4 py-2">
                       {pending ? (
-                        <Badge variant="secondary">Pending</Badge>
+                        <Badge variant="secondary">Unassigned</Badge>
                       ) : (
                         <div className="flex flex-wrap gap-1">
                           {userRoles.map((r) => (
@@ -161,7 +161,7 @@ function Users() {
                             setApproveFor({ id: u.id, email: u.email, full_name: u.full_name })
                           }
                         >
-                          {pending ? "Approve" : "Assign role"}
+                          {pending ? "Assign access" : "Assign role"}
                         </Button>
                       </div>
                     </td>
@@ -173,7 +173,7 @@ function Users() {
         </div>
       )}
 
-      <ApproveDialog
+      <AssignAccessDialog
         target={approveFor}
         tenants={tenants ?? []}
         onClose={() => setApproveFor(null)}
@@ -189,7 +189,7 @@ function Users() {
   );
 }
 
-function ApproveDialog({
+function AssignAccessDialog({
   target,
   tenants,
   onClose,
@@ -233,10 +233,10 @@ function ApproveDialog({
       }
       const { error } = await supabase.rpc("admin_approve_user", args as never);
       if (error) throw error;
-      toast.success("User approved");
+      toast.success("User access assigned");
       onDone();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Approval failed");
+      toast.error(err instanceof Error ? err.message : "Could not assign user access");
     } finally {
       setLoading(false);
     }
@@ -246,7 +246,7 @@ function ApproveDialog({
     <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Approve user</DialogTitle>
+          <DialogTitle>Assign user access</DialogTitle>
           <DialogDescription>
             {target?.full_name ?? target?.email ?? "Assign a role and tenant for this account."}
           </DialogDescription>
@@ -325,7 +325,7 @@ function ApproveDialog({
             Cancel
           </Button>
           <Button onClick={submit} disabled={loading}>
-            {loading ? "Approving…" : "Approve"}
+            {loading ? "Assigning…" : "Assign access"}
           </Button>
         </DialogFooter>
       </DialogContent>
