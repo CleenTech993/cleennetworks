@@ -1628,8 +1628,6 @@ export type Database = {
           last_seen_at: string | null;
           last_sync_at: string | null;
           legacy_token_auth: boolean;
-          management_method: string | null;
-          management_status: string;
           mac_address: string | null;
           management_method: string | null;
           management_status: string;
@@ -1673,8 +1671,6 @@ export type Database = {
           last_seen_at?: string | null;
           last_sync_at?: string | null;
           legacy_token_auth?: boolean;
-          management_method?: string | null;
-          management_status?: string;
           mac_address?: string | null;
           management_method?: string | null;
           management_status?: string;
@@ -1718,8 +1714,6 @@ export type Database = {
           last_seen_at?: string | null;
           last_sync_at?: string | null;
           legacy_token_auth?: boolean;
-          management_method?: string | null;
-          management_status?: string;
           mac_address?: string | null;
           management_method?: string | null;
           management_status?: string;
@@ -2419,10 +2413,6 @@ export type Database = {
         Returns: undefined;
       };
       rollup_router_metrics: { Args: never; Returns: undefined };
-      remove_tenant_member: {
-        Args: { p_actor_id: string; p_user_id: string };
-        Returns: undefined;
-      };
       rotate_router_token: {
         Args: { p_revoke_device?: boolean; p_router_id: string };
         Returns: string;

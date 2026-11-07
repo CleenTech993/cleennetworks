@@ -25,6 +25,8 @@ const INACTIVE_PKG = "44444444-4444-4444-4444-444444444444";
 const OTHER_TENANT_PKG = "55555555-5555-5555-5555-555555555555";
 const PARAMS = { slug: "acme" };
 const MAC = "AA:BB:CC:DD:EE:FF";
+const PHONE = "254712345678"; // how 0712345678 is stored
+const OTHER_PHONE = "0798765432";
 let nextRef = 0;
 
 const daraja = () => vi.mocked(startDarajaStkPush);
@@ -143,7 +145,6 @@ describe("smart TV registration", () => {
   });
 
   it("renewing a TV that is still paid up does not switch it off", async () => {
-    daraja();
     const until = "2026-12-01T00:00:00.000Z";
     h.db.seed("tv_devices", [
       {
@@ -153,6 +154,7 @@ describe("smart TV registration", () => {
         status: "active",
         expires_at: until,
         package_id: PKG,
+        phone: PHONE,
       },
     ]);
     const res = await register(valid());
@@ -161,6 +163,26 @@ describe("smart TV registration", () => {
     expect(tvs).toHaveLength(1);
     expect(tvs[0]).toMatchObject({ status: "active", expires_at: until });
     expect(h.db.rows("payments")[0].tv_device_id).toBe("tv-1");
+  });
+
+  it("only the phone a TV was registered with can renew it", async () => {
+    const sendSpy = daraja();
+    h.db.seed("tv_devices", [
+      {
+        id: "tv-1",
+        tenant_id: TENANT,
+        mac_address: MAC,
+        status: "active",
+        expires_at: "2026-12-01T00:00:00.000Z",
+        phone: PHONE,
+      },
+    ]);
+    const res = await register(valid({ phone: OTHER_PHONE }));
+    expect(res.status).toBe(403);
+    expect(h.db.rows("payments")).toHaveLength(0);
+    expect(sendSpy).not.toHaveBeenCalled();
+    // ...and the registration is untouched, so a stranger can't take the TV over.
+    expect(h.db.rows("tv_devices")[0]).toMatchObject({ phone: PHONE, status: "active" });
   });
 
   it("refuses a blocked TV and sends nothing", async () => {
@@ -237,23 +259,19 @@ describe("smart TV registration", () => {
 });
 
 describe("smart TV status", () => {
-  const status = (mac: string, ip = freshIp()) =>
+  const status = (mac: string, phone: string | null = "0712345678", ip = freshIp()) =>
     call(Route, "GET", {
-      url: `https://portal.test/api/public/portal/acme/tv?mac=${encodeURIComponent(mac)}`,
+      url: `https://portal.test/api/public/portal/acme/tv?mac=${encodeURIComponent(mac)}${phone === null ? "" : `&phone=${phone}`}`,
       ip,
       params: PARAMS,
     });
-
-  it("reports an active TV with its expiry", async () => {
+  const seed = (extra: Record<string, unknown>) =>
     h.db.seed("tv_devices", [
-      {
-        id: "tv-1",
-        tenant_id: TENANT,
-        mac_address: MAC,
-        status: "active",
-        expires_at: "2999-01-01T00:00:00.000Z",
-      },
+      { id: "tv-1", tenant_id: TENANT, mac_address: MAC, phone: PHONE, ...extra },
     ]);
+
+  it("reports an active TV with its expiry to the phone it was registered with", async () => {
+    seed({ status: "active", expires_at: "2999-01-01T00:00:00.000Z" });
     const body = await json(await status(MAC));
     expect(body).toMatchObject({
       registered: true,
@@ -263,20 +281,25 @@ describe("smart TV status", () => {
   });
 
   it("does not report an expired TV as active", async () => {
-    h.db.seed("tv_devices", [
-      {
-        id: "tv-1",
-        tenant_id: TENANT,
-        mac_address: MAC,
-        status: "active",
-        expires_at: "2000-01-01T00:00:00.000Z",
-      },
-    ]);
+    seed({ status: "active", expires_at: "2000-01-01T00:00:00.000Z" });
     expect(await json(await status(MAC))).toMatchObject({
       registered: true,
       active: false,
       expires_at: null,
     });
+  });
+
+  it("needs the phone number: a MAC address alone reveals nothing", async () => {
+    seed({ status: "active", expires_at: "2999-01-01T00:00:00.000Z" });
+    const res = await status(MAC, null);
+    expect(res.status).toBe(400);
+    expect(await json(res)).toEqual({ error: "Phone number required" });
+  });
+
+  it("a different phone number learns nothing about the TV", async () => {
+    seed({ status: "active", expires_at: "2999-01-01T00:00:00.000Z" });
+    const body = await json(await status(MAC, OTHER_PHONE));
+    expect(body).toMatchObject({ registered: false, active: false, expires_at: null });
   });
 
   it("reports an unknown TV as not registered, and rejects a malformed MAC", async () => {
@@ -290,6 +313,7 @@ describe("smart TV status", () => {
         id: "tv-x",
         tenant_id: "99999999-9999-9999-9999-999999999999",
         mac_address: MAC,
+        phone: PHONE,
         status: "active",
         expires_at: "2999-01-01T00:00:00.000Z",
       },

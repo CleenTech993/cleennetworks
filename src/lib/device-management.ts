@@ -68,11 +68,16 @@ export function resolveManagementMethod(input: {
   const byMethod = new Map(input.methods.map((item) => [item.method, item]));
   for (const method of methodOrder(input.vendor, input.family, input.overrides)) {
     const candidate = byMethod.get(method);
-    if (!candidate || !candidate.officiallySupported || !candidate.implemented || !candidate.configured)
+    if (
+      !candidate ||
+      !candidate.officiallySupported ||
+      !candidate.implemented ||
+      !candidate.configured
+    )
       continue;
     if (candidate.authenticated === false) return { method, status: "authentication_failed" };
-    if (candidate.reachable && candidate.authenticated !== false)
-      return { method, status: "online" };
+    // Authentication failures returned above, so only reachability is left to decide.
+    if (candidate.reachable) return { method, status: "online" };
   }
   return { method: null, status: "api_unavailable" };
 }
@@ -80,7 +85,12 @@ export function resolveManagementMethod(input: {
 export type VendorFailureKind = "authentication" | "unsupported" | "transient" | "fatal";
 
 export function classifyVendorFailure(error: unknown): VendorFailureKind {
-  const candidate = error as { status?: unknown; code?: unknown; name?: unknown; message?: unknown } | null;
+  const candidate = error as {
+    status?: unknown;
+    code?: unknown;
+    name?: unknown;
+    message?: unknown;
+  } | null;
   const status = typeof candidate?.status === "number" ? candidate.status : undefined;
   const code = typeof candidate?.code === "string" ? candidate.code.toLowerCase() : "";
   const message = typeof candidate?.message === "string" ? candidate.message.toLowerCase() : "";
@@ -93,7 +103,8 @@ export function classifyVendorFailure(error: unknown): VendorFailureKind {
     /unsupported endpoint|endpoint not supported/.test(message)
   )
     return "unsupported";
-  if (status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500)) return "transient";
+  if (status === 408 || status === 425 || status === 429 || (status !== undefined && status >= 500))
+    return "transient";
   const name = typeof candidate?.name === "string" ? candidate.name : "";
   if (
     status === undefined &&
@@ -101,11 +112,13 @@ export function classifyVendorFailure(error: unknown): VendorFailureKind {
       name === "TimeoutError" ||
       /econnreset|econnrefused|ehostunreach|enetwork|etimedout|eai_again/.test(code) ||
       /fetch failed|network error|timed? out|connection reset/.test(message))
-  ) return "transient";
+  )
+    return "transient";
   return "fatal";
 }
 
 export type RetryOptions = {
+  attempts?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
   sleep?: (milliseconds: number) => Promise<void>;
@@ -119,7 +132,9 @@ export async function withVendorRetry<T>(
   const attempts = Math.max(1, options.attempts ?? 4);
   const baseDelayMs = Math.max(1, options.baseDelayMs ?? 250);
   const maxDelayMs = Math.max(baseDelayMs, options.maxDelayMs ?? 5_000);
-  const sleep = options.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+  const sleep =
+    options.sleep ??
+    ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   const random = options.random ?? Math.random;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -158,7 +173,8 @@ export async function executeWithOfficialFallback<T>(input: {
       !adapter.implemented ||
       !adapter.configured ||
       adapter.reachable === false
-    ) continue;
+    )
+      continue;
     if (adapter.authenticated === false) {
       throw Object.assign(new Error("Management credentials were rejected."), {
         code: "invalid_credentials",
