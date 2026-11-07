@@ -76,14 +76,23 @@ export function routerLoginFailed(search: string): boolean {
 export const LOGIN_RETRY_DELAY_MS = 2_000;
 /** Covers the five-minute full-sync cycle while a router installs the fast voucher poll. */
 export const LOGIN_RETRY_WINDOW_MS = 7 * 60_000;
-const VOUCHER_KEYS = { code: "ng_voucher", at: "ng_voucher_at" } as const;
+const VOUCHER_KEYS = (scope?: string) =>
+  scope
+    ? { code: `ng_voucher_${scope}`, at: `ng_voucher_at_${scope}` }
+    : { code: "ng_voucher", at: "ng_voucher_at" };
 const REMEMBERABLE_CODE = /^[A-Za-z0-9._@-]{1,64}$/;
 
-export function rememberVoucher(store: ParamStore | null, code: string, now = Date.now()): void {
+export function rememberVoucher(
+  store: ParamStore | null,
+  code: string,
+  scope?: string,
+  now = Date.now(),
+): void {
   if (!REMEMBERABLE_CODE.test(code)) return;
+  const keys = VOUCHER_KEYS(scope);
   try {
-    store?.setItem(VOUCHER_KEYS.code, code);
-    store?.setItem(VOUCHER_KEYS.at, String(now));
+    store?.setItem(keys.code, code);
+    store?.setItem(keys.at, String(now));
   } catch {
     // Blocked storage only costs the automatic retry; entering the code again still works.
   }
@@ -97,12 +106,14 @@ export interface RememberedVoucher {
 
 export function recallVoucher(
   store: ParamStore | null,
+  scope?: string,
   now = Date.now(),
 ): RememberedVoucher | null {
+  const keys = VOUCHER_KEYS(scope);
   try {
-    const code = store?.getItem(VOUCHER_KEYS.code);
+    const code = store?.getItem(keys.code);
     if (!code || !REMEMBERABLE_CODE.test(code)) return null;
-    const at = Number(store?.getItem(VOUCHER_KEYS.at));
+    const at = Number(store?.getItem(keys.at));
     return { code, retry: Number.isFinite(at) && now - at < LOGIN_RETRY_WINDOW_MS };
   } catch {
     return null;
@@ -130,7 +141,14 @@ export function routerParams(
   scope?: string,
 ): RouterParams {
   const q = new URLSearchParams(search);
-  const keys = { ...STORE_KEYS, routerId: scope ? `ng_router_${scope}` : STORE_KEYS.routerId };
+  const keys = scope
+    ? {
+        login: `ng_login_${scope}`,
+        mac: `ng_mac_${scope}`,
+        destination: `ng_dst_${scope}`,
+        routerId: `ng_router_${scope}`,
+      }
+    : STORE_KEYS;
   const rawRouterId = q.get("router");
   const out: RouterParams = {
     login: q.get("login"),

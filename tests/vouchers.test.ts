@@ -131,6 +131,18 @@ describe("routerParams", () => {
     });
   });
 
+  it("keeps saved router context separate between portal slugs", () => {
+    const store = memory();
+    routerParams(q, store, "acme");
+    expect(routerParams("", store, "other")).toEqual({
+      login: null,
+      mac: null,
+      destination: null,
+      routerId: null,
+    });
+    expect(routerParams("", store, "acme").mac).toBe("AA:BB:CC:DD:EE:02");
+  });
+
   it("works without storage, and when storage throws", () => {
     expect(routerParams(q, null).login).toBe("http://hotspot.netgrid/login");
     expect(routerParams(q, null).destination).toBe("https://news.example/article");
@@ -180,12 +192,22 @@ describe("router login retry", () => {
 
   it("remembers the redeemed code, and keeps retrying only within the sync window", () => {
     const store = memory();
-    rememberVoucher(store, "ABCD2345", 1_000);
-    expect(recallVoucher(store, 1_000 + 60_000)).toEqual({ code: "ABCD2345", retry: true });
-    expect(recallVoucher(store, 1_000 + LOGIN_RETRY_WINDOW_MS + 1)).toEqual({
+    rememberVoucher(store, "ABCD2345", "acme", 1_000);
+    expect(recallVoucher(store, "acme", 1_000 + 60_000)).toEqual({
+      code: "ABCD2345",
+      retry: true,
+    });
+    expect(recallVoucher(store, "acme", 1_000 + LOGIN_RETRY_WINDOW_MS + 1)).toEqual({
       code: "ABCD2345",
       retry: false,
     });
+  });
+
+  it("keeps saved voucher credentials separate between portal slugs", () => {
+    const store = memory();
+    rememberVoucher(store, "ABCD2345", "acme", 1_000);
+    expect(recallVoucher(store, "other", 1_000)).toBeNull();
+    expect(recallVoucher(store, "acme", 1_000)).toEqual({ code: "ABCD2345", retry: true });
   });
 
   it("forgets nothing it was never given, and ignores unsafe or broken storage", () => {
@@ -202,7 +224,7 @@ describe("router login retry", () => {
         throw new Error("blocked");
       },
     };
-    expect(() => rememberVoucher(broken, "ABCD2345")).not.toThrow();
-    expect(recallVoucher(broken)).toBeNull();
+    expect(() => rememberVoucher(broken, "ABCD2345", "acme")).not.toThrow();
+    expect(recallVoucher(broken, "acme")).toBeNull();
   });
 });

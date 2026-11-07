@@ -26,6 +26,7 @@ import {
   routerLoginFailed,
   routerParams,
 } from "@/lib/hotspot-redirect";
+import { normalizeMac } from "@/lib/devices";
 import { PortalHeader } from "@/components/portal/header";
 import { PlanOption } from "@/components/portal/plan-option";
 import { PortalThemeFrame } from "@/components/portal/theme-frame";
@@ -150,12 +151,73 @@ function PortalPage() {
   const { slug } = Route.useParams();
   const [tab, setTab] = useState("buy");
   const [routerId, setRouterId] = useState<string | null | undefined>(undefined);
+  const [deviceMac, setDeviceMac] = useState<string | null>(null);
+  const [autoReconnectStatus, setAutoReconnectStatus] = useState<"checking" | "unavailable" | null>(
+    null,
+  );
+  const autoReconnectAttempted = useRef(false);
   useEffect(() => {
-    setRouterId(routerParams(window.location.search, sessionStore(), slug).routerId);
+    const store = sessionStore();
+    const search = window.location.search;
+    const query = new URLSearchParams(search);
+    const params = routerParams(search, store, slug);
+    setRouterId(params.routerId);
+    const mac = normalizeMac(query.get("mac") ?? "");
+    setDeviceMac(mac);
     // The router refused a voucher login and sent the customer back: show the voucher tab, which
     // keeps retrying (see VoucherFlow), instead of the purchase screen.
-    if (routerLoginFailed(window.location.search) && recallVoucher(sessionStore()))
-      setTab("voucher");
+    if (routerLoginFailed(search) && recallVoucher(store, slug)) setTab("voucher");
+
+    const saved = recallVoucher(store, slug);
+    if (
+      routerLoginFailed(search) ||
+      autoReconnectAttempted.current ||
+      !saved ||
+      !mac ||
+      !query.get("login") ||
+      !query.get("router") ||
+      params.routerId !== query.get("router")
+    )
+      return;
+
+    autoReconnectAttempted.current = true;
+    setAutoReconnectStatus("checking");
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/public/portal/${slug}/voucher`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            code: saved.code,
+            mac,
+            routerId: params.routerId ?? undefined,
+          }),
+        });
+        const result = await response.json();
+        if (
+          !response.ok ||
+          typeof result.code !== "string" ||
+          !/^[A-Za-z0-9._@-]{1,64}$/.test(result.code)
+        )
+          throw new Error(result.error ?? "Saved Wi-Fi session is unavailable.");
+        if (cancelled) return;
+        const target = buildHotspotLoginRedirect(
+          query.get("login"),
+          result.code,
+          params.destination,
+        );
+        if (!target) throw new Error("Wi-Fi login link is unavailable.");
+        rememberVoucher(store, result.code, slug);
+        window.location.replace(target);
+      } catch {
+        if (!cancelled) setAutoReconnectStatus("unavailable");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
   const { data, isLoading, error } = useQuery<PortalData>({
     queryKey: ["portal", slug, routerId],
@@ -265,6 +327,24 @@ function PortalPage() {
           ))}
           <section className="pt-surface mb-4 rounded-xl border bg-card p-4">
             <h2 className="font-semibold">Getting online</h2>
+            <div className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">This device’s Wi-Fi MAC address: </span>
+              {deviceMac ? (
+                <span className="font-mono font-medium">{deviceMac}</span>
+              ) : (
+                <span className="text-muted-foreground">Unavailable</span>
+              )}
+            </div>
+            {autoReconnectStatus === "checking" && (
+              <p role="status" className="mt-2 text-sm text-muted-foreground">
+                Checking your saved Wi-Fi session and reconnecting if it’s still valid…
+              </p>
+            )}
+            {autoReconnectStatus === "unavailable" && (
+              <p role="status" className="mt-2 text-sm text-muted-foreground">
+                No valid saved session was found. Use Reconnect or Voucher below to restore access.
+              </p>
+            )}
             <ol className="mt-2 list-inside list-decimal space-y-2 text-sm text-muted-foreground">
               <li>
                 Connect your device to this Wi-Fi. If the sign-in page doesn’t open, tap the Wi-Fi
@@ -282,7 +362,8 @@ function PortalPage() {
                 . Follow the prompts to connect.
               </li>
               <li>
-                If you disconnect, reopen this page. For a paid package, choose{" "}
+                If you disconnect, reopen this page. We’ll reconnect automatically when this device
+                has a saved, valid session. Otherwise, for a paid package choose{" "}
                 <span className="font-medium text-foreground">Reconnect</span> and enter the M-Pesa
                 receipt code from your SMS.
                 {data.portal?.enable_voucher !== false && (
@@ -594,7 +675,7 @@ function PaymentWaiting({
     if (!target) return;
     autoConnectAttempted.current = true;
     setAutoConnecting(true);
-    rememberVoucher(store, voucher);
+    rememberVoucher(store, voucher, slug);
     window.location.assign(target);
   }, [status, tv, voucher, postLoginUrl, slug]);
 
@@ -638,7 +719,7 @@ function PaymentWaiting({
                   postLoginUrl || params.destination,
                 );
                 if (target) {
-                  rememberVoucher(store, voucher);
+                  rememberVoucher(store, voucher, slug);
                   window.location.assign(target);
                 }
               }}
@@ -1087,7 +1168,7 @@ function VoucherFlow({
   useEffect(() => {
     if (!routerLoginFailed(window.location.search)) return;
     const store = sessionStore();
-    const saved = recallVoucher(store);
+    const saved = recallVoucher(store, slug);
     if (!saved) return;
     const target = buildHotspotLoginRedirect(
       routerParams(window.location.search, store, slug).login || "http://10.5.50.1/login",
@@ -1108,7 +1189,7 @@ function VoucherFlow({
 
   function tryAgain() {
     const store = sessionStore();
-    const saved = recallVoucher(store);
+    const saved = recallVoucher(store, slug);
     const target = saved
       ? buildHotspotLoginRedirect(
           routerParams(window.location.search, store, slug).login || "http://10.5.50.1/login",
@@ -1117,7 +1198,7 @@ function VoucherFlow({
         )
       : null;
     if (!saved || !target) return setDone(null);
-    rememberVoucher(store, saved.code); // restart the retry window
+    rememberVoucher(store, saved.code, slug); // restart the retry window
     setDone("connecting");
     window.location.href = target;
   }
@@ -1141,7 +1222,7 @@ function VoucherFlow({
       if (!res.ok) throw new Error(json.error ?? "Failed");
       toast.success(json.resumed ? "Voucher found — reconnecting you" : "Voucher redeemed");
       const redeemed: string = json.code ?? code;
-      rememberVoucher(store, redeemed);
+      rememberVoucher(store, redeemed, slug);
       // Hand the browser to the router so the device is actually logged in.
       const target = buildHotspotLoginRedirect(
         params.login || "http://10.5.50.1/login",
