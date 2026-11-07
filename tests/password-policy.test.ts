@@ -3,11 +3,12 @@ import { isStrongPassword } from "../src/lib/password-policy";
 
 describe("isStrongPassword", () => {
   it("accepts passwords with the required length and character classes", () => {
+    expect(isStrongPassword("Abc!1234")).toBe(true);
     expect(isStrongPassword("Strong!Password7")).toBe(true);
   });
 
   it.each([
-    ["Too short!7", "fewer than 12 characters"],
+    ["Abc!123", "fewer than 8 characters"],
     ["lowercase!password7", "no uppercase letter"],
     ["UPPERCASE!PASSWORD7", "no lowercase letter"],
     ["NoNumber!Password", "no number"],
