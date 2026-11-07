@@ -10,6 +10,7 @@ export interface PortalPlan {
   duration_value: number | null;
   duration_unit: string | null;
   download_kbps: number | null;
+  kind?: string;
 }
 
 interface PlanOptionProps {
@@ -45,7 +46,9 @@ export function PlanOption({ theme, plan, selected, onSelect, accent }: PlanOpti
   const price = `KES ${Number(plan.price).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const duration = formatDuration(plan.duration_value, plan.duration_unit);
   const speed = plan.download_kbps ? formatSpeed(plan.download_kbps) : null;
-  const detail = [duration, speed].filter(Boolean).join(" · ");
+  const detail = [plan.kind === "hotspot_tv" ? "One phone + one TV" : null, duration, speed]
+    .filter(Boolean)
+    .join(" · ");
   const press = { type: "button" as const, onClick: onSelect, "aria-pressed": selected };
 
   switch (theme.plan) {

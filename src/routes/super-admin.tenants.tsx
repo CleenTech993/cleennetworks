@@ -204,7 +204,7 @@ function Tenants() {
     <div className="space-y-6">
       <PageHeader
         title="Tenant ISP & Quota Governance"
-        description="Manage ISP organizations and tenant lifecycles. Platform commission is fixed at 2% for hotspot / voucher income and 1% for PPPoE income."
+        description="Manage ISP organizations and tenant lifecycles. Platform commission is fixed at 2% for hotspot, voucher and phone + TV income and 1% for PPPoE income."
         action={
           <Dialog
             open={openCreate}
@@ -253,7 +253,7 @@ function Tenants() {
                 <div className="rounded-lg border bg-muted/40 p-3 text-sm">
                   <p className="font-medium">Platform commission</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Fixed at 2% of hotspot / voucher income and 1% of PPPoE income.
+                    Fixed at 2% of hotspot, voucher and phone + TV income and 1% of PPPoE income.
                   </p>
                 </div>
               </div>

@@ -10,13 +10,17 @@ import {
 import { startDarajaStkPush } from "@/lib/daraja.server";
 import { isValidKenyanMobile } from "@/lib/phone";
 import { portalMaintenanceBlock } from "@/lib/maintenance.server";
+import { normalizeMac } from "@/lib/tv";
 
 const Schema = z.object({
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
+  tvMac: z.string().min(11).max(40).optional(),
   routerId: z.string().uuid().optional(),
 });
 const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
+const BAD_MAC =
+  "That doesn't look like a valid MAC address. Enter the TV's Wi-Fi MAC, e.g. AA:BB:CC:DD:EE:FF.";
 
 export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
   server: {
@@ -64,6 +68,16 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (!pkg || pkg.tenant_id !== tenant.id || !pkg.active) {
             return Response.json({ error: "Invalid package" }, { status: 400 });
           }
+          if (!["hotspot", "voucher", "hotspot_tv"].includes(pkg.kind)) {
+            return Response.json(
+              { error: "This package cannot be purchased from the portal." },
+              { status: 400 },
+            );
+          }
+          const tvMac = pkg.kind === "hotspot_tv" ? normalizeMac(parsed.data.tvMac ?? "") : null;
+          if (pkg.kind === "hotspot_tv" && !tvMac) {
+            return Response.json({ error: BAD_MAC }, { status: 400 });
+          }
           const amount = Math.ceil(Number(pkg.price));
           if (!Number.isFinite(amount) || amount < 1) {
             return Response.json(
@@ -87,7 +101,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const { data: activePayment, error: activePaymentError } = await supabaseAdmin
             .from("payments")
-            .select("id,package_id")
+            .select("id,package_id,tv_device_id")
             .eq("tenant_id", tenant.id)
             .eq("phone", phone)
             .eq("status", "pending")
@@ -99,8 +113,50 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             console.error("Could not check for an active STK payment", activePaymentError);
             return Response.json({ error: "Could not start the payment." }, { status: 500 });
           }
-          if (activePayment) {
-            if (activePayment.package_id !== pkg.id) {
+          if (activePayment && activePayment.package_id !== pkg.id) {
+            return Response.json(
+              {
+                error:
+                  "A payment prompt is already active for this number. Complete it or wait for it to expire.",
+              },
+              { status: 409 },
+            );
+          }
+          if (activePayment?.tv_device_id && pkg.kind !== "hotspot_tv") {
+            return Response.json(
+              {
+                error:
+                  "A payment prompt is already active for this number. Complete it or wait for it to expire.",
+              },
+              { status: 409 },
+            );
+          }
+
+          let tvDeviceId: string | undefined;
+          if (pkg.kind === "hotspot_tv" && tvMac) {
+            const { data: existingTv, error: tvLookupError } = await supabaseAdmin
+              .from("tv_devices")
+              .select("id,status,phone")
+              .eq("tenant_id", tenant.id)
+              .eq("mac_address", tvMac)
+              .maybeSingle();
+            if (tvLookupError) {
+              console.error("Could not check the hybrid package TV", tvLookupError);
+              return Response.json({ error: "Could not start the payment." }, { status: 500 });
+            }
+            if (existingTv?.status === "blocked") {
+              return Response.json(
+                { error: "This device has been blocked. Contact support." },
+                { status: 403 },
+              );
+            }
+            if (existingTv && existingTv.phone !== phone) {
+              return Response.json(
+                { error: "This phone number doesn't match the TV's registration." },
+                { status: 403 },
+              );
+            }
+            if (activePayment && activePayment.tv_device_id !== existingTv?.id) {
               return Response.json(
                 {
                   error:
@@ -109,6 +165,38 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
                 { status: 409 },
               );
             }
+
+            if (existingTv) {
+              const { error: tvUpdateError } = await supabaseAdmin
+                .from("tv_devices")
+                .update({ updated_at: new Date().toISOString() })
+                .eq("id", existingTv.id);
+              if (tvUpdateError) {
+                console.error("Could not update the hybrid package TV", tvUpdateError);
+                return Response.json({ error: "Could not start the payment." }, { status: 500 });
+              }
+              tvDeviceId = existingTv.id;
+            } else {
+              const { data: createdTv, error: tvInsertError } = await supabaseAdmin
+                .from("tv_devices")
+                .insert({
+                  tenant_id: tenant.id,
+                  mac_address: tvMac,
+                  phone,
+                  package_id: pkg.id,
+                  status: "pending",
+                })
+                .select("id")
+                .single();
+              if (tvInsertError || !createdTv) {
+                console.error("Could not register the hybrid package TV", tvInsertError);
+                return Response.json({ error: "Could not register the TV." }, { status: 500 });
+              }
+              tvDeviceId = createdTv.id;
+            }
+          }
+
+          if (activePayment) {
             return Response.json({
               paymentId: activePayment.id,
               message: "A payment prompt is already active for this number.",
@@ -124,6 +212,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               amount,
               status: "pending",
               provider: "daraja",
+              ...(tvDeviceId ? { tv_device_id: tvDeviceId } : {}),
             })
             .select("id,created_at,status,package_id")
             .single();

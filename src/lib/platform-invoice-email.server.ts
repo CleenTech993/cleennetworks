@@ -83,7 +83,7 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
       invoice.pppoeCommissionRatePct !== undefined
         ? [
             {
-              label: `Hotspot / voucher income (${invoice.hotspotCommissionRatePct}%)`,
+              label: `Hotspot / voucher / phone + TV income (${invoice.hotspotCommissionRatePct}%)`,
               income: formatAmount(invoice.hotspotGrossAmount),
               commission: formatAmount(invoice.hotspotCommissionAmount),
             },

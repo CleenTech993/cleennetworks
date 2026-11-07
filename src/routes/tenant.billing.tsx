@@ -250,8 +250,8 @@ function TenantBilling() {
                           <>
                             <div>
                               <dt className="text-muted-foreground">
-                                Hotspot / voucher income ({invoice.hotspot_commission_rate_pct ?? 2}
-                                % commission)
+                                Hotspot / voucher / phone + TV income (
+                                {invoice.hotspot_commission_rate_pct ?? 2}% commission)
                               </dt>
                               <dd className="font-medium">
                                 {formatAmount(invoice.hotspot_gross_amount)} ·{" "}

@@ -23,10 +23,10 @@ const NOT_ADMIN: Fail = { ok: false, error: "Only tenant admins can change packa
 
 export const PACKAGE_UNITS = ["minutes", "hours", "days", "weeks", "months"] as const;
 
-const PackageSchema = z.object({
+const PackageFieldsSchema = z.object({
   name: z.string().trim().min(1).max(100),
   price: z.number().min(0).max(10_000_000),
-  kind: z.enum(["hotspot", "pppoe", "voucher"]),
+  kind: z.enum(["hotspot", "pppoe", "voucher", "hotspot_tv"]),
   duration_value: z.number().int().min(1).max(100_000),
   duration_unit: z.enum(PACKAGE_UNITS),
   download_kbps: z.number().int().min(0).max(10_000_000),
@@ -39,7 +39,17 @@ const PackageSchema = z.object({
   active: z.boolean(),
 });
 
-const UpdateSchema = PackageSchema.omit({ kind: true }).extend({ id: z.string().uuid() });
+const PackageSchema = PackageFieldsSchema.superRefine((data, ctx) => {
+  if (data.kind === "hotspot_tv" && data.device_limit !== 1) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["device_limit"],
+      message: "Phone + TV packages include one phone and one TV.",
+    });
+  }
+});
+
+const UpdateSchema = PackageFieldsSchema.omit({ kind: true }).extend({ id: z.string().uuid() });
 
 type PackageValues = z.infer<typeof PackageSchema>;
 type PackageRateValues = Pick<
@@ -102,6 +112,9 @@ export const updatePackage = createServerFn({ method: "POST" })
       return { ok: false, error: "Could not save the package. Please try again." };
     }
     if (!existing) return { ok: false, error: "Package not found." };
+    if (existing.kind === "hotspot_tv" && patch.device_limit !== 1) {
+      return { ok: false, error: "Phone + TV packages include one phone and one TV." };
+    }
     const validationError = validateFupSpeeds(patch, existing.kind);
     if (validationError) return { ok: false, error: validationError };
 

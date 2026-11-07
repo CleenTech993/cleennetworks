@@ -18,7 +18,12 @@ const TV = "eeeeeeee-0000-0000-0000-000000000001";
 const PAY = "3f9a1c2b-0000-4000-8000-000000000001";
 const DAY = 86_400_000;
 
-function seed(tvStatus: string, tvExpires: string | null, payExpires: string | null = null) {
+function seed(
+  tvStatus: string,
+  tvExpires: string | null,
+  payExpires: string | null = null,
+  kind = "hotspot",
+) {
   h.db = makeDb({
     payments: [
       {
@@ -30,7 +35,7 @@ function seed(tvStatus: string, tvExpires: string | null, payExpires: string | n
         voucher_code: null,
       },
     ],
-    packages: [{ id: PKG, kind: "hotspot", duration_value: 7, duration_unit: "days" }],
+    packages: [{ id: PKG, kind, duration_value: 7, duration_unit: "days" }],
     tv_devices: [
       { id: TV, tenant_id: TENANT, status: tvStatus, expires_at: tvExpires, package_id: null },
     ],
@@ -102,5 +107,41 @@ describe("settlePayment for a smart TV", () => {
     h.db.tables.tv_devices.length = 0;
     await expect(settle()).rejects.toThrow("TV device not found");
     expect(h.db.tables.payments[0].status).toBe("pending");
+  });
+
+  it("activates a phone voucher and TV with the same expiry for a combined package", async () => {
+    seed("expired", null, null, "hotspot_tv");
+    await settle();
+
+    const voucher = h.db.tables.vouchers[0];
+    const payment = h.db.tables.payments[0];
+    expect(voucher).toMatchObject({
+      tenant_id: TENANT,
+      package_id: PKG,
+      payment_id: PAY,
+      code: payment.voucher_code,
+      expires_at: payment.expires_at,
+    });
+    expect(h.db.tables.tv_devices[0]).toMatchObject({
+      status: "active",
+      package_id: PKG,
+      expires_at: payment.expires_at,
+    });
+    expect(payment.status).toBe("success");
+  });
+
+  it("reuses the existing combined voucher and expiry on a settlement retry", async () => {
+    seed("expired", null, null, "hotspot_tv");
+    await settle();
+    const firstExpiry = h.db.tables.payments[0].expires_at;
+    const firstVoucher = h.db.tables.payments[0].voucher_code;
+    h.db.tables.payments[0].status = "pending";
+
+    await settle(firstExpiry as string);
+
+    expect(h.db.tables.vouchers).toHaveLength(1);
+    expect(h.db.tables.vouchers[0].code).toBe(firstVoucher);
+    expect(h.db.tables.payments[0].expires_at).toBe(firstExpiry);
+    expect(h.db.tables.tv_devices[0].expires_at).toBe(firstExpiry);
   });
 });

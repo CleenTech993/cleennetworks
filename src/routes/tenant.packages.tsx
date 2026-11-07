@@ -46,7 +46,7 @@ import {
 export const Route = createFileRoute("/tenant/packages")({ component: Packages });
 
 type Pkg = Tables<"packages">;
-type PackageKind = "hotspot" | "pppoe" | "voucher";
+type PackageKind = "hotspot" | "pppoe" | "voucher" | "hotspot_tv";
 type FormState = {
   name: string;
   price: string;
@@ -62,7 +62,9 @@ type FormState = {
   active: boolean;
 };
 const isPackageKind = (kind: string): kind is PackageKind =>
-  kind === "hotspot" || kind === "pppoe" || kind === "voucher";
+  kind === "hotspot" || kind === "pppoe" || kind === "voucher" || kind === "hotspot_tv";
+
+const packageKindLabel = (kind: string) => (kind === "hotspot_tv" ? "Phone + TV" : kind);
 
 const EMPTY_FORM: FormState = {
   name: "",
@@ -150,7 +152,7 @@ function PackageFields({
           <Label>Kind</Label>
           {kindLocked ? (
             <div className="mt-2">
-              <Badge variant="outline">{form.kind}</Badge>
+              <Badge variant="outline">{packageKindLabel(form.kind)}</Badge>
             </div>
           ) : (
             <Select
@@ -166,6 +168,7 @@ function PackageFields({
                 <SelectItem value="hotspot">Hotspot</SelectItem>
                 <SelectItem value="pppoe">PPPoE</SelectItem>
                 <SelectItem value="voucher">Voucher</SelectItem>
+                <SelectItem value="hotspot_tv">Phone + TV</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -220,7 +223,11 @@ function PackageFields({
           />
         </div>
       </div>
-      {form.kind !== "pppoe" && (
+      {form.kind === "hotspot_tv" ? (
+        <p className="rounded-md border p-3 text-xs text-muted-foreground">
+          Includes one phone and one TV. Customers provide the TV's Wi-Fi MAC address when buying.
+        </p>
+      ) : form.kind !== "pppoe" ? (
         <div>
           <Label>Devices allowed</Label>
           <Input
@@ -235,7 +242,7 @@ function PackageFields({
             than 1 lets that many devices use it at the same time.
           </p>
         </div>
-      )}
+      ) : null}
       {showActive && (
         <div className="flex items-center justify-between rounded-md border p-3">
           <div>
@@ -287,7 +294,10 @@ function Packages() {
             form.kind === "pppoe" && form.data_limit_mb ? Number(form.data_limit_mb) : null,
           fup_download_kbps: Number(form.fup_download_kbps),
           fup_upload_kbps: Number(form.fup_upload_kbps),
-          device_limit: Math.min(10, Math.max(1, Math.trunc(Number(form.device_limit)) || 1)),
+          device_limit:
+            form.kind === "hotspot_tv"
+              ? 1
+              : Math.min(10, Math.max(1, Math.trunc(Number(form.device_limit)) || 1)),
           active: form.active,
         },
       });
@@ -335,7 +345,10 @@ function Packages() {
           data_limit_mb: editForm.data_limit_mb ? Number(editForm.data_limit_mb) : null,
           fup_download_kbps: Number(editForm.fup_download_kbps),
           fup_upload_kbps: Number(editForm.fup_upload_kbps),
-          device_limit: Math.min(10, Math.max(1, Math.trunc(Number(editForm.device_limit)) || 1)),
+          device_limit:
+            editForm.kind === "hotspot_tv"
+              ? 1
+              : Math.min(10, Math.max(1, Math.trunc(Number(editForm.device_limit)) || 1)),
           active: editForm.active,
         },
       });
@@ -433,7 +446,7 @@ function Packages() {
                 <h3 className="font-semibold">{p.name}</h3>
                 <div className="flex shrink-0 items-center gap-1">
                   {p.active === false && <Badge variant="secondary">Not for sale</Badge>}
-                  <Badge variant="outline">{p.kind}</Badge>
+                  <Badge variant="outline">{packageKindLabel(p.kind)}</Badge>
                 </div>
               </div>
               <p className="mt-2 text-2xl font-bold text-primary">
@@ -441,10 +454,11 @@ function Packages() {
               </p>
               <p className="text-xs text-muted-foreground">
                 {p.duration_value} {p.duration_unit} · {p.download_kbps}/{p.upload_kbps} kbps
+                {p.kind === "hotspot_tv" ? " · 1 phone + 1 TV" : ""}
                 {p.kind === "pppoe" && p.data_limit_mb && !p.unlimited
                   ? ` · ${p.data_limit_mb} MB FUP`
                   : ""}
-                {p.kind !== "pppoe"
+                {p.kind !== "pppoe" && p.kind !== "hotspot_tv"
                   ? ` · ${p.device_limit ?? 1} device${(p.device_limit ?? 1) === 1 ? "" : "s"}`
                   : ""}
               </p>

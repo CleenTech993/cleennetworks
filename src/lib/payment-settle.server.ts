@@ -53,7 +53,74 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
       if (pkg?.duration_value && pkg?.duration_unit) {
         expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
       }
-      if (payment.tv_device_id) {
+      if (pkg.kind === "hotspot_tv") {
+        if (!payment.tv_device_id) throw new Error("Phone + TV payment has no registered TV");
+        if (!pkg.duration_value || !pkg.duration_unit)
+          throw new Error("Phone + TV package has no duration");
+
+        const { data: dev, error: deviceError } = await supabaseAdmin
+          .from("tv_devices")
+          .select("id,status")
+          .eq("id", payment.tv_device_id)
+          .eq("tenant_id", payment.tenant_id)
+          .maybeSingle();
+        if (deviceError) throw deviceError;
+        if (!dev) throw new Error("TV device not found");
+
+        const { data: savedPayment, error: paymentLookupError } = await supabaseAdmin
+          .from("payments")
+          .select("voucher_code,expires_at")
+          .eq("id", payment.id)
+          .maybeSingle();
+        if (paymentLookupError) throw paymentLookupError;
+        expiresAt =
+          savedPayment?.expires_at ??
+          payment.expires_at ??
+          expiryFrom(pkg.duration_value, pkg.duration_unit);
+        const { error: expiryError } = await supabaseAdmin
+          .from("payments")
+          .update({ expires_at: expiresAt })
+          .eq("id", payment.id);
+        if (expiryError) throw expiryError;
+
+        const { data: existingVoucher, error: voucherLookupError } = await supabaseAdmin
+          .from("vouchers")
+          .select("code")
+          .eq("payment_id", payment.id)
+          .maybeSingle();
+        if (voucherLookupError) throw voucherLookupError;
+        voucherCode = existingVoucher?.code ?? savedPayment?.voucher_code ?? randomVoucher();
+        if (!existingVoucher) {
+          const { error: voucherError } = await supabaseAdmin.from("vouchers").insert({
+            tenant_id: payment.tenant_id,
+            package_id: payment.package_id,
+            code: voucherCode,
+            payment_id: payment.id,
+            expires_at: expiresAt,
+          });
+          if (voucherError) throw voucherError;
+        }
+        const { error: voucherSaveError } = await supabaseAdmin
+          .from("payments")
+          .update({ voucher_code: voucherCode })
+          .eq("id", payment.id);
+        if (voucherSaveError) throw voucherSaveError;
+
+        // A combined purchase uses one fixed expiry for both entitlements; it does not extend an
+        // earlier TV expiry independently of the phone voucher.
+        if (dev.status !== "blocked") {
+          const { error: tvUpdateError } = await supabaseAdmin
+            .from("tv_devices")
+            .update({
+              status: "active",
+              expires_at: expiresAt,
+              package_id: payment.package_id,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", dev.id);
+          if (tvUpdateError) throw tvUpdateError;
+        }
+      } else if (payment.tv_device_id) {
         // Smart TV: extend the device's access instead of minting a voucher. The new expiry is
         // remembered on the payment first so a retried callback reuses it rather than extending twice.
         if (!pkg?.duration_value || !pkg?.duration_unit)

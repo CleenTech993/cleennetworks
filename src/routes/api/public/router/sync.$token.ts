@@ -219,7 +219,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("packages")
             .select("id,device_limit")
             .eq("tenant_id", router.tenant_id)
-            .in("kind", ["hotspot", "voucher"]),
+            .in("kind", ["hotspot", "voucher", "hotspot_tv"]),
           // Devices the tenant blocked, on any of its routers.
           supabaseAdmin
             .from("router_devices")

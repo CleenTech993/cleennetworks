@@ -459,7 +459,7 @@ function PortalPage() {
             <TabsContent value="tv" className="mt-4">
               <TvFlow
                 slug={slug}
-                packages={data.packages}
+                packages={data.packages.filter((plan) => plan.kind !== "hotspot_tv")}
                 primary={primary}
                 theme={theme}
                 payeeName={data.tenant.name}
@@ -554,8 +554,10 @@ function BuyFlow({
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
+  const [tvMac, setTvMac] = useState("");
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const selectedPlan = packages.find((plan) => plan.id === picked);
 
   async function pay() {
     if (!picked || !phone) return;
@@ -567,6 +569,7 @@ function BuyFlow({
         body: JSON.stringify({
           packageId: picked,
           phone,
+          ...(selectedPlan?.kind === "hotspot_tv" ? { tvMac } : {}),
           routerId:
             routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,
         }),
@@ -591,6 +594,7 @@ function BuyFlow({
         primary={primary}
         payeeName={payeeName}
         postLoginUrl={postLoginUrl}
+        tvIncluded={selectedPlan?.kind === "hotspot_tv"}
         retrying={submitting}
         onTryAgain={() => void pay()}
         onChangePhone={() => setPaymentId(null)}
@@ -615,6 +619,25 @@ function BuyFlow({
         ))}
       </div>
       <div className="mt-5">
+        {selectedPlan?.kind === "hotspot_tv" && (
+          <div className="mb-4">
+            <Label htmlFor="phone-tv-mac">TV Wi-Fi MAC address</Label>
+            <Input
+              id="phone-tv-mac"
+              placeholder="AA:BB:CC:DD:EE:FF"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              value={tvMac}
+              onChange={(e) => setTvMac(e.target.value)}
+              className="mt-1 font-mono"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Find this in the TV's Settings → Network. The phone and TV share this package's
+              expiry.
+            </p>
+          </div>
+        )}
         <Label htmlFor="phone">M-Pesa phone</Label>
         <Input
           id="phone"
@@ -632,7 +655,12 @@ function BuyFlow({
       <Button
         className="pt-btn mt-4 w-full"
         style={{ backgroundColor: primary }}
-        disabled={!picked || !phone || submitting}
+        disabled={
+          !picked ||
+          !phone ||
+          (selectedPlan?.kind === "hotspot_tv" && !normalizeMac(tvMac)) ||
+          submitting
+        }
         onClick={pay}
       >
         {submitting ? "Sending prompt…" : "Pay with M-Pesa"}
@@ -648,6 +676,7 @@ function PaymentWaiting({
   payeeName,
   postLoginUrl,
   tv = false,
+  tvIncluded = false,
   retrying = false,
   onTryAgain,
   onChangePhone,
@@ -658,6 +687,7 @@ function PaymentWaiting({
   payeeName: string;
   postLoginUrl?: string | null;
   tv?: boolean;
+  tvIncluded?: boolean;
   retrying?: boolean;
   onTryAgain?: () => void;
   onChangePhone?: () => void;
@@ -736,6 +766,12 @@ function PaymentWaiting({
             ? "Connecting you to Wi-Fi…"
             : "Your voucher is ready. Use it on the Wi-Fi login page."}
         </p>
+        {tvIncluded && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your TV will be allowed on Wi-Fi within about 2 minutes using the MAC address you
+            provided.
+          </p>
+        )}
         {voucher && (
           <>
             <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-lg tracking-widest">

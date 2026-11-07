@@ -20,6 +20,7 @@ import { startDarajaStkPush } from "@/lib/daraja.server";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const PKG = "22222222-2222-2222-2222-222222222222";
+const COMBO_PKG = "55555555-5555-5555-5555-555555555555";
 const PARAMS = { slug: "acme" };
 let nextRef = 0;
 
@@ -39,6 +40,14 @@ beforeEach(() => {
     ])
     .seed("packages", [
       { id: PKG, tenant_id: TENANT, name: "1 hour", price: 50, kind: "hotspot", active: true },
+      {
+        id: COMBO_PKG,
+        tenant_id: TENANT,
+        name: "Phone + TV",
+        price: 100,
+        kind: "hotspot_tv",
+        active: true,
+      },
       {
         id: "33333333-3333-3333-3333-333333333333",
         tenant_id: TENANT,
@@ -190,5 +199,96 @@ describe("checkout", () => {
     expect(h.db.rows("payments")[0].status).toBe("failed");
     expect(h.db.rows("payments")).toHaveLength(2);
     expect(darajaSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires a usable TV MAC for a phone + TV package", async () => {
+    const missingMac = await checkout({ packageId: COMBO_PKG, phone: "0712345678" });
+    const invalidMac = await checkout({
+      packageId: COMBO_PKG,
+      phone: "0712345678",
+      tvMac: "01:00:00:00:00:01",
+    });
+
+    expect(missingMac.status).toBe(400);
+    expect(invalidMac.status).toBe(400);
+    expect(h.db.rows("payments")).toHaveLength(0);
+    expect(h.db.rows("tv_devices")).toHaveLength(0);
+    expect(daraja()).not.toHaveBeenCalled();
+  });
+
+  it("registers the TV and attaches it to the same payment", async () => {
+    const response = await checkout({
+      packageId: COMBO_PKG,
+      phone: "0712345678",
+      tvMac: "aa-bb-cc-dd-ee-02",
+    });
+    const body = await json(response);
+    const [payment] = h.db.rows("payments");
+    const [tv] = h.db.rows("tv_devices");
+
+    expect(response.status).toBe(200);
+    expect(tv).toMatchObject({
+      tenant_id: TENANT,
+      mac_address: "AA:BB:CC:DD:EE:02",
+      phone: "254712345678",
+      package_id: COMBO_PKG,
+      status: "pending",
+    });
+    expect(payment).toMatchObject({
+      id: body.paymentId,
+      package_id: COMBO_PKG,
+      tv_device_id: tv.id,
+      status: "pending",
+    });
+  });
+
+  it("does not allow a different phone to claim a registered TV", async () => {
+    h.db.seed("tv_devices", [
+      {
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        tenant_id: TENANT,
+        mac_address: "AA:BB:CC:DD:EE:02",
+        phone: "254700000000",
+        status: "expired",
+      },
+    ]);
+
+    const response = await checkout({
+      packageId: COMBO_PKG,
+      phone: "0712345678",
+      tvMac: "AA:BB:CC:DD:EE:02",
+    });
+
+    expect(response.status).toBe(403);
+    expect(h.db.rows("payments")).toHaveLength(0);
+    expect(daraja()).not.toHaveBeenCalled();
+  });
+
+  it("keeps an existing TV plan unchanged until the combined payment succeeds", async () => {
+    const expiresAt = "2026-10-25T12:00:00.000Z";
+    h.db.seed("tv_devices", [
+      {
+        id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+        tenant_id: TENANT,
+        mac_address: "AA:BB:CC:DD:EE:02",
+        phone: "254712345678",
+        package_id: PKG,
+        status: "active",
+        expires_at: expiresAt,
+      },
+    ]);
+
+    const response = await checkout({
+      packageId: COMBO_PKG,
+      phone: "0712345678",
+      tvMac: "AA:BB:CC:DD:EE:02",
+    });
+
+    expect(response.status).toBe(200);
+    expect(h.db.rows("tv_devices")[0]).toMatchObject({
+      package_id: PKG,
+      status: "active",
+      expires_at: expiresAt,
+    });
   });
 });

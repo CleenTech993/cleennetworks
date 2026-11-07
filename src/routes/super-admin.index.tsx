@@ -72,7 +72,11 @@ function Overview() {
         const pkg = payment.package_id ? packagesById.get(payment.package_id) : undefined;
         if (!pkg || pkg.tenant_id !== payment.tenant_id) return 0;
         const rate =
-          pkg.kind === "pppoe" ? 0.01 : ["hotspot", "voucher"].includes(pkg.kind) ? 0.02 : 0;
+          pkg.kind === "pppoe"
+            ? 0.01
+            : ["hotspot", "voucher", "hotspot_tv"].includes(pkg.kind)
+              ? 0.02
+              : 0;
         return Number(payment.amount) * rate;
       };
 
@@ -231,7 +235,7 @@ function Overview() {
           icon={TrendingUp}
           label="Estimated Platform Commission"
           value={data ? `KES ${Math.round(data.totalCommission).toLocaleString()}` : "—"}
-          hint="2% hotspot / voucher, 1% PPPoE; unclassified payments excluded"
+          hint="2% hotspot / voucher / phone + TV, 1% PPPoE; unclassified payments excluded"
         />
         <StatCard
           icon={Building2}
