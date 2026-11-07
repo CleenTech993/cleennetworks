@@ -840,14 +840,21 @@ export type Database = {
           email_sent_at: string | null
           email_status: string
           gross_amount: number
+          hotspot_commission_amount: number | null
+          hotspot_commission_rate_pct: number | null
+          hotspot_gross_amount: number | null
           id: string
           invoice_number: string | null
           issued_at: string | null
           mpesa_receipt: string | null
           period_end: string
           period_start: string
+          pppoe_commission_amount: number | null
+          pppoe_commission_rate_pct: number | null
+          pppoe_gross_amount: number | null
           status: string
           tenant_id: string
+          tenant_mpesa_receipt: string | null
         }
         Insert: {
           collected_at?: string | null
@@ -860,14 +867,21 @@ export type Database = {
           email_sent_at?: string | null
           email_status?: string
           gross_amount?: number
+          hotspot_commission_amount?: number | null
+          hotspot_commission_rate_pct?: number | null
+          hotspot_gross_amount?: number | null
           id?: string
           invoice_number?: string | null
           issued_at?: string | null
           mpesa_receipt?: string | null
           period_end: string
           period_start: string
+          pppoe_commission_amount?: number | null
+          pppoe_commission_rate_pct?: number | null
+          pppoe_gross_amount?: number | null
           status?: string
           tenant_id: string
+          tenant_mpesa_receipt?: string | null
         }
         Update: {
           collected_at?: string | null
@@ -880,14 +894,21 @@ export type Database = {
           email_sent_at?: string | null
           email_status?: string
           gross_amount?: number
+          hotspot_commission_amount?: number | null
+          hotspot_commission_rate_pct?: number | null
+          hotspot_gross_amount?: number | null
           id?: string
           invoice_number?: string | null
           issued_at?: string | null
           mpesa_receipt?: string | null
           period_end?: string
           period_start?: string
+          pppoe_commission_amount?: number | null
+          pppoe_commission_rate_pct?: number | null
+          pppoe_gross_amount?: number | null
           status?: string
           tenant_id?: string
+          tenant_mpesa_receipt?: string | null
         }
         Relationships: [
           {
@@ -1284,6 +1305,60 @@ export type Database = {
           },
         ]
       }
+      router_support_sessions: {
+        Row: {
+          access_count: number
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          last_accessed_at: string | null
+          password_hash: string
+          revoked_at: string | null
+          router_id: string
+          tenant_id: string
+        }
+        Insert: {
+          access_count?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          last_accessed_at?: string | null
+          password_hash: string
+          revoked_at?: string | null
+          router_id: string
+          tenant_id: string
+        }
+        Update: {
+          access_count?: number
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          last_accessed_at?: string | null
+          password_hash?: string
+          revoked_at?: string | null
+          router_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "router_support_sessions_router_id_fkey"
+            columns: ["router_id"]
+            isOneToOne: false
+            referencedRelation: "routers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "router_support_sessions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       router_uptime_events: {
         Row: {
           ended_at: string | null
@@ -1324,9 +1399,12 @@ export type Database = {
           architecture: string | null
           block_tethering: boolean
           board_name: string | null
+          capabilities: Json
+          controller_version: string | null
           cpu_load: number | null
           cpu_usage: number | null
           created_at: string
+          device_family: string | null
           firmware_version: string | null
           free_memory_mb: number | null
           hdd_free_mb: number | null
@@ -1337,6 +1415,8 @@ export type Database = {
           last_sync_at: string | null
           legacy_token_auth: boolean
           mac_address: string | null
+          management_method: string | null
+          management_status: string
           model: string | null
           name: string
           provision_token: string | null
@@ -1351,6 +1431,7 @@ export type Database = {
           tenant_id: string
           total_memory_mb: number | null
           uptime_seconds: number | null
+          vendor: string
           voltage: number | null
           wan_ip: string | null
           wg_last_handshake_at: string | null
@@ -1361,9 +1442,12 @@ export type Database = {
           architecture?: string | null
           block_tethering?: boolean
           board_name?: string | null
+          capabilities?: Json
+          controller_version?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
           created_at?: string
+          device_family?: string | null
           firmware_version?: string | null
           free_memory_mb?: number | null
           hdd_free_mb?: number | null
@@ -1374,6 +1458,8 @@ export type Database = {
           last_sync_at?: string | null
           legacy_token_auth?: boolean
           mac_address?: string | null
+          management_method?: string | null
+          management_status?: string
           model?: string | null
           name: string
           provision_token?: string | null
@@ -1388,6 +1474,7 @@ export type Database = {
           tenant_id: string
           total_memory_mb?: number | null
           uptime_seconds?: number | null
+          vendor?: string
           voltage?: number | null
           wan_ip?: string | null
           wg_last_handshake_at?: string | null
@@ -1398,9 +1485,12 @@ export type Database = {
           architecture?: string | null
           block_tethering?: boolean
           board_name?: string | null
+          capabilities?: Json
+          controller_version?: string | null
           cpu_load?: number | null
           cpu_usage?: number | null
           created_at?: string
+          device_family?: string | null
           firmware_version?: string | null
           free_memory_mb?: number | null
           hdd_free_mb?: number | null
@@ -1411,6 +1501,8 @@ export type Database = {
           last_sync_at?: string | null
           legacy_token_auth?: boolean
           mac_address?: string | null
+          management_method?: string | null
+          management_status?: string
           model?: string | null
           name?: string
           provision_token?: string | null
@@ -1425,6 +1517,7 @@ export type Database = {
           tenant_id?: string
           total_memory_mb?: number | null
           uptime_seconds?: number | null
+          vendor?: string
           voltage?: number | null
           wan_ip?: string | null
           wg_last_handshake_at?: string | null
@@ -1951,14 +2044,21 @@ export type Database = {
           email_sent_at: string | null
           email_status: string
           gross_amount: number
+          hotspot_commission_amount: number | null
+          hotspot_commission_rate_pct: number | null
+          hotspot_gross_amount: number | null
           id: string
           invoice_number: string | null
           issued_at: string | null
           mpesa_receipt: string | null
           period_end: string
           period_start: string
+          pppoe_commission_amount: number | null
+          pppoe_commission_rate_pct: number | null
+          pppoe_gross_amount: number | null
           status: string
           tenant_id: string
+          tenant_mpesa_receipt: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -1989,6 +2089,10 @@ export type Database = {
       }
       is_aal2: { Args: never; Returns: boolean }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      provision_isp_tenant: {
+        Args: { p_business_name: string; p_full_name: string; p_phone: string }
+        Returns: string
+      }
       record_auth_login_attempt: {
         Args: { p_email_hash: string; p_ip_hash: string; p_succeeded: boolean }
         Returns: {
@@ -2005,6 +2109,10 @@ export type Database = {
         Args: { p_now?: string }
         Returns: number
       }
+      remove_tenant_member: {
+        Args: { p_actor_id: string; p_user_id: string }
+        Returns: undefined
+      }
       rollup_router_metrics: { Args: never; Returns: undefined }
       rotate_router_token: {
         Args: { p_revoke_device?: boolean; p_router_id: string }
@@ -2013,6 +2121,14 @@ export type Database = {
       tenants_with_role: {
         Args: { _roles: Database["public"]["Enums"]["app_role"][] }
         Returns: string[]
+      }
+      update_tenant_member_roles: {
+        Args: {
+          p_actor_id: string
+          p_roles: Database["public"]["Enums"]["app_role"][]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       user_tenant_id: { Args: { _user_id: string }; Returns: string }
     }
