@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 import { AuthLayout } from "@/components/auth-layout";
+import { ConfirmSignOut } from "@/components/confirm-sign-out";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -144,17 +145,13 @@ function MfaPage() {
             </Button>
           )}
 
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full"
-            onClick={async () => {
-              await supabase.auth.signOut();
-              navigate({ to: "/login" });
-            }}
-          >
-            Use a different account
-          </Button>
+          <ConfirmSignOut
+            trigger={
+              <Button type="button" variant="ghost" className="w-full">
+                Use a different account
+              </Button>
+            }
+          />
         </form>
       )}
     </AuthLayout>

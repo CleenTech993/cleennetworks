@@ -2,12 +2,23 @@ import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { LogOut, MonitorSmartphone } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 export function SessionManagementCard() {
   const navigate = useNavigate();
   const [action, setAction] = useState<"others" | "all" | null>(null);
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
 
   async function writeAudit(actionName: string, description: string) {
     const { data: userResult, error: userError } = await supabase.auth.getUser();
@@ -65,6 +76,7 @@ export function SessionManagementCard() {
       await navigate({ to: "/login" });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not sign out all sessions.");
+    } finally {
       setAction(null);
     }
   }
@@ -86,10 +98,36 @@ export function SessionManagementCard() {
           <MonitorSmartphone className="mr-2 h-4 w-4" />
           {action === "others" ? "Signing out…" : "Sign out other sessions"}
         </Button>
-        <Button variant="destructive" onClick={signOutEverywhere} disabled={action !== null}>
-          <LogOut className="mr-2 h-4 w-4" />
-          {action === "all" ? "Signing out…" : "Sign out all devices"}
-        </Button>
+        <AlertDialog
+          open={confirmAllOpen}
+          onOpenChange={(open) => action === null && setConfirmAllOpen(open)}
+        >
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" disabled={action !== null}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out all devices
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Sign out on all devices?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will end every active session, including this one. You will need to sign in
+                again to continue.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={action !== null}>Cancel</AlertDialogCancel>
+              <Button
+                variant="destructive"
+                onClick={() => void signOutEverywhere()}
+                disabled={action !== null}
+              >
+                {action === "all" ? "Signing out…" : "Sign out all devices"}
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </section>
   );

@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AuthLayout } from "@/components/auth-layout";
+import { ConfirmSignOut } from "@/components/confirm-sign-out";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -141,15 +142,6 @@ function PendingPage() {
     }
   }
 
-  async function signOut() {
-    const { error: signOutError } = await supabase.auth.signOut();
-    if (signOutError) {
-      setError(signOutError.message);
-      return;
-    }
-    navigate({ to: "/login" });
-  }
-
   if (loading) {
     return (
       <AuthLayout title="Setting up your ISP" description="Creating your secure workspace…">
@@ -219,9 +211,13 @@ function PendingPage() {
         <Button type="submit" className="w-full" disabled={submitting}>
           {submitting ? "Creating workspace…" : "Create ISP workspace"}
         </Button>
-        <Button type="button" variant="ghost" className="w-full" onClick={signOut}>
-          Sign out
-        </Button>
+        <ConfirmSignOut
+          trigger={
+            <Button type="button" variant="ghost" className="w-full">
+              Sign out
+            </Button>
+          }
+        />
       </form>
     </AuthLayout>
   );

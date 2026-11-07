@@ -1,13 +1,13 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { LogOut, Menu, ShieldCheck } from "lucide-react";
 import { MfaSecurityDialog } from "@/components/mfa-security-card";
+import { ConfirmSignOut } from "@/components/confirm-sign-out";
 import { RouterAlertsNotification } from "@/components/router-alerts-notification";
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export interface NavItem {
@@ -34,12 +34,6 @@ function NavList({
   onNavigate?: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navigate = useNavigate();
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    navigate({ to: "/login" });
-  }
 
   // The root item (e.g. /tenant) must only match exactly, or it would be active on every page.
   const rootTo = nav.reduce((a, b) => (b.to.length < a.length ? b.to : a), nav[0]?.to ?? "");
@@ -80,14 +74,17 @@ function NavList({
       </nav>
       <div className="border-t border-sidebar-border p-3 space-y-1">
         <MfaSecurityDialog />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={signOut}
-          className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <LogOut className="h-4 w-4" /> Sign out
-        </Button>
+        <ConfirmSignOut
+          trigger={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <LogOut className="h-4 w-4" /> Sign out
+            </Button>
+          }
+        />
       </div>
     </div>
   );
@@ -127,7 +124,11 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
             <RouterAlertsNotification isSuperAdmin={pathname.startsWith("/super-admin")} />
             <MfaSecurityDialog
               trigger={
-                <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                   <span className="hidden sm:inline">Two-Step Auth</span>
                 </Button>
