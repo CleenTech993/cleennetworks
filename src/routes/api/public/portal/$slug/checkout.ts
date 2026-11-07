@@ -9,10 +9,12 @@ import {
 } from "@/lib/platform-billing.server";
 import { startDarajaStkPush } from "@/lib/daraja.server";
 import { isValidKenyanMobile } from "@/lib/phone";
+import { portalMaintenanceBlock } from "@/lib/maintenance.server";
 
 const Schema = z.object({
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
+  routerId: z.string().uuid().optional(),
 });
 const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
 
@@ -48,6 +50,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               { status: 423 },
             );
           }
+          const maintenanceBlock = await portalMaintenanceBlock(
+            tenant.id,
+            parsed.data.routerId ?? null,
+          );
+          if (maintenanceBlock) return Response.json({ error: maintenanceBlock }, { status: 423 });
 
           const { data: pkg } = await supabaseAdmin
             .from("packages")
@@ -95,7 +102,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (activePayment) {
             if (activePayment.package_id !== pkg.id) {
               return Response.json(
-                { error: "A payment prompt is already active for this number. Complete it or wait for it to expire." },
+                {
+                  error:
+                    "A payment prompt is already active for this number. Complete it or wait for it to expire.",
+                },
                 { status: 409 },
               );
             }

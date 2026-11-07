@@ -24,11 +24,13 @@ import { Route as TenantRouteImport } from './routes/tenant'
 import { Route as PSlugRouteImport } from './routes/p.$slug'
 import { Route as PortalIndexRouteImport } from './routes/portal.index'
 import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
+import { Route as PortalMessagesRouteImport } from './routes/portal.messages'
 import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
 import { Route as PortalUsageRouteImport } from './routes/portal.usage'
 import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
 import { Route as SuperAdminAuditRouteImport } from './routes/super-admin.audit'
 import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
+import { Route as SuperAdminCommunicationsRouteImport } from './routes/super-admin.communications'
 import { Route as SuperAdminHealthRouteImport } from './routes/super-admin.health'
 import { Route as SuperAdminNocRouteImport } from './routes/super-admin.noc'
 import { Route as SuperAdminPaymentsRouteImport } from './routes/super-admin.payments'
@@ -39,6 +41,7 @@ import { Route as SupportSessionSessionIdRouteImport } from './routes/support-se
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
 import { Route as TenantAuditRouteImport } from './routes/tenant.audit'
 import { Route as TenantBillingRouteImport } from './routes/tenant.billing'
+import { Route as TenantCommunicationsRouteImport } from './routes/tenant.communications'
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 import { Route as TenantDevicesRouteImport } from './routes/tenant.devices'
 import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
@@ -57,6 +60,7 @@ import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
+import { Route as ApiPublicCustomerMessagesRouteImport } from './routes/api/public/customer/messages'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
 import { Route as ApiPublicRouterSupportSessionsSessionIdRouteImport } from './routes/api/public/router-support-sessions.$sessionId'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
@@ -155,6 +159,11 @@ const PortalInvoicesRoute = PortalInvoicesRouteImport.update({
   path: '/invoices',
   getParentRoute: () => PortalRoute,
 } as any)
+const PortalMessagesRoute = PortalMessagesRouteImport.update({
+  id: '/messages',
+  path: '/messages',
+  getParentRoute: () => PortalRoute,
+} as any)
 const PortalPackagesRoute = PortalPackagesRouteImport.update({
   id: '/packages',
   path: '/packages',
@@ -180,6 +189,12 @@ const SuperAdminBillingRoute = SuperAdminBillingRouteImport.update({
   path: '/billing',
   getParentRoute: () => SuperAdminRoute,
 } as any)
+const SuperAdminCommunicationsRoute =
+  SuperAdminCommunicationsRouteImport.update({
+    id: '/communications',
+    path: '/communications',
+    getParentRoute: () => SuperAdminRoute,
+  } as any)
 const SuperAdminHealthRoute = SuperAdminHealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -228,6 +243,11 @@ const TenantAuditRoute = TenantAuditRouteImport.update({
 const TenantBillingRoute = TenantBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCommunicationsRoute = TenantCommunicationsRouteImport.update({
+  id: '/communications',
+  path: '/communications',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantCustomersRoute = TenantCustomersRouteImport.update({
@@ -320,6 +340,12 @@ const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => TenantRoutersRoute,
 } as any)
+const ApiPublicCustomerMessagesRoute =
+  ApiPublicCustomerMessagesRouteImport.update({
+    id: '/api/public/customer/messages',
+    path: '/api/public/customer/messages',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPortalSlugRoute = ApiPublicPortalSlugRouteImport.update({
   id: '/api/public/portal/$slug',
   path: '/api/public/portal/$slug',
@@ -466,10 +492,12 @@ export interface FileRoutesByFullPath {
   '/tenant': typeof TenantRouteWithChildren
   '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
+  '/portal/messages': typeof PortalMessagesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
+  '/super-admin/communications': typeof SuperAdminCommunicationsRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
   '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
@@ -479,6 +507,7 @@ export interface FileRoutesByFullPath {
   '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
+  '/tenant/communications': typeof TenantCommunicationsRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
@@ -500,6 +529,7 @@ export interface FileRoutesByFullPath {
   '/tenant/': typeof TenantIndexRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
@@ -535,10 +565,12 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
+  '/portal/messages': typeof PortalMessagesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
+  '/super-admin/communications': typeof SuperAdminCommunicationsRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
   '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
@@ -548,6 +580,7 @@ export interface FileRoutesByTo {
   '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
+  '/tenant/communications': typeof TenantCommunicationsRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
@@ -569,6 +602,7 @@ export interface FileRoutesByTo {
   '/tenant': typeof TenantIndexRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
@@ -608,10 +642,12 @@ export interface FileRoutesById {
   '/tenant': typeof TenantRouteWithChildren
   '/p/$slug': typeof PSlugRoute
   '/portal/invoices': typeof PortalInvoicesRoute
+  '/portal/messages': typeof PortalMessagesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
+  '/super-admin/communications': typeof SuperAdminCommunicationsRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
   '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
@@ -621,6 +657,7 @@ export interface FileRoutesById {
   '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
+  '/tenant/communications': typeof TenantCommunicationsRoute
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
@@ -642,6 +679,7 @@ export interface FileRoutesById {
   '/tenant/': typeof TenantIndexRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
+  '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
@@ -682,10 +720,12 @@ export interface FileRouteTypes {
     | '/tenant'
     | '/p/$slug'
     | '/portal/invoices'
+    | '/portal/messages'
     | '/portal/packages'
     | '/portal/usage'
     | '/super-admin/audit'
     | '/super-admin/billing'
+    | '/super-admin/communications'
     | '/super-admin/health'
     | '/super-admin/noc'
     | '/super-admin/payments'
@@ -695,6 +735,7 @@ export interface FileRouteTypes {
     | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
+    | '/tenant/communications'
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
@@ -716,6 +757,7 @@ export interface FileRouteTypes {
     | '/tenant/'
     | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
+    | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
     | '/api/public/mpesa/callback/$tenantId'
@@ -751,10 +793,12 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/p/$slug'
     | '/portal/invoices'
+    | '/portal/messages'
     | '/portal/packages'
     | '/portal/usage'
     | '/super-admin/audit'
     | '/super-admin/billing'
+    | '/super-admin/communications'
     | '/super-admin/health'
     | '/super-admin/noc'
     | '/super-admin/payments'
@@ -764,6 +808,7 @@ export interface FileRouteTypes {
     | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
+    | '/tenant/communications'
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
@@ -785,6 +830,7 @@ export interface FileRouteTypes {
     | '/tenant'
     | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
+    | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
     | '/api/public/mpesa/callback/$tenantId'
@@ -823,10 +869,12 @@ export interface FileRouteTypes {
     | '/tenant'
     | '/p/$slug'
     | '/portal/invoices'
+    | '/portal/messages'
     | '/portal/packages'
     | '/portal/usage'
     | '/super-admin/audit'
     | '/super-admin/billing'
+    | '/super-admin/communications'
     | '/super-admin/health'
     | '/super-admin/noc'
     | '/super-admin/payments'
@@ -836,6 +884,7 @@ export interface FileRouteTypes {
     | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
+    | '/tenant/communications'
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
@@ -857,6 +906,7 @@ export interface FileRouteTypes {
     | '/tenant/'
     | '/api/cron/platform-billing'
     | '/tenant/routers/$id'
+    | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
     | '/api/public/mpesa/callback/$tenantId'
@@ -897,6 +947,7 @@ export interface RootRouteChildren {
   PSlugRoute: typeof PSlugRoute
   SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
+  ApiPublicCustomerMessagesRoute: typeof ApiPublicCustomerMessagesRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicRouterSupportSessionsSessionIdRoute: typeof ApiPublicRouterSupportSessionsSessionIdRoute
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
@@ -1022,6 +1073,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalInvoicesRouteImport
       parentRoute: typeof PortalRoute
     }
+    '/portal/messages': {
+      id: '/portal/messages'
+      path: '/messages'
+      fullPath: '/portal/messages'
+      preLoaderRoute: typeof PortalMessagesRouteImport
+      parentRoute: typeof PortalRoute
+    }
     '/portal/packages': {
       id: '/portal/packages'
       path: '/packages'
@@ -1055,6 +1113,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/super-admin/billing'
       preLoaderRoute: typeof SuperAdminBillingRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/communications': {
+      id: '/super-admin/communications'
+      path: '/communications'
+      fullPath: '/super-admin/communications'
+      preLoaderRoute: typeof SuperAdminCommunicationsRouteImport
       parentRoute: typeof SuperAdminRoute
     }
     '/super-admin/health': {
@@ -1125,6 +1190,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/tenant/billing'
       preLoaderRoute: typeof TenantBillingRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/communications': {
+      id: '/tenant/communications'
+      path: '/communications'
+      fullPath: '/tenant/communications'
+      preLoaderRoute: typeof TenantCommunicationsRouteImport
       parentRoute: typeof TenantRoute
     }
     '/tenant/customers': {
@@ -1252,6 +1324,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tenant/routers/$id'
       preLoaderRoute: typeof TenantRoutersIdRouteImport
       parentRoute: typeof TenantRoutersRoute
+    }
+    '/api/public/customer/messages': {
+      id: '/api/public/customer/messages'
+      path: '/api/public/customer/messages'
+      fullPath: '/api/public/customer/messages'
+      preLoaderRoute: typeof ApiPublicCustomerMessagesRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/portal/$slug': {
       id: '/api/public/portal/$slug'
@@ -1412,6 +1491,7 @@ declare module '@tanstack/react-router' {
 
 interface PortalRouteChildren {
   PortalInvoicesRoute: typeof PortalInvoicesRoute
+  PortalMessagesRoute: typeof PortalMessagesRoute
   PortalPackagesRoute: typeof PortalPackagesRoute
   PortalUsageRoute: typeof PortalUsageRoute
   PortalIndexRoute: typeof PortalIndexRoute
@@ -1419,6 +1499,7 @@ interface PortalRouteChildren {
 
 const PortalRouteChildren: PortalRouteChildren = {
   PortalInvoicesRoute: PortalInvoicesRoute,
+  PortalMessagesRoute: PortalMessagesRoute,
   PortalPackagesRoute: PortalPackagesRoute,
   PortalUsageRoute: PortalUsageRoute,
   PortalIndexRoute: PortalIndexRoute,
@@ -1430,6 +1511,7 @@ const PortalRouteWithChildren =
 interface SuperAdminRouteChildren {
   SuperAdminAuditRoute: typeof SuperAdminAuditRoute
   SuperAdminBillingRoute: typeof SuperAdminBillingRoute
+  SuperAdminCommunicationsRoute: typeof SuperAdminCommunicationsRoute
   SuperAdminHealthRoute: typeof SuperAdminHealthRoute
   SuperAdminNocRoute: typeof SuperAdminNocRoute
   SuperAdminPaymentsRoute: typeof SuperAdminPaymentsRoute
@@ -1442,6 +1524,7 @@ interface SuperAdminRouteChildren {
 const SuperAdminRouteChildren: SuperAdminRouteChildren = {
   SuperAdminAuditRoute: SuperAdminAuditRoute,
   SuperAdminBillingRoute: SuperAdminBillingRoute,
+  SuperAdminCommunicationsRoute: SuperAdminCommunicationsRoute,
   SuperAdminHealthRoute: SuperAdminHealthRoute,
   SuperAdminNocRoute: SuperAdminNocRoute,
   SuperAdminPaymentsRoute: SuperAdminPaymentsRoute,
@@ -1470,6 +1553,7 @@ const TenantRoutersRouteWithChildren = TenantRoutersRoute._addFileChildren(
 interface TenantRouteChildren {
   TenantAuditRoute: typeof TenantAuditRoute
   TenantBillingRoute: typeof TenantBillingRoute
+  TenantCommunicationsRoute: typeof TenantCommunicationsRoute
   TenantCustomersRoute: typeof TenantCustomersRoute
   TenantDevicesRoute: typeof TenantDevicesRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
@@ -1492,6 +1576,7 @@ interface TenantRouteChildren {
 const TenantRouteChildren: TenantRouteChildren = {
   TenantAuditRoute: TenantAuditRoute,
   TenantBillingRoute: TenantBillingRoute,
+  TenantCommunicationsRoute: TenantCommunicationsRoute,
   TenantCustomersRoute: TenantCustomersRoute,
   TenantDevicesRoute: TenantDevicesRoute,
   TenantHotspotRoute: TenantHotspotRoute,
@@ -1551,6 +1636,7 @@ const rootRouteChildren: RootRouteChildren = {
   PSlugRoute: PSlugRoute,
   SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
+  ApiPublicCustomerMessagesRoute: ApiPublicCustomerMessagesRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicRouterSupportSessionsSessionIdRoute:
     ApiPublicRouterSupportSessionsSessionIdRoute,

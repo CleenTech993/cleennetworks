@@ -49,7 +49,8 @@ export function buildHotspotLoginRedirect(
   out.searchParams.set("username", code);
   out.searchParams.set("password", code);
   const dst =
-    parseHotspotDestinationUrl(destination) ?? parseHotspotDestinationUrl(u.searchParams.get("dst"));
+    parseHotspotDestinationUrl(destination) ??
+    parseHotspotDestinationUrl(u.searchParams.get("dst"));
   if (dst) out.searchParams.set("dst", dst);
   return out.toString();
 }
@@ -112,22 +113,40 @@ export interface RouterParams {
   login: string | null;
   mac: string | null;
   destination: string | null;
+  routerId: string | null;
 }
 type ParamStore = Pick<Storage, "getItem" | "setItem">;
-const STORE_KEYS = { login: "ng_login", mac: "ng_mac", destination: "ng_dst" } as const;
+const STORE_KEYS = {
+  login: "ng_login",
+  mac: "ng_mac",
+  destination: "ng_dst",
+  routerId: "ng_router",
+} as const;
 
 /** Reads the router's parameters from the URL query, saving them; falls back to what was saved. */
-export function routerParams(search: string, store: ParamStore | null): RouterParams {
+export function routerParams(
+  search: string,
+  store: ParamStore | null,
+  scope?: string,
+): RouterParams {
   const q = new URLSearchParams(search);
-  const out: RouterParams = { login: q.get("login"), mac: q.get("mac"), destination: q.get("dst") };
-  for (const k of ["login", "mac", "destination"] as const) {
+  const keys = { ...STORE_KEYS, routerId: scope ? `ng_router_${scope}` : STORE_KEYS.routerId };
+  const rawRouterId = q.get("router");
+  const out: RouterParams = {
+    login: q.get("login"),
+    mac: q.get("mac"),
+    destination: q.get("dst"),
+    routerId: rawRouterId && /^[0-9a-f-]{36}$/i.test(rawRouterId) ? rawRouterId : null,
+  };
+  for (const k of ["login", "mac", "destination", "routerId"] as const) {
     try {
       const present = out[k];
-      if (present) store?.setItem(STORE_KEYS[k], present);
-      else out[k] = store?.getItem(STORE_KEYS[k]) ?? null;
+      if (present) store?.setItem(keys[k], present);
+      else out[k] = store?.getItem(keys[k]) ?? null;
     } catch {
       // Storage can be blocked in captive-portal browsers; the URL values still work.
     }
   }
+  if (out.routerId && !/^[0-9a-f-]{36}$/i.test(out.routerId)) out.routerId = null;
   return out;
 }

@@ -8,12 +8,14 @@ import {
   tenantServiceRestriction,
   tenantServiceRestrictionMessage,
 } from "@/lib/platform-billing.server";
+import { portalMaintenanceBlock } from "@/lib/maintenance.server";
 
 // The M-Pesa receipt code is required: a phone number alone is not a secret, so it must
 // never be enough to retrieve a paid voucher. Phone, if given, is an extra filter.
 const Schema = z.object({
   phone: z.string().min(7).max(20).optional(),
   mpesaCode: z.string().trim().min(6).max(1000),
+  routerId: z.string().uuid().optional(),
 });
 
 export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
@@ -51,6 +53,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
             { status: 423 },
           );
         }
+        const maintenanceBlock = await portalMaintenanceBlock(
+          tenant.id,
+          parsed.data.routerId ?? null,
+        );
+        if (maintenanceBlock) return Response.json({ error: maintenanceBlock }, { status: 423 });
 
         let q = supabaseAdmin
           .from("payments")

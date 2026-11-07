@@ -21,6 +21,7 @@ psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/rls-roles.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/platform-c2b.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/platform-service-secrets.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/platform-buygoods-stk.sql
+[[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/customer-messaging-maintenance.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/tenant-services.sql
 
 if [[ "${1:-}" != "--before" ]]; then

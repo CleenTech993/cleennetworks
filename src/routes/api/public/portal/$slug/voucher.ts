@@ -9,8 +9,13 @@ import {
   tenantServiceRestriction,
   tenantServiceRestrictionMessage,
 } from "@/lib/platform-billing.server";
+import { portalMaintenanceBlock } from "@/lib/maintenance.server";
 
-const Schema = z.object({ code: z.string().min(4).max(40), mac: z.string().optional() });
+const Schema = z.object({
+  code: z.string().min(4).max(40),
+  mac: z.string().optional(),
+  routerId: z.string().uuid().optional(),
+});
 
 export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
   server: {
@@ -40,6 +45,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
             { status: 423 },
           );
         }
+        const maintenanceBlock = await portalMaintenanceBlock(
+          tenant.id,
+          parsed.data.routerId ?? null,
+        );
+        if (maintenanceBlock) return Response.json({ error: maintenanceBlock }, { status: 423 });
 
         const { data: v } = await supabaseAdmin
           .from("vouchers")

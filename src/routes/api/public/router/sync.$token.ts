@@ -20,6 +20,11 @@ import {
 } from "@/lib/devices";
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
+import {
+  activeMaintenance,
+  blocksAllConnections,
+  type MaintenanceNotice,
+} from "@/lib/maintenance.server";
 
 /**
  * A section whose database read failed (for example a migration that has not been applied yet) must
@@ -36,15 +41,17 @@ function skipped(section: string, error: { message: string } | null | undefined)
   ];
 }
 
-async function voucherRefreshResponse(router: { id: string; tenant_id: string }): Promise<Response> {
+async function voucherRefreshResponse(router: {
+  id: string;
+  tenant_id: string;
+}): Promise<Response> {
   const now = new Date().toISOString();
   const { data: tenant, error: tenantError } = await supabaseAdmin
     .from("tenants")
     .select("status,billing_suspended_at")
     .eq("id", router.tenant_id)
     .single();
-  if (tenantError || !tenant)
-    return new Response("# voucher sync unavailable\n", { status: 503 });
+  if (tenantError || !tenant) return new Response("# voucher sync unavailable\n", { status: 503 });
 
   const restricted = tenant.status === "suspended" || Boolean(tenant.billing_suspended_at);
   if (restricted) {
@@ -53,12 +60,28 @@ async function voucherRefreshResponse(router: { id: string; tenant_id: string })
     });
   }
 
+  let maintenance: MaintenanceNotice[];
+  try {
+    maintenance = await activeMaintenance(router.tenant_id, router.id);
+  } catch (error) {
+    console.error("voucher sync: maintenance status could not be read", error);
+    return new Response("# voucher sync unavailable\n", { status: 503 });
+  }
+  if (blocksAllConnections(maintenance)) {
+    return new Response(buildHotspotSuspendLines().join("\n"), {
+      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
+
+  const allowedStatuses: string[] = maintenance.some((notice) => notice.mode === "block_new")
+    ? ["used", "active"]
+    : ["unused", "used", "active"];
   const queryVouchers = (includeMac: boolean) =>
     supabaseAdmin
       .from("vouchers")
       .select(includeMac ? "code,expires_at,bound_mac,package_id" : "code,expires_at,package_id")
       .eq("tenant_id", router.tenant_id)
-      .in("status", ["unused", "used", "active"])
+      .in("status", allowedStatuses)
       .or(`expires_at.is.null,expires_at.gt.${now}`);
 
   let voucherQuery = await queryVouchers(true);
@@ -130,6 +153,16 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         }
 
         const now = new Date().toISOString();
+        let maintenance: MaintenanceNotice[];
+        try {
+          maintenance = await activeMaintenance(router.tenant_id, router.id);
+        } catch (error) {
+          console.error("sync: maintenance status could not be read", error);
+          return new Response("# maintenance status unavailable; sync aborted\n", {
+            status: 503,
+            headers: { "content-type": "text/plain", "cache-control": "no-store" },
+          });
+        }
         const [
           { data: tenant, error: tenantError },
           { data: customers, error: customersError },
@@ -151,7 +184,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           supabaseAdmin
             .from("customers")
             .select(
-              "pppoe_username,pppoe_password,status,expires_at,router_id,package_id,data_used_bytes",
+              "pppoe_username,pppoe_password,status,expires_at,router_id,package_id,data_used_bytes,created_at",
             )
             .eq("tenant_id", router.tenant_id)
             .eq("customer_type", "pppoe")
@@ -161,7 +194,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,bound_mac,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used", "active"])
+            .in(
+              "status",
+              maintenance.some((notice) => notice.mode === "block_new")
+                ? ["used", "active"]
+                : ["unused", "used", "active"],
+            )
             .or(`expires_at.is.null,expires_at.gt.${now}`),
           supabaseAdmin
             .from("packages")
@@ -207,7 +245,20 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           });
         }
         const serviceRestricted =
-          tenant.status === "suspended" || Boolean(tenant.billing_suspended_at);
+          tenant.status === "suspended" ||
+          Boolean(tenant.billing_suspended_at) ||
+          blocksAllConnections(maintenance);
+        const blockNewSince = maintenance
+          .filter((notice) => notice.mode === "block_new")
+          .reduce<string | null>(
+            (earliest, notice) =>
+              !earliest || notice.starts_at < earliest ? notice.starts_at : earliest,
+            null,
+          );
+        const pppoeCustomers =
+          !serviceRestricted && blockNewSince
+            ? (customers ?? []).filter((customer) => customer.created_at < blockNewSince)
+            : customers;
 
         const host = getRequestHost();
         const lines: string[] = [
@@ -215,7 +266,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5m } } on-error={}',
           ':do { :if ([:len [/system scheduler find name=netgrid-wan]] = 0) do={ /system scheduler add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan" } else={ /system scheduler set [find name=netgrid-wan] interval=1m } } on-error={}',
           "/system script",
-          ':do { remove [find name=netgrid-voucher-sync] } on-error={}',
+          ":do { remove [find name=netgrid-voucher-sync] } on-error={}",
           `add name=netgrid-voucher-sync source={
   :do {
     /tool fetch url="https://${host}/api/public/router/sync/${params.token}?vouchers=1" dst-path=netgrid-vouchers.rsc mode=https
@@ -260,7 +311,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
               : skipped("PPPoE", customersError ?? packagesError)
             : buildPppoeSyncLines({
                 routerId: router.id,
-                customers: serviceRestricted ? [] : customers,
+                customers: serviceRestricted ? [] : (pppoeCustomers ?? []),
                 packages: serviceRestricted ? [] : packages,
               })),
         );
@@ -276,7 +327,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // If the voucher list cannot be read, the router must KEEP its current voucher users: an empty
         // list would delete every one of them. A missing bound_mac column (migration not applied yet)
         // is retried without it, so vouchers keep working, just without the device pin.
-        type VoucherRow = { code: string; bound_mac?: string | null; package_id: string | null };
+        type VoucherRow = {
+          code: string;
+          status: string;
+          bound_mac?: string | null;
+          package_id: string | null;
+        };
         let voucherRows: VoucherRow[] | null = vouchers;
         if (!serviceRestricted && vouchersError) {
           console.warn(
@@ -287,7 +343,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .from("vouchers")
             .select("code,status,expires_at,package_id")
             .eq("tenant_id", router.tenant_id)
-            .in("status", ["unused", "used", "active"])
+            .in(
+              "status",
+              maintenance.some((notice) => notice.mode === "block_new")
+                ? ["used", "active"]
+                : ["unused", "used", "active"],
+            )
             .or(`expires_at.is.null,expires_at.gt.${now}`);
           if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
           voucherRows = retry.error ? null : retry.data;
@@ -297,7 +358,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           lines.push(...buildHotspotSuspendLines());
         } else if (voucherRows) {
           const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
-          const syncVouchers: SyncVoucher[] = voucherRows.map((v) => ({
+          const visibleVouchers = maintenance.some((notice) => notice.mode === "block_new")
+            ? voucherRows.filter((voucher) => voucher.status !== "unused")
+            : voucherRows;
+          const syncVouchers: SyncVoucher[] = visibleVouchers.map((v) => ({
             code: v.code,
             bound_mac: v.bound_mac ?? null,
             limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
@@ -363,7 +427,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         }
         lines.push(
           ':log info "NetGrid: users synced"',
-          ':do { /file remove [find name=netgrid-sync.rsc] } on-error={}',
+          ":do { /file remove [find name=netgrid-sync.rsc] } on-error={}",
           "",
         );
 

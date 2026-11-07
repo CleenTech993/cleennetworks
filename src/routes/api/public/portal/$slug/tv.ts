@@ -10,6 +10,7 @@ import {
   tenantServiceRestriction,
   tenantServiceRestrictionMessage,
 } from "@/lib/platform-billing.server";
+import { portalMaintenanceBlock } from "@/lib/maintenance.server";
 
 // Smart-TV registration. A TV cannot show the captive portal, so the customer registers its MAC
 // address from a phone, pays, and the payment callback activates the device. The router picks it
@@ -19,6 +20,7 @@ const Schema = z.object({
   name: z.string().trim().max(60).optional(),
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
+  routerId: z.string().uuid().optional(),
 });
 
 const BAD_MAC =
@@ -97,6 +99,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
             { status: 423 },
           );
         }
+        const maintenanceBlock = await portalMaintenanceBlock(
+          tenant.id,
+          parsed.data.routerId ?? null,
+        );
+        if (maintenanceBlock) return Response.json({ error: maintenanceBlock }, { status: 423 });
 
         const { data: pkg } = await supabaseAdmin
           .from("packages")

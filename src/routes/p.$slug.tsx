@@ -2,7 +2,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Copy, Loader2, Mail, MessageCircle, Phone, Tv } from "lucide-react";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  Mail,
+  MessageCircle,
+  Phone,
+  Tv,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +82,21 @@ interface PortalData {
     download_kbps: number | null;
     kind: string;
   }>;
+  announcements: Array<{
+    id: string;
+    title: string;
+    body: string;
+    starts_at: string;
+    ends_at: string | null;
+  }>;
+  maintenance: Array<{
+    id: string;
+    title: string;
+    body: string;
+    mode: "notice" | "block_new" | "block_all";
+    starts_at: string;
+    ends_at: string | null;
+  }>;
 }
 
 function sessionStore(): Storage | null {
@@ -122,19 +147,22 @@ function VoucherCopyButton({ code }: { code: string }) {
 }
 
 function PortalPage() {
+  const { slug } = Route.useParams();
   const [tab, setTab] = useState("buy");
+  const [routerId, setRouterId] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    routerParams(window.location.search, sessionStore());
+    setRouterId(routerParams(window.location.search, sessionStore(), slug).routerId);
     // The router refused a voucher login and sent the customer back: show the voucher tab, which
     // keeps retrying (see VoucherFlow), instead of the purchase screen.
     if (routerLoginFailed(window.location.search) && recallVoucher(sessionStore()))
       setTab("voucher");
-  }, []);
-  const { slug } = Route.useParams();
+  }, [slug]);
   const { data, isLoading, error } = useQuery<PortalData>({
-    queryKey: ["portal", slug],
+    queryKey: ["portal", slug, routerId],
+    enabled: routerId !== undefined,
     queryFn: async () => {
-      const res = await fetch(`/api/public/portal/${slug}`);
+      const site = routerId ? `?router=${encodeURIComponent(routerId)}` : "";
+      const res = await fetch(`/api/public/portal/${slug}${site}`);
       if (!res.ok) {
         let message = "Portal unavailable.";
         try {
@@ -190,6 +218,51 @@ function PortalPage() {
 
       <div className={theme.sheet ? "pt-sheet pt-6" : undefined}>
         <div className="mx-auto max-w-md px-4 pb-12">
+          {data.maintenance.map((maintenance) => (
+            <section
+              key={maintenance.id}
+              role="status"
+              className="mb-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div>
+                  <p className="font-semibold">{maintenance.title}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {maintenance.body}
+                  </p>
+                  {maintenance.mode !== "notice" && (
+                    <p className="mt-2 text-xs font-medium text-amber-700">
+                      {maintenance.mode === "block_all"
+                        ? "Connections are paused while this work is in progress."
+                        : "New connections are paused while this work is in progress."}
+                    </p>
+                  )}
+                  {maintenance.ends_at && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Expected end: {new Date(maintenance.ends_at).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
+          ))}
+          {data.announcements.map((announcement) => (
+            <section
+              key={announcement.id}
+              className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <Bell className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                <div>
+                  <p className="font-semibold">{announcement.title}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {announcement.body}
+                  </p>
+                </div>
+              </div>
+            </section>
+          ))}
           <section className="pt-surface mb-4 rounded-xl border bg-card p-4">
             <h2 className="font-semibold">Getting online</h2>
             <ol className="mt-2 list-inside list-decimal space-y-2 text-sm text-muted-foreground">
@@ -375,7 +448,12 @@ function BuyFlow({
       const res = await fetch(`/api/public/portal/${slug}/checkout`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ packageId: picked, phone }),
+        body: JSON.stringify({
+          packageId: picked,
+          phone,
+          routerId:
+            routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
@@ -507,7 +585,7 @@ function PaymentWaiting({
   useEffect(() => {
     if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
     const store = sessionStore();
-    const params = routerParams(window.location.search, store);
+    const params = routerParams(window.location.search, store, slug);
     const target = buildHotspotLoginRedirect(
       params.login || "http://10.5.50.1/login",
       voucher,
@@ -518,7 +596,7 @@ function PaymentWaiting({
     setAutoConnecting(true);
     rememberVoucher(store, voucher);
     window.location.assign(target);
-  }, [status, tv, voucher, postLoginUrl]);
+  }, [status, tv, voucher, postLoginUrl, slug]);
 
   if (status === "success" && tv) {
     return (
@@ -553,7 +631,7 @@ function PaymentWaiting({
               style={{ backgroundColor: primary }}
               onClick={() => {
                 const store = sessionStore();
-                const params = routerParams(window.location.search, store);
+                const params = routerParams(window.location.search, store, slug);
                 const target = buildHotspotLoginRedirect(
                   params.login || "http://10.5.50.1/login",
                   voucher,
@@ -672,7 +750,14 @@ function TvFlow({
       const res = await fetch(`/api/public/portal/${slug}/tv`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mac, name: name || undefined, packageId: picked, phone }),
+        body: JSON.stringify({
+          mac,
+          name: name || undefined,
+          packageId: picked,
+          phone,
+          routerId:
+            routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
@@ -834,7 +919,12 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
       const res = await fetch(`/api/public/portal/${slug}/reconnect`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ phone: phone || undefined, mpesaCode: code }),
+        body: JSON.stringify({
+          phone: phone || undefined,
+          mpesaCode: code,
+          routerId:
+            routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
@@ -1000,9 +1090,9 @@ function VoucherFlow({
     const saved = recallVoucher(store);
     if (!saved) return;
     const target = buildHotspotLoginRedirect(
-      routerParams(window.location.search, store).login || "http://10.5.50.1/login",
+      routerParams(window.location.search, store, slug).login || "http://10.5.50.1/login",
       saved.code,
-      postLoginUrl || routerParams(window.location.search, store).destination,
+      postLoginUrl || routerParams(window.location.search, store, slug).destination,
     );
     if (!target) return;
     if (!saved.retry) {
@@ -1014,16 +1104,16 @@ function VoucherFlow({
       window.location.href = target;
     }, LOGIN_RETRY_DELAY_MS);
     return () => clearTimeout(t);
-  }, [postLoginUrl]);
+  }, [postLoginUrl, slug]);
 
   function tryAgain() {
     const store = sessionStore();
     const saved = recallVoucher(store);
     const target = saved
       ? buildHotspotLoginRedirect(
-          routerParams(window.location.search, store).login || "http://10.5.50.1/login",
+          routerParams(window.location.search, store, slug).login || "http://10.5.50.1/login",
           saved.code,
-          postLoginUrl || routerParams(window.location.search, store).destination,
+          postLoginUrl || routerParams(window.location.search, store, slug).destination,
         )
       : null;
     if (!saved || !target) return setDone(null);
@@ -1037,11 +1127,15 @@ function VoucherFlow({
     try {
       // The router's login page sends the customer here with ?mac=…&ip=…&login=<hotspot login URL>.
       const store = sessionStore();
-      const params = routerParams(window.location.search, store);
+      const params = routerParams(window.location.search, store, slug);
       const res = await fetch(`/api/public/portal/${slug}/voucher`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, mac: params.mac || undefined }),
+        body: JSON.stringify({
+          code,
+          mac: params.mac || undefined,
+          routerId: params.routerId ?? undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");

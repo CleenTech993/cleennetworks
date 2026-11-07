@@ -109,13 +109,14 @@ describe("routerParams", () => {
     };
   };
   const q =
-    "?router=r1&mac=AA%3ABB%3ACC%3ADD%3AEE%3A02&ip=10.5.50.20&login=http%3A%2F%2Fhotspot.netgrid%2Flogin&dst=https%3A%2F%2Fnews.example%2Farticle";
+    "?router=124e2aa6-4bfc-4bc8-981d-223456789abc&mac=AA%3ABB%3ACC%3ADD%3AEE%3A02&ip=10.5.50.20&login=http%3A%2F%2Fhotspot.netgrid%2Flogin&dst=https%3A%2F%2Fnews.example%2Farticle";
 
   it("reads the router's parameters from the URL", () => {
     expect(routerParams(q, memory())).toEqual({
       login: "http://hotspot.netgrid/login",
       mac: "AA:BB:CC:DD:EE:02",
       destination: "https://news.example/article",
+      routerId: "124e2aa6-4bfc-4bc8-981d-223456789abc",
     });
   });
 
@@ -126,6 +127,7 @@ describe("routerParams", () => {
       login: "http://hotspot.netgrid/login",
       mac: "AA:BB:CC:DD:EE:02",
       destination: "https://news.example/article",
+      routerId: "124e2aa6-4bfc-4bc8-981d-223456789abc",
     });
   });
 
@@ -141,7 +143,12 @@ describe("routerParams", () => {
       },
     };
     expect(routerParams(q, broken).login).toBe("http://hotspot.netgrid/login");
-    expect(routerParams("", broken)).toEqual({ login: null, mac: null, destination: null });
+    expect(routerParams("", broken)).toEqual({
+      login: null,
+      mac: null,
+      destination: null,
+      routerId: null,
+    });
   });
 
   it("a remembered link is still validated before anything is sent to it", () => {
