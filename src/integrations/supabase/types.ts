@@ -1417,6 +1417,8 @@ export type Database = {
           management_method: string | null
           management_status: string
           mac_address: string | null
+          management_method: string | null
+          management_status: string
           model: string | null
           name: string
           provision_token: string | null
@@ -1460,6 +1462,8 @@ export type Database = {
           management_method?: string | null
           management_status?: string
           mac_address?: string | null
+          management_method?: string | null
+          management_status?: string
           model?: string | null
           name: string
           provision_token?: string | null
@@ -1503,6 +1507,8 @@ export type Database = {
           management_method?: string | null
           management_status?: string
           mac_address?: string | null
+          management_method?: string | null
+          management_status?: string
           model?: string | null
           name?: string
           provision_token?: string | null
@@ -2108,6 +2114,10 @@ export type Database = {
       refresh_overdue_tenant_billing: {
         Args: { p_now?: string }
         Returns: number
+      }
+      remove_tenant_member: {
+        Args: { p_actor_id: string; p_user_id: string }
+        Returns: undefined
       }
       rollup_router_metrics: { Args: never; Returns: undefined }
       remove_tenant_member: {
