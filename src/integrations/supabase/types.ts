@@ -847,6 +847,7 @@ export type Database = {
           invoice_number: string | null
           issued_at: string | null
           mpesa_receipt: string | null
+          payment_reference: string | null
           period_end: string
           period_start: string
           pppoe_commission_amount: number | null
@@ -874,6 +875,7 @@ export type Database = {
           invoice_number?: string | null
           issued_at?: string | null
           mpesa_receipt?: string | null
+          payment_reference?: string | null
           period_end: string
           period_start: string
           pppoe_commission_amount?: number | null
@@ -901,6 +903,7 @@ export type Database = {
           invoice_number?: string | null
           issued_at?: string | null
           mpesa_receipt?: string | null
+          payment_reference?: string | null
           period_end?: string
           period_start?: string
           pppoe_commission_amount?: number | null
@@ -923,6 +926,8 @@ export type Database = {
       platform_mpesa_config: {
         Row: {
           callback_base_url: string | null
+          c2b_callback_token: string | null
+          c2b_registered_at: string | null
           confirmation_url: string | null
           consumer_key: string | null
           consumer_secret: string | null
@@ -935,6 +940,8 @@ export type Database = {
         }
         Insert: {
           callback_base_url?: string | null
+          c2b_callback_token?: string | null
+          c2b_registered_at?: string | null
           confirmation_url?: string | null
           consumer_key?: string | null
           consumer_secret?: string | null
@@ -947,6 +954,8 @@ export type Database = {
         }
         Update: {
           callback_base_url?: string | null
+          c2b_callback_token?: string | null
+          c2b_registered_at?: string | null
           confirmation_url?: string | null
           consumer_key?: string | null
           consumer_secret?: string | null
@@ -958,6 +967,59 @@ export type Database = {
           validation_url?: string | null
         }
         Relationships: []
+      }
+      platform_mpesa_transactions: {
+        Row: {
+          amount: number
+          bill_ref_number: string | null
+          commission_id: string | null
+          created_at: string
+          first_name: string | null
+          id: string
+          last_name: string | null
+          middle_name: string | null
+          shortcode: string
+          status: string
+          transaction_id: string
+          transaction_time: string
+        }
+        Insert: {
+          amount: number
+          bill_ref_number?: string | null
+          commission_id?: string | null
+          created_at?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          middle_name?: string | null
+          shortcode: string
+          status?: string
+          transaction_id: string
+          transaction_time: string
+        }
+        Update: {
+          amount?: number
+          bill_ref_number?: string | null
+          commission_id?: string | null
+          created_at?: string
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          middle_name?: string | null
+          shortcode?: string
+          status?: string
+          transaction_id?: string
+          transaction_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_mpesa_transactions_commission_id_fkey"
+            columns: ["commission_id"]
+            isOneToOne: false
+            referencedRelation: "platform_commissions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -2057,6 +2119,7 @@ export type Database = {
           invoice_number: string | null
           issued_at: string | null
           mpesa_receipt: string | null
+          payment_reference: string | null
           period_end: string
           period_start: string
           pppoe_commission_amount: number | null
@@ -2106,6 +2169,19 @@ export type Database = {
           event_type: string
           should_alert: boolean
         }[]
+      }
+      record_platform_c2b_transaction: {
+        Args: {
+          p_amount: number
+          p_bill_ref_number: string
+          p_first_name?: string | null
+          p_last_name?: string | null
+          p_middle_name?: string | null
+          p_shortcode: string
+          p_transaction_id: string
+          p_transaction_time: string
+        }
+        Returns: string
       }
       record_pppoe_sessions: {
         Args: { p_router_id: string; p_sessions: Json; p_tenant_id: string }

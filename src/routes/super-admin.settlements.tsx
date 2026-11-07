@@ -54,13 +54,13 @@ function Commissions() {
     <div>
       <PageHeader
         title="Platform commissions and invoices"
-        description="Review automatically issued monthly invoices and confirm tenant C2B settlements."
+        description="Review monthly commission invoices and incoming tenant C2B settlements."
       />
       <div className="mb-6 rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground">
         Invoices are generated automatically after each completed month from successful payments.
         Hotspot and voucher income is charged at 2%; PPPoE income is charged at 1%. Tenants have 72
-        hours after invoice issue to pay. Verify each payment against the platform's M-Pesa records;
-        the invoice is marked paid only when your code exactly matches the tenant-submitted code.
+        hours after invoice issue to pay. A PayBill C2B payment with the exact invoice reference and
+        amount is matched automatically. Transactions that do not match can be reviewed below.
       </div>
 
       {!rows?.length ? (

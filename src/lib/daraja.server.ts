@@ -274,6 +274,41 @@ export async function registerDarajaC2bUrl(input: {
   confirmationUrl: string;
 }): Promise<void> {
   const config = await loadConfig(input.tenantId);
+  await registerC2bUrl(config, input);
+}
+
+export async function registerPlatformDarajaC2bUrl(input: {
+  shortcode: string;
+  validationUrl: string;
+  confirmationUrl: string;
+}): Promise<void> {
+  const environment = process.env["PLATFORM_MPESA_ENV"];
+  const consumerKey = process.env["PLATFORM_MPESA_CONSUMER_KEY"]?.trim();
+  const consumerSecret = process.env["PLATFORM_MPESA_CONSUMER_SECRET"]?.trim();
+  if (environment !== "sandbox" && environment !== "production") {
+    throw new Error("Set PLATFORM_MPESA_ENV to sandbox or production.");
+  }
+  if (!consumerKey || !consumerSecret) {
+    throw new Error("Configure the platform's Daraja consumer key and secret.");
+  }
+  await registerC2bUrl(
+    {
+      environment,
+      merchantType: "paybill",
+      businessShortcode: input.shortcode,
+      merchantShortcode: input.shortcode,
+      consumerKey,
+      consumerSecret,
+      passkey: "",
+    },
+    input,
+  );
+}
+
+async function registerC2bUrl(
+  config: DarajaConfig,
+  input: { shortcode: string; validationUrl: string; confirmationUrl: string },
+): Promise<void> {
   for (const callbackUrl of [input.validationUrl, input.confirmationUrl]) {
     if (new URL(callbackUrl).protocol !== "https:")
       throw new Error("M-Pesa callbacks require a public HTTPS URL.");

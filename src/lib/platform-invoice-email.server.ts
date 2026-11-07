@@ -4,6 +4,7 @@ export interface PlatformInvoiceEmail {
   recipient: string;
   tenantName: string;
   invoiceNumber: string;
+  paymentReference: string;
   periodStart: string;
   periodEnd: string;
   issuedAt: string;
@@ -63,6 +64,7 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
   const values = {
     tenantName: escapeHtml(invoice.tenantName),
     invoiceNumber: escapeHtml(invoice.invoiceNumber),
+    paymentReference: escapeHtml(invoice.paymentReference),
     periodStart: escapeHtml(formatDate(invoice.periodStart)),
     periodEnd: escapeHtml(
       formatDate(new Date(new Date(invoice.periodEnd).getTime() - 1000).toISOString()),
@@ -94,7 +96,7 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
     rate:
       invoice.commissionRatePct === undefined ? null : escapeHtml(`${invoice.commissionRatePct}%`),
     shortcode: invoice.platformShortcode
-      ? `<p>Paybill/Till: <strong>${escapeHtml(invoice.platformShortcode)}</strong></p>`
+      ? `<p>Platform PayBill: <strong>${escapeHtml(invoice.platformShortcode)}</strong></p>`
       : "",
   };
   const breakdownText = values.breakdown
@@ -120,13 +122,15 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
       `Hello ${invoice.tenantName},`,
       "",
       `Invoice: ${invoice.invoiceNumber}`,
+      `M-Pesa account/reference number: ${invoice.paymentReference}`,
       `Period: ${formatDate(invoice.periodStart)} to ${formatDate(new Date(new Date(invoice.periodEnd).getTime() - 1000).toISOString())}`,
       `Issued: ${formatDate(invoice.issuedAt)}`,
       `Due: ${formatDate(invoice.dueAt)}`,
       `Customer payments: ${formatAmount(invoice.grossAmount)}`,
       ...breakdownText,
       `Total commission due: ${formatAmount(invoice.commissionAmount)}`,
-      invoice.platformShortcode ? `Platform Paybill/Till: ${invoice.platformShortcode}` : "",
+      invoice.platformShortcode ? `Platform PayBill: ${invoice.platformShortcode}` : "",
+      "Use the account/reference number above when paying. The invoice will update automatically when the payment is received.",
       "",
       "Please settle the commission by the due date. Tenant customer service may be paused if the invoice remains unpaid.",
     ]
@@ -146,6 +150,8 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
         </tfoot>
       </table>
       ${values.shortcode}
+      <p>M-Pesa account/reference number: <strong>${values.paymentReference}</strong></p>
+      <p>Use this reference when paying. The invoice updates automatically after the platform receives the payment.</p>
       <p>Please settle the commission by the due date. Tenant customer service may be paused if the invoice remains unpaid.</p>
     </div>`,
   });

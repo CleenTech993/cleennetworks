@@ -42,10 +42,26 @@ Africa's Talking sandbox endpoint.
 ## Platform commission
 
 Customer payments settle directly to the tenant's shortcode. The super-admin console stores the
-platform's receiving PayBill/Till shortcode under **Super Admin → Platform Payments**. A tenant sends
-the commission due as a separate C2B transaction. **Platform commissions** creates a ledger entry
-from successful payments; an admin records the M-Pesa receipt after independently confirming it.
-This ledger does not initiate a deduction or move funds automatically.
+platform's receiving PayBill shortcode under **Super Admin → Platform Payments**. A tenant sends
+the commission due as a separate C2B transaction, using the invoice-specific account reference
+shown on the invoice. The platform C2B callback records each receipt and matches its account
+reference and exact amount to an outstanding invoice; a match marks the invoice paid immediately.
+Transactions with a missing reference, wrong amount, or an already-paid invoice remain in the
+platform transaction ledger for review. The callback does not initiate a deduction or move funds.
+
+Configure these server-side environment variables before registering callbacks in
+**Super Admin → Platform Payments**:
+
+- `PLATFORM_MPESA_ENV`: `sandbox` or `production`
+- `PLATFORM_MPESA_CONSUMER_KEY` and `PLATFORM_MPESA_CONSUMER_SECRET`: Daraja app credentials with
+  C2B URL registration enabled for the platform PayBill
+- `APP_BASE_URL`: the public HTTPS application origin used to construct callback URLs
+
+The callback URL includes a random secret token and is stored in the platform C2B configuration.
+Treat the callback URL as a secret. C2B invoice matching requires a
+PayBill that supplies the account reference (`BillRefNumber`); Buy Goods Till transactions cannot
+reliably identify an invoice by that field. Existing manual receipt confirmation remains available
+for older invoices or transactions that need review.
 
 ## Business email
 

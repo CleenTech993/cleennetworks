@@ -62,13 +62,14 @@ function TenantBilling() {
       const { data, error } = await supabase
         .from("platform_commissions")
         .select(
-          "id,invoice_number,period_start,period_end,gross_amount,commission_amount,commission_rate_pct,hotspot_gross_amount,pppoe_gross_amount,hotspot_commission_amount,pppoe_commission_amount,hotspot_commission_rate_pct,pppoe_commission_rate_pct,tenant_mpesa_receipt,status,mpesa_receipt,issued_at,due_at,email_status,email_error,email_sent_at",
+          "id,invoice_number,payment_reference,period_start,period_end,gross_amount,commission_amount,commission_rate_pct,hotspot_gross_amount,pppoe_gross_amount,hotspot_commission_amount,pppoe_commission_amount,hotspot_commission_rate_pct,pppoe_commission_rate_pct,tenant_mpesa_receipt,status,mpesa_receipt,issued_at,due_at,email_status,email_error,email_sent_at",
         )
         .eq("tenant_id", tenantId!)
         .order("period_start", { ascending: false });
       if (error) throw error;
       return data;
     },
+    refetchInterval: 10_000,
   });
   const submitReceipt = useMutation({
     mutationFn: ({ invoiceId, receipt }: { invoiceId: string; receipt: string }) =>
@@ -108,12 +109,12 @@ function TenantBilling() {
       <div className="mb-5 rounded-xl border bg-card p-4">
         <h2 className="font-semibold">How to pay</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pay the invoice total to the platform PayBill or Till, then enter the M-Pesa transaction
-          code below. A platform admin will compare it with the payment received before marking the
-          invoice paid.
+          Pay the exact invoice total to the platform PayBill using the invoice-specific account
+          reference. The invoice is matched and updated automatically when Safaricom confirms the
+          C2B payment.
         </p>
         <p className="mt-2 font-medium">
-          Platform PayBill / Till: {paymentDetails?.shortcode ?? "Contact platform support"}
+          Platform PayBill: {paymentDetails?.shortcode ?? "Contact platform support"}
         </p>
         {paymentDetailsError && (
           <p role="alert" className="mt-2 text-sm text-destructive">
@@ -215,6 +216,12 @@ function TenantBilling() {
                         </dd>
                       </div>
                       <div>
+                        <dt className="text-muted-foreground">M-Pesa account/reference number</dt>
+                        <dd className="font-mono font-semibold">
+                          {invoice.payment_reference ?? invoice.invoice_number ?? "Contact support"}
+                        </dd>
+                      </div>
+                      <div>
                         <dt className="text-muted-foreground">Successful customer payments</dt>
                         <dd className="font-medium">{formatAmount(invoice.gross_amount)}</dd>
                       </div>
@@ -270,6 +277,10 @@ function TenantBilling() {
 
                     {invoice.status === "pending" && (
                       <div className="no-print mt-4 flex flex-wrap items-end gap-2 border-t pt-4">
+                        <p className="w-full text-xs text-muted-foreground">
+                          If an automatic match does not appear, you can submit the transaction code
+                          for manual review.
+                        </p>
                         <div className="min-w-56 flex-1">
                           <label
                             htmlFor={`invoice-receipt-${invoice.id}`}

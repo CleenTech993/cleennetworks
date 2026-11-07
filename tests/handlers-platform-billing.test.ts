@@ -23,6 +23,7 @@ const invoice = {
   id: INVOICE,
   tenant_id: TENANT,
   invoice_number: "INV-202610-11111111111111111111111111111111",
+  payment_reference: "NG1234567890AB",
   period_start: "2026-10-01T00:00:00.000Z",
   period_end: "2026-11-01T00:00:00.000Z",
   gross_amount: 1000,
@@ -92,6 +93,7 @@ describe("platform billing scheduled job", () => {
       expect.objectContaining({
         recipient: "billing@example.test",
         invoiceNumber: invoice.invoice_number,
+        paymentReference: invoice.payment_reference,
         commissionAmount: 18,
         hotspotGrossAmount: 800,
         pppoeGrossAmount: 200,

@@ -1,6 +1,8 @@
+import { randomBytes } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { registerPlatformDarajaC2bUrl } from "@/lib/daraja.server";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
 
 const ReceiptSchema = z
@@ -47,6 +49,90 @@ async function requireSuperAdmin(userId: string): Promise<void> {
   if (error) throw error;
   if (!data) throw new Error("Only platform admins can confirm invoice payments.");
 }
+
+export const getPlatformC2bStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAal2])
+  .handler(async ({ context }) => {
+    await requireSuperAdmin(context.userId);
+    const { data, error } = await supabaseAdmin
+      .from("platform_mpesa_config")
+      .select("shortcode,confirmation_url,validation_url,c2b_registered_at")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    return {
+      shortcode: data?.shortcode ?? null,
+      confirmationUrl: data?.confirmation_url ?? null,
+      validationUrl: data?.validation_url ?? null,
+      registeredAt: data?.c2b_registered_at ?? null,
+      credentialsConfigured: Boolean(
+        (process.env["PLATFORM_MPESA_ENV"] === "sandbox" ||
+          process.env["PLATFORM_MPESA_ENV"] === "production") &&
+        process.env["PLATFORM_MPESA_CONSUMER_KEY"] &&
+        process.env["PLATFORM_MPESA_CONSUMER_SECRET"] &&
+        process.env["APP_BASE_URL"],
+      ),
+    };
+  });
+
+export const registerPlatformC2bCallbacks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAal2])
+  .handler(async ({ context }) => {
+    await requireSuperAdmin(context.userId);
+    const { data: config, error } = await supabaseAdmin
+      .from("platform_mpesa_config")
+      .select("shortcode,c2b_callback_token")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    const shortcode = config?.shortcode?.trim();
+    if (!shortcode || !/^\d{5,20}$/.test(shortcode)) {
+      throw new Error("Save a valid platform PayBill shortcode before registering callbacks.");
+    }
+
+    const configuredAppUrl = process.env["APP_BASE_URL"]?.trim();
+    if (!configuredAppUrl) throw new Error("Set APP_BASE_URL to the public HTTPS application URL.");
+    let baseUrl: string;
+    try {
+      const parsed = new URL(configuredAppUrl);
+      if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
+        throw new Error("APP_BASE_URL must be a public HTTPS URL.");
+      }
+      baseUrl = parsed.origin;
+    } catch (error) {
+      throw new Error(
+        error instanceof Error ? error.message : "The public application URL is invalid.",
+      );
+    }
+    const token = config.c2b_callback_token || randomBytes(32).toString("hex");
+    const validationUrl = `${baseUrl}/api/public/mpesa/platform-c2b-validation/${token}`;
+    const confirmationUrl = `${baseUrl}/api/public/mpesa/platform-c2b/${token}`;
+
+    if (!config.c2b_callback_token) {
+      const { error: saveTokenError } = await supabaseAdmin
+        .from("platform_mpesa_config")
+        .update({ c2b_callback_token: token })
+        .eq("id", 1);
+      if (saveTokenError) throw saveTokenError;
+    }
+
+    await registerPlatformDarajaC2bUrl({ shortcode, validationUrl, confirmationUrl });
+
+    const registeredAt = new Date().toISOString();
+    const { error: saveUrlsError } = await supabaseAdmin
+      .from("platform_mpesa_config")
+      .update({
+        callback_base_url: baseUrl,
+        validation_url: validationUrl,
+        confirmation_url: confirmationUrl,
+        c2b_registered_at: registeredAt,
+        updated_at: registeredAt,
+      })
+      .eq("id", 1);
+    if (saveUrlsError) throw saveUrlsError;
+
+    return { shortcode, validationUrl, confirmationUrl, registeredAt };
+  });
 
 export const submitPlatformInvoiceReceipt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])

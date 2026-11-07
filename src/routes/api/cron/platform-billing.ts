@@ -109,6 +109,7 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
             const hasTieredBreakdown = tieredFields.every((value) => typeof value === "number");
             if (
               !invoice.invoice_number ||
+              !invoice.payment_reference ||
               !invoice.issued_at ||
               !invoice.due_at ||
               (!hasTieredBreakdown &&
@@ -121,6 +122,7 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
               recipient,
               tenantName: tenant.name,
               invoiceNumber: invoice.invoice_number,
+              paymentReference: invoice.payment_reference,
               periodStart: invoice.period_start,
               periodEnd: invoice.period_end,
               issuedAt: invoice.issued_at,
