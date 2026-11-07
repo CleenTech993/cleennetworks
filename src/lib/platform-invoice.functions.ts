@@ -3,6 +3,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { registerPlatformDarajaC2bUrl } from "@/lib/daraja.server";
+import {
+  loadPlatformServiceSecrets,
+  savePlatformServiceSecret,
+  type PlatformServiceSecretName,
+} from "@/lib/platform-service-secrets.server";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
 
 const ReceiptSchema = z
@@ -47,32 +52,103 @@ async function requireSuperAdmin(userId: string): Promise<void> {
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new Error("Only platform admins can confirm invoice payments.");
+  if (!data) throw new Error("Only platform admins can manage platform billing.");
+}
+
+async function platformC2bStatus() {
+  const [secrets, configResult] = await Promise.all([
+    loadPlatformServiceSecrets(),
+    supabaseAdmin
+      .from("platform_mpesa_config")
+      .select("shortcode,confirmation_url,validation_url,c2b_registered_at")
+      .eq("id", 1)
+      .maybeSingle(),
+  ]);
+  if (configResult.error) throw configResult.error;
+  return {
+    shortcode: configResult.data?.shortcode ?? null,
+    confirmationUrl: configResult.data?.confirmation_url ?? null,
+    validationUrl: configResult.data?.validation_url ?? null,
+    registeredAt: configResult.data?.c2b_registered_at ?? null,
+    appBaseUrl: secrets.APP_BASE_URL ?? null,
+    environment:
+      secrets.PLATFORM_MPESA_ENV === "sandbox" || secrets.PLATFORM_MPESA_ENV === "production"
+        ? secrets.PLATFORM_MPESA_ENV
+        : null,
+    consumerKeyLast4: secrets.PLATFORM_MPESA_CONSUMER_KEY?.slice(-4) ?? null,
+    consumerSecretLast4: secrets.PLATFORM_MPESA_CONSUMER_SECRET?.slice(-4) ?? null,
+    credentialsConfigured: Boolean(
+      secrets.APP_BASE_URL &&
+      (secrets.PLATFORM_MPESA_ENV === "sandbox" || secrets.PLATFORM_MPESA_ENV === "production") &&
+      secrets.PLATFORM_MPESA_CONSUMER_KEY &&
+      secrets.PLATFORM_MPESA_CONSUMER_SECRET,
+    ),
+  };
 }
 
 export const getPlatformC2bStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
   .handler(async ({ context }) => {
     await requireSuperAdmin(context.userId);
-    const { data, error } = await supabaseAdmin
+    return platformC2bStatus();
+  });
+
+const SavePlatformC2bSettingsSchema = z
+  .object({
+    appBaseUrl: z.string().trim().max(500).optional(),
+    environment: z.enum(["sandbox", "production"]).optional(),
+    consumerKey: z.string().trim().max(500).optional(),
+    consumerSecret: z.string().trim().max(500).optional(),
+  })
+  .refine((value) => Object.values(value).some((entry) => Boolean(entry)), {
+    message: "Enter at least one setting to save.",
+  });
+
+export const savePlatformC2bSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAal2])
+  .validator((input: z.input<typeof SavePlatformC2bSettingsSchema>) =>
+    SavePlatformC2bSettingsSchema.parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context.userId);
+
+    let appBaseUrl = data.appBaseUrl;
+    if (appBaseUrl) {
+      let parsed: URL;
+      try {
+        parsed = new URL(appBaseUrl);
+      } catch {
+        throw new Error("Enter a valid public HTTPS application URL.");
+      }
+      if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
+        throw new Error("The application URL must use HTTPS and cannot include credentials.");
+      }
+      appBaseUrl = parsed.origin;
+    }
+
+    const entries: [PlatformServiceSecretName, string | undefined][] = [
+      ["APP_BASE_URL", appBaseUrl],
+      ["PLATFORM_MPESA_ENV", data.environment],
+      ["PLATFORM_MPESA_CONSUMER_KEY", data.consumerKey],
+      ["PLATFORM_MPESA_CONSUMER_SECRET", data.consumerSecret],
+    ];
+    for (const [name, value] of entries) {
+      if (value) await savePlatformServiceSecret(name, value, context.userId);
+    }
+
+    const { error } = await supabaseAdmin
       .from("platform_mpesa_config")
-      .select("shortcode,confirmation_url,validation_url,c2b_registered_at")
-      .eq("id", 1)
-      .maybeSingle();
+      .update({
+        c2b_registered_at: null,
+        callback_base_url: null,
+        confirmation_url: null,
+        validation_url: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", 1);
     if (error) throw error;
-    return {
-      shortcode: data?.shortcode ?? null,
-      confirmationUrl: data?.confirmation_url ?? null,
-      validationUrl: data?.validation_url ?? null,
-      registeredAt: data?.c2b_registered_at ?? null,
-      credentialsConfigured: Boolean(
-        (process.env["PLATFORM_MPESA_ENV"] === "sandbox" ||
-          process.env["PLATFORM_MPESA_ENV"] === "production") &&
-        process.env["PLATFORM_MPESA_CONSUMER_KEY"] &&
-        process.env["PLATFORM_MPESA_CONSUMER_SECRET"] &&
-        process.env["APP_BASE_URL"],
-      ),
-    };
+
+    return platformC2bStatus();
   });
 
 export const registerPlatformC2bCallbacks = createServerFn({ method: "POST" })
@@ -90,13 +166,15 @@ export const registerPlatformC2bCallbacks = createServerFn({ method: "POST" })
       throw new Error("Save a valid platform PayBill shortcode before registering callbacks.");
     }
 
-    const configuredAppUrl = process.env["APP_BASE_URL"]?.trim();
-    if (!configuredAppUrl) throw new Error("Set APP_BASE_URL to the public HTTPS application URL.");
+    const secrets = await loadPlatformServiceSecrets();
+    const configuredAppUrl = secrets.APP_BASE_URL?.trim();
+    if (!configuredAppUrl)
+      throw new Error("Set the public HTTPS application URL in platform settings.");
     let baseUrl: string;
     try {
       const parsed = new URL(configuredAppUrl);
       if (parsed.protocol !== "https:" || parsed.username || parsed.password) {
-        throw new Error("APP_BASE_URL must be a public HTTPS URL.");
+        throw new Error("The saved application URL must use HTTPS and cannot include credentials.");
       }
       baseUrl = parsed.origin;
     } catch (error) {

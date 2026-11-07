@@ -49,13 +49,14 @@ reference and exact amount to an outstanding invoice; a match marks the invoice 
 Transactions with a missing reference, wrong amount, or an already-paid invoice remain in the
 platform transaction ledger for review. The callback does not initiate a deduction or move funds.
 
-Configure these server-side environment variables before registering callbacks in
-**Super Admin → Platform Payments**:
-
-- `PLATFORM_MPESA_ENV`: `sandbox` or `production`
-- `PLATFORM_MPESA_CONSUMER_KEY` and `PLATFORM_MPESA_CONSUMER_SECRET`: Daraja app credentials with
-  C2B URL registration enabled for the platform PayBill
-- `APP_BASE_URL`: the public HTTPS application origin used to construct callback URLs
+Enter the public HTTPS application URL, Daraja environment (`sandbox` or `production`), and
+consumer key/secret under **Super Admin → Platform Payments**. The server encrypts the saved values
+with AES-256-GCM in `platform_service_secrets`; browser roles cannot read that table and full saved
+credentials are never returned to the page. The encryption key is `PLATFORM_SECRETS_KEY`, or
+`SUPABASE_SERVICE_ROLE_KEY` as a fallback. Set a stable, dedicated `PLATFORM_SECRETS_KEY` in
+production and retain it across deployments; rotating it requires the platform credentials to be
+entered again. The Daraja app credentials must have C2B URL registration enabled for the platform
+PayBill.
 
 The callback URL includes a random secret token and is stored in the platform C2B configuration.
 Treat the callback URL as a secret. C2B invoice matching requires a

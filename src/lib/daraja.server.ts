@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { normalizePhone } from "@/lib/mpesa.server";
+import { loadPlatformServiceSecrets } from "@/lib/platform-service-secrets.server";
 import { loadTenantServiceSecrets } from "@/lib/tenant-service-secrets.server";
 
 type DarajaConfig = {
@@ -282,11 +283,12 @@ export async function registerPlatformDarajaC2bUrl(input: {
   validationUrl: string;
   confirmationUrl: string;
 }): Promise<void> {
-  const environment = process.env["PLATFORM_MPESA_ENV"];
-  const consumerKey = process.env["PLATFORM_MPESA_CONSUMER_KEY"]?.trim();
-  const consumerSecret = process.env["PLATFORM_MPESA_CONSUMER_SECRET"]?.trim();
+  const secrets = await loadPlatformServiceSecrets();
+  const environment = secrets.PLATFORM_MPESA_ENV;
+  const consumerKey = secrets.PLATFORM_MPESA_CONSUMER_KEY?.trim();
+  const consumerSecret = secrets.PLATFORM_MPESA_CONSUMER_SECRET?.trim();
   if (environment !== "sandbox" && environment !== "production") {
-    throw new Error("Set PLATFORM_MPESA_ENV to sandbox or production.");
+    throw new Error("Set the platform Daraja environment to sandbox or production.");
   }
   if (!consumerKey || !consumerSecret) {
     throw new Error("Configure the platform's Daraja consumer key and secret.");
