@@ -40,13 +40,18 @@ function NavList({
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border px-5 py-5">
+      <div className="border-b border-sidebar-border px-5 py-6">
         <Brand className="text-sidebar-accent-foreground" />
         {subtitle && (
-          <p className="mt-1.5 pl-[38px] text-xs text-sidebar-foreground/60">{subtitle}</p>
+          <p className="mt-2 pl-[38px] text-[11px] font-medium uppercase tracking-[0.12em] text-sidebar-foreground/55">
+            {subtitle}
+          </p>
         )}
       </div>
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="Main">
+      <div className="px-5 pb-1 pt-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/40">
+        Workspace
+      </div>
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2" aria-label="Main">
         {nav.map((item) => {
           const active =
             item.to === rootTo
@@ -60,31 +65,39 @@ function NavList({
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-150",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-sidebar-primary"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary"
+                  : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
               )}
             >
-              <Icon className={cn("h-4 w-4", active && "text-sidebar-primary")} />
+              <Icon
+                className={cn(
+                  "h-[17px] w-[17px] shrink-0",
+                  active ? "text-sidebar-primary" : "text-sidebar-foreground/55",
+                )}
+              />
               {item.label}
             </Link>
           );
         })}
       </nav>
-      <div className="border-t border-sidebar-border p-3 space-y-1">
+      <div className="space-y-1 border-t border-sidebar-border p-3">
         <MfaSecurityDialog />
         <ConfirmSignOut
           trigger={
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className="h-10 w-full justify-start rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <LogOut className="h-4 w-4" /> Sign out
             </Button>
           }
         />
+        <p className="px-3 pb-1 pt-2 text-[10px] text-sidebar-foreground/35">
+          NetGrid ISP workspace
+        </p>
       </div>
     </div>
   );
@@ -99,11 +112,11 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-sidebar-border md:block">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-sidebar-border shadow-[8px_0_30px_-28px_rgba(0,0,0,0.5)] md:block">
         <NavList nav={nav} subtitle={subtitle} />
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/85 px-4 backdrop-blur sm:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-1 flex-col bg-[radial-gradient(ellipse_at_top_right,oklch(0.94_0.025_150/0.55),transparent_35%)]">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/70 bg-background/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
@@ -118,7 +131,12 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
               <NavList nav={nav} subtitle={subtitle} onNavigate={() => setOpen(false)} />
             </SheetContent>
           </Sheet>
-          <h1 className="min-w-0 truncate text-sm font-medium text-muted-foreground">{title}</h1>
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+              NetGrid
+            </p>
+            <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
+          </div>
           <div className="ml-auto flex items-center gap-2">
             {headerAction}
             <RouterAlertsNotification isSuperAdmin={pathname.startsWith("/super-admin")} />
@@ -127,7 +145,7 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  className="h-9 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
                 >
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                   <span className="hidden sm:inline">Two-Step Auth</span>
@@ -137,7 +155,7 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
             <ThemeToggle />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <main className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
           {children}
         </main>
       </div>
@@ -155,11 +173,15 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+    <div className="mb-7 flex flex-col gap-3 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
       <div className="min-w-0">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">{title}</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-[2rem]">
+          {title}
+        </h2>
         {description && (
-          <p className="mt-1 max-w-prose text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1.5 max-w-prose text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -179,7 +201,7 @@ export function StatCard({
   icon?: ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-5">
+    <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_8px_30px_-26px_rgba(20,50,39,0.35)] transition-shadow hover:shadow-[0_14px_36px_-28px_rgba(20,50,39,0.45)]">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{label}</p>
         {Icon && <Icon className="h-4 w-4 text-muted-foreground/70" />}
@@ -204,9 +226,9 @@ export function EmptyState({
   icon?: ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="rounded-xl border border-dashed bg-card/60 px-6 py-12 text-center">
+    <div className="rounded-2xl border border-dashed border-border bg-card/70 px-6 py-12 text-center">
       {Icon && (
-        <div className="mx-auto mb-4 grid h-10 w-10 place-items-center rounded-lg bg-muted text-muted-foreground">
+        <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-accent text-accent-foreground">
           <Icon className="h-5 w-5" />
         </div>
       )}

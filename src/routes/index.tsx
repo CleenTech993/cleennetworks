@@ -1,5 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BarChart3, CreditCard, Radio, Router, Shield, Wifi } from "lucide-react";
+import {
+  Activity,
+  ArrowRight,
+  ArrowUpRight,
+  BarChart3,
+  Check,
+  CreditCard,
+  Radio,
+  Router,
+  Shield,
+  Wifi,
+} from "lucide-react";
 import { Brand } from "@/components/brand";
 import { StatusDot } from "@/components/status-dot";
 import { Button } from "@/components/ui/button";
@@ -113,144 +124,336 @@ const features = [
 
 function Landing() {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 sm:px-8">
-        <Brand />
+    <div className="min-h-screen overflow-hidden bg-[#f7f8f6] text-[#12211e]">
+      <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
+        <Link to="/" aria-label="NetGrid home" className="rounded-md">
+          <Brand />
+        </Link>
+        <nav
+          className="hidden items-center gap-8 text-sm font-medium text-[#52615d] md:flex"
+          aria-label="Main"
+        >
+          <a className="transition-colors hover:text-[#142b26]" href="#features">
+            Platform
+          </a>
+          <a className="transition-colors hover:text-[#142b26]" href="#how-it-works">
+            How it works
+          </a>
+          <a className="transition-colors hover:text-[#142b26]" href="#pricing">
+            Pricing
+          </a>
+        </nav>
         <nav className="flex items-center gap-2" aria-label="Account">
-          <Button asChild variant="ghost" size="sm">
+          <Button asChild variant="ghost" size="sm" className="text-[#31423e]">
             <Link to="/login">Sign in</Link>
           </Button>
-          <Button asChild size="sm">
-            <Link to="/signup">Create ISP account</Link>
+          <Button asChild size="sm" className="rounded-full bg-[#153c32] px-4 hover:bg-[#205747]">
+            <Link to="/signup">
+              Get started <ArrowUpRight className="ml-1 h-4 w-4" />
+            </Link>
           </Button>
         </nav>
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-10 sm:px-8 lg:grid-cols-[1.05fr_1fr] lg:pt-16">
-          <div>
-            <h1 className="max-w-xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-              Every router, voucher and payment in one place
+        <section className="relative mx-auto grid max-w-7xl items-center gap-14 px-5 pb-20 pt-12 sm:px-8 sm:pt-16 lg:grid-cols-[0.9fr_1.1fr] lg:px-12 lg:pb-28 lg:pt-20">
+          <div className="pointer-events-none absolute -left-48 top-0 h-[34rem] w-[34rem] rounded-full bg-[#dceee4] opacity-70 blur-3xl" />
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#d6e5dc] bg-white/70 px-3 py-1.5 text-xs font-semibold tracking-wide text-[#285b48] shadow-sm">
+              <span className="h-2 w-2 rounded-full bg-[#45a575]" />
+              ISP OPERATIONS, MADE SIMPLE
+            </div>
+            <h1 className="mt-7 max-w-2xl font-display text-5xl font-semibold leading-[0.99] tracking-[-0.055em] text-[#142b26] sm:text-6xl lg:text-[4.65rem]">
+              Your network.
+              <br />
+              <span className="text-[#498467]">One clear view.</span>
             </h1>
-            <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-              NetGrid sets up your MikroTik routers, sells hotspot and PPPoE packages through
-              M-Pesa, and shows you which sites are online right now.
+            <p className="mt-7 max-w-xl text-base leading-7 text-[#586761] sm:text-lg sm:leading-8">
+              Run your MikroTik ISP from one calm, connected workspace. Manage routers, sell hotspot
+              and PPPoE plans, collect with M-Pesa, and know what is happening across your network.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link to="/signup">Create ISP account</Link>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Button
+                asChild
+                size="lg"
+                className="h-12 rounded-full bg-[#153c32] px-6 text-base hover:bg-[#205747]"
+              >
+                <Link to="/signup">
+                  Create your workspace <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link to="/login">Sign in</Link>
+              <Button
+                asChild
+                size="lg"
+                variant="ghost"
+                className="h-12 rounded-full px-5 text-[#30433c]"
+              >
+                <Link to="/login">I already have an account</Link>
               </Button>
             </div>
-          </div>
-
-          <div className="bg-grid rounded-2xl border border-sidebar-border bg-sidebar p-4 text-sidebar-foreground shadow-2xl shadow-sidebar/25 sm:p-5">
-            <div className="flex items-baseline justify-between px-1">
-              <h2 className="font-display text-base font-semibold text-sidebar-accent-foreground">
-                Routers
-              </h2>
-              <p className="text-xs text-sidebar-foreground/70">
-                <span className="tabular-nums">2</span> of <span className="tabular-nums">4</span>{" "}
-                healthy
-              </p>
-            </div>
-            <ul className="mt-3 space-y-1.5">
-              {routers.map((r) => (
-                <li
-                  key={r.name}
-                  className="flex items-center gap-3 rounded-lg bg-sidebar-accent/70 px-3 py-2.5"
-                >
-                  <StatusDot status={r.status} />
-                  <span className="flex-1 truncate text-sm font-medium text-sidebar-accent-foreground">
-                    {r.name}
-                  </span>
-                  <span className="text-xs text-sidebar-foreground/70 tabular-nums">
-                    {r.detail}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <h2 className="mt-5 px-1 font-display text-base font-semibold text-sidebar-accent-foreground">
-              Latest payments
-            </h2>
-            <ul className="mt-3 divide-y divide-sidebar-border">
-              {payments.map((p) => (
-                <li key={p.item} className="flex items-baseline gap-3 px-1 py-2.5 text-sm">
-                  <span className="w-20 font-display font-semibold tabular-nums text-sidebar-accent-foreground">
-                    {p.amount}
-                  </span>
-                  <span className="flex-1 truncate text-sidebar-foreground/90">{p.item}</span>
-                  <span className="text-xs text-sidebar-foreground/60">{p.when}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 px-1 text-xs text-sidebar-foreground/50">Sample data</p>
-          </div>
-        </section>
-
-        <section className="border-y bg-card/60">
-          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8">
-            <h2 className="max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">
-              Start without waiting for approval
-            </h2>
-            <ol className="mt-10 grid gap-8 md:grid-cols-3">
-              {steps.map((s, i) => (
-                <li key={s.title} className="relative border-t-2 border-primary/70 pt-5">
-                  <span className="font-display text-sm font-semibold tabular-nums text-primary">
-                    Step {i + 1}
-                  </span>
-                  <h3 className="mt-1 text-lg font-semibold">{s.title}</h3>
-                  <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
-                    {s.body}
-                  </p>
-                </li>
-              ))}
-            </ol>
-            <div className="mt-10 rounded-xl border bg-background p-5">
-              <h3 className="font-semibold">Monthly platform commission</h3>
-              <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                <p className="rounded-lg bg-muted/50 p-3">
-                  <span className="font-medium">Hotspot / voucher:</span> 2% of successful income
-                </p>
-                <p className="rounded-lg bg-muted/50 p-3">
-                  <span className="font-medium">PPPoE:</span> 1% of successful income
-                </p>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                You receive a monthly invoice with both income totals and the amount due. Pay to
-                the platform account shown in your console, submit your M-Pesa transaction code,
-                and the payment is confirmed when a platform admin matches the code. Your workspace
-                is created as soon as setup is complete; only email verification is required when
-                enabled for your account.
-              </p>
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#66736e]">
+              <span className="inline-flex items-center gap-2">
+                <Check className="h-4 w-4 text-[#458363]" /> Set up at your pace
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <Check className="h-4 w-4 text-[#458363]" /> Built for MikroTik
+              </span>
             </div>
           </div>
-        </section>
 
-        <section className="mx-auto max-w-6xl px-5 py-20 sm:px-8">
-          <h2 className="max-w-md text-2xl font-semibold tracking-tight sm:text-3xl">
-            What you get
-          </h2>
-          <div className="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map(({ icon: Icon, title, body }) => (
-              <div key={title} className="border-t pt-5">
-                <div className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4 text-primary" />
-                  <h3 className="text-base font-semibold">{title}</h3>
+          <div className="relative z-10 mx-auto w-full max-w-[42rem] lg:ml-auto">
+            <div className="absolute -right-5 -top-7 h-36 w-36 rounded-full bg-[#d5e9d9] blur-2xl sm:-right-8" />
+            <div className="absolute -bottom-8 -left-8 h-40 w-40 rounded-full bg-[#dbe9df] blur-2xl" />
+            <div className="relative rounded-[1.7rem] border border-white/10 bg-[#14251f] p-3 shadow-[0_32px_90px_-32px_rgba(20,50,39,0.5)] sm:p-4">
+              <div className="rounded-[1.2rem] border border-white/10 bg-[#192d25] p-4 text-white sm:p-5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#294537] text-[#a6d9b6]">
+                      <Activity className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Network overview</p>
+                      <p className="mt-0.5 text-xs text-white/50">ISP workspace · Live status</p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-full border border-[#4c8062]/40 bg-[#244734] px-3 py-1.5 text-xs font-medium text-[#b8e3c2]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#72d092]" /> Monitoring
+                  </span>
                 </div>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{body}</p>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.045] p-3.5">
+                    <p className="text-xs text-white/50">Routers online</p>
+                    <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
+                      2<span className="ml-1 text-sm font-normal text-white/40">/ 4</span>
+                    </p>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full w-1/2 rounded-full bg-[#77c790]" />
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.045] p-3.5">
+                    <p className="text-xs text-white/50">Active sessions</p>
+                    <p className="mt-2 font-display text-2xl font-semibold tracking-tight">192</p>
+                    <p className="mt-2 text-[11px] text-[#9bd7a9]">Across all sites</p>
+                  </div>
+                  <div className="col-span-2 rounded-xl border border-white/[0.07] bg-white/[0.045] p-3.5 sm:col-span-1">
+                    <p className="text-xs text-white/50">Payments today</p>
+                    <p className="mt-2 font-display text-2xl font-semibold tracking-tight">
+                      KES 1,850
+                    </p>
+                    <p className="mt-2 text-[11px] text-white/40">M-Pesa collections</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-[1.1fr_0.9fr]">
+                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Router health</p>
+                        <p className="mt-1 text-xs text-white/45">Status across your sites</p>
+                      </div>
+                      <Router className="h-4 w-4 text-[#9acbaa]" />
+                    </div>
+                    <ul className="mt-3 space-y-1.5">
+                      {routers.slice(0, 3).map((router) => (
+                        <li
+                          key={router.name}
+                          className="flex items-center gap-2.5 rounded-lg bg-white/[0.04] px-2.5 py-2"
+                        >
+                          <StatusDot status={router.status} />
+                          <span className="min-w-0 flex-1 truncate text-xs text-white/80">
+                            {router.name}
+                          </span>
+                          <span className="text-[10px] text-white/40">{router.detail}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.035] p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Recent activity</p>
+                        <p className="mt-1 text-xs text-white/45">Payments received</p>
+                      </div>
+                      <CreditCard className="h-4 w-4 text-[#9acbaa]" />
+                    </div>
+                    <ul className="mt-3 space-y-2.5">
+                      {payments.slice(0, 3).map((payment) => (
+                        <li key={payment.item} className="flex items-center gap-2">
+                          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#294537] text-[#a6d9b6]">
+                            <Check className="h-3.5 w-3.5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11px] text-white/75">
+                              {payment.item}
+                            </span>
+                            <span className="block text-[10px] text-white/40">{payment.when}</span>
+                          </span>
+                          <span className="text-[11px] font-medium tabular-nums text-white/85">
+                            {payment.amount}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <p className="mt-3 text-right text-[10px] text-white/30">
+                  Illustrative sample dashboard
+                </p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="features" className="border-y border-[#e5e9e4] bg-white/75">
+          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12 lg:py-24">
+            <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.16em] text-[#54836a]">
+                  ONE WORKSPACE
+                </p>
+                <h2 className="mt-3 max-w-xl font-display text-3xl font-semibold tracking-tight text-[#142b26] sm:text-4xl">
+                  Less tab-switching.
+                  <br className="hidden sm:block" /> More network clarity.
+                </h2>
+              </div>
+              <p className="max-w-md text-sm leading-6 text-[#68756f] sm:text-base">
+                The tools to run day-to-day ISP operations, from router setup to customer payments,
+                connected in one place.
+              </p>
+            </div>
+            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {features.map(({ icon: Icon, title, body }, index) => (
+                <article
+                  key={title}
+                  className={`group rounded-2xl border border-[#e4e9e4] bg-[#fbfcfa] p-6 transition-all hover:-translate-y-1 hover:border-[#c5d9cb] hover:shadow-[0_18px_40px_-28px_rgba(23,66,47,0.35)] ${index === 0 ? "lg:col-span-2 lg:flex lg:items-start lg:gap-6" : ""}`}
+                >
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#e8f1e9] text-[#397353] transition-colors group-hover:bg-[#dcecdf]">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className={index === 0 ? "mt-4 lg:mt-0" : "mt-5"}>
+                    <h3 className="font-display text-lg font-semibold tracking-tight text-[#1a3028]">
+                      {title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-[#68756f]">{body}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="how-it-works"
+          className="mx-auto grid max-w-7xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-[0.8fr_1.2fr] lg:px-12 lg:py-24"
+        >
+          <div>
+            <p className="text-xs font-semibold tracking-[0.16em] text-[#54836a]">
+              GET UP AND RUNNING
+            </p>
+            <h2 className="mt-3 max-w-md font-display text-3xl font-semibold tracking-tight text-[#142b26] sm:text-4xl">
+              Your next step is a simple one.
+            </h2>
+            <p className="mt-4 max-w-md text-sm leading-6 text-[#68756f] sm:text-base">
+              Create your workspace and configure your services when you’re ready. No approval queue
+              to hold up setup.
+            </p>
+            <Button asChild className="mt-7 rounded-full bg-[#153c32] px-5 hover:bg-[#205747]">
+              <Link to="/signup">
+                Start setting up <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+          <ol className="grid gap-3">
+            {steps.map((step, index) => (
+              <li
+                key={step.title}
+                className="flex gap-5 rounded-2xl border border-[#e4e9e4] bg-white/75 p-5 sm:p-6"
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e8f1e9] font-display text-sm font-semibold text-[#397353]">
+                  0{index + 1}
+                </span>
+                <div>
+                  <h3 className="font-display text-lg font-semibold tracking-tight text-[#1a3028]">
+                    {step.title}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-6 text-[#68756f]">{step.body}</p>
+                </div>
+              </li>
             ))}
+          </ol>
+        </section>
+
+        <section id="pricing" className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-12 lg:pb-24">
+          <div className="relative overflow-hidden rounded-[1.75rem] bg-[#18352b] px-6 py-8 text-white sm:px-10 sm:py-10 lg:px-12">
+            <div className="pointer-events-none absolute -right-20 -top-28 h-80 w-80 rounded-full border border-white/[0.08]" />
+            <div className="pointer-events-none absolute -right-5 -top-14 h-52 w-52 rounded-full border border-white/[0.08]" />
+            <div className="relative grid gap-8 lg:grid-cols-[1fr_0.85fr] lg:items-center">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.16em] text-[#a9d8b7]">
+                  CLEAR MONTHLY COMMISSION
+                </p>
+                <h2 className="mt-3 max-w-xl font-display text-3xl font-semibold tracking-tight sm:text-4xl">
+                  Know what you owe.
+                  <br />
+                  See how it’s calculated.
+                </h2>
+                <p className="mt-4 max-w-xl text-sm leading-6 text-white/65 sm:text-base">
+                  Your monthly invoice separates hotspot and PPPoE income. Review the breakdown, pay
+                  the platform PayBill, and follow your payment status in the console.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
+                  <p className="text-sm text-white/65">Hotspot / voucher</p>
+                  <p className="mt-2 font-display text-3xl font-semibold">2%</p>
+                  <p className="mt-1 text-xs text-white/45">of successful income</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5">
+                  <p className="text-sm text-white/65">PPPoE</p>
+                  <p className="mt-2 font-display text-3xl font-semibold">1%</p>
+                  <p className="mt-1 text-xs text-white/45">of successful income</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-12">
+          <div className="flex flex-col items-start justify-between gap-6 rounded-2xl border border-[#e2e9e1] bg-[#edf4ee] p-6 sm:flex-row sm:items-center sm:p-9">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.16em] text-[#54836a]">
+                READY WHEN YOU ARE
+              </p>
+              <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-[#142b26] sm:text-3xl">
+                Bring your network into focus.
+              </h2>
+            </div>
+            <Button
+              asChild
+              size="lg"
+              className="shrink-0 rounded-full bg-[#153c32] px-6 hover:bg-[#205747]"
+            >
+              <Link to="/signup">
+                Create ISP account <ArrowUpRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </section>
       </main>
 
-      <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-5 py-6 text-sm text-muted-foreground sm:px-8">
-          <Brand className="text-foreground" />
-          <p>© {new Date().getFullYear()} NetGrid</p>
+      <footer className="border-t border-[#e5e9e4] bg-white/60">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8 lg:px-12">
+          <Brand className="text-[#1b3028]" />
+          <p className="text-sm text-[#78837e]">
+            © {new Date().getFullYear()} NetGrid. Built for better-connected communities.
+          </p>
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-1 text-sm font-medium text-[#426451] hover:text-[#173d30]"
+          >
+            Sign in <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
         </div>
       </footer>
     </div>
