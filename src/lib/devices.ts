@@ -11,7 +11,7 @@
 //     it cannot forward them, so devices behind it get nothing. Separately, traffic arriving with
 //     TTL 63/127 (a 64/128 device one hop further away) puts the sender on an address list that
 //     the device report uses to flag "tethering suspected".
-//   * Every 2 minutes the router reports the devices on the hotspot to the platform.
+//   * Every minute the router reports the devices on the hotspot to the platform.
 
 import { isUsableMac, normalizeMac } from "./tv";
 
@@ -115,6 +115,34 @@ export interface SyncVoucher {
   limit: number;
 }
 
+function buildHotspotMacAuthLines(vouchers: SyncVoucher[]): string[] {
+  const macs = [
+    ...new Set(
+      vouchers
+        .filter((voucher) => SAFE_CODE.test(voucher.code) && voucher.limit === 1)
+        .map((voucher) => voucher.bound_mac)
+        .filter((mac): mac is string => !!mac && isUsableMac(mac)),
+    ),
+  ];
+  const macList = macs.length ? macs.join(",") : "#";
+  const lines = [
+    "/ip hotspot user",
+    `:local ngCurrentMacUsers [:toarray "${macList}"]`,
+    ':foreach ngUser in=[find where comment="netgrid-mac-voucher"] do={ :local ngMac [get $ngUser name]; :if ([:typeof [:find $ngCurrentMacUsers $ngMac]] = "nil") do={ :do { /ip hotspot active remove [find where user=$ngMac] } on-error={}; remove $ngUser } }',
+  ];
+  if (!macs.length) return lines;
+
+  lines.unshift(
+    ':do { /ip hotspot profile set [find name=netgrid-hsprof] login-by=http-chap,http-pap,mac-cookie,mac mac-auth-mode=mac-as-username mac-auth-password="" } on-error={ :log warning "NetGrid: MAC reconnect authentication could not be enabled" }',
+  );
+  for (const mac of macs) {
+    lines.push(
+      `:if ([:len [find where name="${mac}" comment="netgrid-mac-voucher"]] > 0) do={ :do { set [find where name="${mac}" comment="netgrid-mac-voucher"] password="" server=netgrid-hs profile=netgrid-d1 mac-address=${mac} } on-error={ :log warning "NetGrid: MAC reconnect user could not be updated" } } else={ :if ([:len [find where name="${mac}"]] = 0) do={ :do { add name="${mac}" password="" server=netgrid-hs profile=netgrid-d1 mac-address=${mac} comment="netgrid-mac-voucher" } on-error={ :log warning "NetGrid: MAC reconnect user could not be added" } } else={ :log warning "NetGrid: MAC reconnect user conflicts with an existing hotspot user" } }`,
+    );
+  }
+  return lines;
+}
+
 function buildExpiredVoucherCleanupLines(vouchers: SyncVoucher[]): string[] {
   const validCodes = vouchers.filter((v) => SAFE_CODE.test(v.code)).map((v) => v.code);
   const codeList = validCodes.length ? validCodes.join(",") : "#";
@@ -157,6 +185,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
     );
     lines.push("}");
   }
+  lines.push(...buildHotspotMacAuthLines(valid));
   if (valid.length > 0) {
     // Every add above swallows its error, so a router where they all fail (for example no hotspot
     // server called netgrid-hs) would silently refuse every voucher. Compare what we meant to add
@@ -193,6 +222,7 @@ export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string
       `:if ([:len [find where name="${voucher.code}"]] = 0) do={ :do { add ${user} server=netgrid-hs } on-error={ :do { add ${user} } on-error={} } }`,
     );
   }
+  lines.push(...buildHotspotMacAuthLines(valid));
   return lines;
 }
 

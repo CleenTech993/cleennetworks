@@ -150,6 +150,31 @@ describe("buildHotspotUserLines", () => {
     );
   });
 
+  it("adds MAC authentication only for the MAC bound to a live one-device voucher", () => {
+    const out = joined([
+      { code: "BOUND000001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 },
+      { code: "FAMILY0001", bound_mac: "AA:BB:CC:DD:EE:03", limit: 3 },
+      { code: "UNBOUND001", bound_mac: null, limit: 1 },
+    ]);
+
+    expect(out).toContain(
+      "login-by=http-chap,http-pap,mac-cookie,mac mac-auth-mode=mac-as-username mac-auth-password=",
+    );
+    expect(out).toContain(
+      'add name="AA:BB:CC:DD:EE:02" password="" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02 comment="netgrid-mac-voucher"',
+    );
+    expect(out).not.toContain('add name="AA:BB:CC:DD:EE:03"');
+    expect(out).not.toContain('add name="UNBOUND001" password=""');
+  });
+
+  it("removes managed MAC logins and sessions when the bound voucher is no longer live", () => {
+    const out = joined([]);
+
+    expect(out).toContain(':local ngCurrentMacUsers [:toarray "#"]');
+    expect(out).toContain('find where comment="netgrid-mac-voucher"');
+    expect(out).toContain("/ip hotspot active remove [find where user=$ngMac]");
+  });
+
   it("disconnects sessions only when their managed voucher is no longer live", () => {
     const out = joined([{ code: "LIVE000001", bound_mac: null, limit: 1 }]);
     expect(out).toContain(':local ngCurrentVouchers [:toarray "LIVE000001"]');
@@ -241,6 +266,11 @@ describe("buildHotspotVoucherRefreshLines", () => {
     expect(script).toContain("mac-address=AA:BB:CC:DD:EE:02");
     expect(script).toContain("remove $ngActive");
     expect(script).toContain('find where comment="netgrid-voucher"');
+    expect(script).toContain("mac-auth-mode=mac-as-username");
+    expect(script).toContain(
+      'add name="AA:BB:CC:DD:EE:02" password="" server=netgrid-hs profile=netgrid-d1',
+    );
+    expect(script).toContain('find where comment="netgrid-mac-voucher"');
     expect(script).not.toContain('bad"code');
     expect(balanced(script)).toBe(true);
   });

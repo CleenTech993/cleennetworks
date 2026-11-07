@@ -29,3 +29,8 @@ When a customer reopens the captive portal, it checks the device's latest router
 next regular sync installs the updated reporter, the router reports hotspot devices every minute.
 If a fresh report shows the device disconnected and a valid voucher is saved in that portal session,
 the portal logs the device back in automatically.
+
+For single-device vouchers, the router also enables MAC-based login only for the device MAC bound to
+that active voucher. This lets the router reconnect the device itself when it rejoins Wi-Fi, without
+waiting for the customer to reopen the portal. Multi-device vouchers are not automatically bound to
+a MAC.
