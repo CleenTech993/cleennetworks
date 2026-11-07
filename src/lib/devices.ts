@@ -132,10 +132,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
   const limits = [...new Set([1, ...valid.map((v) => v.limit)])].sort((a, b) => a - b);
 
-  const lines = [
-    ...buildExpiredVoucherCleanupLines(valid),
-    "/ip hotspot user profile",
-  ];
+  const lines = [...buildExpiredVoucherCleanupLines(valid), "/ip hotspot user profile"];
   for (const n of limits) {
     const p = userProfileName(n);
     lines.push(
@@ -293,8 +290,8 @@ const DEVICE_SCRIPT = `
 const PUSH_URL = /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/api\/public\/router\/devices\/[A-Za-z0-9_-]+$/;
 
 /**
- * Installs the report script and its 2-minute scheduler on the router. Because the sync script is
- * fetched every 2 minutes, routers that were provisioned before this feature existed pick it up
+ * Installs the report script and its 1-minute scheduler on the router. Because the sync script is
+ * fetched every 5 minutes, routers that were provisioned before this feature existed pick it up
  * automatically. The scheduler is only created when missing: re-creating it on every sync would
  * keep resetting its timer.
  */
@@ -311,6 +308,6 @@ export function buildDeviceAgentLines(pushUrl: string): string[] {
     "/system script",
     ":do { remove [find where name=netgrid-devices] } on-error={}",
     `:do { add name=netgrid-devices source={${source}} } on-error={}`,
-    ':do { :if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=5m on-event="/system script run netgrid-devices" } else={ /system scheduler set [find where name=netgrid-devices] interval=5m } } on-error={}',
+    ':do { :if ([:len [/system scheduler find where name=netgrid-devices]] = 0) do={ /system scheduler add name=netgrid-devices interval=1m on-event="/system script run netgrid-devices" } else={ /system scheduler set [find where name=netgrid-devices] interval=1m } } on-error={}',
   ];
 }

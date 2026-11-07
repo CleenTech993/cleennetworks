@@ -24,3 +24,8 @@ Maintenance modes:
 
 Site-specific captive portal notices use the router ID included by the provisioned router login
 page. A portal opened directly without router context shows platform-wide and ISP-wide notices only.
+
+When a customer reopens the captive portal, it checks the device's latest router report. After its
+next regular sync installs the updated reporter, the router reports hotspot devices every minute.
+If a fresh report shows the device disconnected and a valid voucher is saved in that portal session,
+the portal logs the device back in automatically.

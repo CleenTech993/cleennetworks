@@ -5,7 +5,7 @@ import { authenticateRouter } from "@/lib/router-auth.server";
 import { deviceLimitOf, parseDeviceReport } from "@/lib/devices";
 import { expiryFrom } from "@/lib/duration";
 
-// Device report pushed by the router every 2 minutes (see buildDeviceAgentLines).
+// Device report pushed by the router every minute (see buildDeviceAgentLines).
 // Body: records "mac|ip|hostname|user|authorized|tether" separated by ";".
 //
 // Besides listing the devices, this closes two gaps in the voucher flow:

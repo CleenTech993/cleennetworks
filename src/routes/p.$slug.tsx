@@ -152,10 +152,10 @@ function PortalPage() {
   const [tab, setTab] = useState("buy");
   const [routerId, setRouterId] = useState<string | null | undefined>(undefined);
   const [deviceMac, setDeviceMac] = useState<string | null>(null);
-  const [autoReconnectStatus, setAutoReconnectStatus] = useState<"checking" | "unavailable" | null>(
-    null,
-  );
-  const autoReconnectAttempted = useRef(false);
+  const [autoReconnectStatus, setAutoReconnectStatus] = useState<
+    "checking" | "connected" | "reconnecting" | "disconnected" | "unavailable" | null
+  >(null);
+  const autoReconnectAttempted = useRef<string | null>(null);
   useEffect(() => {
     const store = sessionStore();
     const search = window.location.search;
@@ -171,8 +171,7 @@ function PortalPage() {
     const saved = recallVoucher(store, slug);
     if (
       routerLoginFailed(search) ||
-      autoReconnectAttempted.current ||
-      !saved ||
+      autoReconnectAttempted.current === slug ||
       !mac ||
       !query.get("login") ||
       !query.get("router") ||
@@ -180,11 +179,30 @@ function PortalPage() {
     )
       return;
 
-    autoReconnectAttempted.current = true;
+    autoReconnectAttempted.current = slug;
     setAutoReconnectStatus("checking");
     let cancelled = false;
     void (async () => {
       try {
+        const sessionUrl = new URLSearchParams({ mac, routerId: params.routerId! });
+        const sessionResponse = await fetch(
+          `/api/public/portal/${slug}/session?${sessionUrl.toString()}`,
+          { cache: "no-store" },
+        );
+        const session = await sessionResponse.json();
+        if (!sessionResponse.ok || typeof session.active !== "boolean")
+          throw new Error(session.error ?? "Could not check the router session.");
+        if (cancelled) return;
+        if (session.active) {
+          setAutoReconnectStatus("connected");
+          return;
+        }
+        if (!saved) {
+          setAutoReconnectStatus("disconnected");
+          return;
+        }
+
+        setAutoReconnectStatus("reconnecting");
         const response = await fetch(`/api/public/portal/${slug}/voucher`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -337,12 +355,29 @@ function PortalPage() {
             </div>
             {autoReconnectStatus === "checking" && (
               <p role="status" className="mt-2 text-sm text-muted-foreground">
-                Checking your saved Wi-Fi session and reconnecting if it’s still valid…
+                Checking whether this device is connected to Wi-Fi…
+              </p>
+            )}
+            {autoReconnectStatus === "connected" && (
+              <p role="status" className="mt-2 text-sm text-muted-foreground">
+                This device has an active Wi-Fi session.
+              </p>
+            )}
+            {autoReconnectStatus === "reconnecting" && (
+              <p role="status" className="mt-2 text-sm text-muted-foreground">
+                Wi-Fi disconnected. Checking your saved session and reconnecting…
+              </p>
+            )}
+            {autoReconnectStatus === "disconnected" && (
+              <p role="status" className="mt-2 text-sm text-muted-foreground">
+                No active Wi-Fi session or saved voucher was found. Choose a connection option
+                below.
               </p>
             )}
             {autoReconnectStatus === "unavailable" && (
               <p role="status" className="mt-2 text-sm text-muted-foreground">
-                No valid saved session was found. Use Reconnect or Voucher below to restore access.
+                Could not verify this device’s Wi-Fi session. Use Reconnect or Voucher below to
+                restore access.
               </p>
             )}
             <ol className="mt-2 list-inside list-decimal space-y-2 text-sm text-muted-foreground">
@@ -362,10 +397,10 @@ function PortalPage() {
                 . Follow the prompts to connect.
               </li>
               <li>
-                If you disconnect, reopen this page. We’ll reconnect automatically when this device
-                has a saved, valid session. Otherwise, for a paid package choose{" "}
-                <span className="font-medium text-foreground">Reconnect</span> and enter the M-Pesa
-                receipt code from your SMS.
+                If you disconnect, reopen this page. We’ll check whether this device is still
+                connected and automatically reconnect with a valid saved session. Otherwise, for a
+                paid package choose <span className="font-medium text-foreground">Reconnect</span>{" "}
+                and enter the M-Pesa receipt code from your SMS.
                 {data.portal?.enable_voucher !== false && (
                   <>
                     {" "}

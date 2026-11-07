@@ -212,9 +212,7 @@ describe("buildHotspotUserLines", () => {
     const lines = buildHotspotUserLines([{ code: "ORDER00001", bound_mac: null, limit: 2 }]);
     const idx = (needle: string) => lines.findIndex((l) => l.includes(needle));
     expect(idx("add name=netgrid-d2")).toBeLessThan(idx('add name="ORDER00001"'));
-    expect(idx('add name="ORDER00001"')).toBeLessThan(
-      idx('set [find where name="ORDER00001"]'),
-    );
+    expect(idx('add name="ORDER00001"')).toBeLessThan(idx('set [find where name="ORDER00001"]'));
   });
 
   it("emits balanced RouterOS syntax", () => {
@@ -328,7 +326,7 @@ describe("buildDeviceAgentLines", () => {
     expect(sched).toMatch(
       /^:do \{ :if \(\[:len \[\/system scheduler find where name=netgrid-devices\]\] = 0\)/,
     );
-    expect(sched).toContain("interval=5m");
+    expect(sched).toContain("interval=1m");
   });
 
   it("posts the report to the endpoint it parses", () => {
