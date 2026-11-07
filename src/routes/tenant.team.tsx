@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, Trash2, UserPlus } from "lucide-react";
+import { Trash2, UserPlus } from "lucide-react";
 import { ResetUserMfaButton } from "@/components/reset-user-mfa-button";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -46,13 +46,6 @@ const ROLE_LABEL: Record<TeamRole, string> = {
   support_staff: "Support staff",
 };
 const ROLES = Object.keys(ROLE_LABEL) as TeamRole[];
-
-function generatePassword(len = 12) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  const buf = new Uint32Array(len);
-  crypto.getRandomValues(buf);
-  return Array.from(buf, (n) => chars[n % chars.length]).join("");
-}
 
 function TeamPage() {
   const qc = useQueryClient();
@@ -122,6 +115,7 @@ function TeamPage() {
               <tr>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Email</th>
+                <th className="px-4 py-2">Phone</th>
                 <th className="px-4 py-2">Roles</th>
                 <th className="px-4 py-2 text-right">Action</th>
               </tr>
@@ -132,7 +126,7 @@ function TeamPage() {
                 return (
                   <tr key={m.id} className="border-t">
                     <td className="px-4 py-2">
-                      {m.full_name ?? "—"}{" "}
+                      {[m.first_name, m.last_name].filter(Boolean).join(" ") || m.full_name || "—"}{" "}
                       {self && (
                         <Badge variant="secondary" className="ml-1">
                           You
@@ -140,6 +134,7 @@ function TeamPage() {
                       )}
                     </td>
                     <td className="px-4 py-2">{m.email ?? "—"}</td>
+                    <td className="px-4 py-2">{m.phone ?? "—"}</td>
                     <td className="px-4 py-2">
                       {self ? (
                         <div className="flex flex-wrap gap-1">
@@ -230,19 +225,21 @@ function AddMemberDialog({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [roles, setRoles] = useState<TeamRole[]>(["technician"]);
-  const [password, setPassword] = useState(() => generatePassword());
   const [busy, setBusy] = useState(false);
-  const [created, setCreated] = useState<{ email: string; password: string } | null>(null);
+  const [created, setCreated] = useState(false);
 
   function reset() {
-    setFullName("");
+    setFirstName("");
+    setLastName("");
     setEmail("");
+    setPhone("");
     setRoles(["technician"]);
-    setPassword(generatePassword());
-    setCreated(null);
+    setCreated(false);
   }
   function close() {
     reset();
@@ -252,29 +249,19 @@ function AddMemberDialog({
   async function submit() {
     setBusy(true);
     try {
-      const res = await addTeamMember({ data: { fullName, email, roles, password } });
+      const res = await addTeamMember({ data: { firstName, lastName, email, phone, roles } });
       if (!res.ok) {
         toast.error(res.error);
         return;
       }
       onAdded();
-      if (res.existing) {
-        toast.success(
-          "Added. They already had an account, so they sign in with their own password.",
-        );
-        close();
-      } else {
-        setCreated({ email: email.trim().toLowerCase(), password });
-      }
+      setCreated(true);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not add member");
     } finally {
       setBusy(false);
     }
   }
-
-  const copy = (text: string) =>
-    navigator.clipboard.writeText(text).then(() => toast.success("Copied"));
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
@@ -284,20 +271,11 @@ function AddMemberDialog({
             <DialogHeader>
               <DialogTitle>Member added</DialogTitle>
               <DialogDescription>
-                Share these sign-in details with them now. The password is not shown again.
+                Sign-in details and a temporary password were sent to the team member’s email. They
+                must set a new password the first time they sign in.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2 rounded-md border bg-muted/40 p-3 font-mono text-sm">
-              <div>Email: {created.email}</div>
-              <div>Password: {created.password}</div>
-            </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => copy(`Email: ${created.email}\nPassword: ${created.password}`)}
-              >
-                <Copy className="h-4 w-4" /> Copy details
-              </Button>
               <Button onClick={close}>Done</Button>
             </DialogFooter>
           </>
@@ -306,31 +284,58 @@ function AddMemberDialog({
             <DialogHeader>
               <DialogTitle>Add team member</DialogTitle>
               <DialogDescription>
-                They can sign in right away. On first login they'll set up an authenticator app.
+                Enter their details and privileges. We’ll email their sign-in and temporary
+                password.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="tm-name">Full name</Label>
-                <Input
-                  id="tm-name"
-                  className="mt-1"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="tm-first-name">First name</Label>
+                  <Input
+                    id="tm-first-name"
+                    className="mt-1"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="tm-last-name">Last name</Label>
+                  <Input
+                    id="tm-last-name"
+                    className="mt-1"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="tm-email">Email</Label>
+                <Label htmlFor="tm-email">Team email</Label>
                 <Input
                   id="tm-email"
                   type="email"
                   className="mt-1"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+              <div>
+                <Label htmlFor="tm-phone">Phone number</Label>
+                <Input
+                  id="tm-phone"
+                  type="tel"
+                  className="mt-1"
+                  autoComplete="tel"
+                  placeholder="+254 7XX XXX XXX"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
               <div className="space-y-2">
-                <Label>Roles</Label>
+                <Label>Privileges</Label>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {ROLES.map((roleOption) => (
                     <label key={roleOption} className="flex items-center gap-2 text-sm">
@@ -349,25 +354,6 @@ function AddMemberDialog({
                   ))}
                 </div>
               </div>
-              <div>
-                <Label htmlFor="tm-pass">Temporary password</Label>
-                <div className="mt-1 flex gap-2">
-                  <Input
-                    id="tm-pass"
-                    className="font-mono"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setPassword(generatePassword())}
-                  >
-                    Generate
-                  </Button>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">At least 8 characters.</p>
-              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={close}>
@@ -377,13 +363,14 @@ function AddMemberDialog({
                 onClick={submit}
                 disabled={
                   busy ||
-                  !fullName.trim() ||
+                  !firstName.trim() ||
+                  !lastName.trim() ||
                   !email.trim() ||
-                  roles.length === 0 ||
-                  password.length < 8
+                  !phone.trim() ||
+                  roles.length === 0
                 }
               >
-                {busy ? "Adding…" : "Add member"}
+                {busy ? "Creating account…" : "Create account & email login"}
               </Button>
             </DialogFooter>
           </>

@@ -28,6 +28,9 @@ Set these server-side environment variables in the application deployment:
 - `SMTP_USER` and `SMTP_PASS`: the SMTP credentials, if required by the relay.
 - `SMTP_SECURE`: set to `true` when the relay requires implicit TLS. Port 465 also enables TLS.
 
+The same SMTP settings are used to email new team members their sign-in details and temporary
+password. Team account creation is rolled back if the credentials email cannot be sent.
+
 For example, generate a token locally with:
 
 ```powershell
