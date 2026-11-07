@@ -13,6 +13,9 @@ import {
   TrendingUp,
   ArrowUpRight,
   ShieldAlert,
+  Building2,
+  Mail,
+  UserRound,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -32,14 +35,30 @@ import { hasAnyRole, REVENUE_ROLES } from "@/lib/permissions";
 import { isRouterLive } from "@/lib/router-health";
 import { countOnlineClients } from "@/lib/online-clients";
 import { CONNECTED_WINDOW_MS } from "@/lib/pppoe-sessions";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/tenant/")({ component: Overview });
 
 function Overview() {
   const { roles } = Route.useRouteContext();
+  const { user, profile, tenantId } = useAuth();
   const showRevenue = hasAnyRole(roles, REVENUE_ROLES);
   const isAdmin = hasAnyRole(roles, ["tenant_admin"]);
   const canSeeHotspotDevices = hasAnyRole(roles, ["tenant_admin", "technician", "support_staff"]);
+
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-dashboard-account", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("name")
+        .eq("id", tenantId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data } = useQuery({
     queryKey: ["tenant-overview", showRevenue, canSeeHotspotDevices],
@@ -151,9 +170,51 @@ function Overview() {
   );
 
   const remaining = steps.filter((s) => !s.done).length;
+  const metadataName =
+    typeof user?.user_metadata["full_name"] === "string"
+      ? user.user_metadata["full_name"]
+      : typeof user?.user_metadata["name"] === "string"
+        ? user.user_metadata["name"]
+        : "";
+  const accountName =
+    profile?.full_name?.trim() || metadataName.trim() || user?.email?.split("@")[0];
+  const firstName = accountName?.split(/\s+/)[0] || "there";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="space-y-6">
+      <section className="overflow-hidden rounded-2xl border bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-7">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-primary">{greeting}</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+              Welcome, {firstName}
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Here’s your network overview{tenant?.name ? ` for ${tenant.name}` : ""}.
+            </p>
+          </div>
+          <div className="grid gap-3 rounded-xl border bg-background/80 p-4 sm:min-w-72">
+            <div className="flex items-center gap-2.5 text-sm">
+              <UserRound className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate font-medium">{accountName || "Your account"}</span>
+            </div>
+            {user?.email && (
+              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                <Mail className="h-4 w-4 shrink-0" />
+                <span className="truncate">{user.email}</span>
+              </div>
+            )}
+            {tenant?.name && (
+              <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                <Building2 className="h-4 w-4 shrink-0" />
+                <span className="truncate">{tenant.name}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
       <PageHeader
         title="ISP Operations Overview"
         description="Real-time telemetry, network health, subscriber distribution, and financial performance."
