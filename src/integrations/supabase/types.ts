@@ -978,6 +978,7 @@ export type Database = {
           id: string
           last_name: string | null
           middle_name: string | null
+          payment_method: string
           shortcode: string
           status: string
           transaction_id: string
@@ -992,6 +993,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           middle_name?: string | null
+          payment_method?: string
           shortcode: string
           status?: string
           transaction_id: string
@@ -1006,6 +1008,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           middle_name?: string | null
+          payment_method?: string
           shortcode?: string
           status?: string
           transaction_id?: string
@@ -1015,6 +1018,50 @@ export type Database = {
           {
             foreignKeyName: "platform_mpesa_transactions_commission_id_fkey"
             columns: ["commission_id"]
+            isOneToOne: false
+            referencedRelation: "platform_commissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_stk_payments: {
+        Row: {
+          amount: number
+          checkout_request_id: string | null
+          created_at: string
+          id: string
+          invoice_id: string
+          merchant_request_id: string | null
+          phone: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          checkout_request_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id: string
+          merchant_request_id?: string | null
+          phone: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          checkout_request_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          merchant_request_id?: string | null
+          phone?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_stk_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "platform_commissions"
             referencedColumns: ["id"]
@@ -2206,6 +2253,20 @@ export type Database = {
           p_transaction_time: string
         }
         Returns: string
+      }
+      record_platform_stk_transaction: {
+        Args: {
+          p_amount: number
+          p_checkout_request_id: string
+          p_shortcode: string
+          p_transaction_id: string
+          p_transaction_time: string
+        }
+        Returns: string
+      }
+      fail_platform_stk_payment: {
+        Args: { p_checkout_request_id: string }
+        Returns: boolean
       }
       record_pppoe_sessions: {
         Args: { p_router_id: string; p_sessions: Json; p_tenant_id: string }

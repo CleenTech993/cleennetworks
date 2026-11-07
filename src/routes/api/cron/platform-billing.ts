@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { sendPlatformInvoiceEmail } from "@/lib/platform-invoice-email.server";
+import { loadPlatformServiceSecrets } from "@/lib/platform-service-secrets.server";
 
 function isAuthorized(request: Request): boolean {
   const expected = process.env["CRON_SECRET"];
@@ -72,6 +73,9 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
         }
 
         const tenantById = new Map((tenants ?? []).map((tenant) => [tenant.id, tenant]));
+        const platformSecrets = await loadPlatformServiceSecrets();
+        const platformMerchantType =
+          platformSecrets.PLATFORM_MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill";
         let emailsSent = 0;
         let emailsFailed = 0;
         for (const invoice of invoices ?? []) {
@@ -140,6 +144,7 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
                   }
                 : { commissionRatePct: Number(invoice.commission_rate_pct) }),
               platformShortcode: platformConfig?.shortcode ?? null,
+              platformMerchantType,
             });
           } catch (error) {
             console.error(`Invoice email delivery failed for ${invoice.id}`, error);

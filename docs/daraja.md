@@ -49,10 +49,16 @@ reference and exact amount to an outstanding invoice; a match marks the invoice 
 Transactions with a missing reference, wrong amount, or an already-paid invoice remain in the
 platform transaction ledger for review. The callback does not initiate a deduction or move funds.
 
-Enter the public HTTPS application URL, Daraja environment (`sandbox` or `production`), and
-consumer key/secret under **Super Admin → Platform Payments**. The server encrypts the saved values
+Under **Super Admin → Platform Payments**, choose PayBill or Buy Goods, then enter the public HTTPS
+application URL, Daraja environment (`sandbox` or `production`), and consumer key/secret. For Buy
+Goods STK prompts, also enter the Lipa na M-Pesa Online shortcode and passkey. The server encrypts the saved values
 with AES-256-GCM in `platform_service_secrets`; browser roles cannot read that table and full saved
-credentials are never returned to the page. The encryption key is `PLATFORM_SECRETS_KEY`, or
+credentials are never returned to the page. Invoice totals are rounded to the nearest whole KES for
+M-Pesa payment. Direct C2B uses the invoice reference as the account/reference number and is matched
+when the Safaricom callback includes that reference. Buy Goods STK prompts use the invoice amount
+and match the callback to the invoice's checkout request; Till callbacks without an invoice
+reference remain in the transaction ledger for manual review. The encryption key is
+`PLATFORM_SECRETS_KEY`, or
 `SUPABASE_SERVICE_ROLE_KEY` as a fallback. Set a stable, dedicated `PLATFORM_SECRETS_KEY` in
 production and retain it across deployments; rotating it requires the platform credentials to be
 entered again. The Daraja app credentials must have C2B URL registration enabled for the platform

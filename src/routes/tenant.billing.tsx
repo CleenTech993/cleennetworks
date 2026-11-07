@@ -8,7 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getPlatformInvoicePaymentDetails } from "@/lib/platform-billing.functions";
-import { submitPlatformInvoiceReceipt } from "@/lib/platform-invoice.functions";
+import {
+  requestPlatformInvoiceStkPush,
+  submitPlatformInvoiceReceipt,
+} from "@/lib/platform-invoice.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -48,6 +51,7 @@ function TenantBilling() {
   const queryClient = useQueryClient();
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [receipts, setReceipts] = useState<Record<string, string>>({});
+  const [phones, setPhones] = useState<Record<string, string>>({});
   const {
     data: invoices,
     isLoading,
@@ -81,6 +85,16 @@ function TenantBilling() {
     },
     onError: (submissionError: Error) => toast.error(submissionError.message),
   });
+  const requestStk = useMutation({
+    mutationFn: ({ invoiceId, phone }: { invoiceId: string; phone: string }) =>
+      requestPlatformInvoiceStkPush({ data: { invoiceId, phone } }),
+    onSuccess: (_result, variables) => {
+      toast.success("M-Pesa prompt sent. Check the phone and enter your PIN.");
+      void queryClient.invalidateQueries({ queryKey: ["tenant-platform-invoices", tenantId] });
+      setPhones((current) => ({ ...current, [variables.invoiceId]: variables.phone }));
+    },
+    onError: (stkError: Error) => toast.error(stkError.message),
+  });
   const { data: paymentDetails, error: paymentDetailsError } = useQuery({
     queryKey: ["platform-invoice-payment-details"],
     queryFn: getPlatformInvoicePaymentDetails,
@@ -109,12 +123,16 @@ function TenantBilling() {
       <div className="mb-5 rounded-xl border bg-card p-4">
         <h2 className="font-semibold">How to pay</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pay the exact invoice total to the platform PayBill using the invoice-specific account
-          reference. The invoice is matched and updated automatically when Safaricom confirms the
-          C2B payment.
+          Pay the exact total using the invoice-specific reference. Send money directly to the
+          platform account, or request an M-Pesa prompt on your phone when available.
         </p>
         <p className="mt-2 font-medium">
-          Platform PayBill: {paymentDetails?.shortcode ?? "Contact platform support"}
+          Platform {paymentDetails?.merchantType === "buygoods" ? "Buy Goods Till" : "PayBill"}:{" "}
+          {paymentDetails?.shortcode ?? "Contact platform support"}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          When sending money directly, enter the invoice reference as the account/reference number.
+          Invoice totals are rounded to the nearest whole KES for M-Pesa.
         </p>
         {paymentDetailsError && (
           <p role="alert" className="mt-2 text-sm text-destructive">
@@ -251,6 +269,24 @@ function TenantBilling() {
                             </div>
                           </>
                         )}
+                      {invoice.hotspot_commission_amount != null &&
+                        invoice.pppoe_commission_amount != null &&
+                        Number(invoice.commission_amount) !==
+                          Number(invoice.hotspot_commission_amount) +
+                            Number(invoice.pppoe_commission_amount) && (
+                          <div>
+                            <dt className="text-muted-foreground">
+                              Whole-shilling M-Pesa adjustment
+                            </dt>
+                            <dd className="font-medium">
+                              {formatAmount(
+                                Number(invoice.commission_amount) -
+                                  Number(invoice.hotspot_commission_amount) -
+                                  Number(invoice.pppoe_commission_amount),
+                              )}
+                            </dd>
+                          </div>
+                        )}
                       <div>
                         <dt className="text-muted-foreground">
                           Total commission due
@@ -277,9 +313,55 @@ function TenantBilling() {
 
                     {invoice.status === "pending" && (
                       <div className="no-print mt-4 flex flex-wrap items-end gap-2 border-t pt-4">
+                        {paymentDetails?.stkAvailable && (
+                          <div className="w-full rounded-xl bg-muted/50 p-4">
+                            <p className="text-sm font-medium">Pay with an M-Pesa prompt</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Enter the M-Pesa phone number. We’ll send a prompt for the exact
+                              invoice amount.
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-end gap-2">
+                              <div className="min-w-56 flex-1">
+                                <label
+                                  htmlFor={`invoice-phone-${invoice.id}`}
+                                  className="text-sm font-medium"
+                                >
+                                  M-Pesa phone number
+                                </label>
+                                <Input
+                                  id={`invoice-phone-${invoice.id}`}
+                                  type="tel"
+                                  inputMode="tel"
+                                  autoComplete="tel"
+                                  value={phones[invoice.id] ?? ""}
+                                  maxLength={20}
+                                  placeholder="e.g. 0712345678"
+                                  onChange={(event) =>
+                                    setPhones({ ...phones, [invoice.id]: event.target.value })
+                                  }
+                                  className="mt-1"
+                                />
+                              </div>
+                              <Button
+                                onClick={() =>
+                                  requestStk.mutate({
+                                    invoiceId: invoice.id,
+                                    phone: phones[invoice.id] ?? "",
+                                  })
+                                }
+                                disabled={
+                                  requestStk.isPending || !(phones[invoice.id] ?? "").trim()
+                                }
+                              >
+                                {requestStk.isPending ? "Sending prompt…" : "Pay with M-Pesa"}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                         <p className="w-full text-xs text-muted-foreground">
-                          If an automatic match does not appear, you can submit the transaction code
-                          for manual review.
+                          For direct Till/PayBill payments, enter the invoice reference as the
+                          account number. If it does not match automatically, submit the receipt
+                          below for manual review.
                         </p>
                         <div className="min-w-56 flex-1">
                           <label

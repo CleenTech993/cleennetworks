@@ -19,6 +19,7 @@ export interface PlatformInvoiceEmail {
   hotspotCommissionRatePct?: number;
   pppoeCommissionRatePct?: number;
   platformShortcode: string | null;
+  platformMerchantType?: "paybill" | "buygoods";
 }
 
 function escapeHtml(value: string): string {
@@ -96,7 +97,7 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
     rate:
       invoice.commissionRatePct === undefined ? null : escapeHtml(`${invoice.commissionRatePct}%`),
     shortcode: invoice.platformShortcode
-      ? `<p>Platform PayBill: <strong>${escapeHtml(invoice.platformShortcode)}</strong></p>`
+      ? `<p>Platform ${invoice.platformMerchantType === "buygoods" ? "Buy Goods Till" : "PayBill"}: <strong>${escapeHtml(invoice.platformShortcode)}</strong></p>`
       : "",
   };
   const breakdownText = values.breakdown
@@ -129,7 +130,10 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
       `Customer payments: ${formatAmount(invoice.grossAmount)}`,
       ...breakdownText,
       `Total commission due: ${formatAmount(invoice.commissionAmount)}`,
-      invoice.platformShortcode ? `Platform PayBill: ${invoice.platformShortcode}` : "",
+      invoice.platformShortcode
+        ? `Platform ${invoice.platformMerchantType === "buygoods" ? "Buy Goods Till" : "PayBill"}: ${invoice.platformShortcode}`
+        : "",
+      "The invoice total is rounded to the nearest whole KES for M-Pesa payment.",
       "Use the account/reference number above when paying. The invoice will update automatically when the payment is received.",
       "",
       "Please settle the commission by the due date. Tenant customer service may be paused if the invoice remains unpaid.",
@@ -151,7 +155,7 @@ export async function sendPlatformInvoiceEmail(invoice: PlatformInvoiceEmail): P
       </table>
       ${values.shortcode}
       <p>M-Pesa account/reference number: <strong>${values.paymentReference}</strong></p>
-      <p>Use this reference when paying. The invoice updates automatically after the platform receives the payment.</p>
+      <p>The invoice total is rounded to the nearest whole KES for M-Pesa payment. Use this reference when paying. The invoice updates automatically after the platform receives the payment.</p>
       <p>Please settle the commission by the due date. Tenant customer service may be paused if the invoice remains unpaid.</p>
     </div>`,
   });

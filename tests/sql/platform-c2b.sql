@@ -28,6 +28,8 @@ BEGIN
   END IF;
   IF (SELECT status FROM public.platform_commissions WHERE id = v_invoice) <> 'collected'
      OR (SELECT mpesa_receipt FROM public.platform_commissions WHERE id = v_invoice)
+        <> 'QABPLATFORM001'
+     OR (SELECT tenant_mpesa_receipt FROM public.platform_commissions WHERE id = v_invoice)
         <> 'QABPLATFORM001' THEN
     RAISE EXCEPTION 'matched C2B payment did not mark the invoice paid';
   END IF;

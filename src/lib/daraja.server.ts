@@ -78,7 +78,7 @@ async function accessToken(config: DarajaConfig): Promise<string> {
   } | null;
   if (!response.ok || !result?.access_token) {
     console.error(`Daraja OAuth failed [${response.status}]`);
-    throw new Error("Could not connect to the tenant's M-Pesa account.");
+    throw new Error("Could not connect to the M-Pesa account.");
   }
   const expiresIn = Number(result.expires_in);
   if (Number.isFinite(expiresIn) && expiresIn > 60) {
@@ -127,16 +127,18 @@ async function loadConfig(tenantId: string): Promise<DarajaConfig> {
   return configFrom(await loadTenantServiceSecrets(tenantId));
 }
 
-export async function startDarajaStkPush(input: {
-  tenantId: string;
-  amount: number;
-  phone: string;
-  paymentId: string;
-  callbackUrl: string;
-  description: string;
-  accountReference?: string;
-}): Promise<{ checkoutRequestId: string; merchantRequestId: string }> {
-  const config = await loadConfig(input.tenantId);
+async function startStkPush(
+  config: DarajaConfig,
+  input: {
+    tenantId: string;
+    amount: number;
+    phone: string;
+    paymentId: string;
+    callbackUrl: string;
+    description: string;
+    accountReference?: string;
+  },
+): Promise<{ checkoutRequestId: string; merchantRequestId: string }> {
   const phone = normalizePhone(input.phone);
   const amount = Math.ceil(input.amount);
   if (!/^254[17]\d{8}$/.test(phone)) throw new Error("Enter a valid Kenyan M-Pesa number.");
@@ -193,9 +195,7 @@ export async function startDarajaStkPush(input: {
       responseCode: result?.ResponseCode,
       responseDescription: safeResponseDescription(result?.ResponseDescription),
     });
-    throw new Error(
-      "Could not send the M-Pesa prompt. Check the tenant's Daraja setup and try again.",
-    );
+    throw new Error("Could not send the M-Pesa prompt. Check the Daraja setup and try again.");
   }
   console.info("Daraja STK request accepted", {
     environment: config.environment,
@@ -208,6 +208,59 @@ export async function startDarajaStkPush(input: {
     checkoutRequestId: result.CheckoutRequestID,
     merchantRequestId: result.MerchantRequestID,
   };
+}
+
+export async function startDarajaStkPush(input: {
+  tenantId: string;
+  amount: number;
+  phone: string;
+  paymentId: string;
+  callbackUrl: string;
+  description: string;
+  accountReference?: string;
+}): Promise<{ checkoutRequestId: string; merchantRequestId: string }> {
+  return startStkPush(await loadConfig(input.tenantId), input);
+}
+
+export async function startPlatformDarajaStkPush(input: {
+  amount: number;
+  phone: string;
+  paymentId: string;
+  callbackUrl: string;
+  accountReference: string;
+  tillShortcode: string;
+}): Promise<{ checkoutRequestId: string; merchantRequestId: string }> {
+  const secrets = await loadPlatformServiceSecrets();
+  const environment = secrets.PLATFORM_MPESA_ENV;
+  const consumerKey = secrets.PLATFORM_MPESA_CONSUMER_KEY?.trim();
+  const consumerSecret = secrets.PLATFORM_MPESA_CONSUMER_SECRET?.trim();
+  const businessShortcode = secrets.PLATFORM_MPESA_BUSINESS_SHORTCODE?.trim();
+  const passkey = secrets.PLATFORM_MPESA_PASSKEY?.trim();
+  if (environment !== "sandbox" && environment !== "production") {
+    throw new Error("The platform Daraja environment must be sandbox or production.");
+  }
+  if (!consumerKey || !consumerSecret || !businessShortcode || !passkey) {
+    throw new Error("Complete the platform's Buy Goods STK shortcode and Daraja credentials.");
+  }
+  if (!/^\d{5,20}$/.test(businessShortcode) || !/^\d{5,20}$/.test(input.tillShortcode)) {
+    throw new Error("Enter valid numeric Buy Goods and Lipa na M-Pesa Online shortcodes.");
+  }
+  return startStkPush(
+    {
+      environment,
+      merchantType: "buygoods",
+      businessShortcode,
+      merchantShortcode: input.tillShortcode,
+      consumerKey,
+      consumerSecret,
+      passkey,
+    },
+    {
+      ...input,
+      tenantId: "platform",
+      description: "Platform invoice",
+    },
+  );
 }
 
 export async function queryDarajaStkPush(

@@ -6,6 +6,9 @@ export const PLATFORM_SERVICE_SECRET_NAMES = [
   "PLATFORM_MPESA_ENV",
   "PLATFORM_MPESA_CONSUMER_KEY",
   "PLATFORM_MPESA_CONSUMER_SECRET",
+  "PLATFORM_MPESA_MERCHANT_TYPE",
+  "PLATFORM_MPESA_BUSINESS_SHORTCODE",
+  "PLATFORM_MPESA_PASSKEY",
 ] as const;
 export type PlatformServiceSecretName = (typeof PLATFORM_SERVICE_SECRET_NAMES)[number];
 export type PlatformServiceSecrets = Partial<Record<PlatformServiceSecretName, string>>;

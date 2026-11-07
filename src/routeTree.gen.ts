@@ -62,6 +62,7 @@ import { Route as ApiPublicRouterSupportSessionsSessionIdRouteImport } from './r
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
 import { Route as ApiPublicMpesaPlatformC2bValidationTokenRouteImport } from './routes/api/public/mpesa/platform-c2b-validation.$token'
 import { Route as ApiPublicMpesaPlatformC2bTokenRouteImport } from './routes/api/public/mpesa/platform-c2b.$token'
+import { Route as ApiPublicMpesaPlatformStkTokenRouteImport } from './routes/api/public/mpesa/platform-stk.$token'
 import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
 import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
 import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/public/portal/$slug/reconnect'
@@ -348,6 +349,12 @@ const ApiPublicMpesaPlatformC2bTokenRoute =
     path: '/api/public/mpesa/platform-c2b/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMpesaPlatformStkTokenRoute =
+  ApiPublicMpesaPlatformStkTokenRouteImport.update({
+    id: '/api/public/mpesa/platform-stk/$token',
+    path: '/api/public/mpesa/platform-stk/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPortalSlugCheckoutRoute =
   ApiPublicPortalSlugCheckoutRouteImport.update({
     id: '/checkout',
@@ -498,6 +505,7 @@ export interface FileRoutesByFullPath {
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
+  '/api/public/mpesa/platform-stk/$token': typeof ApiPublicMpesaPlatformStkTokenRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
@@ -566,6 +574,7 @@ export interface FileRoutesByTo {
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
+  '/api/public/mpesa/platform-stk/$token': typeof ApiPublicMpesaPlatformStkTokenRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
@@ -638,6 +647,7 @@ export interface FileRoutesById {
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
+  '/api/public/mpesa/platform-stk/$token': typeof ApiPublicMpesaPlatformStkTokenRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
@@ -711,6 +721,7 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
+    | '/api/public/mpesa/platform-stk/$token'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
@@ -779,6 +790,7 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
+    | '/api/public/mpesa/platform-stk/$token'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
@@ -850,6 +862,7 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
+    | '/api/public/mpesa/platform-stk/$token'
     | '/api/public/portal/$slug/checkout'
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
@@ -889,6 +902,7 @@ export interface RootRouteChildren {
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicMpesaPlatformC2bValidationTokenRoute: typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   ApiPublicMpesaPlatformC2bTokenRoute: typeof ApiPublicMpesaPlatformC2bTokenRoute
+  ApiPublicMpesaPlatformStkTokenRoute: typeof ApiPublicMpesaPlatformStkTokenRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
   ApiPublicRouterDevicesTokenRoute: typeof ApiPublicRouterDevicesTokenRoute
@@ -1274,6 +1288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMpesaPlatformC2bTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mpesa/platform-stk/$token': {
+      id: '/api/public/mpesa/platform-stk/$token'
+      path: '/api/public/mpesa/platform-stk/$token'
+      fullPath: '/api/public/mpesa/platform-stk/$token'
+      preLoaderRoute: typeof ApiPublicMpesaPlatformStkTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/portal/$slug/checkout': {
       id: '/api/public/portal/$slug/checkout'
       path: '/checkout'
@@ -1537,6 +1558,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMpesaPlatformC2bValidationTokenRoute:
     ApiPublicMpesaPlatformC2bValidationTokenRoute,
   ApiPublicMpesaPlatformC2bTokenRoute: ApiPublicMpesaPlatformC2bTokenRoute,
+  ApiPublicMpesaPlatformStkTokenRoute: ApiPublicMpesaPlatformStkTokenRoute,
   ApiPublicProvisionTokenLoginDothtmlRoute:
     ApiPublicProvisionTokenLoginDothtmlRoute,
   ApiPublicProvisionTokenRouterDotrscRoute:

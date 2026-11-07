@@ -2,13 +2,14 @@ import { randomBytes } from "node:crypto";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { registerPlatformDarajaC2bUrl } from "@/lib/daraja.server";
+import { startPlatformDarajaStkPush, registerPlatformDarajaC2bUrl } from "@/lib/daraja.server";
 import {
   loadPlatformServiceSecrets,
   savePlatformServiceSecret,
   type PlatformServiceSecretName,
 } from "@/lib/platform-service-secrets.server";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
+import { normalizePhone } from "@/lib/mpesa.server";
 
 const ReceiptSchema = z
   .string()
@@ -77,6 +78,9 @@ async function platformC2bStatus() {
         : null,
     consumerKeyLast4: secrets.PLATFORM_MPESA_CONSUMER_KEY?.slice(-4) ?? null,
     consumerSecretLast4: secrets.PLATFORM_MPESA_CONSUMER_SECRET?.slice(-4) ?? null,
+    merchantType: secrets.PLATFORM_MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill",
+    businessShortcode: secrets.PLATFORM_MPESA_BUSINESS_SHORTCODE ?? null,
+    passkeyConfigured: Boolean(secrets.PLATFORM_MPESA_PASSKEY),
     credentialsConfigured: Boolean(
       secrets.APP_BASE_URL &&
       (secrets.PLATFORM_MPESA_ENV === "sandbox" || secrets.PLATFORM_MPESA_ENV === "production") &&
@@ -99,6 +103,9 @@ const SavePlatformC2bSettingsSchema = z
     environment: z.enum(["sandbox", "production"]).optional(),
     consumerKey: z.string().trim().max(500).optional(),
     consumerSecret: z.string().trim().max(500).optional(),
+    merchantType: z.enum(["paybill", "buygoods"]).optional(),
+    businessShortcode: z.string().trim().max(30).optional(),
+    passkey: z.string().trim().max(500).optional(),
   })
   .refine((value) => Object.values(value).some((entry) => Boolean(entry)), {
     message: "Enter at least one setting to save.",
@@ -131,6 +138,9 @@ export const savePlatformC2bSettings = createServerFn({ method: "POST" })
       ["PLATFORM_MPESA_ENV", data.environment],
       ["PLATFORM_MPESA_CONSUMER_KEY", data.consumerKey],
       ["PLATFORM_MPESA_CONSUMER_SECRET", data.consumerSecret],
+      ["PLATFORM_MPESA_MERCHANT_TYPE", data.merchantType],
+      ["PLATFORM_MPESA_BUSINESS_SHORTCODE", data.businessShortcode],
+      ["PLATFORM_MPESA_PASSKEY", data.passkey],
     ];
     for (const [name, value] of entries) {
       if (value) await savePlatformServiceSecret(name, value, context.userId);
@@ -151,6 +161,128 @@ export const savePlatformC2bSettings = createServerFn({ method: "POST" })
     return platformC2bStatus();
   });
 
+const PlatformStkSchema = z.object({
+  invoiceId: z.string().uuid(),
+  phone: z.string().min(7).max(20),
+});
+
+export const requestPlatformInvoiceStkPush = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAal2])
+  .validator((input: z.input<typeof PlatformStkSchema>) => PlatformStkSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const tenantId = await tenantBillingId(context.userId);
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
+      .from("platform_commissions")
+      .select("id,commission_amount,payment_reference")
+      .eq("id", data.invoiceId)
+      .eq("tenant_id", tenantId)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (invoiceError) throw invoiceError;
+    if (!invoice) throw new Error("This invoice is no longer awaiting payment.");
+
+    const [secrets, configResult] = await Promise.all([
+      loadPlatformServiceSecrets(),
+      supabaseAdmin
+        .from("platform_mpesa_config")
+        .select("shortcode,c2b_callback_token")
+        .eq("id", 1)
+        .maybeSingle(),
+    ]);
+    if (configResult.error) throw configResult.error;
+    const tillShortcode = configResult.data?.shortcode?.trim();
+    const appBaseUrl = secrets.APP_BASE_URL?.trim();
+    if (!tillShortcode || !/^\d{5,20}$/.test(tillShortcode)) {
+      throw new Error("The platform Buy Goods Till is not configured.");
+    }
+    if (!appBaseUrl) throw new Error("The platform application URL is not configured.");
+    if (
+      secrets.PLATFORM_MPESA_MERCHANT_TYPE !== "buygoods" ||
+      !secrets.PLATFORM_MPESA_BUSINESS_SHORTCODE ||
+      !secrets.PLATFORM_MPESA_PASSKEY
+    ) {
+      throw new Error("Complete the platform Buy Goods STK shortcode and passkey in settings.");
+    }
+
+    const phone = normalizePhone(data.phone);
+    const staleBefore = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { error: expireError } = await supabaseAdmin
+      .from("platform_stk_payments")
+      .update({ status: "failed", updated_at: new Date().toISOString() })
+      .eq("invoice_id", invoice.id)
+      .eq("status", "pending")
+      .lt("created_at", staleBefore);
+    if (expireError) throw expireError;
+
+    const { data: stkPayment, error: stkError } = await supabaseAdmin
+      .from("platform_stk_payments")
+      .insert({
+        invoice_id: invoice.id,
+        phone,
+        amount: invoice.commission_amount,
+        status: "pending",
+      })
+      .select("id")
+      .single();
+    if (stkError?.code === "23505") {
+      throw new Error("An M-Pesa prompt is already pending for this invoice.");
+    }
+    if (stkError) throw stkError;
+    if (!stkPayment) throw new Error("Could not start an M-Pesa payment.");
+
+    let callbackToken = configResult.data?.c2b_callback_token;
+    if (!callbackToken) {
+      callbackToken = randomBytes(32).toString("hex");
+      const { error } = await supabaseAdmin
+        .from("platform_mpesa_config")
+        .update({ c2b_callback_token: callbackToken })
+        .eq("id", 1);
+      if (error) {
+        await supabaseAdmin
+          .from("platform_stk_payments")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("id", stkPayment.id);
+        throw error;
+      }
+    }
+
+    const baseUrl = new URL(appBaseUrl);
+    if (baseUrl.protocol !== "https:" || baseUrl.username || baseUrl.password) {
+      await supabaseAdmin
+        .from("platform_stk_payments")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", stkPayment.id);
+      throw new Error("The platform application URL must use HTTPS.");
+    }
+
+    try {
+      const started = await startPlatformDarajaStkPush({
+        amount: Number(invoice.commission_amount),
+        phone,
+        paymentId: stkPayment.id,
+        callbackUrl: `${baseUrl.origin}/api/public/mpesa/platform-stk/${callbackToken}`,
+        accountReference: invoice.payment_reference ?? invoice.id,
+        tillShortcode,
+      });
+      const { error: updateError } = await supabaseAdmin
+        .from("platform_stk_payments")
+        .update({
+          checkout_request_id: started.checkoutRequestId,
+          merchant_request_id: started.merchantRequestId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", stkPayment.id);
+      if (updateError) throw updateError;
+      return { paymentId: stkPayment.id, message: "Check your phone for the M-Pesa prompt." };
+    } catch (error) {
+      await supabaseAdmin
+        .from("platform_stk_payments")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("id", stkPayment.id);
+      throw error;
+    }
+  });
+
 export const registerPlatformC2bCallbacks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
   .handler(async ({ context }) => {
@@ -162,8 +294,8 @@ export const registerPlatformC2bCallbacks = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw error;
     const shortcode = config?.shortcode?.trim();
-    if (!shortcode || !/^\d{5,20}$/.test(shortcode)) {
-      throw new Error("Save a valid platform PayBill shortcode before registering callbacks.");
+    if (!config || !shortcode || !/^\d{5,20}$/.test(shortcode)) {
+      throw new Error("Save a valid platform payment shortcode before registering callbacks.");
     }
 
     const secrets = await loadPlatformServiceSecrets();

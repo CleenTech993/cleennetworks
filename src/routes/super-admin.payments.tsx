@@ -21,8 +21,11 @@ function PlatformPayments() {
   const [shortcode, setShortcode] = useState("");
   const [appBaseUrl, setAppBaseUrl] = useState("");
   const [environment, setEnvironment] = useState<"" | "sandbox" | "production">("");
+  const [merchantType, setMerchantType] = useState<"paybill" | "buygoods">("paybill");
   const [consumerKey, setConsumerKey] = useState("");
   const [consumerSecret, setConsumerSecret] = useState("");
+  const [businessShortcode, setBusinessShortcode] = useState("");
+  const [passkey, setPasskey] = useState("");
   const { data: config, isLoading } = useQuery({
     queryKey: ["platform-c2b"],
     queryFn: async () => {
@@ -45,7 +48,7 @@ function PlatformPayments() {
       const { data, error } = await supabase
         .from("platform_mpesa_transactions")
         .select(
-          "id,transaction_id,shortcode,bill_ref_number,amount,transaction_time,commission_id,status",
+          "id,transaction_id,shortcode,bill_ref_number,amount,transaction_time,commission_id,status,payment_method",
         )
         .order("transaction_time", { ascending: false })
         .limit(50);
@@ -76,7 +79,13 @@ function PlatformPayments() {
   useEffect(() => {
     if (!callbackStatus) return;
     setAppBaseUrl(callbackStatus.appBaseUrl ?? "");
-    setEnvironment(callbackStatus.environment ?? "");
+    setEnvironment(
+      callbackStatus.environment === "sandbox" || callbackStatus.environment === "production"
+        ? callbackStatus.environment
+        : "",
+    );
+    setMerchantType(callbackStatus.merchantType === "buygoods" ? "buygoods" : "paybill");
+    setBusinessShortcode(callbackStatus.businessShortcode ?? "");
   }, [callbackStatus]);
 
   const save = useMutation({
@@ -108,6 +117,7 @@ function PlatformPayments() {
       toast.success("Platform Daraja settings saved securely.");
       setConsumerKey("");
       setConsumerSecret("");
+      setPasskey("");
       queryClient.invalidateQueries({ queryKey: ["platform-c2b-callback-status"] });
     },
     onError: (error: Error) => toast.error(error.message),
@@ -116,18 +126,19 @@ function PlatformPayments() {
   return (
     <div>
       <PageHeader
-        title="Platform C2B"
-        description="Receive tenant commission payments on the platform PayBill and match each C2B payment to its invoice automatically."
+        title="Platform payments"
+        description="Receive platform commission by direct C2B or an M-Pesa STK prompt, and match payments to invoices."
       />
       <section className="max-w-2xl rounded-xl border bg-card p-5">
-        <h2 className="font-semibold">Commission receiving PayBill</h2>
+        <h2 className="font-semibold">Commission receiving account</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tenants pay the exact invoice total to this PayBill and enter the invoice reference as the
-          M-Pesa account number. Safaricom C2B callbacks record the receipt and match the reference
-          and amount to mark the invoice paid.
+          Tenants can send money directly to this account using the invoice reference, or request an
+          STK prompt from their invoice. Confirmed payments are matched against the invoice amount.
         </p>
         <div className="mt-4 max-w-sm">
-          <Label htmlFor="platform-shortcode">Platform PayBill shortcode</Label>
+          <Label htmlFor="platform-shortcode">
+            Platform {callbackStatus?.merchantType === "buygoods" ? "Buy Goods Till" : "PayBill"}
+          </Label>
           <Input
             id="platform-shortcode"
             value={shortcode}
@@ -137,7 +148,7 @@ function PlatformPayments() {
           />
         </div>
         <Button className="mt-4" onClick={() => save.mutate()} disabled={save.isPending}>
-          Save shortcode
+          Save receiving account
         </Button>
         <div className="mt-6 border-t pt-5">
           <h3 className="font-medium">Daraja callback credentials</h3>
@@ -176,6 +187,52 @@ function PlatformPayments() {
                 <option value="production">Production</option>
               </select>
             </div>
+            <div>
+              <Label htmlFor="platform-merchant-type">Platform account type</Label>
+              <select
+                id="platform-merchant-type"
+                value={merchantType}
+                onChange={(event) => {
+                  if (event.target.value === "paybill" || event.target.value === "buygoods") {
+                    setMerchantType(event.target.value);
+                  }
+                }}
+                className="mt-1 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="paybill">PayBill</option>
+                <option value="buygoods">Buy Goods Till</option>
+              </select>
+            </div>
+            {merchantType === "buygoods" && (
+              <>
+                <div>
+                  <Label htmlFor="platform-business-shortcode">
+                    Lipa na M-Pesa Online shortcode
+                  </Label>
+                  <Input
+                    id="platform-business-shortcode"
+                    value={businessShortcode}
+                    onChange={(event) => setBusinessShortcode(event.target.value)}
+                    placeholder="STK shortcode from Daraja"
+                    className="mt-1"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Label htmlFor="platform-passkey">
+                    Lipa na M-Pesa passkey{callbackStatus?.passkeyConfigured ? " (saved)" : ""}
+                  </Label>
+                  <Input
+                    id="platform-passkey"
+                    type="password"
+                    value={passkey}
+                    onChange={(event) => setPasskey(event.target.value)}
+                    placeholder="Enter to set or replace"
+                    autoComplete="new-password"
+                    className="mt-1"
+                  />
+                </div>
+              </>
+            )}
             <div>
               <Label htmlFor="platform-consumer-key">
                 Consumer key
@@ -221,6 +278,9 @@ function PlatformPayments() {
                   environment: environment || undefined,
                   consumerKey: consumerKey.trim() || undefined,
                   consumerSecret: consumerSecret.trim() || undefined,
+                  merchantType,
+                  businessShortcode: businessShortcode.trim() || undefined,
+                  passkey: passkey.trim() || undefined,
                 },
               })
             }
@@ -256,6 +316,11 @@ function PlatformPayments() {
                 secret above to enable callback registration.
               </p>
             )}
+            {merchantType === "buygoods" && !callbackStatus?.passkeyConfigured && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Save a Lipa na M-Pesa Online shortcode and passkey to enable invoice STK prompts.
+              </p>
+            )}
             {callbackStatus?.confirmationUrl && callbackStatus?.validationUrl && (
               <div className="mt-3 break-all rounded-lg bg-muted p-3 text-xs">
                 <p>
@@ -287,6 +352,7 @@ function PlatformPayments() {
                   <th className="pb-2 pr-4">Account reference</th>
                   <th className="pb-2 pr-4">Amount</th>
                   <th className="pb-2 pr-4">Invoice</th>
+                  <th className="pb-2 pr-4">Method</th>
                   <th className="pb-2">Match result</th>
                 </tr>
               </thead>
@@ -305,6 +371,9 @@ function PlatformPayments() {
                     <td className="py-2 pr-4">KES {Number(transaction.amount).toLocaleString()}</td>
                     <td className="py-2 pr-4 font-mono text-xs">
                       {transaction.invoiceNumber ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-xs uppercase text-muted-foreground">
+                      {transaction.payment_method}
                     </td>
                     <td className="py-2">
                       <Badge variant={transaction.status === "matched" ? "default" : "secondary"}>
