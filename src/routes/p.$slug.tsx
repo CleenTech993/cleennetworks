@@ -4,14 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Activity,
   Bell,
   CheckCircle2,
+  ChevronDown,
   Copy,
   Loader2,
   Mail,
   MessageCircle,
   Phone,
+  RefreshCw,
+  ShoppingBag,
+  Ticket,
   Tv,
+  Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -297,7 +303,7 @@ function PortalPage() {
       />
 
       <div className={theme.sheet ? "pt-sheet pt-6" : undefined}>
-        <div className="mx-auto max-w-md px-4 pb-12">
+        <div className="mx-auto max-w-5xl px-4 pb-12">
           {data.maintenance.map((maintenance) => (
             <section
               key={maintenance.id}
@@ -343,130 +349,192 @@ function PortalPage() {
               </div>
             </section>
           ))}
-          <section className="pt-surface mb-4 rounded-xl border bg-card p-4">
-            <h2 className="font-semibold">Getting online</h2>
-            <div className="mt-2 rounded-lg bg-muted/60 px-3 py-2 text-sm">
-              <span className="text-muted-foreground">This device’s Wi-Fi MAC address: </span>
-              {deviceMac ? (
-                <span className="font-mono font-medium">{deviceMac}</span>
-              ) : (
-                <span className="text-muted-foreground">Unavailable</span>
-              )}
-            </div>
-            {autoReconnectStatus === "checking" && (
-              <p role="status" className="mt-2 text-sm text-muted-foreground">
-                Checking whether this device is connected to Wi-Fi…
-              </p>
-            )}
-            {autoReconnectStatus === "connected" && (
-              <p role="status" className="mt-2 text-sm text-muted-foreground">
-                This device has an active Wi-Fi session.
-              </p>
-            )}
-            {autoReconnectStatus === "reconnecting" && (
-              <p role="status" className="mt-2 text-sm text-muted-foreground">
-                Wi-Fi disconnected. Checking your saved session and reconnecting…
-              </p>
-            )}
-            {autoReconnectStatus === "disconnected" && (
-              <p role="status" className="mt-2 text-sm text-muted-foreground">
-                No active Wi-Fi session or saved voucher was found. Choose a connection option
-                below.
-              </p>
-            )}
-            {autoReconnectStatus === "unavailable" && (
-              <p role="status" className="mt-2 text-sm text-muted-foreground">
-                Could not verify this device’s Wi-Fi session. Use Reconnect or Voucher below to
-                restore access.
-              </p>
-            )}
-            <ol className="mt-2 list-inside list-decimal space-y-2 text-sm text-muted-foreground">
-              <li>
-                Connect your device to this Wi-Fi. If the sign-in page doesn’t open, tap the Wi-Fi
-                sign-in notification or open your browser.
-              </li>
-              <li>
-                Choose <span className="font-medium text-foreground">Buy</span> for a new package
-                {data.portal?.enable_voucher !== false && (
-                  <>
-                    {" "}
-                    or <span className="font-medium text-foreground">Voucher</span> to enter your
-                    code
-                  </>
-                )}
-                . Follow the prompts to connect.
-              </li>
-              <li>
-                If you disconnect, reopen this page. We’ll check whether this device is still
-                connected and automatically reconnect with a valid saved session. Otherwise, for a
-                paid package choose <span className="font-medium text-foreground">Reconnect</span>{" "}
-                and enter the M-Pesa receipt code from your SMS.
-                {data.portal?.enable_voucher !== false && (
-                  <>
-                    {" "}
-                    For a voucher, enter the same code again under{" "}
-                    <span className="font-medium text-foreground">Voucher</span>.
-                  </>
-                )}
-              </li>
-            </ol>
-          </section>
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger className="px-1 text-xs sm:text-sm" value="buy">
-                Buy
-              </TabsTrigger>
-              <TabsTrigger className="px-1 text-xs sm:text-sm" value="reconnect">
-                Reconnect
-              </TabsTrigger>
-              <TabsTrigger className="px-1 text-xs sm:text-sm" value="status">
-                Status
-              </TabsTrigger>
-              <TabsTrigger
-                className="px-1 text-xs sm:text-sm"
-                value="voucher"
-                disabled={data.portal?.enable_voucher === false}
-              >
-                Voucher
-              </TabsTrigger>
-              <TabsTrigger className="px-1 text-xs sm:text-sm" value="tv">
-                TV
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="buy" className="mt-4">
-              <BuyFlow
-                slug={slug}
-                packages={data.packages}
-                primary={primary}
-                theme={theme}
-                payeeName={data.tenant.name}
-                postLoginUrl={data.portal?.post_login_url}
-              />
-            </TabsContent>
-            <TabsContent value="reconnect" className="mt-4">
-              <ReconnectFlow slug={slug} primary={primary} />
-            </TabsContent>
-            <TabsContent value="status" className="mt-4">
-              <StatusFlow slug={slug} primary={primary} />
-            </TabsContent>
-            <TabsContent value="voucher" className="mt-4">
-              <VoucherFlow
-                slug={slug}
-                primary={primary}
-                postLoginUrl={data.portal?.post_login_url}
-              />
-            </TabsContent>
-            <TabsContent value="tv" className="mt-4">
-              <TvFlow
-                slug={slug}
-                packages={data.packages.filter((plan) => plan.kind !== "hotspot_tv")}
-                primary={primary}
-                theme={theme}
-                payeeName={data.tenant.name}
-                postLoginUrl={data.portal?.post_login_url}
-              />
-            </TabsContent>
-          </Tabs>
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-start">
+            <section className="pt-surface rounded-2xl border bg-card p-5 sm:p-6">
+              <div className="flex items-center gap-3">
+                <div
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-xl"
+                  style={{ backgroundColor: `${primary}20`, color: primary }}
+                >
+                  {autoReconnectStatus === "checking" || autoReconnectStatus === "reconnecting" ? (
+                    <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+                  ) : autoReconnectStatus === "connected" ? (
+                    <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Wifi className="h-5 w-5" aria-hidden="true" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">Your Wi-Fi connection</h2>
+                  <p className="text-sm text-muted-foreground">
+                    {autoReconnectStatus === "checking"
+                      ? "Checking your connection…"
+                      : autoReconnectStatus === "connected"
+                        ? "You’re connected"
+                        : autoReconnectStatus === "reconnecting"
+                          ? "Reconnecting your device…"
+                          : autoReconnectStatus === "unavailable"
+                            ? "Connection check unavailable"
+                            : "Choose an option to get online"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-3">
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className={`rounded-xl border p-3 text-sm ${
+                    autoReconnectStatus === "connected"
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : autoReconnectStatus === "unavailable"
+                        ? "border-amber-500/30 bg-amber-500/10"
+                        : "border-border bg-muted/40"
+                  }`}
+                >
+                  {autoReconnectStatus === "checking" && "Checking whether this device is online."}
+                  {autoReconnectStatus === "connected" &&
+                    "This device has an active Wi-Fi session."}
+                  {autoReconnectStatus === "reconnecting" &&
+                    "Your saved session is active. Reconnecting now…"}
+                  {autoReconnectStatus === "disconnected" &&
+                    "No active session found. Pick an option to connect."}
+                  {autoReconnectStatus === "unavailable" &&
+                    "We couldn’t verify your session. Try Reconnect or contact support."}
+                  {!autoReconnectStatus && "Buy a plan or use an existing voucher to connect."}
+                </div>
+                <div className="rounded-xl bg-muted/50 px-3 py-2.5 text-sm">
+                  <span className="text-muted-foreground">This device</span>
+                  <span className="ml-2 font-mono font-medium">
+                    {deviceMac ?? "Wi-Fi address unavailable"}
+                  </span>
+                </div>
+                <details className="group rounded-xl border px-3 py-2.5">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                    How to connect or reconnect
+                    <ChevronDown
+                      className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <ol className="mt-3 space-y-2 border-t pt-3 text-sm text-muted-foreground">
+                    <li>1. Connect to this Wi-Fi and open the sign-in page.</li>
+                    <li>
+                      2. Buy a plan, enter a voucher, or use Reconnect with your M-Pesa receipt.
+                    </li>
+                    <li>
+                      3. If disconnected, reopen this page. We’ll check your session and try to
+                      reconnect automatically.
+                    </li>
+                  </ol>
+                </details>
+              </div>
+            </section>
+
+            <section className="pt-surface rounded-2xl border bg-card p-4 sm:p-5">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold">Choose what you need</h2>
+                <p className="text-sm text-muted-foreground">Pick an option below to continue.</p>
+              </div>
+              <Tabs value={tab} onValueChange={setTab}>
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 sm:grid-cols-3 lg:grid-cols-2">
+                  <TabsTrigger
+                    className="h-auto min-h-14 justify-start gap-2 rounded-xl border bg-background px-3 py-2.5 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    value="buy"
+                  >
+                    <ShoppingBag className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">Buy Wi-Fi</span>
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        New plan
+                      </span>
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-auto min-h-14 justify-start gap-2 rounded-xl border bg-background px-3 py-2.5 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    value="reconnect"
+                  >
+                    <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">Reconnect</span>
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Paid access
+                      </span>
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-auto min-h-14 justify-start gap-2 rounded-xl border bg-background px-3 py-2.5 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    value="status"
+                  >
+                    <Activity className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">Check status</span>
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Active plan
+                      </span>
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-auto min-h-14 justify-start gap-2 rounded-xl border bg-background px-3 py-2.5 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    value="voucher"
+                    disabled={data.portal?.enable_voucher === false}
+                  >
+                    <Ticket className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">Use voucher</span>
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Enter code
+                      </span>
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-auto min-h-14 justify-start gap-2 rounded-xl border bg-background px-3 py-2.5 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    value="tv"
+                  >
+                    <Tv className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">TV access</span>
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Register a TV
+                      </span>
+                    </span>
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="buy" className="mt-5">
+                  <BuyFlow
+                    slug={slug}
+                    packages={data.packages}
+                    primary={primary}
+                    theme={theme}
+                    payeeName={data.tenant.name}
+                    postLoginUrl={data.portal?.post_login_url}
+                  />
+                </TabsContent>
+                <TabsContent value="reconnect" className="mt-5">
+                  <ReconnectFlow slug={slug} primary={primary} />
+                </TabsContent>
+                <TabsContent value="status" className="mt-5">
+                  <StatusFlow slug={slug} primary={primary} />
+                </TabsContent>
+                <TabsContent value="voucher" className="mt-5">
+                  <VoucherFlow
+                    slug={slug}
+                    primary={primary}
+                    postLoginUrl={data.portal?.post_login_url}
+                  />
+                </TabsContent>
+                <TabsContent value="tv" className="mt-5">
+                  <TvFlow
+                    slug={slug}
+                    packages={data.packages.filter((plan) => plan.kind !== "hotspot_tv")}
+                    primary={primary}
+                    theme={theme}
+                    payeeName={data.tenant.name}
+                    postLoginUrl={data.portal?.post_login_url}
+                  />
+                </TabsContent>
+              </Tabs>
+            </section>
+          </div>
 
           {data.portal?.terms_text && (
             <p className="mt-6 text-center text-xs text-muted-foreground whitespace-pre-line">
