@@ -5,6 +5,7 @@ import {
   buildPppoeAgentLines,
   isClientConnected,
   parsePppoeReport,
+  pppoeReportedRouterId,
 } from "../src/lib/pppoe-sessions";
 
 describe("parsePppoeReport", () => {
@@ -118,6 +119,24 @@ describe("isClientConnected", () => {
     expect(isClientConnected(null, now)).toBe(false);
     expect(isClientConnected(undefined, now)).toBe(false);
     expect(isClientConnected("not a date", now)).toBe(false);
+  });
+});
+
+describe("pppoeReportedRouterId", () => {
+  it("uses the router that most recently reported the active session", () => {
+    expect(
+      pppoeReportedRouterId({
+        router_id: "assigned-router",
+        last_router_id: "reporting-router",
+      }),
+    ).toBe("reporting-router");
+  });
+
+  it("falls back to the assigned router before the first session report", () => {
+    expect(pppoeReportedRouterId({ router_id: "assigned-router", last_router_id: null })).toBe(
+      "assigned-router",
+    );
+    expect(pppoeReportedRouterId({ router_id: null, last_router_id: null })).toBeNull();
   });
 });
 

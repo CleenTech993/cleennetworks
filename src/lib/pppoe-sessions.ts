@@ -79,6 +79,13 @@ export function isClientConnected(
   return Number.isFinite(t) && now - t < CONNECTED_WINDOW_MS;
 }
 
+export function pppoeReportedRouterId(customer: {
+  router_id?: string | null;
+  last_router_id?: string | null;
+}): string | null {
+  return customer.last_router_id ?? customer.router_id ?? null;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Platform -> router: the report script
 // ---------------------------------------------------------------------------------------------
