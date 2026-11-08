@@ -175,6 +175,7 @@ export type Database = {
           created_at: string;
           customer_type: string;
           data_used_bytes: number;
+          download_bps: number;
           email: string | null;
           expires_at: string | null;
           full_name: string | null;
@@ -194,11 +195,13 @@ export type Database = {
           usage_bytes_in: number;
           usage_bytes_out: number;
           usage_session_id: string | null;
+          upload_bps: number;
         };
         Insert: {
           created_at?: string;
           customer_type?: string;
           data_used_bytes?: number;
+          download_bps?: number;
           email?: string | null;
           expires_at?: string | null;
           full_name?: string | null;
@@ -218,11 +221,13 @@ export type Database = {
           usage_bytes_in?: number;
           usage_bytes_out?: number;
           usage_session_id?: string | null;
+          upload_bps?: number;
         };
         Update: {
           created_at?: string;
           customer_type?: string;
           data_used_bytes?: number;
+          download_bps?: number;
           email?: string | null;
           expires_at?: string | null;
           full_name?: string | null;
@@ -242,6 +247,7 @@ export type Database = {
           usage_bytes_in?: number;
           usage_bytes_out?: number;
           usage_session_id?: string | null;
+          upload_bps?: number;
         };
         Relationships: [
           {
@@ -1244,6 +1250,7 @@ export type Database = {
         Row: {
           authorized: boolean;
           blocked: boolean;
+          download_bps: number;
           first_seen_at: string;
           hostname: string | null;
           id: string;
@@ -1254,11 +1261,15 @@ export type Database = {
           router_id: string;
           tenant_id: string;
           tether_suspected: boolean;
+          traffic_bytes_in: number | null;
+          traffic_bytes_out: number | null;
+          upload_bps: number;
           voucher_code: string | null;
         };
         Insert: {
           authorized?: boolean;
           blocked?: boolean;
+          download_bps?: number;
           first_seen_at?: string;
           hostname?: string | null;
           id?: string;
@@ -1269,11 +1280,15 @@ export type Database = {
           router_id: string;
           tenant_id: string;
           tether_suspected?: boolean;
+          traffic_bytes_in?: number | null;
+          traffic_bytes_out?: number | null;
+          upload_bps?: number;
           voucher_code?: string | null;
         };
         Update: {
           authorized?: boolean;
           blocked?: boolean;
+          download_bps?: number;
           first_seen_at?: string;
           hostname?: string | null;
           id?: string;
@@ -1284,6 +1299,9 @@ export type Database = {
           router_id?: string;
           tenant_id?: string;
           tether_suspected?: boolean;
+          traffic_bytes_in?: number | null;
+          traffic_bytes_out?: number | null;
+          upload_bps?: number;
           voucher_code?: string | null;
         };
         Relationships: [

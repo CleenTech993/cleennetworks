@@ -38,7 +38,10 @@ const OmadaContextSchema = z.discriminatedUnion("kind", [
     kind: z.literal("gateway"),
     clientMac: MacSchema,
     gatewayMac: MacSchema,
-    vlanId: z.string().regex(/^(?:0|[1-9]\d{0,3})$/).refine((value) => Number(value) <= 4094),
+    vlanId: z
+      .string()
+      .regex(/^(?:0|[1-9]\d{0,3})$/)
+      .refine((value) => Number(value) <= 4094),
     siteName: z.string().trim().min(1).max(128),
     redirectUrl: z
       .string()
@@ -51,6 +54,11 @@ const OmadaContextSchema = z.discriminatedUnion("kind", [
 const Schema = z.object({
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
+  pppoeUsername: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._@-]{3,64}$/)
+    .optional(),
   tvMac: z.string().min(11).max(40).optional(),
   routerId: z.string().uuid().optional(),
   omadaContext: OmadaContextSchema.optional(),
@@ -98,13 +106,11 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (maintenanceBlock) return Response.json({ error: maintenanceBlock }, { status: 423 });
 
           let selectedRouterVendor: string | null = null;
-          let omadaIntegration:
-            | {
-                site_name: string;
-                controller_version: string;
-                enabled: boolean;
-              }
-            | null = null;
+          let omadaIntegration: {
+            site_name: string;
+            controller_version: string;
+            enabled: boolean;
+          } | null = null;
           if (parsed.data.routerId) {
             const { data: router, error: routerError } = await supabaseAdmin
               .from("routers")
@@ -140,9 +146,12 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               );
             }
             if (parsed.data.omadaContext.siteName !== omadaIntegration.site_name) {
-              return Response.json({ error: "The Omada site does not match this portal." }, {
-                status: 400,
-              });
+              return Response.json(
+                { error: "The Omada site does not match this portal." },
+                {
+                  status: 400,
+                },
+              );
             }
             try {
               assertSupportedOmadaVersion(omadaIntegration.controller_version);
@@ -157,7 +166,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             }
           } else if (selectedRouterVendor === "tp_link_omada" && omadaIntegration?.enabled) {
             return Response.json(
-              { error: "Omada connection details are missing. Reconnect to the guest Wi-Fi and try again." },
+              {
+                error:
+                  "Omada connection details are missing. Reconnect to the guest Wi-Fi and try again.",
+              },
               { status: 400 },
             );
           }
@@ -170,9 +182,46 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (!pkg || pkg.tenant_id !== tenant.id || !pkg.active) {
             return Response.json({ error: "Invalid package" }, { status: 400 });
           }
-          if (!["hotspot", "voucher", "hotspot_tv"].includes(pkg.kind)) {
+          if (!["hotspot", "voucher", "hotspot_tv", "pppoe"].includes(pkg.kind)) {
             return Response.json(
               { error: "This package cannot be purchased from the portal." },
+              { status: 400 },
+            );
+          }
+          let pppoeCustomerId: string | null = null;
+          if (pkg.kind === "pppoe") {
+            if (!parsed.data.pppoeUsername) {
+              return Response.json({ error: "Enter your PPPoE username." }, { status: 400 });
+            }
+            const { data: customer, error: customerError } = await supabaseAdmin
+              .from("customers")
+              .select("id,phone,status")
+              .eq("tenant_id", tenant.id)
+              .eq("customer_type", "pppoe")
+              .eq("pppoe_username", parsed.data.pppoeUsername)
+              .maybeSingle();
+            if (customerError) {
+              console.error("Could not verify PPPoE customer checkout", customerError);
+              return Response.json({ error: "Could not start the payment." }, { status: 500 });
+            }
+            if (
+              !customer ||
+              customer.status !== "active" ||
+              !customer.phone ||
+              normalizePhone(customer.phone) !== phone
+            ) {
+              return Response.json(
+                {
+                  error:
+                    "We couldn't verify that PPPoE account. Check the username and registered phone, or contact your provider.",
+                },
+                { status: 403 },
+              );
+            }
+            pppoeCustomerId = customer.id;
+          } else if (parsed.data.pppoeUsername) {
+            return Response.json(
+              { error: "A PPPoE username can only be used with a PPPoE package." },
               { status: 400 },
             );
           }
@@ -203,7 +252,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const { data: activePayment, error: activePaymentError } = await supabaseAdmin
             .from("payments")
-            .select("id,package_id,tv_device_id")
+            .select("id,package_id,tv_device_id,customer_id")
             .eq("tenant_id", tenant.id)
             .eq("phone", phone)
             .eq("status", "pending")
@@ -214,6 +263,20 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (activePaymentError) {
             console.error("Could not check for an active STK payment", activePaymentError);
             return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          }
+          if (
+            activePayment &&
+            (pppoeCustomerId
+              ? activePayment.customer_id !== pppoeCustomerId
+              : Boolean(activePayment.customer_id))
+          ) {
+            return Response.json(
+              {
+                error:
+                  "A payment prompt is already active for this number. Complete it or wait for it to expire.",
+              },
+              { status: 409 },
+            );
           }
           if (activePayment && activePayment.package_id !== pkg.id) {
             return Response.json(
@@ -349,6 +412,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               amount,
               status: "pending",
               provider: "daraja",
+              ...(pppoeCustomerId ? { customer_id: pppoeCustomerId } : {}),
               ...(tvDeviceId ? { tv_device_id: tvDeviceId } : {}),
             })
             .select("id,created_at,status,package_id")

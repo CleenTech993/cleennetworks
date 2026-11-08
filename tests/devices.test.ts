@@ -59,6 +59,8 @@ describe("parseDeviceReport", () => {
         user: "ABCDEF2345",
         authorized: true,
         tether: false,
+        bytesIn: null,
+        bytesOut: null,
       },
       {
         mac: "AA:BB:CC:DD:EE:04",
@@ -67,8 +69,19 @@ describe("parseDeviceReport", () => {
         user: null,
         authorized: false,
         tether: true,
+        bytesIn: null,
+        bytesOut: null,
       },
     ]);
+  });
+
+  it("parses safe hotspot byte counters for live throughput sampling", () => {
+    expect(
+      parseDeviceReport("AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|12000|24000"),
+    ).toMatchObject([{ bytesIn: "12000", bytesOut: "24000" }]);
+    expect(
+      parseDeviceReport("AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|invalid|1"),
+    ).toEqual([]);
   });
 
   it("drops malformed, multicast, zero and duplicate MACs", () => {
@@ -383,7 +396,9 @@ describe("buildDeviceAgentLines", () => {
     const plain = buildDeviceAgentLines(URL_OK).join("\n").replace(/\\\$/g, "$");
     expect(plain).toContain(`/tool fetch url="${URL_OK}" http-method=post http-data=$d`);
     // the record layout the script builds is the one parseDeviceReport reads
-    expect(plain).toContain('$mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt');
+    expect(plain).toContain(
+      '$mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . "|" . $bi . "|" . $bo',
+    );
   });
 });
 

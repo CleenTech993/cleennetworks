@@ -5,6 +5,14 @@ import { VoucherManager } from "@/components/voucher-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { countOnlineClients } from "@/lib/online-clients";
 import { CONNECTED_WINDOW_MS } from "@/lib/pppoe-sessions";
+import { isRouterLive } from "@/lib/router-health";
+
+function formatRate(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 bps";
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} Mbps`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(0)} Kbps`;
+  return `${Math.round(value)} bps`;
+}
 
 export const Route = createFileRoute("/tenant/hotspot")({ component: Hotspot });
 
@@ -13,37 +21,46 @@ function Hotspot() {
     queryKey: ["hotspot-overview"],
     queryFn: async () => {
       const now = Date.now();
-      const [sess, cust, devices, routers] = await Promise.all([
-        supabase.from("sessions").select("id,status,bytes_in,bytes_out").eq("status", "active"),
+      const [cust, devices, routers] = await Promise.all([
         supabase.from("customers").select("id,status").eq("customer_type", "hotspot"),
         supabase
           .from("router_devices")
-          .select("mac,router_id,authorized,blocked,last_seen_at")
+          .select("mac,router_id,authorized,blocked,last_seen_at,download_bps,upload_bps")
           .eq("authorized", true)
           .eq("blocked", false)
           .gte("last_seen_at", new Date(now - CONNECTED_WINDOW_MS).toISOString()),
         supabase.from("routers").select("id,last_heartbeat_at,last_seen_at"),
       ]);
-      if (sess.error) throw sess.error;
       if (cust.error) throw cust.error;
       if (devices.error) throw devices.error;
       if (routers.error) throw routers.error;
 
-      const active = sess.data ?? [];
-      const totalDown = active.reduce((s, x) => s + Number(x.bytes_in ?? 0), 0);
-      const totalUp = active.reduce((s, x) => s + Number(x.bytes_out ?? 0), 0);
       const online = countOnlineClients({
         routers: routers.data ?? [],
         customers: [],
         hotspotDevices: devices.data ?? [],
         now,
       }).onlineHotspot;
+      const liveRouterIds = new Set(
+        (routers.data ?? []).filter(isRouterLive).map((router) => router.id),
+      );
+      const onlineDevices = (devices.data ?? []).filter((device) =>
+        liveRouterIds.has(device.router_id),
+      );
+      const totalDownloadBps = onlineDevices.reduce(
+        (sum, device) => sum + Number(device.download_bps ?? 0),
+        0,
+      );
+      const totalUploadBps = onlineDevices.reduce(
+        (sum, device) => sum + Number(device.upload_bps ?? 0),
+        0,
+      );
       return {
         online,
         hotspotCustomers: cust.data?.length ?? 0,
         activeCustomers: (cust.data ?? []).filter((c) => c.status === "active").length,
-        downMB: (totalDown / 1024 / 1024).toFixed(1),
-        upMB: (totalUp / 1024 / 1024).toFixed(1),
+        totalDownloadBps,
+        totalUploadBps,
       };
     },
     refetchInterval: 10_000,
@@ -59,8 +76,16 @@ function Hotspot() {
           value={data?.hotspotCustomers ?? "—"}
           hint={`${data?.activeCustomers ?? 0} active`}
         />
-        <StatCard label="Download (live)" value={data ? data.downMB + " MB" : "—"} />
-        <StatCard label="Upload (live)" value={data ? data.upMB + " MB" : "—"} />
+        <StatCard
+          label="Download (live)"
+          value={data ? formatRate(data.totalDownloadBps) : "—"}
+          hint="Router-sampled throughput"
+        />
+        <StatCard
+          label="Upload (live)"
+          value={data ? formatRate(data.totalUploadBps) : "—"}
+          hint="Router-sampled throughput"
+        />
       </div>
       <div className="mt-6">
         <VoucherManager />

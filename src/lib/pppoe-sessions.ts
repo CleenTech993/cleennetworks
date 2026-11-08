@@ -1,14 +1,14 @@
 // PPPoE session reporting. Pure functions (no env / DB access) so they are unit-testable.
 //
-// Every 2 minutes the router sends the platform its active PPPoE sessions. RouterOS exposes the
+// Every minute the router sends the platform its active PPPoE sessions. RouterOS exposes the
 // client's MAC address as the session's "caller-id", so this is how the console learns each
 // client's MAC and whether they are connected right now. Routers pick the script up through the
 // normal sync (same mechanism as the hotspot device report), so no re-provisioning is needed.
 import { isUsableMac, normalizeMac } from "./tv";
 
 export const MAX_PPPOE_SESSIONS_PER_REPORT = 500;
-/** Router device and PPPoE reports run every 5 minutes; allow two intervals plus a small buffer. */
-export const CONNECTED_WINDOW_MS = 11 * 60 * 1000;
+/** Router device and PPPoE reports run every minute; allow two intervals plus a buffer. */
+export const CONNECTED_WINDOW_MS = 3 * 60 * 1000;
 
 /** Same character set the sync script allows for PPPoE usernames. */
 const SAFE_NAME = /^[A-Za-z0-9._@-]{1,64}$/;
@@ -120,7 +120,7 @@ const PPPOE_SCRIPT = `
 const PUSH_URL = /^https:\/\/[A-Za-z0-9.-]+(:\d+)?\/api\/public\/router\/pppoe\/[A-Za-z0-9_-]+$/;
 
 /**
- * Installs the report script and its 2-minute scheduler on the router. The scheduler is only
+ * Installs the report script and its 1-minute scheduler on the router. The scheduler is only
  * created when missing: re-creating it on every sync would keep resetting its timer.
  */
 export function buildPppoeAgentLines(pushUrl: string): string[] {
@@ -135,6 +135,6 @@ export function buildPppoeAgentLines(pushUrl: string): string[] {
     "/system script",
     ":do { remove [find where name=netgrid-pppoe] } on-error={}",
     `:do { add name=netgrid-pppoe source={${source}} } on-error={}`,
-    ':do { :if ([:len [/system scheduler find where name=netgrid-pppoe]] = 0) do={ /system scheduler add name=netgrid-pppoe interval=5m on-event="/system script run netgrid-pppoe" } else={ /system scheduler set [find where name=netgrid-pppoe] interval=5m } } on-error={}',
+    ':do { :if ([:len [/system scheduler find where name=netgrid-pppoe]] = 0) do={ /system scheduler add name=netgrid-pppoe interval=1m on-event="/system script run netgrid-pppoe" } else={ /system scheduler set [find where name=netgrid-pppoe] interval=1m } } on-error={}',
   ];
 }

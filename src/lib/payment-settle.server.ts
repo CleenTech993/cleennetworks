@@ -9,6 +9,7 @@ export interface SettleInput {
   payment: {
     id: string;
     tenant_id: string;
+    customer_id: string | null;
     package_id: string | null;
     phone: string | null;
     /** Set when the payment renews a smart TV instead of buying a voucher. */
@@ -154,6 +155,40 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
             .eq("id", dev.id);
           if (dErr) throw dErr;
         }
+      } else if (pkg?.kind === "pppoe") {
+        if (!payment.customer_id || !pkg.duration_value || !pkg.duration_unit) {
+          throw new Error("PPPoE payment is missing its account or package duration");
+        }
+        const { data: customer, error: customerError } = await supabaseAdmin
+          .from("customers")
+          .select("id,expires_at")
+          .eq("id", payment.customer_id)
+          .eq("tenant_id", payment.tenant_id)
+          .eq("customer_type", "pppoe")
+          .maybeSingle();
+        if (customerError) throw customerError;
+        if (!customer) throw new Error("PPPoE customer account not found");
+
+        expiresAt =
+          payment.expires_at ??
+          renewedExpiry(customer.expires_at, pkg.duration_value, pkg.duration_unit);
+        if (!payment.expires_at) {
+          const { error: expiryError } = await supabaseAdmin
+            .from("payments")
+            .update({ expires_at: expiresAt })
+            .eq("id", payment.id);
+          if (expiryError) throw expiryError;
+        }
+        const { error: customerUpdateError } = await supabaseAdmin
+          .from("customers")
+          .update({
+            package_id: payment.package_id,
+            expires_at: expiresAt,
+            status: "active",
+          })
+          .eq("id", customer.id)
+          .eq("tenant_id", payment.tenant_id);
+        if (customerUpdateError) throw customerUpdateError;
       } else if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
         voucherCode = randomVoucher();
         const { error: vErr } = await supabaseAdmin.from("vouchers").insert({

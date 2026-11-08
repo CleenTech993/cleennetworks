@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
         const { data: pay, error: paymentError } = await supabaseAdmin
           .from("payments")
           .select(
-            "id,status,provider,checkout_request_id,package_id,phone,tv_device_id,expires_at,created_at,mpesa_receipt,voucher_code",
+            "id,status,provider,checkout_request_id,customer_id,package_id,phone,tv_device_id,expires_at,created_at,mpesa_receipt,voucher_code",
           )
           .eq("id", id)
           .eq("tenant_id", tenant.id)
@@ -55,6 +55,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
                   payment: {
                     id: pay.id,
                     tenant_id: tenant.id,
+                    customer_id: pay.customer_id,
                     package_id: pay.package_id,
                     phone: pay.phone,
                     tv_device_id: pay.tv_device_id,

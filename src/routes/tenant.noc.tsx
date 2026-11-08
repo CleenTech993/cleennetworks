@@ -28,12 +28,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
 import { RouterFleetSlaCard } from "@/components/router-fleet-sla-card";
+import { CONNECTED_WINDOW_MS, isClientConnected } from "@/lib/pppoe-sessions";
+
+function formatRate(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0 bps";
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} Mbps`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(0)} Kbps`;
+  return `${Math.round(value)} bps`;
+}
 
 export const Route = createFileRoute("/tenant/noc")({
   head: () => ({
     meta: [
       { title: "NOC Network Monitor — Tenant Console" },
-      { name: "description", content: "Real-time Network Operations Center, topology, router matrix, and traffic." },
+      {
+        name: "description",
+        content: "Real-time Network Operations Center, topology, router matrix, and traffic.",
+      },
     ],
   }),
   component: TenantNocPage,
@@ -42,13 +53,14 @@ export const Route = createFileRoute("/tenant/noc")({
 export function TenantNocPage() {
   const { tenantId } = useAuth();
 
-  const { data: routers, refetch: refetchRouters, isLoading: loadingRouters } = useQuery({
+  const {
+    data: routers,
+    refetch: refetchRouters,
+    isLoading: loadingRouters,
+  } = useQuery({
     queryKey: ["tenant-noc-routers", tenantId],
     queryFn: async () => {
-      let q = supabase
-        .from("routers")
-        .select("*")
-        .order("name");
+      let q = supabase.from("routers").select("*").order("name");
 
       if (tenantId) {
         q = q.eq("tenant_id", tenantId);
@@ -61,31 +73,14 @@ export function TenantNocPage() {
     refetchInterval: 3_000,
   });
 
-  const { data: sessions } = useQuery({
-    queryKey: ["tenant-noc-sessions", tenantId],
-    queryFn: async () => {
-      let q = supabase
-        .from("sessions")
-        .select("id, router_id, status, bytes_in, bytes_out")
-        .eq("status", "active");
-
-      if (tenantId) {
-        q = q.eq("tenant_id", tenantId);
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return data ?? [];
-    },
-    refetchInterval: 5_000,
-  });
-
   const { data: pppoeCustomers } = useQuery({
     queryKey: ["tenant-noc-pppoe", tenantId],
     queryFn: async () => {
       let q = supabase
         .from("customers")
-        .select("id, router_id, last_seen_at")
+        .select(
+          "id,full_name,phone,pppoe_username,status,expires_at,last_seen_at,last_router_id,router_id,last_ip,download_bps,upload_bps",
+        )
         .eq("customer_type", "pppoe");
 
       if (tenantId) {
@@ -96,7 +91,30 @@ export function TenantNocPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 5_000,
+    refetchInterval: 10_000,
+  });
+
+  const { data: hotspotDevices } = useQuery({
+    queryKey: ["tenant-noc-hotspot-devices", tenantId],
+    queryFn: async () => {
+      let q = supabase
+        .from("router_devices")
+        .select(
+          "id,router_id,mac,ip,hostname,voucher_code,authorized,blocked,last_seen_at,download_bps,upload_bps",
+        )
+        .eq("authorized", true)
+        .eq("blocked", false)
+        .gte("last_seen_at", new Date(Date.now() - CONNECTED_WINDOW_MS).toISOString());
+
+      if (tenantId) {
+        q = q.eq("tenant_id", tenantId);
+      }
+
+      const { data, error } = await q;
+      if (error) throw error;
+      return data ?? [];
+    },
+    refetchInterval: 10_000,
   });
 
   // Supabase Realtime channel subscription for immediate updates
@@ -104,9 +122,13 @@ export function TenantNocPage() {
     if (!tenantId) return;
     const ch = supabase
       .channel(`noc-monitor-${tenantId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "routers", filter: `tenant_id=eq.${tenantId}` }, () => {
-        void refetchRouters();
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "routers", filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          void refetchRouters();
+        },
+      )
       .subscribe();
     return () => {
       void supabase.removeChannel(ch);
@@ -120,20 +142,11 @@ export function TenantNocPage() {
     return () => clearInterval(i);
   }, []);
 
-  const routerList = routers ?? [];
+  const routerList = useMemo(() => routers ?? [], [routers]);
   const onlineRouters = useMemo(() => routerList.filter(isRouterLive), [routerList]);
   const offlineRouters = useMemo(() => routerList.filter((r) => !isRouterLive(r)), [routerList]);
 
   // Aggregated traffic
-  const totalDownloadBytes = useMemo(
-    () => (sessions ?? []).reduce((acc, s) => acc + Number(s.bytes_in ?? 0), 0),
-    [sessions]
-  );
-  const totalUploadBytes = useMemo(
-    () => (sessions ?? []).reduce((acc, s) => acc + Number(s.bytes_out ?? 0), 0),
-    [sessions]
-  );
-
   const avgCpu = useMemo(() => {
     if (onlineRouters.length === 0) return 0;
     const total = onlineRouters.reduce((acc, r) => acc + (r.cpu_load ?? r.cpu_usage ?? 0), 0);
@@ -142,14 +155,65 @@ export function TenantNocPage() {
 
   // PPPoE active counts
   const now = Date.now();
-  const activePppoeCount = useMemo(() => {
-    if (!pppoeCustomers) return 0;
-    return pppoeCustomers.filter((c) => {
-      if (!c.last_seen_at) return false;
-      const t = new Date(c.last_seen_at).getTime();
-      return Number.isFinite(t) && now - t < 5 * 60 * 1000;
-    }).length;
-  }, [pppoeCustomers, now]);
+  const liveRouterIds = useMemo(
+    () => new Set(onlineRouters.map((router) => router.id)),
+    [onlineRouters],
+  );
+  const onlinePppoeCustomers = useMemo(
+    () =>
+      (pppoeCustomers ?? []).filter((customer) => {
+        const routerId = customer.last_router_id ?? customer.router_id;
+        const expiry = customer.expires_at ? Date.parse(customer.expires_at) : Infinity;
+        return (
+          customer.status === "active" &&
+          expiry > now &&
+          isClientConnected(customer.last_seen_at, now) &&
+          !!routerId &&
+          liveRouterIds.has(routerId)
+        );
+      }),
+    [pppoeCustomers, now, liveRouterIds],
+  );
+  const onlineHotspotDevices = useMemo(
+    () =>
+      (hotspotDevices ?? []).filter(
+        (device) =>
+          device.authorized &&
+          !device.blocked &&
+          isClientConnected(device.last_seen_at, now) &&
+          liveRouterIds.has(device.router_id),
+      ),
+    [hotspotDevices, now, liveRouterIds],
+  );
+  const onlineClientRows = useMemo(
+    () => [
+      ...onlinePppoeCustomers.map((customer) => ({
+        key: `pppoe:${customer.id}`,
+        kind: "PPPoE",
+        name: customer.full_name || customer.pppoe_username || "PPPoE customer",
+        detail: customer.pppoe_username || customer.phone || "—",
+        ip: customer.last_ip,
+        downloadBps: Number(customer.download_bps ?? 0),
+        uploadBps: Number(customer.upload_bps ?? 0),
+        lastSeen: customer.last_seen_at,
+      })),
+      ...onlineHotspotDevices.map((device) => ({
+        key: `hotspot:${device.id}`,
+        kind: "Hotspot",
+        name: device.hostname || device.voucher_code || "Hotspot device",
+        detail: device.mac,
+        ip: device.ip,
+        downloadBps: Number(device.download_bps ?? 0),
+        uploadBps: Number(device.upload_bps ?? 0),
+        lastSeen: device.last_seen_at,
+      })),
+    ],
+    [onlinePppoeCustomers, onlineHotspotDevices],
+  );
+  const totalDownloadBps = onlineClientRows.reduce((sum, client) => sum + client.downloadBps, 0);
+  const totalUploadBps = onlineClientRows.reduce((sum, client) => sum + client.uploadBps, 0);
+  const activePppoeCount = onlinePppoeCustomers.length;
+  const activeHotspotCount = onlineHotspotDevices.length;
 
   return (
     <div className="space-y-6">
@@ -158,7 +222,12 @@ export function TenantNocPage() {
         description="Real-time multi-router health matrix, visual topology, subscriber distribution, and bandwidth throughput."
         action={
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetchRouters()} className="gap-1.5 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetchRouters()}
+              className="gap-1.5 text-xs"
+            >
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </Button>
@@ -183,18 +252,29 @@ export function TenantNocPage() {
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium text-muted-foreground">Fleet Status</p>
             <span className="relative flex h-3 w-3">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${offlineRouters.length > 0 ? "bg-red-400" : "bg-emerald-400"}`} />
-              <span className={`relative inline-flex rounded-full h-3 w-3 ${offlineRouters.length > 0 ? "bg-red-500" : "bg-emerald-500"}`} />
+              <span
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${offlineRouters.length > 0 ? "bg-red-400" : "bg-emerald-400"}`}
+              />
+              <span
+                className={`relative inline-flex rounded-full h-3 w-3 ${offlineRouters.length > 0 ? "bg-red-500" : "bg-emerald-500"}`}
+              />
             </span>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className={`text-2xl font-bold tracking-tight ${offlineRouters.length > 0 ? "text-amber-500" : "text-emerald-500"}`}>
-              {routerList.length ? Math.round((onlineRouters.length / routerList.length) * 100) : 100}%
+            <span
+              className={`text-2xl font-bold tracking-tight ${offlineRouters.length > 0 ? "text-amber-500" : "text-emerald-500"}`}
+            >
+              {routerList.length
+                ? Math.round((onlineRouters.length / routerList.length) * 100)
+                : 100}
+              %
             </span>
             <span className="text-xs text-muted-foreground">Network Uptime</span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {offlineRouters.length > 0 ? `${offlineRouters.length} router(s) offline` : "All router heartbeats nominal"}
+            {offlineRouters.length > 0
+              ? `${offlineRouters.length} router(s) offline`
+              : "All router heartbeats nominal"}
           </p>
         </div>
         <StatCard
@@ -205,13 +285,66 @@ export function TenantNocPage() {
         />
         <StatCard
           label="Active Connected Users"
-          value={(sessions?.length ?? 0) + activePppoeCount}
-          hint={`${sessions?.length ?? 0} Hotspot · ${activePppoeCount} PPPoE`}
+          value={activeHotspotCount + activePppoeCount}
+          hint={`${activeHotspotCount} Hotspot · ${activePppoeCount} PPPoE`}
           icon={Users}
         />
       </div>
 
       <RouterFleetSlaCard tenantId={tenantId} routers={routerList} />
+
+      <section className="overflow-hidden rounded-xl border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4">
+          <div>
+            <h3 className="font-semibold">Online customers</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Active hotspot and PPPoE sessions reported by live routers; traffic rates refresh with
+              router samples.
+            </p>
+          </div>
+          <div className="text-right text-xs">
+            <p>↓ {formatRate(totalDownloadBps)}</p>
+            <p>↑ {formatRate(totalUploadBps)}</p>
+          </div>
+        </div>
+        {onlineClientRows.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+            No online customers reported. Router reports refresh about once per minute.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-5 py-3">Customer / device</th>
+                  <th className="px-5 py-3">Service</th>
+                  <th className="px-5 py-3">IP address</th>
+                  <th className="px-5 py-3 text-right">Download</th>
+                  <th className="px-5 py-3 text-right">Upload</th>
+                  <th className="px-5 py-3 text-right">Last report</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {onlineClientRows.map((client) => (
+                  <tr key={client.key}>
+                    <td className="px-5 py-3">
+                      <p className="font-medium">{client.name}</p>
+                      <p className="font-mono text-xs text-muted-foreground">{client.detail}</p>
+                    </td>
+                    <td className="px-5 py-3">{client.kind}</td>
+                    <td className="px-5 py-3 font-mono text-xs">{client.ip ?? "—"}</td>
+                    <td className="px-5 py-3 text-right">{formatRate(client.downloadBps)}</td>
+                    <td className="px-5 py-3 text-right">{formatRate(client.uploadBps)}</td>
+                    <td className="px-5 py-3 text-right text-xs text-muted-foreground">
+                      {client.lastSeen ? new Date(client.lastSeen).toLocaleTimeString() : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* Network Outage Alert Banner (if any router is down) */}
       {offlineRouters.length > 0 && (
@@ -222,11 +355,14 @@ export function TenantNocPage() {
             </span>
             <div>
               <p className="font-semibold text-red-600 dark:text-red-400">
-                Network Outage Detected: {offlineRouters.length} Router{offlineRouters.length > 1 ? "s" : ""} Offline
+                Network Outage Detected: {offlineRouters.length} Router
+                {offlineRouters.length > 1 ? "s" : ""} Offline
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 The following devices have stopped transmitting heartbeats:{" "}
-                <span className="font-medium text-foreground">{offlineRouters.map((r) => r.name).join(", ")}</span>
+                <span className="font-medium text-foreground">
+                  {offlineRouters.map((r) => r.name).join(", ")}
+                </span>
               </p>
             </div>
           </div>
@@ -250,7 +386,10 @@ export function TenantNocPage() {
               Live link map connecting the Cloud Gateway, Edge Routers, and Subscribed Clients.
             </p>
           </div>
-          <Badge variant="outline" className="w-fit text-xs gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+          <Badge
+            variant="outline"
+            className="w-fit text-xs gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+          >
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             Realtime Synced
           </Badge>
@@ -262,7 +401,9 @@ export function TenantNocPage() {
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
               <Server className="h-6 w-6" />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Platform Core</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Platform Core
+            </p>
             <p className="font-bold text-sm mt-0.5">NetGrid Cloud Hub</p>
             <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -283,12 +424,20 @@ export function TenantNocPage() {
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
               <RouterIcon className="h-6 w-6" />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">MikroTik Fleet</p>
-            <p className="font-bold text-sm mt-0.5">{onlineRouters.length} of {routerList.length} Connected</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              MikroTik Fleet
+            </p>
+            <p className="font-bold text-sm mt-0.5">
+              {onlineRouters.length} of {routerList.length} Connected
+            </p>
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Avg CPU: <span className="font-semibold text-foreground">{avgCpu}%</span></span>
+              <span className="text-xs text-muted-foreground">
+                Avg CPU: <span className="font-semibold text-foreground">{avgCpu}%</span>
+              </span>
               <span>·</span>
-              <span className="text-xs text-muted-foreground">Telemetry: <span className="font-semibold text-emerald-500">2s Interval</span></span>
+              <span className="text-xs text-muted-foreground">
+                Telemetry: <span className="font-semibold text-emerald-500">2s Interval</span>
+              </span>
             </div>
           </div>
 
@@ -297,7 +446,9 @@ export function TenantNocPage() {
             <div className="w-16 border-t-2 border-dashed border-primary/40 relative">
               <span className="absolute -top-1.5 right-0 h-3 w-3 border-t-2 border-r-2 border-primary/60 rotate-45" />
             </div>
-            <span className="text-[10px] font-mono mt-1 text-muted-foreground">PPPoE / Hotspot</span>
+            <span className="text-[10px] font-mono mt-1 text-muted-foreground">
+              PPPoE / Hotspot
+            </span>
           </div>
 
           {/* Node 3: Connected Clients & Devices */}
@@ -305,10 +456,12 @@ export function TenantNocPage() {
             <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
               <Wifi className="h-6 w-6" />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Subscribers</p>
-            <p className="font-bold text-sm mt-0.5">{(sessions?.length ?? 0) + activePppoeCount} Active Endpoints</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Subscribers
+            </p>
+            <p className="font-bold text-sm mt-0.5">{onlineClientRows.length} Active Endpoints</p>
             <div className="mt-2 text-[11px] text-muted-foreground">
-              ↓ {(totalDownloadBytes / 1024 / 1024).toFixed(1)} MB · ↑ {(totalUploadBytes / 1024 / 1024).toFixed(1)} MB
+              ↓ {formatRate(totalDownloadBps)} · ↑ {formatRate(totalUploadBps)}
             </div>
           </div>
         </div>
@@ -354,7 +507,8 @@ export function TenantNocPage() {
                   const cpu = r.cpu_load ?? r.cpu_usage ?? 0;
                   const memoryMb = r.total_memory_mb ?? 0;
                   const freeMb = r.free_memory_mb ?? 0;
-                  const usedMemPct = memoryMb > 0 ? Math.round(((memoryMb - freeMb) / memoryMb) * 100) : 0;
+                  const usedMemPct =
+                    memoryMb > 0 ? Math.round(((memoryMb - freeMb) / memoryMb) * 100) : 0;
                   const score = healthScore(r);
                   const tone = healthTone(score);
 
@@ -363,14 +517,21 @@ export function TenantNocPage() {
                       <td className="px-4 py-3">
                         <div className="font-semibold text-foreground flex items-center gap-1.5">
                           <RouterIcon className="h-4 w-4 text-muted-foreground" />
-                          <Link to="/tenant/routers/$id" params={{ id: r.id }} className="hover:underline">
+                          <Link
+                            to="/tenant/routers/$id"
+                            params={{ id: r.id }}
+                            className="hover:underline"
+                          >
                             {r.name}
                           </Link>
                         </div>
                         {r.tags && r.tags.length > 0 && (
                           <div className="flex gap-1 mt-1">
                             {r.tags.map((t) => (
-                              <span key={t} className="text-[10px] bg-muted px-1.5 py-0.2 rounded text-muted-foreground">
+                              <span
+                                key={t}
+                                className="text-[10px] bg-muted px-1.5 py-0.2 rounded text-muted-foreground"
+                              >
                                 {t}
                               </span>
                             ))}
@@ -390,7 +551,9 @@ export function TenantNocPage() {
                           </span>
                         )}
                         <div className="text-[11px] text-muted-foreground mt-1">
-                          {r.last_heartbeat_at ? `Heartbeat ${new Date(r.last_heartbeat_at).toLocaleTimeString()}` : "No heartbeats yet"}
+                          {r.last_heartbeat_at
+                            ? `Heartbeat ${new Date(r.last_heartbeat_at).toLocaleTimeString()}`
+                            : "No heartbeats yet"}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs font-mono">
@@ -406,14 +569,21 @@ export function TenantNocPage() {
                       <td className="px-4 py-3 w-40">
                         <div className="flex justify-between text-xs mb-1">
                           <span className="text-muted-foreground">Load</span>
-                          <span className={`font-semibold ${cpu > 80 ? "text-red-500" : cpu > 50 ? "text-amber-500" : "text-foreground"}`}>
+                          <span
+                            className={`font-semibold ${cpu > 80 ? "text-red-500" : cpu > 50 ? "text-amber-500" : "text-foreground"}`}
+                          >
                             {cpu}%
                           </span>
                         </div>
                         <Progress value={cpu} className="h-1.5" />
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        <div>Uptime: <span className="font-medium text-foreground">{r.uptime_seconds ? fmtUptime(r.uptime_seconds) : "—"}</span></div>
+                        <div>
+                          Uptime:{" "}
+                          <span className="font-medium text-foreground">
+                            {r.uptime_seconds ? fmtUptime(r.uptime_seconds) : "—"}
+                          </span>
+                        </div>
                         {memoryMb > 0 && (
                           <div className="text-muted-foreground mt-0.5">
                             RAM: {Math.round(freeMb)}MB free ({usedMemPct}% used)
@@ -421,8 +591,12 @@ export function TenantNocPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-xs">
-                        <div className="font-medium text-foreground">{r.board_name ?? r.model ?? "MikroTik"}</div>
-                        <div className="text-muted-foreground">{r.routeros_version ? `RouterOS ${r.routeros_version}` : "RouterOS"}</div>
+                        <div className="font-medium text-foreground">
+                          {r.board_name ?? r.model ?? "MikroTik"}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {r.routeros_version ? `RouterOS ${r.routeros_version}` : "RouterOS"}
+                        </div>
                         {r.temperature && (
                           <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
                             <Thermometer className="h-3 w-3 text-amber-500" />

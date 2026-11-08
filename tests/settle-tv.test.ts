@@ -29,6 +29,7 @@ function seed(
       {
         id: PAY,
         tenant_id: TENANT,
+        customer_id: null,
         package_id: PKG,
         status: "pending",
         expires_at: payExpires,
