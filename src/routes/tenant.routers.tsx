@@ -777,8 +777,9 @@ function OmadaControllerSetup({ routerId }: { routerId: string }) {
         <p className="mt-1 text-xs text-muted-foreground">
           Configure the Controller 5.0.15–6.2.0 external-portal API. Use a dedicated hotspot
           operator account, not the Controller administrator login. Credentials are encrypted and
-          never displayed after saving. This currently tests Controller login only; paid-client
-          authorization is not enabled yet.
+          never displayed after saving. The test checks hotspot-operator login; confirmed portal
+          payments authorize the client through Omada. The Controller must present a TLS certificate
+          trusted by this service; certificate verification is not disabled.
         </p>
       </div>
       {statusQuery.isError && (

@@ -13,6 +13,23 @@ export type OmadaControllerTarget = {
   controllerId: string;
 };
 
+export type OmadaAuthorizationContext =
+  | {
+      kind: "eap";
+      clientMac: string;
+      apMac: string;
+      ssidName: string;
+      radioId: "0" | "1";
+      siteName: string;
+    }
+  | {
+      kind: "gateway";
+      clientMac: string;
+      gatewayMac: string;
+      vlanId: string;
+      siteName: string;
+    };
+
 function versionParts(version: string): number[] {
   if (!/^\d+\.\d+\.\d+$/.test(version)) {
     throw new Error("Enter a controller version in major.minor.patch format.");
@@ -154,6 +171,20 @@ export async function testOmadaControllerLogin(
   target: OmadaControllerTarget,
   credentials: { username: string; password: string },
 ): Promise<void> {
+  await loginController(target, credentials);
+}
+
+async function loginController(
+  target: OmadaControllerTarget,
+  credentials: { username: string; password: string },
+): Promise<{ target: OmadaControllerTarget; address: string; token: string; cookie: string }> {
+  if (
+    !Number.isInteger(target.port) ||
+    ![433, 443, 8043].includes(target.port) ||
+    !/^[A-Za-z0-9_-]{1,64}$/.test(target.controllerId)
+  ) {
+    throw new Error("The Omada Controller settings are invalid.");
+  }
   const { address, hostname } = await resolvePublicControllerAddress(target.host);
   const normalizedTarget = { ...target, host: hostname };
   const { body, cookies } = await postJson(
@@ -167,14 +198,60 @@ export async function testOmadaControllerLogin(
     result && typeof result === "object" && "token" in result
       ? (result as { token?: unknown }).token
       : undefined;
-  const cookieNames = cookies.map((cookie) => cookie.split("=", 1)[0]);
-  if (
-    body.errorCode !== 0 ||
-    typeof token !== "string" ||
-    !cookieNames.some((name) => name === "TPEAP_SESSIONID" || name === "TPOMADA_SESSIONID")
-  ) {
+  const cookie = cookies
+    .map((value) => value.split(";", 1)[0]!)
+    .filter((value) => /^(TPEAP_SESSIONID|TPOMADA_SESSIONID)=.+$/.test(value))
+    .join("; ");
+  if (body.errorCode !== 0 || typeof token !== "string" || !cookie) {
     throw new Error(
       "Omada login failed. Check the controller ID and dedicated hotspot operator credentials.",
     );
+  }
+  return { target: normalizedTarget, address, token, cookie };
+}
+
+export function buildOmadaAuthorizationPayload(
+  context: OmadaAuthorizationContext,
+  timeMicroseconds: number,
+): Record<string, string | number> {
+  const common = {
+    clientMac: context.clientMac,
+    site: context.siteName,
+    time: timeMicroseconds,
+    authType: 4,
+  };
+  return context.kind === "eap"
+    ? {
+        ...common,
+        apMac: context.apMac,
+        ssidName: context.ssidName,
+        radioId: context.radioId,
+      }
+    : {
+        ...common,
+        gatewayMac: context.gatewayMac,
+        vid: context.vlanId,
+      };
+}
+
+export async function authorizeOmadaClient(input: {
+  target: OmadaControllerTarget;
+  credentials: { username: string; password: string };
+  context: OmadaAuthorizationContext;
+  timeMicroseconds: number;
+}): Promise<void> {
+  if (!Number.isSafeInteger(input.timeMicroseconds) || input.timeMicroseconds < 1) {
+    throw new Error("The Omada session duration is invalid.");
+  }
+  const session = await loginController(input.target, input.credentials);
+  const { body } = await postJson(
+    session.target,
+    session.address,
+    `/${session.target.controllerId}/api/v2/hotspot/extPortal/auth`,
+    buildOmadaAuthorizationPayload(input.context, input.timeMicroseconds),
+    { "Csrf-Token": session.token, Cookie: session.cookie },
+  );
+  if (body.errorCode !== 0) {
+    throw new Error("The Omada Controller did not authorize the client.");
   }
 }

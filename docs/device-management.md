@@ -21,8 +21,13 @@ provided retry delay.
 - TP-Link Omada: vendor inventory and a tenant/site-specific captive portal URL are available. A
   tenant admin can save encrypted hotspot-operator credentials and test HTTPS login for Controller
   5.0.15–6.2.0. The Controller hostname must resolve only to public IPv4 addresses with a trusted
-  TLS certificate; private addresses and redirects are not used. Paid-client authorization,
-  discovery, Cloud API support, and versions outside that range remain unavailable.
+  TLS certificate; private addresses and redirects are not used. The external portal preserves the
+  documented EAP or Gateway client context through checkout and queues authorization only after
+  payment is confirmed. Authorization requests use the package's remaining expiry in microseconds,
+  the Controller CSRF token and session cookie, with bounded retries surfaced in the portal. The
+  implementation logs in at `/api/v2/hotspot/login` and authorizes clients at
+  `/api/v2/hotspot/extPortal/auth`; it accepts either documented session-cookie name.
+  Discovery, Cloud API support, and versions outside that range remain unavailable.
 - Ruijie/Reyee: vendor inventory is accepted, but provisioning remains `api_unavailable` until an
   official Cloud/local API adapter is implemented and configured.
 - RouterOS REST and SSH are listed as possible official methods in the policy but are not yet

@@ -108,6 +108,88 @@ describe("checkout", () => {
     expect(pay.merchant_request_id).toBe("merchant-1");
   });
 
+  it("queues validated Omada client context for authorization after confirmed payment", async () => {
+    const routerId = "66666666-6666-6666-6666-666666666666";
+    h.db
+      .seed("routers", [{ id: routerId, tenant_id: TENANT, vendor: "tp_link_omada" }])
+      .seed("omada_integrations", [
+        {
+          router_id: routerId,
+          tenant_id: TENANT,
+          site_name: "Main Site",
+          controller_version: "6.2.0",
+          enabled: true,
+        },
+      ]);
+
+    const response = await checkout({
+      packageId: PKG,
+      phone: "0712345678",
+      routerId,
+      omadaContext: {
+        kind: "eap",
+        clientMac: "02:00:00:00:00:02",
+        apMac: "02:00:00:00:00:04",
+        ssidName: "Guest",
+        radioId: "1",
+        siteName: "Main Site",
+        redirectUrl: "https://example.com/welcome",
+      },
+    });
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(h.db.rows("omada_authorization_jobs")).toMatchObject([
+      {
+        payment_id: body.paymentId,
+        tenant_id: TENANT,
+        router_id: routerId,
+        context_kind: "eap",
+        client_mac: "02:00:00:00:00:02",
+        ap_mac: "02:00:00:00:00:04",
+        ssid_name: "Guest",
+        radio_id: "1",
+        site_name: "Main Site",
+        redirect_url: "https://example.com/welcome",
+        status: "pending",
+      },
+    ]);
+  });
+
+  it("rejects an Omada site mismatch before starting payment", async () => {
+    const routerId = "66666666-6666-6666-6666-666666666666";
+    h.db
+      .seed("routers", [{ id: routerId, tenant_id: TENANT, vendor: "tp_link_omada" }])
+      .seed("omada_integrations", [
+        {
+          router_id: routerId,
+          tenant_id: TENANT,
+          site_name: "Main Site",
+          controller_version: "6.2.0",
+          enabled: true,
+        },
+      ]);
+
+    const response = await checkout({
+      packageId: PKG,
+      phone: "0712345678",
+      routerId,
+      omadaContext: {
+        kind: "eap",
+        clientMac: "02:00:00:00:00:02",
+        apMac: "02:00:00:00:00:04",
+        ssidName: "Guest",
+        radioId: "1",
+        siteName: "Other Site",
+        redirectUrl: null,
+      },
+    });
+
+    expect(response.status).toBe(400);
+    expect(h.db.rows("payments")).toHaveLength(0);
+    expect(daraja()).not.toHaveBeenCalled();
+  });
+
   it("charges the package price from the database, never an amount the client sends", async () => {
     const darajaSpy = daraja();
     await checkout({ packageId: PKG, phone: "0712345678", amount: 1 });

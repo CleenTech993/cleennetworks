@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { queryDarajaStkPush } from "@/lib/daraja.server";
 import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 import { rateLimit } from "@/lib/rate-limit.server";
+import { processOmadaAuthorization } from "@/lib/omada-authorization.server";
 
 const STK_RESULT_GRACE_MS = 2 * 60_000;
 const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
@@ -40,6 +41,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
         }
         if (!pay) return Response.json({ error: "not found" }, { status: 404 });
 
+        let currentStatus = pay.status;
+        let currentReceipt = pay.mpesa_receipt;
+        let currentVoucher = pay.voucher_code;
         if (pay.status === "pending" && pay.provider === "daraja" && pay.checkout_request_id) {
           const canReconcile = rateLimit(`payment-reconcile:${tenant.id}:${pay.id}`, 1, 15_000);
           let reconcileFailed = false;
@@ -103,16 +107,29 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
               return Response.json({ error: "Could not check payment status" }, { status: 500 });
             }
             if (refreshed) {
-              return Response.json({ id: pay.id, ...refreshed });
+              currentStatus = refreshed.status;
+              currentReceipt = refreshed.mpesa_receipt;
+              currentVoucher = refreshed.voucher_code;
             }
+          }
+        }
+
+        let omadaAuthorization = { status: "not_required" as const };
+        if (currentStatus === "success") {
+          try {
+            omadaAuthorization = await processOmadaAuthorization(pay.id, tenant.id);
+          } catch (error) {
+            console.error("Could not process Omada client authorization", error);
+            return Response.json({ error: "Could not check device authorization." }, { status: 500 });
           }
         }
 
         return Response.json({
           id: pay.id,
-          status: pay.status,
-          mpesa_receipt: pay.mpesa_receipt,
-          voucher_code: pay.voucher_code,
+          status: currentStatus,
+          mpesa_receipt: currentReceipt,
+          voucher_code: currentVoucher,
+          omadaAuthorization,
         });
       },
     },

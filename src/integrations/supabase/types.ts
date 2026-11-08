@@ -1614,6 +1614,97 @@ export type Database = {
           },
         ];
       };
+      omada_authorization_jobs: {
+        Row: {
+          ap_mac: string | null;
+          attempts: number;
+          authorized_at: string | null;
+          client_mac: string;
+          context_kind: string;
+          created_at: string;
+          gateway_mac: string | null;
+          id: string;
+          last_error: string | null;
+          next_attempt_at: string;
+          payment_id: string;
+          radio_id: string | null;
+          redirect_url: string | null;
+          router_id: string;
+          site_name: string;
+          ssid_name: string | null;
+          status: string;
+          tenant_id: string;
+          updated_at: string;
+          vlan_id: string | null;
+        };
+        Insert: {
+          ap_mac?: string | null;
+          attempts?: number;
+          authorized_at?: string | null;
+          client_mac: string;
+          context_kind: string;
+          created_at?: string;
+          gateway_mac?: string | null;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          payment_id: string;
+          radio_id?: string | null;
+          redirect_url?: string | null;
+          router_id: string;
+          site_name: string;
+          ssid_name?: string | null;
+          status?: string;
+          tenant_id: string;
+          updated_at?: string;
+          vlan_id?: string | null;
+        };
+        Update: {
+          ap_mac?: string | null;
+          attempts?: number;
+          authorized_at?: string | null;
+          client_mac?: string;
+          context_kind?: string;
+          created_at?: string;
+          gateway_mac?: string | null;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          payment_id?: string;
+          radio_id?: string | null;
+          redirect_url?: string | null;
+          router_id?: string;
+          site_name?: string;
+          ssid_name?: string | null;
+          status?: string;
+          tenant_id?: string;
+          updated_at?: string;
+          vlan_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "omada_authorization_jobs_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: true;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "omada_authorization_jobs_router_id_fkey";
+            columns: ["router_id"];
+            isOneToOne: false;
+            referencedRelation: "routers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "omada_authorization_jobs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       omada_integrations: {
         Row: {
           controller_host: string;

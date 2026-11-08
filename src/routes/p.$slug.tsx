@@ -33,6 +33,8 @@ import {
   routerParams,
 } from "@/lib/hotspot-redirect";
 import { normalizeMac } from "@/lib/devices";
+import { readOmadaPortalContext } from "@/lib/omada-portal";
+import { parseHotspotDestinationUrl } from "@/lib/hotspot-redirect";
 import { PortalHeader } from "@/components/portal/header";
 import { PlanOption } from "@/components/portal/plan-option";
 import { PortalThemeFrame } from "@/components/portal/theme-frame";
@@ -624,6 +626,7 @@ function BuyFlow({
   const [phone, setPhone] = useState("");
   const [tvMac, setTvMac] = useState("");
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [omadaPortal, setOmadaPortal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const selectedPlan = packages.find((plan) => plan.id === picked);
 
@@ -631,6 +634,7 @@ function BuyFlow({
     if (!picked || !phone) return;
     setSubmitting(true);
     try {
+      const omadaContext = readOmadaPortalContext(window.location.search);
       const res = await fetch(`/api/public/portal/${slug}/checkout`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -640,11 +644,13 @@ function BuyFlow({
           ...(selectedPlan?.kind === "hotspot_tv" ? { tvMac } : {}),
           routerId:
             routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,
+          ...(omadaContext ? { omadaContext } : {}),
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setPaymentId(json.paymentId);
+      setOmadaPortal(Boolean(omadaContext));
       toast.success("Check your phone for the M-Pesa prompt");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -662,10 +668,14 @@ function BuyFlow({
         primary={primary}
         payeeName={payeeName}
         postLoginUrl={postLoginUrl}
+        omadaPortal={omadaPortal}
         tvIncluded={selectedPlan?.kind === "hotspot_tv"}
         retrying={submitting}
         onTryAgain={() => void pay()}
-        onChangePhone={() => setPaymentId(null)}
+        onChangePhone={() => {
+          setPaymentId(null);
+          setOmadaPortal(false);
+        }}
       />
     );
 
@@ -743,6 +753,7 @@ function PaymentWaiting({
   primary,
   payeeName,
   postLoginUrl,
+  omadaPortal = false,
   tv = false,
   tvIncluded = false,
   retrying = false,
@@ -754,6 +765,7 @@ function PaymentWaiting({
   primary: string;
   payeeName: string;
   postLoginUrl?: string | null;
+  omadaPortal?: boolean;
   tv?: boolean;
   tvIncluded?: boolean;
   retrying?: boolean;
@@ -763,6 +775,10 @@ function PaymentWaiting({
   const [status, setStatus] = useState<string>("pending");
   const [voucher, setVoucher] = useState<string | null>(null);
   const [autoConnecting, setAutoConnecting] = useState(false);
+  const [omadaAuthorization, setOmadaAuthorization] = useState<
+    "not_required" | "pending" | "processing" | "authorized" | "failed"
+  >("not_required");
+  const [omadaRedirectUrl, setOmadaRedirectUrl] = useState<string | null>(null);
   const autoConnectAttempted = useRef(false);
 
   useEffect(() => {
@@ -780,7 +796,33 @@ function PaymentWaiting({
           if (!active) return;
           setStatus(json.status);
           if (json.voucher_code) setVoucher(json.voucher_code);
-          if (json.status === "success" || json.status === "failed") return;
+          const authorization = json.omadaAuthorization;
+          if (
+            authorization &&
+            ["pending", "processing", "authorized", "failed", "not_required"].includes(
+              authorization.status,
+            )
+          ) {
+            setOmadaAuthorization(
+              omadaPortal && authorization.status === "not_required"
+                ? "failed"
+                : authorization.status,
+            );
+            setOmadaRedirectUrl(
+              typeof authorization.redirectUrl === "string" ? authorization.redirectUrl : null,
+            );
+          } else if (omadaPortal && json.status === "success") {
+            setOmadaAuthorization("failed");
+          }
+          if (
+            json.status === "failed" ||
+            (json.status === "success" &&
+              (!omadaPortal ||
+                ["authorized", "failed", "not_required"].includes(
+                  authorization?.status ?? "not_required",
+                )))
+          )
+            return;
         }
       } catch (error) {
         if (!active) return;
@@ -794,9 +836,20 @@ function PaymentWaiting({
       if (timer !== undefined) window.clearTimeout(timer);
       controller?.abort();
     };
-  }, [paymentId, slug]);
+  }, [paymentId, slug, omadaPortal]);
 
   useEffect(() => {
+    if (omadaPortal) {
+      if (tv || status !== "success" || omadaAuthorization !== "authorized") return;
+      if (autoConnectAttempted.current) return;
+      const destination = parseHotspotDestinationUrl(omadaRedirectUrl);
+      if (destination) {
+        autoConnectAttempted.current = true;
+        setAutoConnecting(true);
+        window.location.assign(destination);
+      }
+      return;
+    }
     if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
     const store = sessionStore();
     const params = routerParams(window.location.search, store, slug);
@@ -810,7 +863,46 @@ function PaymentWaiting({
     setAutoConnecting(true);
     rememberVoucher(store, voucher, slug);
     window.location.assign(target);
-  }, [status, tv, voucher, postLoginUrl, slug]);
+  }, [status, tv, voucher, postLoginUrl, slug, omadaPortal, omadaAuthorization, omadaRedirectUrl]);
+
+  if (status === "success" && omadaPortal && omadaAuthorization !== "authorized") {
+    return (
+      <div className="pt-surface rounded-xl border bg-card p-6 text-center">
+        {omadaAuthorization === "failed" ? (
+          <>
+            <AlertTriangle className="mx-auto h-8 w-8 text-destructive" />
+            <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We could not finish connecting this device. Contact your Wi-Fi provider and share
+              your payment confirmation.
+            </p>
+          </>
+        ) : (
+          <>
+            <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
+            <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {omadaAuthorization === "processing"
+                ? "Connecting your device to Wi-Fi…"
+                : "Authorizing your device with the Wi-Fi controller…"}
+            </p>
+          </>
+        )}
+      </div>
+    );
+  }
+  if (status === "success" && omadaPortal) {
+    return (
+      <div className="pt-surface rounded-xl border bg-card p-6 text-center">
+        <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
+        <h2 className="mt-3 text-lg font-semibold">Connected to Wi-Fi</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your payment is confirmed and this device is authorized.
+          {autoConnecting ? " Returning you to your requested page…" : ""}
+        </p>
+      </div>
+    );
+  }
 
   if (status === "success" && tv) {
     return (
