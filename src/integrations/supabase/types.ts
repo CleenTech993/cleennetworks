@@ -1614,6 +1614,63 @@ export type Database = {
           },
         ];
       };
+      omada_integrations: {
+        Row: {
+          controller_host: string;
+          controller_id: string;
+          controller_port: number;
+          controller_version: string;
+          enabled: boolean;
+          operator_password_ciphertext: string;
+          operator_username: string;
+          router_id: string;
+          site_name: string;
+          tenant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          controller_host: string;
+          controller_id: string;
+          controller_port: number;
+          controller_version: string;
+          enabled?: boolean;
+          operator_password_ciphertext: string;
+          operator_username: string;
+          router_id: string;
+          site_name: string;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          controller_host?: string;
+          controller_id?: string;
+          controller_port?: number;
+          controller_version?: string;
+          enabled?: boolean;
+          operator_password_ciphertext?: string;
+          operator_username?: string;
+          router_id?: string;
+          site_name?: string;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "omada_integrations_router_id_fkey";
+            columns: ["router_id"];
+            isOneToOne: true;
+            referencedRelation: "routers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "omada_integrations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       routers: {
         Row: {
           architecture: string | null;
