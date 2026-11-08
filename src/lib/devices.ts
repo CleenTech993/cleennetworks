@@ -235,6 +235,25 @@ export function buildHotspotSuspendLines(): string[] {
   ];
 }
 
+/** Blocks common explicit customer SSH/VPN egress on NetGrid's managed customer subnets. */
+export function buildCustomerEgressFilterLines(): string[] {
+  const subnets = [
+    { name: "hotspot", address: "10.5.50.0/24" },
+    { name: "pppoe", address: "10.10.0.0/24" },
+  ];
+  const rules = subnets.flatMap(({ name, address }) => [
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=tcp dst-port=22,1194,1723 action=drop place-before=0 comment="netgrid-egress-tcp-${name}" } on-error={ :log warning "NetGrid: customer TCP tunnel restriction failed (${name})" }`,
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=udp dst-port=500,1194,1701,4500,51820 action=drop place-before=0 comment="netgrid-egress-udp-${name}" } on-error={ :log warning "NetGrid: customer UDP tunnel restriction failed (${name})" }`,
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=gre action=drop place-before=0 comment="netgrid-egress-gre-${name}" } on-error={ :log warning "NetGrid: customer GRE restriction failed (${name})" }`,
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=ipsec-esp action=drop place-before=0 comment="netgrid-egress-esp-${name}" } on-error={ :log warning "NetGrid: customer IPsec restriction failed (${name})" }`,
+  ]);
+  return [
+    "/ip firewall filter",
+    ':do { remove [find where comment~"^netgrid-egress-"] } on-error={}',
+    ...rules,
+  ];
+}
+
 /** Devices the tenant blocked: no hotspot access, and any running session is dropped at once. */
 export function buildBlockLines(macs: string[]): string[] {
   const list = [...new Set(macs.filter(isUsableMac))];

@@ -10,6 +10,7 @@ import { buildTvSyncLines } from "@/lib/tv";
 import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import {
   buildBlockLines,
+  buildCustomerEgressFilterLines,
   buildDeviceAgentLines,
   buildHotspotSuspendLines,
   buildHotspotVoucherRefreshLines,
@@ -384,6 +385,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             ? skipped("anti-tethering", routerRowError)
             : buildTetherLines(routerRow.block_tethering !== false)),
         );
+
+        // Restrict common explicit SSH and VPN protocols for managed customer address pools.
+        lines.push(...buildCustomerEgressFilterLines());
 
         // Keep customers signed in: RouterOS removes idle hotspot hosts unless the timeout is none.
         // Customers experienced this as "the router keeps logging me out" and re-entering the

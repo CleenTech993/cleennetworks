@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBlockLines,
+  buildCustomerEgressFilterLines,
   canResumeVoucher,
   buildDeviceAgentLines,
   buildHotspotSuspendLines,
@@ -285,6 +286,25 @@ describe("buildBlockLines", () => {
   });
   it("still clears old blocks when nothing is blocked", () => {
     expect(buildBlockLines([]).join("\n")).toContain('remove [find where comment="netgrid-block"]');
+  });
+});
+
+describe("buildCustomerEgressFilterLines", () => {
+  it("blocks common explicit tunnel protocols on both managed customer subnets only", () => {
+    const lines = buildCustomerEgressFilterLines();
+    const script = lines.join("\n");
+    expect(lines[0]).toBe("/ip firewall filter");
+    expect(script).toContain('comment~"^netgrid-egress-"');
+    for (const address of ["10.5.50.0/24", "10.10.0.0/24"]) {
+      expect(script).toContain(`src-address=${address} out-interface=ether1`);
+    }
+    expect(script).toContain("protocol=tcp dst-port=22,1194,1723 action=drop");
+    expect(script).toContain("protocol=udp dst-port=500,1194,1701,4500,51820 action=drop");
+    expect(script).toContain("protocol=gre action=drop");
+    expect(script).toContain("protocol=ipsec-esp action=drop");
+    expect(script).not.toContain("dst-port=443");
+    expect(script).not.toContain("chain=input");
+    expect(script.match(/place-before=0/g)).toHaveLength(8);
   });
 });
 

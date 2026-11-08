@@ -29,6 +29,20 @@ On-premise controllers and standalone devices require an outbound local connecto
 deployment can reach private network interfaces. Do not expose controller, SSH, REST, or WebFig ports
 to the public internet as a workaround.
 
+## Customer egress restrictions
+
+The managed MikroTik sync installs forward-chain drops for customer traffic headed to the WAN on
+common explicit SSH and VPN ports, plus GRE and IPsec ESP. The rules cover the managed hotspot
+(`10.5.50.0/24`) and PPPoE (`10.10.0.0/24`) pools, and are refreshed with the router's normal sync.
+This can block legitimate outbound SSH or VPN use on those protocols.
+
+This is a baseline, not tunnel detection: it does not inspect encrypted HTTPS or block port 443,
+custom tunnel ports, unrecognized protocols, or traffic through unmanaged routers. Customers can
+also modify a router's local configuration. Do not treat these rules as proof that a session is
+being used by only one person; retain per-account usage limits and device/tethering controls. For
+stronger enforcement, use an explicit customer service allowlist and account for its compatibility
+impact.
+
 ## Provisioning requirements
 
 Each adapter must detect vendor, family, firmware, controller version, and available capabilities

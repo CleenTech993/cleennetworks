@@ -253,6 +253,16 @@ describe("sync script scoping", () => {
     for (const secret of ["bob", "bobpass2"]) expect(text).not.toContain(secret);
   });
 
+  it("installs customer egress restrictions for hotspot and PPPoE on full sync", async () => {
+    const { res, text } = await sync(await issueDeviceToken(R1));
+    expect(res.status).toBe(200);
+    expect(text).toContain('comment="netgrid-egress-tcp-hotspot"');
+    expect(text).toContain('comment="netgrid-egress-tcp-pppoe"');
+    expect(text).toContain("protocol=gre action=drop");
+    expect(text).toContain("protocol=ipsec-esp action=drop");
+    expect(text).not.toContain("dst-port=443");
+  });
+
   it("never emits expired, suspended or other tenants' clients", async () => {
     const { text } = await sync(await issueDeviceToken(R1));
     for (const s of ["dave", "erin", "mallory", "rivalpass6"]) expect(text).not.toContain(`"${s}"`);
