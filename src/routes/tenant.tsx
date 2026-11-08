@@ -20,6 +20,7 @@ import {
   History,
   UserCog,
   Smartphone,
+  Archive,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { TenantWhatsAppSupport } from "@/components/tenant-whatsapp-support";
@@ -46,6 +47,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant/tickets", label: "Support", icon: LifeBuoy },
   { to: "/tenant/team", label: "Team", icon: UserCog },
   { to: "/tenant/audit", label: "Audit Log", icon: History },
+  { to: "/tenant/migration", label: "Backup & Migration", icon: Archive },
   { to: "/tenant/settings", label: "Settings", icon: Settings },
 ];
 

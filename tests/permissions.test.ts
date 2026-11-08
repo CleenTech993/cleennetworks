@@ -17,6 +17,7 @@ const pages = [
   "/tenant/tickets",
   "/tenant/team",
   "/tenant/settings",
+  "/tenant/migration",
 ] as const;
 const open = (roles: Parameters<typeof canAccessPage>[0]) =>
   pages.filter((p) => canAccessPage(roles, p));
@@ -48,6 +49,11 @@ describe("tenant console page access", () => {
     ]));
   it("billing agents never see inventory", () =>
     expect(canAccessPage(["billing_agent"], "/tenant/inventory")).toBe(false));
+  it("backup and migration are tenant-admin only", () => {
+    expect(canAccessPage(["tenant_admin"], "/tenant/migration")).toBe(true);
+    expect(canAccessPage(["technician"], "/tenant/migration")).toBe(false);
+    expect(canAccessPage(["billing_agent"], "/tenant/migration")).toBe(false);
+  });
   it("multiple roles combine", () =>
     expect(canAccessPage(["technician", "billing_agent"], "/tenant/payments")).toBe(true));
   it("unknown pages and trailing slashes are handled safely", () => {
