@@ -104,6 +104,7 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
       payment: {
         id: payment.id,
         tenant_id: tenantId,
+        customer_id: payment.customer_id,
         package_id: payment.package_id,
         phone: payment.phone,
         tv_device_id: payment.tv_device_id,

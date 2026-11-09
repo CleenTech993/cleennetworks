@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { PageHeader, EmptyState, StatCard } from "@/components/dashboard-shell";
 import { isRouterLive } from "@/lib/router-health";
-import { isClientConnected } from "@/lib/pppoe-sessions";
+import { isClientConnected, pppoeReportedRouterId } from "@/lib/pppoe-sessions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -132,7 +132,9 @@ function PPPoE() {
   const [showPw, setShowPw] = useState(false);
   const [deleting, setDeleting] = useState<Client | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active_now" | "disconnected" | "suspended">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active_now" | "disconnected" | "suspended"
+  >("all");
 
   const { data: clients, isLoading } = useQuery({
     queryKey: ["pppoe-customers"],
@@ -215,9 +217,9 @@ function PPPoE() {
   const activeNowCount = useMemo(() => {
     if (!clients) return 0;
     return clients.filter((c) => {
-      const router = c.router_id ? routerById.get(c.router_id) : undefined;
-      const routerLive = router ? isRouterLive(router) : false;
-      return isClientConnected(c.last_seen_at) && (!router || routerLive);
+      const reportedRouterId = pppoeReportedRouterId(c);
+      const router = reportedRouterId ? routerById.get(reportedRouterId) : undefined;
+      return isClientConnected(c.last_seen_at) && !!router && isRouterLive(router);
     }).length;
   }, [clients, routerById]);
 
@@ -225,9 +227,9 @@ function PPPoE() {
   const filteredClients = useMemo(() => {
     if (!clients) return [];
     return clients.filter((c) => {
-      const router = c.router_id ? routerById.get(c.router_id) : undefined;
-      const routerLive = router ? isRouterLive(router) : false;
-      const isConnected = isClientConnected(c.last_seen_at) && (!router || routerLive);
+      const reportedRouterId = pppoeReportedRouterId(c);
+      const router = reportedRouterId ? routerById.get(reportedRouterId) : undefined;
+      const isConnected = isClientConnected(c.last_seen_at) && !!router && isRouterLive(router);
 
       if (statusFilter === "active_now" && !isConnected) return false;
       if (statusFilter === "disconnected" && isConnected) return false;
@@ -470,9 +472,9 @@ function PPPoE() {
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm flex items-center gap-2">
           <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0" />
           <span>
-            {unassigned} {unassigned === 1 ? "client is" : "clients are"} not assigned to a router, so{" "}
-            {unassigned === 1 ? "its login works" : "their logins work"} on every router. Edit each
-            one and choose the router it connects through.
+            {unassigned} {unassigned === 1 ? "client is" : "clients are"} not assigned to a router,
+            so {unassigned === 1 ? "its login works" : "their logins work"} on every router. Edit
+            each one and choose the router it connects through.
           </span>
         </div>
       )}
@@ -527,7 +529,9 @@ function PPPoE() {
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">Loading PPPoE clients…</div>
+        <div className="py-12 text-center text-sm text-muted-foreground">
+          Loading PPPoE clients…
+        </div>
       ) : !clients?.length ? (
         <EmptyState
           title="No PPPoE clients"
@@ -557,10 +561,10 @@ function PPPoE() {
                 const pkg = c.package_id ? pkgById.get(c.package_id) : undefined;
                 const expired = isExpired(c.expires_at);
                 const label = c.status !== "active" ? c.status : expired ? "expired" : "active";
-                const router = c.router_id ? routerById.get(c.router_id) : undefined;
+                const reportedRouterId = pppoeReportedRouterId(c);
+                const router = reportedRouterId ? routerById.get(reportedRouterId) : undefined;
                 const routerLive = router ? isRouterLive(router) : false;
-                // A client only counts as connected while its router is itself reporting in.
-                const connected = isClientConnected(c.last_seen_at) && (!router || routerLive);
+                const connected = isClientConnected(c.last_seen_at) && !!router && routerLive;
 
                 return (
                   <tr key={c.id} className="hover:bg-muted/20 transition-colors align-top">
@@ -588,17 +592,21 @@ function PPPoE() {
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {routerLive ? "Router Online" : "Router Offline"}
+                            {c.last_router_id ? " · Reported here" : " · Assigned"}
                           </div>
                         </div>
-                      ) : c.router_id ? (
+                      ) : reportedRouterId ? (
                         <span className="text-xs text-muted-foreground">Router removed</span>
                       ) : (
                         <div>
-                          <Badge variant="outline" className="border-amber-500 text-amber-600 text-[10px]">
+                          <Badge
+                            variant="outline"
+                            className="border-amber-500 text-amber-600 text-[10px]"
+                          >
                             Not bound
                           </Badge>
                           <div className="mt-0.5 text-[11px] text-muted-foreground">
-                            Works on any router
+                            No reporting router yet
                           </div>
                         </div>
                       )}
@@ -641,7 +649,11 @@ function PPPoE() {
                           )}
                           {c.last_seen_at && (
                             <div className="text-[10px] text-muted-foreground/80">
-                              Seen {new Date(c.last_seen_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                              Seen{" "}
+                              {new Date(c.last_seen_at).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </div>
                           )}
                         </div>
@@ -656,7 +668,9 @@ function PPPoE() {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">No package (unlimited)</span>
+                        <span className="text-xs text-muted-foreground">
+                          No package (unlimited)
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -664,7 +678,13 @@ function PPPoE() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge
-                        variant={label === "active" ? "default" : label === "expired" ? "destructive" : "secondary"}
+                        variant={
+                          label === "active"
+                            ? "default"
+                            : label === "expired"
+                              ? "destructive"
+                              : "secondary"
+                        }
                         className="capitalize text-[11px]"
                       >
                         {label}

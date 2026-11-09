@@ -29,6 +29,7 @@ const PAGE_ROLES: Record<string, AppRole[]> = {
   "/tenant/team": [A],
   "/tenant/audit": [A],
   "/tenant/settings": [A],
+  "/tenant/migration": [A],
 };
 
 /** Roles that may see revenue figures. */

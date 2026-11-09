@@ -74,7 +74,7 @@ export const Route = createFileRoute("/api/public/portal/$slug")({
             )
             .eq("tenant_id", tenant.id)
             .eq("active", true)
-            .in("kind", ["hotspot", "voucher", "hotspot_tv"])
+            .in("kind", ["hotspot", "voucher", "hotspot_tv", "pppoe"])
             .order("price"),
           supabaseAdmin
             .from("customer_announcements")

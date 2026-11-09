@@ -46,6 +46,28 @@ export type ManagementAdapter<T> = MethodAvailability & {
 
 export type FallbackPolicyOverrides = Readonly<Record<string, readonly ManagementMethod[]>>;
 
+export function buildOmadaPortalUrl(input: {
+  origin: string;
+  tenantSlug: string;
+  routerId: string;
+}): string | null {
+  if (!input.tenantSlug.trim() || !/^[0-9a-f-]{36}$/i.test(input.routerId)) return null;
+  try {
+    const origin = new URL(input.origin);
+    const localHttp =
+      origin.protocol === "http:" &&
+      (origin.hostname === "localhost" || origin.hostname === "127.0.0.1");
+    if ((origin.protocol !== "https:" && !localHttp) || origin.username || origin.password)
+      return null;
+
+    const portal = new URL(`/p/${encodeURIComponent(input.tenantSlug)}`, origin.origin);
+    portal.searchParams.set("router", input.routerId);
+    return portal.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function methodOrder(
   vendor: DeviceVendor,
   family: string | null,

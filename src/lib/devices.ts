@@ -59,6 +59,8 @@ export interface DeviceRecord {
   user: string | null;
   authorized: boolean;
   tether: boolean;
+  bytesIn: string | null;
+  bytesOut: string | null;
 }
 
 function cleanIp(raw: string | undefined): string | null {
@@ -77,7 +79,7 @@ function cleanHostname(raw: string | undefined): string | null {
 
 /**
  * Parses the body pushed by the router: records separated by ";" (or newlines), fields by "|":
- *   mac|ip|hostname|user|authorized|tether
+ *   mac|ip|hostname|user|authorized|tether|bytes-in|bytes-out
  * Everything comes from a device on the customer's LAN (hostnames are chosen by the customer),
  * so every field is validated and anything malformed is dropped.
  */
@@ -87,11 +89,20 @@ export function parseDeviceReport(body: string): DeviceRecord[] {
   for (const rec of body.split(/;|\r?\n/)) {
     if (out.length >= MAX_DEVICES_PER_REPORT) break;
     const parts = rec.trim().split("|");
-    if (parts.length !== 6) continue;
+    if (parts.length !== 6 && parts.length !== 8) continue;
     const mac = normalizeMac(parts[0] ?? "");
     if (!mac || seen.has(mac)) continue;
     seen.add(mac);
     const user = (parts[3] ?? "").trim();
+    const bytesIn = (parts[6] ?? "").trim();
+    const bytesOut = (parts[7] ?? "").trim();
+    const trafficValid =
+      parts.length === 8 &&
+      /^\d{1,19}$/.test(bytesIn) &&
+      /^\d{1,19}$/.test(bytesOut) &&
+      BigInt(bytesIn) <= 9_223_372_036_854_775_807n &&
+      BigInt(bytesOut) <= 9_223_372_036_854_775_807n;
+    if (parts.length === 8 && !trafficValid) continue;
     out.push({
       mac,
       ip: cleanIp(parts[1]),
@@ -99,6 +110,8 @@ export function parseDeviceReport(body: string): DeviceRecord[] {
       user: SAFE_CODE.test(user) ? user : null,
       authorized: (parts[4] ?? "").trim() === "true",
       tether: (parts[5] ?? "").trim() === "1",
+      bytesIn: trafficValid ? bytesIn : null,
+      bytesOut: trafficValid ? bytesOut : null,
     });
   }
   return out;
@@ -235,6 +248,25 @@ export function buildHotspotSuspendLines(): string[] {
   ];
 }
 
+/** Blocks common explicit customer SSH/VPN egress on NetGrid's managed customer subnets. */
+export function buildCustomerEgressFilterLines(): string[] {
+  const subnets = [
+    { name: "hotspot", address: "10.5.50.0/24" },
+    { name: "pppoe", address: "10.10.0.0/24" },
+  ];
+  const rules = subnets.flatMap(({ name, address }) => [
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=tcp dst-port=22,1194,1723 action=drop place-before=0 comment="netgrid-egress-tcp-${name}" } on-error={ :log warning "NetGrid: customer TCP tunnel restriction failed (${name})" }`,
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=udp dst-port=500,1194,1701,4500,51820 action=drop place-before=0 comment="netgrid-egress-udp-${name}" } on-error={ :log warning "NetGrid: customer UDP tunnel restriction failed (${name})" }`,
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=gre action=drop place-before=0 comment="netgrid-egress-gre-${name}" } on-error={ :log warning "NetGrid: customer GRE restriction failed (${name})" }`,
+    `:do { add chain=forward src-address=${address} out-interface=ether1 protocol=ipsec-esp action=drop place-before=0 comment="netgrid-egress-esp-${name}" } on-error={ :log warning "NetGrid: customer IPsec restriction failed (${name})" }`,
+  ]);
+  return [
+    "/ip firewall filter",
+    ':do { remove [find where comment~"^netgrid-egress-"] } on-error={}',
+    ...rules,
+  ];
+}
+
 /** Devices the tenant blocked: no hotspot access, and any running session is dropped at once. */
 export function buildBlockLines(macs: string[]): string[] {
   const list = [...new Set(macs.filter(isUsableMac))];
@@ -287,9 +319,16 @@ const DEVICE_SCRIPT = `
       :local au [:tostr [/ip hotspot host get $h authorized]]
       :local usr ""
       :local hn ""
+      :local bi "0"
+      :local bo "0"
       :local tt 0
       :local act [/ip hotspot active find where mac-address=$m]
-      :if ([:len $act] > 0) do={ :set usr [/ip hotspot active get [:pick $act 0] user] }
+      :if ([:len $act] > 0) do={
+        :local active [:pick $act 0]
+        :set usr [/ip hotspot active get $active user]
+        :set bi [:tostr [/ip hotspot active get $active bytes-in]]
+        :set bo [:tostr [/ip hotspot active get $active bytes-out]]
+      }
       :do {
         :local ls [/ip dhcp-server lease find where mac-address=$m]
         :if ([:len $ls] > 0) do={
@@ -309,7 +348,7 @@ const DEVICE_SCRIPT = `
         }
       } on-error={}
       :if ([:len [/ip firewall address-list find where list=${TETHER_LIST} and address=$ip]] > 0) do={ :set tt 1 }
-      :set d ($d . $mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . ";")
+      :set d ($d . $mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . "|" . $bi . "|" . $bo . ";")
       :set n ($n + 1)
     } on-error={}
   }
