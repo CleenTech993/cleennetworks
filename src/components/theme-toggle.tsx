@@ -1,20 +1,28 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { applyUserPreferences, useUserPreferences } from "@/hooks/use-user-preferences";
+import type { UserPreferences } from "@/lib/tenant-customization";
 
 export function ThemeToggle({ className }: { className?: string }) {
   const [dark, setDark] = useState(false);
-  useEffect(() => setDark(document.documentElement.classList.contains("dark")), []);
+  const { preferences, savePreferences } = useUserPreferences();
+  useEffect(() => {
+    const sync = () => setDark(document.documentElement.classList.contains("dark"));
+    sync();
+    window.addEventListener("netgrid:user-preferences-changed", sync);
+    return () => window.removeEventListener("netgrid:user-preferences-changed", sync);
+  }, []);
 
   function toggle() {
     const next = !dark;
     setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    try {
-      localStorage.setItem("theme", next ? "dark" : "light");
-    } catch {
-      /* storage unavailable: theme still applies for this session */
-    }
+    const updated: UserPreferences = { ...preferences, theme: next ? "dark" : "light" };
+    applyUserPreferences(updated);
+    void savePreferences(updated).catch((error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not save your theme preference."),
+    );
   }
 
   return (

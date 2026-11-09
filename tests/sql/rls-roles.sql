@@ -78,6 +78,9 @@ SELECT t.as_user(:admin1, 'aal2');
 SELECT t.allowed('admin reads own customers',  $$SELECT 1 FROM public.customers$$);
 SELECT t.allowed('admin inserts voucher',      $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','ADM1')$$);
 SELECT t.allowed('admin edits payout settings',$$UPDATE public.tenants SET mpesa_paybill='123456', bank_name='B' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.allowed('admin edits tenant labels',   $$UPDATE public.tenants SET ui_labels='{"pppoe":"Broadband"}' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.allowed('admin registers custom domain', $$INSERT INTO public.tenant_domains (tenant_id, purpose, domain) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','hotspot','wifi.tenant-one.example')$$);
+SELECT t.allowed('user edits own preferences',    $$UPDATE public.profiles SET preferences='{"theme":"dark"}' WHERE id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 SELECT t.allowed('admin inserts router',       $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R2')$$);
 SELECT t.allowed('admin inserts package',      $$INSERT INTO public.packages (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','P2')$$);
 SELECT t.allowed('admin reads payments',       $$SELECT 1 FROM public.payments$$);
@@ -97,6 +100,8 @@ SELECT t.allowed('support edits customer',   $$UPDATE public.customers SET full_
 SELECT t.allowed('support opens ticket',     $$INSERT INTO public.support_tickets (tenant_id, subject) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','s')$$);
 SELECT t.allowed('support issues reconnect voucher', $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','SUP1')$$);
 SELECT t.denied ('support cannot edit tenant settings', $$UPDATE public.tenants SET mpesa_paybill='999999' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied ('support cannot edit tenant labels',   $$UPDATE public.tenants SET ui_labels='{"pppoe":"Other"}' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied ('support cannot register custom domain', $$INSERT INTO public.tenant_domains (tenant_id, purpose, domain) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','console','console.tenant-one.example')$$);
 SELECT t.denied ('support cannot forge a payment',      $$INSERT INTO public.payments (tenant_id, amount, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 1, 'success')$$);
 SELECT t.denied ('support cannot create routers',       $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','evil')$$);
 SELECT t.denied ('support cannot delete routers',       $$DELETE FROM public.routers$$);

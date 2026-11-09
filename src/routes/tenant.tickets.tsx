@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 export const Route = createFileRoute("/tenant/tickets")({ component: Tickets });
 
@@ -115,7 +116,7 @@ function Tickets() {
                   <h3 className="font-medium">{t.subject}</h3>
                   <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{t.body}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {new Date(t.created_at).toLocaleString()}
+                    {formatTenantDate(t.created_at)}
                   </p>
                 </div>
                 <select

@@ -36,10 +36,13 @@ import { isRouterLive } from "@/lib/router-health";
 import { countOnlineClients } from "@/lib/online-clients";
 import { CONNECTED_WINDOW_MS } from "@/lib/pppoe-sessions";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenantLabels } from "@/hooks/use-tenant-customization";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 export const Route = createFileRoute("/tenant/")({ component: Overview });
 
 function Overview() {
+  const labels = useTenantLabels();
   const { roles } = Route.useRouteContext();
   const { user, profile, tenantId } = useAuth();
   const showRevenue = hasAnyRole(roles, REVENUE_ROLES);
@@ -112,11 +115,7 @@ function Overview() {
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
         const dayStr = d.toISOString().slice(0, 10);
-        const dayLabel = d.toLocaleDateString(undefined, {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-        });
+        const dayLabel = formatTenantDate(d, { dateOnly: true });
         const dayPayments = allPayments.filter((p) => p.created_at?.startsWith(dayStr));
         const dayTotal = dayPayments.reduce((s, p) => s + Number(p.amount), 0);
         last7Days.push({ date: dayLabel, amount: dayTotal, count: dayPayments.length });
@@ -216,7 +215,7 @@ function Overview() {
         </div>
       </section>
       <PageHeader
-        title="ISP Operations Overview"
+        title={`${tenant?.name ?? "ISP"} ${labels.overview}`}
         description="Real-time telemetry, network health, subscriber distribution, and financial performance."
       />
 
@@ -231,7 +230,7 @@ function Overview() {
               <Radar className="h-5 w-5" />
             </div>
             <div>
-              <p className="font-semibold text-sm">NOC Monitor</p>
+              <p className="font-semibold text-sm">{labels.noc}</p>
               <p className="text-xs text-muted-foreground">Topology & Health</p>
             </div>
           </div>

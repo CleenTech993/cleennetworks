@@ -57,6 +57,8 @@ import { randomCode } from "@/lib/codes";
 import { expiryFrom } from "@/lib/duration";
 import { formatSpeed, isExpired, renewedExpiry, validatePppoeCredentials } from "@/lib/pppoe";
 import { logAudit } from "@/lib/audit";
+import { useTenantLabels } from "@/hooks/use-tenant-customization";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 export const Route = createFileRoute("/tenant/pppoe")({
   head: () => ({
@@ -125,6 +127,7 @@ const toLocalInput = (iso: string | null) => {
 const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : null);
 
 function PPPoE() {
+  const labels = useTenantLabels();
   const qc = useQueryClient();
   const { tenantId } = useAuth();
   const [editing, setEditing] = useState<Client | "new" | null>(null);
@@ -411,7 +414,7 @@ function PPPoE() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="PPPoE Clients & Devices"
+        title={`${labels.pppoe} Clients & Devices`}
         description="Manage PPPoE client logins, monitor real-time connected devices, speeds, and router assignments."
         action={
           <div className="flex gap-2">
@@ -649,11 +652,7 @@ function PPPoE() {
                           )}
                           {c.last_seen_at && (
                             <div className="text-[10px] text-muted-foreground/80">
-                              Seen{" "}
-                              {new Date(c.last_seen_at).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
+                              Seen {formatTenantDate(c.last_seen_at)}
                             </div>
                           )}
                         </div>
@@ -674,7 +673,7 @@ function PPPoE() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {c.expires_at ? new Date(c.expires_at).toLocaleString() : "Never expires"}
+                      {c.expires_at ? formatTenantDate(c.expires_at) : "Never expires"}
                     </td>
                     <td className="px-4 py-3">
                       <Badge

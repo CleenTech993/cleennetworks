@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { supabase } from "@/integrations/supabase/client";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 export const Route = createFileRoute("/tenant/sessions")({ component: Sessions });
 
@@ -57,7 +58,7 @@ function Sessions() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-muted-foreground">
-                    {new Date(s.started_at).toLocaleString()}
+                    {formatTenantDate(s.started_at)}
                   </td>
                   <td className="px-4 py-2">{fmtMB(s.bytes_in)}</td>
                   <td className="px-4 py-2">{fmtMB(s.bytes_out)}</td>

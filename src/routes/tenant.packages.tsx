@@ -42,6 +42,7 @@ import {
   deletePackage,
   PACKAGE_UNITS,
 } from "@/lib/package.functions";
+import { useTenantLabels } from "@/hooks/use-tenant-customization";
 
 export const Route = createFileRoute("/tenant/packages")({ component: Packages });
 
@@ -259,6 +260,7 @@ function PackageFields({
 }
 
 function Packages() {
+  const labels = useTenantLabels();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -401,7 +403,7 @@ function Packages() {
   return (
     <div>
       <PageHeader
-        title="Packages"
+        title={labels.packages}
         description="Hotspot, PPPoE and voucher plans available to customers."
         action={
           <Dialog open={open} onOpenChange={setOpen}>

@@ -29,6 +29,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
 import { RouterFleetSlaCard } from "@/components/router-fleet-sla-card";
 import { CONNECTED_WINDOW_MS, isClientConnected } from "@/lib/pppoe-sessions";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 function formatRate(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0 bps";
@@ -336,7 +337,7 @@ export function TenantNocPage() {
                     <td className="px-5 py-3 text-right">{formatRate(client.downloadBps)}</td>
                     <td className="px-5 py-3 text-right">{formatRate(client.uploadBps)}</td>
                     <td className="px-5 py-3 text-right text-xs text-muted-foreground">
-                      {client.lastSeen ? new Date(client.lastSeen).toLocaleTimeString() : "—"}
+                      {formatTenantDate(client.lastSeen)}
                     </td>
                   </tr>
                 ))}
@@ -552,7 +553,7 @@ export function TenantNocPage() {
                         )}
                         <div className="text-[11px] text-muted-foreground mt-1">
                           {r.last_heartbeat_at
-                            ? `Heartbeat ${new Date(r.last_heartbeat_at).toLocaleTimeString()}`
+                            ? `Heartbeat ${formatTenantDate(r.last_heartbeat_at)}`
                             : "No heartbeats yet"}
                         </div>
                       </td>

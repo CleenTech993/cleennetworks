@@ -1187,6 +1187,7 @@ export type Database = {
           full_name: string | null;
           id: string;
           last_name: string | null;
+          preferences: Json;
           phone: string | null;
           tenant_id: string | null;
         };
@@ -1197,6 +1198,7 @@ export type Database = {
           full_name?: string | null;
           id: string;
           last_name?: string | null;
+          preferences?: Json;
           phone?: string | null;
           tenant_id?: string | null;
         };
@@ -1207,6 +1209,7 @@ export type Database = {
           full_name?: string | null;
           id?: string;
           last_name?: string | null;
+          preferences?: Json;
           phone?: string | null;
           tenant_id?: string | null;
         };
@@ -2256,6 +2259,7 @@ export type Database = {
           subdomain: string | null;
           support_email: string | null;
           support_phone: string | null;
+          ui_labels: Json;
           updated_at: string;
         };
         Insert: {
@@ -2283,6 +2287,7 @@ export type Database = {
           subdomain?: string | null;
           support_email?: string | null;
           support_phone?: string | null;
+          ui_labels?: Json;
           updated_at?: string;
         };
         Update: {
@@ -2310,9 +2315,51 @@ export type Database = {
           subdomain?: string | null;
           support_email?: string | null;
           support_phone?: string | null;
+          ui_labels?: Json;
           updated_at?: string;
         };
         Relationships: [];
+      };
+      tenant_domains: {
+        Row: {
+          created_at: string;
+          domain: string;
+          id: string;
+          purpose: string;
+          tenant_id: string;
+          updated_at: string;
+          verification_token: string;
+          verified_at: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          domain: string;
+          id?: string;
+          purpose: string;
+          tenant_id: string;
+          updated_at?: string;
+          verification_token?: string;
+          verified_at?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          domain?: string;
+          id?: string;
+          purpose?: string;
+          tenant_id?: string;
+          updated_at?: string;
+          verification_token?: string;
+          verified_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_domains_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tv_devices: {
         Row: {

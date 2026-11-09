@@ -29,6 +29,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { randomCode, addDuration } from "@/lib/codes";
 import { hasAnyRole } from "@/lib/permissions";
 import { CustomerEquipmentDialog, useEquipmentByCustomer } from "@/components/customer-equipment";
+import { useTenantLabels } from "@/hooks/use-tenant-customization";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 export const Route = createFileRoute("/tenant/customers")({
   head: () => ({
@@ -62,6 +64,7 @@ const emptyForm = {
 };
 
 function Customers() {
+  const labels = useTenantLabels();
   const { roles } = Route.useRouteContext();
   // Equipment is visible to the roles that can see inventory (not billing agents).
   const canSeeEquipment = hasAnyRole(roles, ["tenant_admin", "technician", "support_staff"]);
@@ -196,8 +199,8 @@ function Customers() {
   return (
     <div>
       <PageHeader
-        title="Customers"
-        description="Hotspot and PPPoE subscribers."
+        title={labels.customers}
+        description={`Hotspot and ${labels.pppoe} subscribers.`}
         action={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -383,7 +386,7 @@ function Customers() {
                     </Badge>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {c.expires_at ? new Date(c.expires_at).toLocaleString() : "—"}
+                    {formatTenantDate(c.expires_at)}
                   </td>
                   {canSeeEquipment && (
                     <td className="px-4 py-2.5">

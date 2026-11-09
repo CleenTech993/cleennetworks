@@ -46,10 +46,13 @@ import {
   saveOmadaIntegration,
   testOmadaIntegration,
 } from "@/lib/omada-integration.functions";
+import { useTenantLabels } from "@/hooks/use-tenant-customization";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
 
 function RoutersPage() {
+  const labels = useTenantLabels();
   const qc = useQueryClient();
   const { tenantId } = useAuth();
   const [open, setOpen] = useState(false);
@@ -234,7 +237,7 @@ function RoutersPage() {
   return (
     <div>
       <PageHeader
-        title="Routers"
+        title={labels.routers}
         description="Multi-vendor network devices, management status and real-time health."
         action={
           <Dialog open={open} onOpenChange={setOpen}>
@@ -666,7 +669,7 @@ function RoutersPage() {
                         <p className="mt-2 font-sans text-[10px] text-muted-foreground">
                           {expired
                             ? "Commands are valid for 24 hours. A router that is already set up keeps working."
-                            : `Paste this into the MikroTik terminal. The router will auto-configure and report back. Valid until ${r.provision_token_expires_at ? new Date(r.provision_token_expires_at).toLocaleString() : "revoked"}.`}
+                            : `Paste this into the MikroTik terminal. The router will auto-configure and report back. Valid until ${r.provision_token_expires_at ? formatTenantDate(r.provision_token_expires_at) : "revoked"}.`}
                         </p>
                         {r.legacy_token_auth && (
                           <p className="mt-1 font-sans text-[10px] text-amber-600">

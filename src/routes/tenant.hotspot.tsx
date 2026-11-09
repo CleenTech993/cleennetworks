@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { countOnlineClients } from "@/lib/online-clients";
 import { CONNECTED_WINDOW_MS } from "@/lib/pppoe-sessions";
 import { isRouterLive } from "@/lib/router-health";
+import { useTenantLabels } from "@/hooks/use-tenant-customization";
 
 function formatRate(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0 bps";
@@ -17,6 +18,7 @@ function formatRate(value: number) {
 export const Route = createFileRoute("/tenant/hotspot")({ component: Hotspot });
 
 function Hotspot() {
+  const labels = useTenantLabels();
   const { data } = useQuery({
     queryKey: ["hotspot-overview"],
     queryFn: async () => {
@@ -68,7 +70,10 @@ function Hotspot() {
 
   return (
     <div>
-      <PageHeader title="Hotspot" description="Active hotspot users, vouchers and live sessions." />
+      <PageHeader
+        title={labels.hotspot}
+        description="Active hotspot users, vouchers and live sessions."
+      />
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Online now" value={data?.online ?? "—"} />
         <StatCard

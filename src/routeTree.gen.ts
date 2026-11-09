@@ -61,10 +61,12 @@ import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
+import { Route as ApiPublicDomainRouteImport } from './routes/api/public/domain'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicCustomerMessagesRouteImport } from './routes/api/public/customer/messages'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
 import { Route as ApiPublicRouterSupportSessionsSessionIdRouteImport } from './routes/api/public/router-support-sessions.$sessionId'
+import { Route as ApiTenantDomainsVerifyRouteImport } from './routes/api/tenant/domains/verify'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
 import { Route as ApiPublicMpesaPlatformC2bValidationTokenRouteImport } from './routes/api/public/mpesa/platform-c2b-validation.$token'
 import { Route as ApiPublicMpesaPlatformC2bTokenRouteImport } from './routes/api/public/mpesa/platform-c2b.$token'
@@ -348,6 +350,11 @@ const ApiCronPlatformBillingRoute = ApiCronPlatformBillingRouteImport.update({
   path: '/api/cron/platform-billing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicDomainRoute = ApiPublicDomainRouteImport.update({
+  id: '/api/public/domain',
+  path: '/api/public/domain',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -370,6 +377,11 @@ const ApiPublicRouterSupportSessionsSessionIdRoute =
     path: '/api/public/router-support-sessions/$sessionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiTenantDomainsVerifyRoute = ApiTenantDomainsVerifyRouteImport.update({
+  id: '/api/tenant/domains/verify',
+  path: '/api/tenant/domains/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMpesaCallbackTenantIdRoute =
   ApiPublicMpesaCallbackTenantIdRouteImport.update({
     id: '/api/public/mpesa/callback/$tenantId',
@@ -549,10 +561,12 @@ export interface FileRoutesByFullPath {
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
+  '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  '/api/tenant/domains/verify': typeof ApiTenantDomainsVerifyRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
@@ -625,10 +639,12 @@ export interface FileRoutesByTo {
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
+  '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  '/api/tenant/domains/verify': typeof ApiTenantDomainsVerifyRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
@@ -705,10 +721,12 @@ export interface FileRoutesById {
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
+  '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  '/api/tenant/domains/verify': typeof ApiTenantDomainsVerifyRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
@@ -786,10 +804,12 @@ export interface FileRouteTypes {
     | '/super-admin/'
     | '/tenant/'
     | '/api/cron/platform-billing'
+    | '/api/public/domain'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
+    | '/api/tenant/domains/verify'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
@@ -862,10 +882,12 @@ export interface FileRouteTypes {
     | '/super-admin'
     | '/tenant'
     | '/api/cron/platform-billing'
+    | '/api/public/domain'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
+    | '/api/tenant/domains/verify'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
@@ -941,10 +963,12 @@ export interface FileRouteTypes {
     | '/super-admin/'
     | '/tenant/'
     | '/api/cron/platform-billing'
+    | '/api/public/domain'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
+    | '/api/tenant/domains/verify'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
@@ -985,9 +1009,11 @@ export interface RootRouteChildren {
   PSlugRoute: typeof PSlugRoute
   SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
+  ApiPublicDomainRoute: typeof ApiPublicDomainRoute
   ApiPublicCustomerMessagesRoute: typeof ApiPublicCustomerMessagesRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicRouterSupportSessionsSessionIdRoute: typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  ApiTenantDomainsVerifyRoute: typeof ApiTenantDomainsVerifyRoute
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicMpesaPlatformC2bValidationTokenRoute: typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   ApiPublicMpesaPlatformC2bTokenRoute: typeof ApiPublicMpesaPlatformC2bTokenRoute
@@ -1370,6 +1396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronPlatformBillingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/domain': {
+      id: '/api/public/domain'
+      path: '/api/public/domain'
+      fullPath: '/api/public/domain'
+      preLoaderRoute: typeof ApiPublicDomainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tenant/routers/$id': {
       id: '/tenant/routers/$id'
       path: '/$id'
@@ -1396,6 +1429,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/router-support-sessions/$sessionId'
       fullPath: '/api/public/router-support-sessions/$sessionId'
       preLoaderRoute: typeof ApiPublicRouterSupportSessionsSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tenant/domains/verify': {
+      id: '/api/tenant/domains/verify'
+      path: '/api/tenant/domains/verify'
+      fullPath: '/api/tenant/domains/verify'
+      preLoaderRoute: typeof ApiTenantDomainsVerifyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/mpesa/callback/$tenantId': {
@@ -1700,10 +1740,12 @@ const rootRouteChildren: RootRouteChildren = {
   PSlugRoute: PSlugRoute,
   SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
+  ApiPublicDomainRoute: ApiPublicDomainRoute,
   ApiPublicCustomerMessagesRoute: ApiPublicCustomerMessagesRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicRouterSupportSessionsSessionIdRoute:
     ApiPublicRouterSupportSessionsSessionIdRoute,
+  ApiTenantDomainsVerifyRoute: ApiTenantDomainsVerifyRoute,
   ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
   ApiPublicMpesaPlatformC2bValidationTokenRoute:
     ApiPublicMpesaPlatformC2bValidationTokenRoute,

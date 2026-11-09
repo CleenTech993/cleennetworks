@@ -29,6 +29,7 @@ import { buildDoctorPaste } from "@/lib/router-doctor";
 import { syncStatus } from "@/lib/sync-status";
 import { InterfacesTab, QualityTab, TrafficTab } from "@/components/router-network";
 import { RouterSupportSessionButton } from "@/components/router-support-session-button";
+import { formatTenantDate } from "@/lib/tenant-customization";
 
 export const Route = createFileRoute("/tenant/routers/$id")({
   head: () => ({
@@ -110,9 +111,7 @@ function RouterDetail() {
             {roles.includes("tenant_admin") && <RouterSupportSessionButton routerId={r.id} />}
             {live && (
               <Badge
-                variant={
-                  tone === "good" ? "success" : tone === "warn" ? "warning" : "destructive"
-                }
+                variant={tone === "good" ? "success" : tone === "warn" ? "warning" : "destructive"}
               >
                 Health {score}%
               </Badge>
@@ -177,7 +176,9 @@ function RouterDetail() {
             <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
               <Wifi className="h-3.5 w-3.5 text-emerald-500" /> Hotspot / LAN IP
             </span>
-            <Badge variant="outline" className="text-[10px] h-4 py-0">netgrid-lan</Badge>
+            <Badge variant="outline" className="text-[10px] h-4 py-0">
+              netgrid-lan
+            </Badge>
           </div>
           <div className="flex items-center justify-between mt-1">
             <span className="font-mono text-base font-semibold text-foreground tracking-tight">
@@ -228,7 +229,10 @@ function RouterDetail() {
         <div className="rounded-xl border bg-card p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
             <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
-              <RefreshCw className={`h-3.5 w-3.5 ${live ? "animate-spin-slow text-primary" : ""}`} /> Telemetry Link
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${live ? "animate-spin-slow text-primary" : ""}`}
+              />{" "}
+              Telemetry Link
             </span>
             <Button
               size="sm"
@@ -249,9 +253,7 @@ function RouterDetail() {
               className={`h-2.5 w-2.5 rounded-full ${live ? "bg-emerald-500 animate-pulse" : "bg-destructive"}`}
             />
           </div>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            Realtime 2-second streaming sync
-          </p>
+          <p className="text-[11px] text-muted-foreground mt-1">Realtime 2-second streaming sync</p>
         </div>
       </div>
 
@@ -296,7 +298,11 @@ function RouterDetail() {
             return (
               <div
                 className={`mb-6 rounded-xl border p-4 text-sm ${
-                  sync.level === "ok" ? "bg-card" : sync.level === "warn" ? "border-warning/50 bg-warning/10" : "border-destructive/50 bg-destructive/10"
+                  sync.level === "ok"
+                    ? "bg-card"
+                    : sync.level === "warn"
+                      ? "border-warning/50 bg-warning/10"
+                      : "border-destructive/50 bg-destructive/10"
                 }`}
               >
                 <b>Customer sync: {sync.label}.</b> {sync.detail}
@@ -334,10 +340,7 @@ function RouterDetail() {
                   value={r.voltage != null ? `${r.voltage} V` : "—"}
                   icon={<Zap className="h-3.5 w-3.5" />}
                 />
-                <Row
-                  label="Last heartbeat"
-                  value={last ? new Date(last).toLocaleString() : "never"}
-                />
+                <Row label="Last heartbeat" value={last ? formatTenantDate(last) : "never"} />
               </dl>
             </div>
           </div>
@@ -383,10 +386,11 @@ function RouterDetail() {
                   <Stethoscope className="h-4 w-4" /> Customers can't connect?
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Copy this check, open <b>New Terminal</b> in WinBox (or SSH), paste it and press Enter. It
-                  reports in plain words whether the hotspot, PPPoE, internet and sync are working, and
-                  what to fix. It only reads; nothing is changed. After the router's next sync you can also
-                  just run <code className="rounded bg-muted px-1">/system script run netgrid-doctor</code>.
+                  Copy this check, open <b>New Terminal</b> in WinBox (or SSH), paste it and press
+                  Enter. It reports in plain words whether the hotspot, PPPoE, internet and sync are
+                  working, and what to fix. It only reads; nothing is changed. After the router's
+                  next sync you can also just run{" "}
+                  <code className="rounded bg-muted px-1">/system script run netgrid-doctor</code>.
                 </p>
               </div>
               <Button

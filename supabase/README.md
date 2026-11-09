@@ -133,6 +133,27 @@ This only protects the application's sign-in flow; direct calls to Supabase Auth
 these counters, so keep Supabase's provider-side rate limits enabled and use edge/WAF controls where
 available.
 
+## Tenant customization and custom domains
+
+`20261128000000_tenant_customization.sql` adds tenant branding labels, per-user preferences, and
+tenant-owned hotspot and console domain registrations. Set `APP_CANONICAL_HOST` in the application
+server environment and `VITE_APP_CANONICAL_HOST` to the same hostname when building the frontend.
+The app's canonical host must resolve to the deployment.
+
+For each custom domain, the tenant admin adds the displayed `_netgrid-verify.<domain>` TXT token and
+a CNAME from the domain to `APP_CANONICAL_HOST`, then runs verification in Settings. Verification
+proves DNS ownership and checks the CNAME; it does not provision HTTPS or configure routing. The
+self-hosted reverse proxy must route each verified host to this app, serve a valid certificate for
+it, and overwrite `X-Forwarded-Host` with the actual incoming host (do not trust a client-supplied
+forwarded-host header). Use DNS-only CNAME records during verification; DNS proxying or flattening
+may hide the CNAME and prevent verification.
+
+Add custom console domains to Supabase Auth's allowed redirect URLs (for example
+`https://console.example.com/**`). Custom hostname routing is resolved by the app's public domain
+lookup; tenant console access still requires the user's normal tenant membership, role, and MFA.
+Apply the migration using the standard migration instructions above and run both
+`npm run db:verify-gen` and `npm run test:sql`.
+
 ## PPPoE fair usage
 
 `20261107000000_pppoe_fup_usage.sql` adds per-package PPPoE data allowances and reduced upload/download

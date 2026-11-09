@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { reviewDirectMpesaTransaction } from "@/lib/tenant-service.functions";
+import { formatTenantDate } from "@/lib/tenant-customization";
 import {
   buildDirectMpesaCsv,
   buildPaymentCsv,
@@ -396,7 +397,7 @@ function Payments() {
                     return (
                       <tr key={transaction.id} className="border-t align-top">
                         <td className="whitespace-nowrap px-3 py-3">
-                          {new Date(transaction.transaction_time).toLocaleString()}
+                          {formatTenantDate(transaction.transaction_time)}
                         </td>
                         <td className="px-3 py-3">
                           <div>KES {Number(transaction.amount).toLocaleString()}</div>
@@ -648,7 +649,7 @@ function Payments() {
               <tbody>
                 {rows.map((p) => (
                   <tr key={p.id} className="border-t">
-                    <td className="px-4 py-2.5">{new Date(p.created_at).toLocaleString()}</td>
+                    <td className="px-4 py-2.5">{formatTenantDate(p.created_at)}</td>
                     <td className="px-4 py-2.5">{p.phone ?? "—"}</td>
                     <td className="px-4 py-2.5">KES {Number(p.amount).toLocaleString()}</td>
                     <td className="px-4 py-2.5 font-mono text-xs font-semibold">

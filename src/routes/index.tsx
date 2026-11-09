@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import {
   Activity,
   ArrowRight,
@@ -123,6 +124,37 @@ const features = [
 ];
 
 function Landing() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    let active = true;
+    const currentHost = window.location.hostname.toLowerCase();
+    const canonicalHost = (import.meta.env.VITE_APP_CANONICAL_HOST ?? "").trim().toLowerCase();
+    if (canonicalHost && currentHost === canonicalHost) return;
+
+    void fetch("/api/public/domain", { cache: "no-store" })
+      .then(async (response) => {
+        if (response.status === 404) return null;
+        if (!response.ok) throw new Error("Custom domain is temporarily unavailable.");
+        return (await response.json()) as { purpose?: string; slug?: string };
+      })
+      .then((mapping) => {
+        if (!active || !mapping) return;
+        if (mapping.purpose === "hotspot" && mapping.slug) {
+          void navigate({ to: "/p/$slug", params: { slug: mapping.slug } });
+        } else if (mapping.purpose === "console") {
+          window.location.assign("/login");
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) console.error("Custom domain routing failed", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+
   return (
     <div className="min-h-screen overflow-hidden bg-[#f7f8f6] text-[#12211e]">
       <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-12">

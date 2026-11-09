@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { useUserPreferences } from "@/hooks/use-user-preferences";
 
 export interface NavItem {
   to: string;
@@ -106,13 +107,20 @@ function NavList({
 export function DashboardShell({ title, subtitle, nav, headerAction, children }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { preferences } = useUserPreferences();
+  const compact = preferences.dashboardLayout === "compact";
 
   // Close the mobile drawer after any navigation, including programmatic ones.
   useEffect(() => setOpen(false), [pathname]);
 
   return (
     <div className="flex min-h-screen w-full bg-background">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-sidebar-border shadow-[8px_0_30px_-28px_rgba(0,0,0,0.5)] md:block">
+      <aside
+        className={cn(
+          "sticky top-0 hidden h-screen shrink-0 border-r border-sidebar-border shadow-[8px_0_30px_-28px_rgba(0,0,0,0.5)] md:block",
+          compact ? "w-56" : "w-64",
+        )}
+      >
         <NavList nav={nav} subtitle={subtitle} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col bg-[radial-gradient(ellipse_at_top_right,oklch(0.94_0.025_150/0.55),transparent_35%)]">
@@ -155,7 +163,14 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
             <ThemeToggle />
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+        <main
+          className={cn(
+            "mx-auto w-full flex-1",
+            compact
+              ? "max-w-[100rem] px-3 py-4 sm:px-4 lg:px-6 lg:py-6"
+              : "max-w-[90rem] px-4 py-6 sm:px-6 lg:px-10 lg:py-9",
+          )}
+        >
           {children}
         </main>
       </div>
