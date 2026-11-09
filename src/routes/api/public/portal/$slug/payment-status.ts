@@ -3,7 +3,10 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { queryDarajaStkPush } from "@/lib/daraja.server";
 import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 import { rateLimit } from "@/lib/rate-limit.server";
-import { processOmadaAuthorization } from "@/lib/omada-authorization.server";
+import {
+  processOmadaAuthorization,
+  type OmadaAuthorizationStatus,
+} from "@/lib/omada-authorization.server";
 
 const STK_RESULT_GRACE_MS = 2 * 60_000;
 const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
@@ -115,13 +118,16 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
           }
         }
 
-        let omadaAuthorization = { status: "not_required" as const };
+        let omadaAuthorization: OmadaAuthorizationStatus = { status: "not_required" };
         if (currentStatus === "success") {
           try {
             omadaAuthorization = await processOmadaAuthorization(pay.id, tenant.id);
           } catch (error) {
             console.error("Could not process Omada client authorization", error);
-            return Response.json({ error: "Could not check device authorization." }, { status: 500 });
+            return Response.json(
+              { error: "Could not check device authorization." },
+              { status: 500 },
+            );
           }
         }
 
