@@ -92,6 +92,16 @@ describe("buildPppoeSyncLines", () => {
       'add name="john.home" password="secret12" service=pppoe profile=ng-3f9a1c2b comment="netgrid"',
     );
   });
+  it("assigns a valid static IPv4 and safely ignores malformed addresses", () => {
+    const assigned = build([client({ static_ip: "192.0.2.45" })]);
+    expect(assigned).toContain(
+      '/ppp secret set [find name="john.home" comment="netgrid"] remote-address=192.0.2.45',
+    );
+
+    const malformed = build([client({ static_ip: '192.0.2.45"; /system reset' })]);
+    expect(malformed).toContain('profile=ng-3f9a1c2b comment="netgrid"');
+    expect(malformed).not.toContain("system reset");
+  });
   it("switches an over-limit customer to the package FUP speed profile", () => {
     const lines = buildPppoeSyncLines({
       routerId: ROUTER,

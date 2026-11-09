@@ -82,6 +82,7 @@ export interface SyncCustomer {
   expires_at: string | null;
   router_id: string | null;
   package_id: string | null;
+  static_ip?: string | null;
   data_used_bytes?: number | string | null;
 }
 
@@ -115,9 +116,8 @@ export function pppoeFupExceeded(
  *  - Secrets are rebuilt every sync. Expired / suspended / deleted clients simply stop being
  *    emitted, so they can no longer log in.
  *  - RouterOS does NOT drop a live session when its secret disappears, so before rebuilding we
- *    remember every netgrid secret (name + profile). Afterwards, any client that is gone or whose
- *    profile changed has its active session removed: expiry takes effect within one sync interval
- *    and a speed change applies as the client reconnects.
+ *    remember every netgrid secret (name, profile and remote address). Afterwards, any client that
+ *    is gone or whose profile/address changed has its active session removed.
  */
 export function buildPppoeSyncLines(opts: {
   routerId: string;
@@ -128,7 +128,12 @@ export function buildPppoeSyncLines(opts: {
   const now = opts.now ?? Date.now();
   const pkgById = new Map(opts.packages.map((p) => [p.id, p]));
 
-  const secrets: { name: string; password: string; profile: string }[] = [];
+  const secrets: {
+    name: string;
+    password: string;
+    profile: string;
+    remoteAddress: string | null;
+  }[] = [];
   const profiles = new Map<string, string>(); // profile name -> rate-limit
 
   for (const c of opts.customers) {
@@ -161,15 +166,23 @@ export function buildPppoeSyncLines(opts: {
         }
       }
     }
-    secrets.push({ name: c.pppoe_username, password: c.pppoe_password, profile });
+    const staticIp = c.static_ip;
+    const octets = staticIp?.split(".");
+    const remoteAddress =
+      staticIp &&
+      octets?.length === 4 &&
+      octets.every((octet) => /^(0|[1-9]\d{0,2})$/.test(octet) && Number(octet) <= 255)
+        ? staticIp
+        : null;
+    secrets.push({ name: c.pppoe_username, password: c.pppoe_password, profile, remoteAddress });
   }
 
   const lines: string[] = [
-    "# PPPoE: remember current netgrid secrets (name|profile) to detect removed / changed clients",
+    "# PPPoE: remember current netgrid secrets (name|profile|remote-address) to detect changes",
     ':global ngOld [:toarray ""]',
     ":do {",
     '  :foreach s in=[/ppp secret find comment="netgrid"] do={',
-    '    :set ngOld ($ngOld, ([/ppp secret get $s name] . "|" . [/ppp secret get $s profile]))',
+    '    :set ngOld ($ngOld, ([/ppp secret get $s name] . "|" . [/ppp secret get $s profile] . "|" . [/ppp secret get $s remote-address]))',
     "  }",
     "} on-error={}",
   ];
@@ -191,8 +204,15 @@ export function buildPppoeSyncLines(opts: {
     );
   }
 
+  for (const s of secrets) {
+    if (!s.remoteAddress) continue;
+    lines.push(
+      `:do { /ppp secret set [find name="${s.name}" comment="netgrid"] remote-address=${s.remoteAddress} } on-error={}`,
+    );
+  }
+
   lines.push(
-    "# PPPoE: disconnect clients that were removed, expired or moved to another speed profile",
+    "# PPPoE: disconnect clients that were removed, expired or changed profile/address",
     ":do {",
     "  :foreach e in=$ngOld do={",
     '    :local sep [:find $e "|"]',
@@ -200,7 +220,9 @@ export function buildPppoeSyncLines(opts: {
     "    :local pf [:pick $e ($sep + 1) [:len $e]]",
     '    :local cur [/ppp secret find name=$nm comment="netgrid"]',
     "    :if ([:len $cur] = 0) do={ /ppp active remove [find name=$nm] } else={",
-    "      :if ([/ppp secret get $cur profile] != $pf) do={ /ppp active remove [find name=$nm] }",
+    '      :local sep2 [:find $e "|" ($sep + 1)]',
+    "      :local oldRemote [:pick $e ($sep2 + 1) [:len $e]]",
+    "      :if (([/ppp secret get $cur profile] != $pf) || ([/ppp secret get $cur remote-address] != $oldRemote)) do={ /ppp active remove [find name=$nm] }",
     "    }",
     "  }",
     "} on-error={}",

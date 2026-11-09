@@ -57,6 +57,7 @@ import { Route as TenantRoutersRouteImport } from './routes/tenant.routers'
 import { Route as TenantSessionsRouteImport } from './routes/tenant.sessions'
 import { Route as TenantSettingsRouteImport } from './routes/tenant.settings'
 import { Route as TenantSmsRouteImport } from './routes/tenant.sms'
+import { Route as TenantStaticIpsRouteImport } from './routes/tenant.static-ips'
 import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
@@ -330,6 +331,11 @@ const TenantSmsRoute = TenantSmsRouteImport.update({
   path: '/sms',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantStaticIpsRoute = TenantStaticIpsRouteImport.update({
+  id: '/static-ips',
+  path: '/static-ips',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantTeamRoute = TenantTeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -554,6 +560,7 @@ export interface FileRoutesByFullPath {
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/static-ips': typeof TenantStaticIpsRoute
   '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/tenant/tools': typeof TenantToolsRoute
@@ -632,6 +639,7 @@ export interface FileRoutesByTo {
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/static-ips': typeof TenantStaticIpsRoute
   '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/tenant/tools': typeof TenantToolsRoute
@@ -714,6 +722,7 @@ export interface FileRoutesById {
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
   '/tenant/sms': typeof TenantSmsRoute
+  '/tenant/static-ips': typeof TenantStaticIpsRoute
   '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/tenant/tools': typeof TenantToolsRoute
@@ -797,6 +806,7 @@ export interface FileRouteTypes {
     | '/tenant/sessions'
     | '/tenant/settings'
     | '/tenant/sms'
+    | '/tenant/static-ips'
     | '/tenant/team'
     | '/tenant/tickets'
     | '/tenant/tools'
@@ -875,6 +885,7 @@ export interface FileRouteTypes {
     | '/tenant/sessions'
     | '/tenant/settings'
     | '/tenant/sms'
+    | '/tenant/static-ips'
     | '/tenant/team'
     | '/tenant/tickets'
     | '/tenant/tools'
@@ -956,6 +967,7 @@ export interface FileRouteTypes {
     | '/tenant/sessions'
     | '/tenant/settings'
     | '/tenant/sms'
+    | '/tenant/static-ips'
     | '/tenant/team'
     | '/tenant/tickets'
     | '/tenant/tools'
@@ -1368,6 +1380,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantSmsRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/static-ips': {
+      id: '/tenant/static-ips'
+      path: '/static-ips'
+      fullPath: '/tenant/static-ips'
+      preLoaderRoute: typeof TenantStaticIpsRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/tenant/team': {
       id: '/tenant/team'
       path: '/team'
@@ -1667,6 +1686,7 @@ interface TenantRouteChildren {
   TenantSessionsRoute: typeof TenantSessionsRoute
   TenantSettingsRoute: typeof TenantSettingsRoute
   TenantSmsRoute: typeof TenantSmsRoute
+  TenantStaticIpsRoute: typeof TenantStaticIpsRoute
   TenantTeamRoute: typeof TenantTeamRoute
   TenantTicketsRoute: typeof TenantTicketsRoute
   TenantToolsRoute: typeof TenantToolsRoute
@@ -1691,6 +1711,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantSessionsRoute: TenantSessionsRoute,
   TenantSettingsRoute: TenantSettingsRoute,
   TenantSmsRoute: TenantSmsRoute,
+  TenantStaticIpsRoute: TenantStaticIpsRoute,
   TenantTeamRoute: TenantTeamRoute,
   TenantTicketsRoute: TenantTicketsRoute,
   TenantToolsRoute: TenantToolsRoute,

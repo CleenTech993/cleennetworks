@@ -185,7 +185,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           supabaseAdmin
             .from("customers")
             .select(
-              "pppoe_username,pppoe_password,status,expires_at,router_id,package_id,data_used_bytes,created_at",
+              "pppoe_username,pppoe_password,status,expires_at,router_id,package_id,static_ip,data_used_bytes,created_at",
             )
             .eq("tenant_id", router.tenant_id)
             .eq("customer_type", "pppoe")
