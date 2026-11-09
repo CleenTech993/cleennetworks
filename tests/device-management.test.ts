@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildOmadaPortalUrl,
   capabilityStatus,
   classifyVendorFailure,
   executeWithOfficialFallback,
@@ -8,6 +9,29 @@ import {
 } from "@/lib/device-management";
 
 describe("vendor management policy", () => {
+  it("builds a tenant and site-specific HTTPS Omada portal URL", () => {
+    expect(
+      buildOmadaPortalUrl({
+        origin: "https://cleennetworks.lovable.app",
+        tenantSlug: "cleen-networks",
+        routerId: "11111111-1111-1111-1111-111111111111",
+      }),
+    ).toBe(
+      "https://cleennetworks.lovable.app/p/cleen-networks?router=11111111-1111-1111-1111-111111111111",
+    );
+  });
+
+  it("rejects unsafe origins and malformed router identifiers", () => {
+    const input = {
+      origin: "https://cleennetworks.lovable.app",
+      tenantSlug: "cleen",
+      routerId: "11111111-1111-1111-1111-111111111111",
+    };
+    expect(buildOmadaPortalUrl({ ...input, origin: "http://example.com" })).toBeNull();
+    expect(buildOmadaPortalUrl({ ...input, origin: "https://user:pass@example.com" })).toBeNull();
+    expect(buildOmadaPortalUrl({ ...input, routerId: "not-a-uuid" })).toBeNull();
+  });
+
   it("uses only configured, implemented, official methods in the per-vendor order", () => {
     const result = resolveManagementMethod({
       vendor: "ruijie_reyee",
@@ -35,7 +59,9 @@ describe("vendor management policy", () => {
           reachable: true,
         },
       ],
-      overrides: { "ruijie_reyee:rg-eap": ["ruijie_cloud_api", "local_connector", "ruijie_local_api"] },
+      overrides: {
+        "ruijie_reyee:rg-eap": ["ruijie_cloud_api", "local_connector", "ruijie_local_api"],
+      },
     });
 
     expect(result).toEqual({ method: "local_connector", status: "online" });

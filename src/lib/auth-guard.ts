@@ -6,6 +6,9 @@ import type { AppRole } from "@/lib/permissions";
 export async function requireConsole(opts: { superAdmin?: boolean } = {}): Promise<AppRole[]> {
   const { data } = await supabase.auth.getUser();
   if (!data.user) throw redirect({ to: "/login" });
+  if (data.user.app_metadata["must_change_password"] === true) {
+    throw redirect({ to: "/change-password" });
+  }
   const { data: roles, error: rolesError } = await supabase
     .from("user_roles")
     .select("role")

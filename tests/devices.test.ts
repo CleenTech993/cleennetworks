@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBlockLines,
+  buildCustomerEgressFilterLines,
   canResumeVoucher,
   buildDeviceAgentLines,
   buildHotspotSuspendLines,
@@ -58,6 +59,8 @@ describe("parseDeviceReport", () => {
         user: "ABCDEF2345",
         authorized: true,
         tether: false,
+        bytesIn: null,
+        bytesOut: null,
       },
       {
         mac: "AA:BB:CC:DD:EE:04",
@@ -66,8 +69,19 @@ describe("parseDeviceReport", () => {
         user: null,
         authorized: false,
         tether: true,
+        bytesIn: null,
+        bytesOut: null,
       },
     ]);
+  });
+
+  it("parses safe hotspot byte counters for live throughput sampling", () => {
+    expect(
+      parseDeviceReport("AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|12000|24000"),
+    ).toMatchObject([{ bytesIn: "12000", bytesOut: "24000" }]);
+    expect(
+      parseDeviceReport("AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|invalid|1"),
+    ).toEqual([]);
   });
 
   it("drops malformed, multicast, zero and duplicate MACs", () => {
@@ -288,6 +302,25 @@ describe("buildBlockLines", () => {
   });
 });
 
+describe("buildCustomerEgressFilterLines", () => {
+  it("blocks common explicit tunnel protocols on both managed customer subnets only", () => {
+    const lines = buildCustomerEgressFilterLines();
+    const script = lines.join("\n");
+    expect(lines[0]).toBe("/ip firewall filter");
+    expect(script).toContain('comment~"^netgrid-egress-"');
+    for (const address of ["10.5.50.0/24", "10.10.0.0/24"]) {
+      expect(script).toContain(`src-address=${address} out-interface=ether1`);
+    }
+    expect(script).toContain("protocol=tcp dst-port=22,1194,1723 action=drop");
+    expect(script).toContain("protocol=udp dst-port=500,1194,1701,4500,51820 action=drop");
+    expect(script).toContain("protocol=gre action=drop");
+    expect(script).toContain("protocol=ipsec-esp action=drop");
+    expect(script).not.toContain("dst-port=443");
+    expect(script).not.toContain("chain=input");
+    expect(script.match(/place-before=0/g)).toHaveLength(8);
+  });
+});
+
 describe("buildTetherLines", () => {
   it("always detects TTL 63 and 127, and enforces TTL=1 only when switched on", () => {
     const on = buildTetherLines(true).join("\n");
@@ -363,7 +396,9 @@ describe("buildDeviceAgentLines", () => {
     const plain = buildDeviceAgentLines(URL_OK).join("\n").replace(/\\\$/g, "$");
     expect(plain).toContain(`/tool fetch url="${URL_OK}" http-method=post http-data=$d`);
     // the record layout the script builds is the one parseDeviceReport reads
-    expect(plain).toContain('$mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt');
+    expect(plain).toContain(
+      '$mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . "|" . $bi . "|" . $bo',
+    );
   });
 });
 

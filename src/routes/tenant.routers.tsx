@@ -39,8 +39,13 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
-import type { DeviceVendor } from "@/lib/device-management";
+import { buildOmadaPortalUrl, type DeviceVendor } from "@/lib/device-management";
 import { logAudit } from "@/lib/audit";
+import {
+  getOmadaIntegrationStatus,
+  saveOmadaIntegration,
+  testOmadaIntegration,
+} from "@/lib/omada-integration.functions";
 
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
 
@@ -50,6 +55,22 @@ function RoutersPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [vendor, setVendor] = useState<DeviceVendor>("mikrotik");
+  const [showOmadaPortal, setShowOmadaPortal] = useState<Record<string, boolean>>({});
+  const [showOmadaController, setShowOmadaController] = useState<Record<string, boolean>>({});
+
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-portal-slug", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("slug")
+        .eq("id", tenantId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: routers, isLoading } = useQuery({
     queryKey: ["routers"],
@@ -175,6 +196,25 @@ function RoutersPage() {
     return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; :delay 1s; :execute {/import file-name=auto-config.rsc}`;
   }
 
+  function omadaPortalUrl(routerId: string) {
+    if (typeof window === "undefined" || !tenant?.slug) return null;
+    return buildOmadaPortalUrl({
+      origin: window.location.origin,
+      tenantSlug: tenant.slug,
+      routerId,
+    });
+  }
+
+  async function copyPortalUrl(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Captive portal URL copied");
+    } catch (error) {
+      console.error("Could not copy Omada portal URL", error);
+      toast.error("Could not copy the URL. Select and copy it manually.");
+    }
+  }
+
   function vendorLabel(value: string) {
     if (value === "ruijie_reyee") return "Ruijie / Reyee";
     if (value === "tp_link_omada") return "TP-Link Omada";
@@ -207,7 +247,8 @@ function RoutersPage() {
               <DialogHeader>
                 <DialogTitle>Add network device</DialogTitle>
                 <DialogDescription>
-                  Select the vendor. A setup command is generated only when a supported official adapter is available.
+                  Select the vendor. A setup command is generated only when a supported official
+                  adapter is available.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
@@ -318,7 +359,8 @@ function RoutersPage() {
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {vendorLabel(r.vendor)} · {r.device_family ?? r.board_name ?? r.model ?? "model pending"}
+                        {vendorLabel(r.vendor)} ·{" "}
+                        {r.device_family ?? r.board_name ?? r.model ?? "model pending"}
                         {r.firmware_version && <span> · {r.firmware_version}</span>}
                         {r.architecture && <span> · {r.architecture}</span>}
                       </p>
@@ -340,8 +382,39 @@ function RoutersPage() {
                       >
                         Setup
                       </Button>
+                    ) : r.vendor === "tp_link_omada" ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() =>
+                            setShowOmadaPortal((current) => ({
+                              ...current,
+                              [r.id]: !current[r.id],
+                            }))
+                          }
+                        >
+                          Portal URL
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() =>
+                            setShowOmadaController((current) => ({
+                              ...current,
+                              [r.id]: !current[r.id],
+                            }))
+                          }
+                        >
+                          Controller API
+                        </Button>
+                      </>
                     ) : (
-                      <span className="text-xs text-muted-foreground">No supported setup adapter</span>
+                      <span className="text-xs text-muted-foreground">
+                        No supported setup adapter
+                      </span>
                     )}
                     <Button
                       size="sm"
@@ -357,6 +430,61 @@ function RoutersPage() {
                     </Button>
                   </div>
                 </div>
+
+                {r.vendor === "tp_link_omada" && showOmadaPortal[r.id] && (
+                  <div className="mb-3 space-y-3 rounded-lg border bg-muted/30 p-4">
+                    <div>
+                      <h3 className="text-sm font-semibold">Omada captive portal setup</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Copy this tenant and site-specific URL into the Omada guest network’s
+                        external portal setting. Do not enter or share the AP admin password here.
+                      </p>
+                    </div>
+                    {omadaPortalUrl(r.id) ? (
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <Input
+                          aria-label="Omada captive portal URL"
+                          readOnly
+                          value={omadaPortalUrl(r.id) ?? ""}
+                          className="font-mono text-xs"
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const url = omadaPortalUrl(r.id);
+                            if (url) void copyPortalUrl(url);
+                          }}
+                        >
+                          <Copy className="h-4 w-4" /> Copy URL
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        The portal URL is not available until the tenant portal is loaded.
+                      </p>
+                    )}
+                    <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+                      <li>In Omada, configure the guest SSID and enable its captive portal.</li>
+                      <li>
+                        Choose the external portal/server option and paste the URL above as its
+                        portal address.
+                      </li>
+                      <li>
+                        Save the Omada settings and test with a device that is not already
+                        authorized.
+                      </li>
+                    </ol>
+                    <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                      <strong>Important:</strong> this URL opens the billing portal, but automatic
+                      Omada authorization after payment or voucher redemption is not yet enabled.
+                      Configure and test the Controller API separately below.
+                    </p>
+                  </div>
+                )}
+                {r.vendor === "tp_link_omada" && showOmadaController[r.id] && (
+                  <OmadaControllerSetup routerId={r.id} />
+                )}
 
                 {/* Professional Network & IP Address Ribbon */}
                 <div className="my-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
@@ -473,7 +601,10 @@ function RoutersPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-[11px] text-muted-foreground border-t border-border/30">
                   <div className="flex items-center gap-3">
                     <span>
-                      Uptime: <strong className="text-foreground font-mono">{fmtUptime(r.uptime_seconds)}</strong>
+                      Uptime:{" "}
+                      <strong className="text-foreground font-mono">
+                        {fmtUptime(r.uptime_seconds)}
+                      </strong>
                     </span>
                     {r.temperature != null && (
                       <span className="flex items-center gap-1">
@@ -482,9 +613,7 @@ function RoutersPage() {
                       </span>
                     )}
                     {r.mac_address && (
-                      <span className="hidden md:inline font-mono">
-                        MAC: {r.mac_address}
-                      </span>
+                      <span className="hidden md:inline font-mono">MAC: {r.mac_address}</span>
                     )}
                   </div>
                   <div>
@@ -580,5 +709,173 @@ function RoutersPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function OmadaControllerSetup({ routerId }: { routerId: string }) {
+  const queryClient = useQueryClient();
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("8043");
+  const [controllerId, setControllerId] = useState("");
+  const [version, setVersion] = useState("6.2.0");
+  const [siteName, setSiteName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const statusQuery = useQuery({
+    queryKey: ["omada-integration", routerId],
+    queryFn: () => getOmadaIntegrationStatus({ data: { routerId } }),
+  });
+
+  useEffect(() => {
+    const status = statusQuery.data;
+    if (!status?.configured) return;
+    setHost(status.controllerHost);
+    setPort(String(status.controllerPort));
+    setControllerId(status.controllerId);
+    setVersion(status.controllerVersion);
+    setSiteName(status.siteName);
+    setUsername(status.operatorUsername);
+  }, [statusQuery.data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const selectedPort = [433, 443, 8043].find((candidate) => String(candidate) === port);
+      if (selectedPort !== 433 && selectedPort !== 443 && selectedPort !== 8043) {
+        throw new Error("Choose a supported HTTPS port.");
+      }
+      return saveOmadaIntegration({
+        data: {
+          routerId,
+          controllerHost: host,
+          controllerPort: selectedPort,
+          controllerId,
+          controllerVersion: version,
+          siteName,
+          operatorUsername: username,
+          operatorPassword: password || undefined,
+        },
+      });
+    },
+    onSuccess: async () => {
+      setPassword("");
+      await queryClient.invalidateQueries({ queryKey: ["omada-integration", routerId] });
+      toast.success("Omada Controller settings saved.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () => testOmadaIntegration({ data: { routerId } }),
+    onSuccess: () => toast.success("Omada Controller login succeeded."),
+    onError: (error) => toast.error(error.message),
+  });
+
+  return (
+    <section className="mb-3 space-y-4 rounded-lg border bg-muted/30 p-4">
+      <div>
+        <h3 className="text-sm font-semibold">Omada Controller API</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Configure the Controller 5.0.15–6.2.0 external-portal API. Use a dedicated hotspot
+          operator account, not the Controller administrator login. Credentials are encrypted and
+          never displayed after saving. The test checks hotspot-operator login; confirmed portal
+          payments authorize the client through Omada. The Controller must present a TLS certificate
+          trusted by this service; certificate verification is not disabled.
+        </p>
+      </div>
+      {statusQuery.isError && (
+        <p role="alert" className="text-xs text-destructive">
+          Could not load the saved Omada settings: {statusQuery.error.message}
+        </p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-1">
+          <Label htmlFor={`omada-host-${routerId}`}>Public controller hostname</Label>
+          <Input
+            id={`omada-host-${routerId}`}
+            placeholder="omada.example.com"
+            autoComplete="url"
+            value={host}
+            onChange={(event) => setHost(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`omada-port-${routerId}`}>HTTPS management port</Label>
+          <Select value={port} onValueChange={setPort}>
+            <SelectTrigger id={`omada-port-${routerId}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="8043">8043 (Software Controller)</SelectItem>
+              <SelectItem value="433">433 (OC Controller)</SelectItem>
+              <SelectItem value="443">443 (custom HTTPS)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`omada-controller-id-${routerId}`}>Controller ID</Label>
+          <Input
+            id={`omada-controller-id-${routerId}`}
+            value={controllerId}
+            onChange={(event) => setControllerId(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`omada-version-${routerId}`}>Controller version</Label>
+          <Input
+            id={`omada-version-${routerId}`}
+            placeholder="6.2.0"
+            value={version}
+            onChange={(event) => setVersion(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`omada-site-${routerId}`}>Site name</Label>
+          <Input
+            id={`omada-site-${routerId}`}
+            value={siteName}
+            onChange={(event) => setSiteName(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`omada-username-${routerId}`}>Hotspot operator username</Label>
+          <Input
+            id={`omada-username-${routerId}`}
+            autoComplete="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+          />
+        </div>
+        <div className="space-y-1 sm:col-span-2 lg:col-span-3">
+          <Label htmlFor={`omada-password-${routerId}`}>
+            Hotspot operator password{" "}
+            {statusQuery.data?.configured && "(leave blank to keep saved password)"}
+          </Label>
+          <Input
+            id={`omada-password-${routerId}`}
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending || statusQuery.isLoading}
+        >
+          {saveMutation.isPending ? "Saving..." : "Save settings"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => testMutation.mutate()}
+          disabled={!statusQuery.data?.configured || testMutation.isPending}
+        >
+          {testMutation.isPending ? "Testing..." : "Test Controller login"}
+        </Button>
+      </div>
+    </section>
   );
 }

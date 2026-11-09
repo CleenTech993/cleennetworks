@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MfaRouteImport } from './routes/mfa'
@@ -46,6 +47,7 @@ import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 import { Route as TenantDevicesRouteImport } from './routes/tenant.devices'
 import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
 import { Route as TenantInventoryRouteImport } from './routes/tenant.inventory'
+import { Route as TenantMigrationRouteImport } from './routes/tenant.migration'
 import { Route as TenantNocRouteImport } from './routes/tenant.noc'
 import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
 import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
@@ -88,6 +90,11 @@ import { Route as ApiPublicMpesaC2bTenantIdShortcodeRouteImport } from './routes
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangePasswordRoute = ChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -269,6 +276,11 @@ const TenantHotspotRoute = TenantHotspotRouteImport.update({
 const TenantInventoryRoute = TenantInventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantMigrationRoute = TenantMigrationRouteImport.update({
+  id: '/migration',
+  path: '/migration',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantNocRoute = TenantNocRouteImport.update({
@@ -486,6 +498,7 @@ const ApiPublicMpesaC2bTenantIdShortcodeRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
@@ -519,6 +532,7 @@ export interface FileRoutesByFullPath {
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
   '/tenant/inventory': typeof TenantInventoryRoute
+  '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -563,6 +577,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
@@ -593,6 +608,7 @@ export interface FileRoutesByTo {
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
   '/tenant/inventory': typeof TenantInventoryRoute
+  '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -638,6 +654,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/mfa': typeof MfaRoute
@@ -671,6 +688,7 @@ export interface FileRoutesById {
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
   '/tenant/inventory': typeof TenantInventoryRoute
+  '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -717,6 +735,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/change-password'
     | '/forgot-password'
     | '/login'
     | '/mfa'
@@ -750,6 +769,7 @@ export interface FileRouteTypes {
     | '/tenant/devices'
     | '/tenant/hotspot'
     | '/tenant/inventory'
+    | '/tenant/migration'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -794,6 +814,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/change-password'
     | '/forgot-password'
     | '/login'
     | '/mfa'
@@ -824,6 +845,7 @@ export interface FileRouteTypes {
     | '/tenant/devices'
     | '/tenant/hotspot'
     | '/tenant/inventory'
+    | '/tenant/migration'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -868,6 +890,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/change-password'
     | '/forgot-password'
     | '/login'
     | '/mfa'
@@ -901,6 +924,7 @@ export interface FileRouteTypes {
     | '/tenant/devices'
     | '/tenant/hotspot'
     | '/tenant/inventory'
+    | '/tenant/migration'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -946,6 +970,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChangePasswordRoute: typeof ChangePasswordRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   MfaRoute: typeof MfaRoute
@@ -986,6 +1011,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/change-password': {
+      id: '/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof ChangePasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -1238,6 +1270,13 @@ declare module '@tanstack/react-router' {
       path: '/inventory'
       fullPath: '/tenant/inventory'
       preLoaderRoute: typeof TenantInventoryRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/migration': {
+      id: '/tenant/migration'
+      path: '/migration'
+      fullPath: '/tenant/migration'
+      preLoaderRoute: typeof TenantMigrationRouteImport
       parentRoute: typeof TenantRoute
     }
     '/tenant/noc': {
@@ -1578,6 +1617,7 @@ interface TenantRouteChildren {
   TenantDevicesRoute: typeof TenantDevicesRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
   TenantInventoryRoute: typeof TenantInventoryRoute
+  TenantMigrationRoute: typeof TenantMigrationRoute
   TenantNocRoute: typeof TenantNocRoute
   TenantPackagesRoute: typeof TenantPackagesRoute
   TenantPaymentsRoute: typeof TenantPaymentsRoute
@@ -1601,6 +1641,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantDevicesRoute: TenantDevicesRoute,
   TenantHotspotRoute: TenantHotspotRoute,
   TenantInventoryRoute: TenantInventoryRoute,
+  TenantMigrationRoute: TenantMigrationRoute,
   TenantNocRoute: TenantNocRoute,
   TenantPackagesRoute: TenantPackagesRoute,
   TenantPaymentsRoute: TenantPaymentsRoute,
@@ -1644,6 +1685,7 @@ const ApiPublicPortalSlugRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChangePasswordRoute: ChangePasswordRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   MfaRoute: MfaRoute,

@@ -175,6 +175,7 @@ export type Database = {
           created_at: string;
           customer_type: string;
           data_used_bytes: number;
+          download_bps: number;
           email: string | null;
           expires_at: string | null;
           full_name: string | null;
@@ -194,11 +195,13 @@ export type Database = {
           usage_bytes_in: number;
           usage_bytes_out: number;
           usage_session_id: string | null;
+          upload_bps: number;
         };
         Insert: {
           created_at?: string;
           customer_type?: string;
           data_used_bytes?: number;
+          download_bps?: number;
           email?: string | null;
           expires_at?: string | null;
           full_name?: string | null;
@@ -218,11 +221,13 @@ export type Database = {
           usage_bytes_in?: number;
           usage_bytes_out?: number;
           usage_session_id?: string | null;
+          upload_bps?: number;
         };
         Update: {
           created_at?: string;
           customer_type?: string;
           data_used_bytes?: number;
+          download_bps?: number;
           email?: string | null;
           expires_at?: string | null;
           full_name?: string | null;
@@ -242,6 +247,7 @@ export type Database = {
           usage_bytes_in?: number;
           usage_bytes_out?: number;
           usage_session_id?: string | null;
+          upload_bps?: number;
         };
         Relationships: [
           {
@@ -1177,24 +1183,30 @@ export type Database = {
         Row: {
           created_at: string;
           email: string | null;
+          first_name: string | null;
           full_name: string | null;
           id: string;
+          last_name: string | null;
           phone: string | null;
           tenant_id: string | null;
         };
         Insert: {
           created_at?: string;
           email?: string | null;
+          first_name?: string | null;
           full_name?: string | null;
           id: string;
+          last_name?: string | null;
           phone?: string | null;
           tenant_id?: string | null;
         };
         Update: {
           created_at?: string;
           email?: string | null;
+          first_name?: string | null;
           full_name?: string | null;
           id?: string;
+          last_name?: string | null;
           phone?: string | null;
           tenant_id?: string | null;
         };
@@ -1238,6 +1250,7 @@ export type Database = {
         Row: {
           authorized: boolean;
           blocked: boolean;
+          download_bps: number;
           first_seen_at: string;
           hostname: string | null;
           id: string;
@@ -1248,11 +1261,15 @@ export type Database = {
           router_id: string;
           tenant_id: string;
           tether_suspected: boolean;
+          traffic_bytes_in: number | null;
+          traffic_bytes_out: number | null;
+          upload_bps: number;
           voucher_code: string | null;
         };
         Insert: {
           authorized?: boolean;
           blocked?: boolean;
+          download_bps?: number;
           first_seen_at?: string;
           hostname?: string | null;
           id?: string;
@@ -1263,11 +1280,15 @@ export type Database = {
           router_id: string;
           tenant_id: string;
           tether_suspected?: boolean;
+          traffic_bytes_in?: number | null;
+          traffic_bytes_out?: number | null;
+          upload_bps?: number;
           voucher_code?: string | null;
         };
         Update: {
           authorized?: boolean;
           blocked?: boolean;
+          download_bps?: number;
           first_seen_at?: string;
           hostname?: string | null;
           id?: string;
@@ -1278,6 +1299,9 @@ export type Database = {
           router_id?: string;
           tenant_id?: string;
           tether_suspected?: boolean;
+          traffic_bytes_in?: number | null;
+          traffic_bytes_out?: number | null;
+          upload_bps?: number;
           voucher_code?: string | null;
         };
         Relationships: [
@@ -1604,6 +1628,154 @@ export type Database = {
             columns: ["router_id"];
             isOneToOne: false;
             referencedRelation: "routers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      omada_authorization_jobs: {
+        Row: {
+          ap_mac: string | null;
+          attempts: number;
+          authorized_at: string | null;
+          client_mac: string;
+          context_kind: string;
+          created_at: string;
+          gateway_mac: string | null;
+          id: string;
+          last_error: string | null;
+          next_attempt_at: string;
+          payment_id: string;
+          radio_id: string | null;
+          redirect_url: string | null;
+          router_id: string;
+          site_name: string;
+          ssid_name: string | null;
+          status: string;
+          tenant_id: string;
+          updated_at: string;
+          vlan_id: string | null;
+        };
+        Insert: {
+          ap_mac?: string | null;
+          attempts?: number;
+          authorized_at?: string | null;
+          client_mac: string;
+          context_kind: string;
+          created_at?: string;
+          gateway_mac?: string | null;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          payment_id: string;
+          radio_id?: string | null;
+          redirect_url?: string | null;
+          router_id: string;
+          site_name: string;
+          ssid_name?: string | null;
+          status?: string;
+          tenant_id: string;
+          updated_at?: string;
+          vlan_id?: string | null;
+        };
+        Update: {
+          ap_mac?: string | null;
+          attempts?: number;
+          authorized_at?: string | null;
+          client_mac?: string;
+          context_kind?: string;
+          created_at?: string;
+          gateway_mac?: string | null;
+          id?: string;
+          last_error?: string | null;
+          next_attempt_at?: string;
+          payment_id?: string;
+          radio_id?: string | null;
+          redirect_url?: string | null;
+          router_id?: string;
+          site_name?: string;
+          ssid_name?: string | null;
+          status?: string;
+          tenant_id?: string;
+          updated_at?: string;
+          vlan_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "omada_authorization_jobs_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: true;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "omada_authorization_jobs_router_id_fkey";
+            columns: ["router_id"];
+            isOneToOne: false;
+            referencedRelation: "routers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "omada_authorization_jobs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      omada_integrations: {
+        Row: {
+          controller_host: string;
+          controller_id: string;
+          controller_port: number;
+          controller_version: string;
+          enabled: boolean;
+          operator_password_ciphertext: string;
+          operator_username: string;
+          router_id: string;
+          site_name: string;
+          tenant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          controller_host: string;
+          controller_id: string;
+          controller_port: number;
+          controller_version: string;
+          enabled?: boolean;
+          operator_password_ciphertext: string;
+          operator_username: string;
+          router_id: string;
+          site_name: string;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          controller_host?: string;
+          controller_id?: string;
+          controller_port?: number;
+          controller_version?: string;
+          enabled?: boolean;
+          operator_password_ciphertext?: string;
+          operator_username?: string;
+          router_id?: string;
+          site_name?: string;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "omada_integrations_router_id_fkey";
+            columns: ["router_id"];
+            isOneToOne: true;
+            referencedRelation: "routers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "omada_integrations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
         ];

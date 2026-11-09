@@ -33,6 +33,8 @@ import {
   routerParams,
 } from "@/lib/hotspot-redirect";
 import { normalizeMac } from "@/lib/devices";
+import { readOmadaPortalContext } from "@/lib/omada-portal";
+import { parseHotspotDestinationUrl } from "@/lib/hotspot-redirect";
 import { PortalHeader } from "@/components/portal/header";
 import { PlanOption } from "@/components/portal/plan-option";
 import { PortalThemeFrame } from "@/components/portal/theme-frame";
@@ -436,7 +438,7 @@ function PortalPage() {
                 <p className="text-sm text-muted-foreground">Pick an option below to continue.</p>
               </div>
               <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 sm:grid-cols-3 lg:grid-cols-2">
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-2 bg-transparent p-0 sm:grid-cols-3 lg:grid-cols-3">
                   <TabsTrigger
                     className="h-auto min-h-14 justify-start gap-2 rounded-xl border bg-background px-3 py-2.5 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-foreground data-[state=active]:shadow-none"
                     value="buy"
@@ -446,6 +448,18 @@ function PortalPage() {
                       <span className="block font-semibold">Buy Wi-Fi</span>
                       <span className="block text-xs font-normal text-muted-foreground">
                         New plan
+                      </span>
+                    </span>
+                  </TabsTrigger>
+                  <TabsTrigger
+                    className="h-auto min-h-14 justify-start gap-2 rounded-xl border bg-background px-3 py-2.5 text-left data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    value="pppoe"
+                  >
+                    <Wifi className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block font-semibold">PPPoE account</span>
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Renew broadband
                       </span>
                     </span>
                   </TabsTrigger>
@@ -502,11 +516,20 @@ function PortalPage() {
                 <TabsContent value="buy" className="mt-5">
                   <BuyFlow
                     slug={slug}
-                    packages={data.packages}
+                    packages={data.packages.filter((plan) => plan.kind !== "pppoe")}
                     primary={primary}
                     theme={theme}
                     payeeName={data.tenant.name}
                     postLoginUrl={data.portal?.post_login_url}
+                  />
+                </TabsContent>
+                <TabsContent value="pppoe" className="mt-5">
+                  <PppoeBuyFlow
+                    slug={slug}
+                    packages={data.packages.filter((plan) => plan.kind === "pppoe")}
+                    primary={primary}
+                    theme={theme}
+                    payeeName={data.tenant.name}
                   />
                 </TabsContent>
                 <TabsContent value="reconnect" className="mt-5">
@@ -525,7 +548,9 @@ function PortalPage() {
                 <TabsContent value="tv" className="mt-5">
                   <TvFlow
                     slug={slug}
-                    packages={data.packages.filter((plan) => plan.kind !== "hotspot_tv")}
+                    packages={data.packages.filter(
+                      (plan) => plan.kind !== "hotspot_tv" && plan.kind !== "pppoe",
+                    )}
                     primary={primary}
                     theme={theme}
                     payeeName={data.tenant.name}
@@ -624,6 +649,7 @@ function BuyFlow({
   const [phone, setPhone] = useState("");
   const [tvMac, setTvMac] = useState("");
   const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [omadaPortal, setOmadaPortal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const selectedPlan = packages.find((plan) => plan.id === picked);
 
@@ -631,6 +657,7 @@ function BuyFlow({
     if (!picked || !phone) return;
     setSubmitting(true);
     try {
+      const omadaContext = readOmadaPortalContext(window.location.search);
       const res = await fetch(`/api/public/portal/${slug}/checkout`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -640,11 +667,13 @@ function BuyFlow({
           ...(selectedPlan?.kind === "hotspot_tv" ? { tvMac } : {}),
           routerId:
             routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,
+          ...(omadaContext ? { omadaContext } : {}),
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setPaymentId(json.paymentId);
+      setOmadaPortal(Boolean(omadaContext));
       toast.success("Check your phone for the M-Pesa prompt");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
@@ -662,10 +691,14 @@ function BuyFlow({
         primary={primary}
         payeeName={payeeName}
         postLoginUrl={postLoginUrl}
+        omadaPortal={omadaPortal}
         tvIncluded={selectedPlan?.kind === "hotspot_tv"}
         retrying={submitting}
         onTryAgain={() => void pay()}
-        onChangePhone={() => setPaymentId(null)}
+        onChangePhone={() => {
+          setPaymentId(null);
+          setOmadaPortal(false);
+        }}
       />
     );
 
@@ -737,14 +770,139 @@ function BuyFlow({
   );
 }
 
+function PppoeBuyFlow({
+  slug,
+  packages,
+  primary,
+  theme,
+  payeeName,
+}: {
+  slug: string;
+  packages: PortalData["packages"];
+  primary: string;
+  theme: PortalThemeDef;
+  payeeName: string;
+}) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const selectedPlan = packages.find((plan) => plan.id === picked);
+
+  async function pay() {
+    if (!picked || !username.trim() || !phone.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/public/portal/${slug}/checkout`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          packageId: picked,
+          pppoeUsername: username.trim(),
+          phone,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Could not start payment.");
+      setPaymentId(json.paymentId);
+      toast.success("Check your phone for the M-Pesa prompt");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not start payment.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (paymentId) {
+    return (
+      <PaymentWaiting
+        key={paymentId}
+        slug={slug}
+        paymentId={paymentId}
+        primary={primary}
+        payeeName={payeeName}
+        pppoeUsername={username.trim()}
+        retrying={submitting}
+        onTryAgain={() => void pay()}
+        onChangePhone={() => setPaymentId(null)}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-4 rounded-xl border bg-muted/40 p-3 text-sm text-muted-foreground">
+        Renew an existing PPPoE broadband account. Use the exact username and phone number already
+        registered with your provider.
+      </div>
+      <div className="space-y-2">
+        {packages.length === 0 && (
+          <p className="text-sm text-muted-foreground">No PPPoE packages are available yet.</p>
+        )}
+        {packages.map((plan) => (
+          <PlanOption
+            key={plan.id}
+            theme={theme}
+            plan={plan}
+            selected={picked === plan.id}
+            onSelect={() => setPicked(plan.id)}
+            accent={primary}
+          />
+        ))}
+      </div>
+      <div className="mt-5 space-y-3">
+        <div>
+          <Label htmlFor="pppoe-username">PPPoE username</Label>
+          <Input
+            id="pppoe-username"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="pppoe-payment-phone">Registered M-Pesa phone</Label>
+          <Input
+            id="pppoe-payment-phone"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="07XXXXXXXX"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            className="mt-1"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            The phone number must match the one on the PPPoE account. M-Pesa payment to{" "}
+            <span className="font-medium text-foreground">{payeeName}</span>.
+          </p>
+        </div>
+      </div>
+      <Button
+        className="pt-btn mt-4 w-full"
+        style={{ backgroundColor: primary }}
+        disabled={!picked || !username.trim() || !phone.trim() || submitting}
+        onClick={() => void pay()}
+      >
+        {submitting ? "Sending prompt…" : "Pay for PPPoE package"}
+      </Button>
+    </div>
+  );
+}
+
 function PaymentWaiting({
   slug,
   paymentId,
   primary,
   payeeName,
   postLoginUrl,
+  omadaPortal = false,
   tv = false,
   tvIncluded = false,
+  pppoeUsername,
   retrying = false,
   onTryAgain,
   onChangePhone,
@@ -754,8 +912,10 @@ function PaymentWaiting({
   primary: string;
   payeeName: string;
   postLoginUrl?: string | null;
+  omadaPortal?: boolean;
   tv?: boolean;
   tvIncluded?: boolean;
+  pppoeUsername?: string;
   retrying?: boolean;
   onTryAgain?: () => void;
   onChangePhone?: () => void;
@@ -763,6 +923,10 @@ function PaymentWaiting({
   const [status, setStatus] = useState<string>("pending");
   const [voucher, setVoucher] = useState<string | null>(null);
   const [autoConnecting, setAutoConnecting] = useState(false);
+  const [omadaAuthorization, setOmadaAuthorization] = useState<
+    "not_required" | "pending" | "processing" | "authorized" | "failed"
+  >("not_required");
+  const [omadaRedirectUrl, setOmadaRedirectUrl] = useState<string | null>(null);
   const autoConnectAttempted = useRef(false);
 
   useEffect(() => {
@@ -780,7 +944,33 @@ function PaymentWaiting({
           if (!active) return;
           setStatus(json.status);
           if (json.voucher_code) setVoucher(json.voucher_code);
-          if (json.status === "success" || json.status === "failed") return;
+          const authorization = json.omadaAuthorization;
+          if (
+            authorization &&
+            ["pending", "processing", "authorized", "failed", "not_required"].includes(
+              authorization.status,
+            )
+          ) {
+            setOmadaAuthorization(
+              omadaPortal && authorization.status === "not_required"
+                ? "failed"
+                : authorization.status,
+            );
+            setOmadaRedirectUrl(
+              typeof authorization.redirectUrl === "string" ? authorization.redirectUrl : null,
+            );
+          } else if (omadaPortal && json.status === "success") {
+            setOmadaAuthorization("failed");
+          }
+          if (
+            json.status === "failed" ||
+            (json.status === "success" &&
+              (!omadaPortal ||
+                ["authorized", "failed", "not_required"].includes(
+                  authorization?.status ?? "not_required",
+                )))
+          )
+            return;
         }
       } catch (error) {
         if (!active) return;
@@ -794,9 +984,20 @@ function PaymentWaiting({
       if (timer !== undefined) window.clearTimeout(timer);
       controller?.abort();
     };
-  }, [paymentId, slug]);
+  }, [paymentId, slug, omadaPortal]);
 
   useEffect(() => {
+    if (omadaPortal) {
+      if (tv || status !== "success" || omadaAuthorization !== "authorized") return;
+      if (autoConnectAttempted.current) return;
+      const destination = parseHotspotDestinationUrl(omadaRedirectUrl);
+      if (destination) {
+        autoConnectAttempted.current = true;
+        setAutoConnecting(true);
+        window.location.assign(destination);
+      }
+      return;
+    }
     if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
     const store = sessionStore();
     const params = routerParams(window.location.search, store, slug);
@@ -810,7 +1011,46 @@ function PaymentWaiting({
     setAutoConnecting(true);
     rememberVoucher(store, voucher, slug);
     window.location.assign(target);
-  }, [status, tv, voucher, postLoginUrl, slug]);
+  }, [status, tv, voucher, postLoginUrl, slug, omadaPortal, omadaAuthorization, omadaRedirectUrl]);
+
+  if (status === "success" && omadaPortal && omadaAuthorization !== "authorized") {
+    return (
+      <div className="pt-surface rounded-xl border bg-card p-6 text-center">
+        {omadaAuthorization === "failed" ? (
+          <>
+            <AlertTriangle className="mx-auto h-8 w-8 text-destructive" />
+            <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              We could not finish connecting this device. Contact your Wi-Fi provider and share your
+              payment confirmation.
+            </p>
+          </>
+        ) : (
+          <>
+            <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
+            <h2 className="mt-3 text-lg font-semibold">Payment received</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {omadaAuthorization === "processing"
+                ? "Connecting your device to Wi-Fi…"
+                : "Authorizing your device with the Wi-Fi controller…"}
+            </p>
+          </>
+        )}
+      </div>
+    );
+  }
+  if (status === "success" && omadaPortal) {
+    return (
+      <div className="pt-surface rounded-xl border bg-card p-6 text-center">
+        <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
+        <h2 className="mt-3 text-lg font-semibold">Connected to Wi-Fi</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Your payment is confirmed and this device is authorized.
+          {autoConnecting ? " Returning you to your requested page…" : ""}
+        </p>
+      </div>
+    );
+  }
 
   if (status === "success" && tv) {
     return (
@@ -820,6 +1060,19 @@ function PaymentWaiting({
         <p className="mt-1 text-sm text-muted-foreground">
           Your TV will be allowed on the Wi-Fi within about 2 minutes. If it is already connected,
           switch the TV's Wi-Fi off and on again, then open an app.
+        </p>
+      </div>
+    );
+  }
+  if (status === "success" && pppoeUsername) {
+    return (
+      <div className="pt-surface rounded-xl border bg-card p-6 text-center">
+        <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
+        <h2 className="mt-3 text-lg font-semibold">PPPoE package renewed</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Payment is confirmed for <span className="font-medium">{pppoeUsername}</span>. Your router
+          will apply the renewed package on its next sync, usually within 5 minutes. If service does
+          not resume, contact {payeeName} support with your M-Pesa confirmation.
         </p>
       </div>
     );

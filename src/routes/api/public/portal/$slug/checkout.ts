@@ -11,12 +11,57 @@ import { startDarajaStkPush } from "@/lib/daraja.server";
 import { isValidKenyanMobile } from "@/lib/phone";
 import { portalMaintenanceBlock } from "@/lib/maintenance.server";
 import { normalizeMac } from "@/lib/tv";
+import { parseHotspotDestinationUrl } from "@/lib/hotspot-redirect";
+import { assertSupportedOmadaVersion } from "@/lib/omada-controller.server";
+import type { OmadaPortalContext } from "@/lib/omada-portal";
 
+const MacSchema = z
+  .string()
+  .transform((value) => normalizeMac(value) ?? "")
+  .refine((value) => Boolean(value), "Enter a valid device MAC address.");
+const OmadaContextSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("eap"),
+    clientMac: MacSchema,
+    apMac: MacSchema,
+    ssidName: z.string().trim().min(1).max(128),
+    radioId: z.enum(["0", "1"]),
+    siteName: z.string().trim().min(1).max(128),
+    redirectUrl: z
+      .string()
+      .max(2048)
+      .nullable()
+      .optional()
+      .transform((value) => parseHotspotDestinationUrl(value)),
+  }),
+  z.object({
+    kind: z.literal("gateway"),
+    clientMac: MacSchema,
+    gatewayMac: MacSchema,
+    vlanId: z
+      .string()
+      .regex(/^(?:0|[1-9]\d{0,3})$/)
+      .refine((value) => Number(value) <= 4094),
+    siteName: z.string().trim().min(1).max(128),
+    redirectUrl: z
+      .string()
+      .max(2048)
+      .nullable()
+      .optional()
+      .transform((value) => parseHotspotDestinationUrl(value)),
+  }),
+]);
 const Schema = z.object({
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
+  pppoeUsername: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._@-]{3,64}$/)
+    .optional(),
   tvMac: z.string().min(11).max(40).optional(),
   routerId: z.string().uuid().optional(),
+  omadaContext: OmadaContextSchema.optional(),
 });
 const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
 const BAD_MAC =
@@ -60,6 +105,75 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           );
           if (maintenanceBlock) return Response.json({ error: maintenanceBlock }, { status: 423 });
 
+          let selectedRouterVendor: string | null = null;
+          let omadaIntegration: {
+            site_name: string;
+            controller_version: string;
+            enabled: boolean;
+          } | null = null;
+          if (parsed.data.routerId) {
+            const { data: router, error: routerError } = await supabaseAdmin
+              .from("routers")
+              .select("id,vendor")
+              .eq("id", parsed.data.routerId)
+              .eq("tenant_id", tenant.id)
+              .maybeSingle();
+            if (routerError) {
+              console.error("Could not verify the checkout router", routerError);
+              return Response.json({ error: "Could not start the payment." }, { status: 500 });
+            }
+            if (!router) return Response.json({ error: "Invalid site." }, { status: 400 });
+            selectedRouterVendor = router.vendor;
+            if (router.vendor === "tp_link_omada") {
+              const { data, error } = await supabaseAdmin
+                .from("omada_integrations")
+                .select("site_name,controller_version,enabled")
+                .eq("router_id", router.id)
+                .eq("tenant_id", tenant.id)
+                .maybeSingle();
+              if (error) {
+                console.error("Could not load Omada checkout settings", error);
+                return Response.json({ error: "Could not start the payment." }, { status: 500 });
+              }
+              omadaIntegration = data;
+            }
+          }
+          if (parsed.data.omadaContext) {
+            if (selectedRouterVendor !== "tp_link_omada" || !omadaIntegration?.enabled) {
+              return Response.json(
+                { error: "This Omada site is not configured for paid access." },
+                { status: 409 },
+              );
+            }
+            if (parsed.data.omadaContext.siteName !== omadaIntegration.site_name) {
+              return Response.json(
+                { error: "The Omada site does not match this portal." },
+                {
+                  status: 400,
+                },
+              );
+            }
+            try {
+              assertSupportedOmadaVersion(omadaIntegration.controller_version);
+            } catch (error) {
+              return Response.json(
+                {
+                  error:
+                    error instanceof Error ? error.message : "This Omada version is unsupported.",
+                },
+                { status: 409 },
+              );
+            }
+          } else if (selectedRouterVendor === "tp_link_omada" && omadaIntegration?.enabled) {
+            return Response.json(
+              {
+                error:
+                  "Omada connection details are missing. Reconnect to the guest Wi-Fi and try again.",
+              },
+              { status: 400 },
+            );
+          }
+
           const { data: pkg } = await supabaseAdmin
             .from("packages")
             .select("id,name,price,kind,tenant_id,active")
@@ -68,9 +182,46 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (!pkg || pkg.tenant_id !== tenant.id || !pkg.active) {
             return Response.json({ error: "Invalid package" }, { status: 400 });
           }
-          if (!["hotspot", "voucher", "hotspot_tv"].includes(pkg.kind)) {
+          if (!["hotspot", "voucher", "hotspot_tv", "pppoe"].includes(pkg.kind)) {
             return Response.json(
               { error: "This package cannot be purchased from the portal." },
+              { status: 400 },
+            );
+          }
+          let pppoeCustomerId: string | null = null;
+          if (pkg.kind === "pppoe") {
+            if (!parsed.data.pppoeUsername) {
+              return Response.json({ error: "Enter your PPPoE username." }, { status: 400 });
+            }
+            const { data: customer, error: customerError } = await supabaseAdmin
+              .from("customers")
+              .select("id,phone,status")
+              .eq("tenant_id", tenant.id)
+              .eq("customer_type", "pppoe")
+              .eq("pppoe_username", parsed.data.pppoeUsername)
+              .maybeSingle();
+            if (customerError) {
+              console.error("Could not verify PPPoE customer checkout", customerError);
+              return Response.json({ error: "Could not start the payment." }, { status: 500 });
+            }
+            if (
+              !customer ||
+              customer.status !== "active" ||
+              !customer.phone ||
+              normalizePhone(customer.phone) !== phone
+            ) {
+              return Response.json(
+                {
+                  error:
+                    "We couldn't verify that PPPoE account. Check the username and registered phone, or contact your provider.",
+                },
+                { status: 403 },
+              );
+            }
+            pppoeCustomerId = customer.id;
+          } else if (parsed.data.pppoeUsername) {
+            return Response.json(
+              { error: "A PPPoE username can only be used with a PPPoE package." },
               { status: 400 },
             );
           }
@@ -101,7 +252,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const { data: activePayment, error: activePaymentError } = await supabaseAdmin
             .from("payments")
-            .select("id,package_id,tv_device_id")
+            .select("id,package_id,tv_device_id,customer_id")
             .eq("tenant_id", tenant.id)
             .eq("phone", phone)
             .eq("status", "pending")
@@ -112,6 +263,20 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (activePaymentError) {
             console.error("Could not check for an active STK payment", activePaymentError);
             return Response.json({ error: "Could not start the payment." }, { status: 500 });
+          }
+          if (
+            activePayment &&
+            (pppoeCustomerId
+              ? activePayment.customer_id !== pppoeCustomerId
+              : Boolean(activePayment.customer_id))
+          ) {
+            return Response.json(
+              {
+                error:
+                  "A payment prompt is already active for this number. Complete it or wait for it to expire.",
+              },
+              { status: 409 },
+            );
           }
           if (activePayment && activePayment.package_id !== pkg.id) {
             return Response.json(
@@ -130,6 +295,41 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               },
               { status: 409 },
             );
+          }
+          if (activePayment && parsed.data.omadaContext) {
+            const { data: activeOmadaJob, error: activeJobError } = await supabaseAdmin
+              .from("omada_authorization_jobs")
+              .select(
+                "context_kind,client_mac,ap_mac,gateway_mac,ssid_name,radio_id,vlan_id,site_name,redirect_url",
+              )
+              .eq("payment_id", activePayment.id)
+              .eq("tenant_id", tenant.id)
+              .maybeSingle();
+            if (activeJobError) {
+              console.error("Could not verify active Omada payment context", activeJobError);
+              return Response.json({ error: "Could not start the payment." }, { status: 500 });
+            }
+            const context = parsed.data.omadaContext;
+            const sameContext =
+              activeOmadaJob?.context_kind === context.kind &&
+              activeOmadaJob.client_mac === context.clientMac &&
+              activeOmadaJob.site_name === context.siteName &&
+              activeOmadaJob.redirect_url === context.redirectUrl &&
+              (context.kind === "eap"
+                ? activeOmadaJob.ap_mac === context.apMac &&
+                  activeOmadaJob.ssid_name === context.ssidName &&
+                  activeOmadaJob.radio_id === context.radioId
+                : activeOmadaJob.gateway_mac === context.gatewayMac &&
+                  activeOmadaJob.vlan_id === context.vlanId);
+            if (!sameContext) {
+              return Response.json(
+                {
+                  error:
+                    "A payment prompt is already active. Complete it or wait for it to expire before trying again.",
+                },
+                { status: 409 },
+              );
+            }
           }
 
           let tvDeviceId: string | undefined;
@@ -212,12 +412,55 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               amount,
               status: "pending",
               provider: "daraja",
+              ...(pppoeCustomerId ? { customer_id: pppoeCustomerId } : {}),
               ...(tvDeviceId ? { tv_device_id: tvDeviceId } : {}),
             })
             .select("id,created_at,status,package_id")
             .single();
           if (payErr || !pay)
             return Response.json({ error: "Could not start the payment." }, { status: 500 });
+
+          if (parsed.data.omadaContext && parsed.data.routerId) {
+            const context: OmadaPortalContext = parsed.data.omadaContext;
+            const job =
+              context.kind === "eap"
+                ? {
+                    payment_id: pay.id,
+                    tenant_id: tenant.id,
+                    router_id: parsed.data.routerId,
+                    context_kind: context.kind,
+                    client_mac: context.clientMac,
+                    ap_mac: context.apMac,
+                    ssid_name: context.ssidName,
+                    radio_id: context.radioId,
+                    site_name: context.siteName,
+                    redirect_url: context.redirectUrl,
+                  }
+                : {
+                    payment_id: pay.id,
+                    tenant_id: tenant.id,
+                    router_id: parsed.data.routerId,
+                    context_kind: context.kind,
+                    client_mac: context.clientMac,
+                    gateway_mac: context.gatewayMac,
+                    vlan_id: context.vlanId,
+                    site_name: context.siteName,
+                    redirect_url: context.redirectUrl,
+                  };
+            const { error: jobError } = await supabaseAdmin
+              .from("omada_authorization_jobs")
+              .insert({
+                ...job,
+                status: "pending",
+                attempts: 0,
+                next_attempt_at: new Date().toISOString(),
+              });
+            if (jobError) {
+              console.error("Could not save Omada authorization context", jobError);
+              await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
+              return Response.json({ error: "Could not start the payment." }, { status: 500 });
+            }
+          }
 
           let started;
           try {

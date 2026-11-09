@@ -58,6 +58,11 @@ function LoginPage() {
       if (userError) throw userError;
       if (!user) throw new Error("Sign-in completed without a user session.");
 
+      if (user.app_metadata["must_change_password"] === true) {
+        await navigate({ to: "/change-password" });
+        return;
+      }
+
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("role")

@@ -19,6 +19,7 @@ const OTHER_TENANT = "99999999-9999-9999-9999-999999999999";
 const PAY = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 const HOTSPOT_PKG = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
 const PPPOE_PKG = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+const PPPOE_CUSTOMER = "dddddddd-dddd-dddd-dddd-dddddddddddd";
 
 const callbackBody = (options: { resultCode?: number; amount?: number; phone?: number } = {}) => ({
   Body: {
@@ -229,12 +230,28 @@ describe("tenant Daraja callback", () => {
     expect(h.db.rows("vouchers")).toHaveLength(1);
   });
 
-  it("sets an expiry but issues no voucher for non-hotspot packages", async () => {
+  it("renews a PPPoE account without issuing a voucher", async () => {
     payment().package_id = PPPOE_PKG;
+    payment().customer_id = PPPOE_CUSTOMER;
+    h.db.seed("customers", [
+      {
+        id: PPPOE_CUSTOMER,
+        tenant_id: TENANT,
+        customer_type: "pppoe",
+        package_id: null,
+        expires_at: null,
+        status: "expired",
+      },
+    ]);
     await send();
     expect(h.db.rows("vouchers")).toHaveLength(0);
     expect(payment()).toMatchObject({ status: "success", voucher_code: null });
     expect(payment().expires_at).toBeTruthy();
+    expect(h.db.rows("customers")[0]).toMatchObject({
+      package_id: PPPOE_PKG,
+      status: "active",
+    });
+    expect(h.db.rows("customers")[0].expires_at).toBe(payment().expires_at);
   });
 });
 

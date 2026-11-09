@@ -4,7 +4,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { parsePppoeReport } from "@/lib/pppoe-sessions";
 
-// PPPoE session report pushed by the router every 2 minutes (see buildPppoeAgentLines).
+// PPPoE session report pushed by the router every minute (see buildPppoeAgentLines).
 // Body: records "username|mac|ip|session-id|bytes-in|bytes-out" separated by ";".
 //
 // The MAC is the session's caller-id. It is stored on the client so the console can show it and

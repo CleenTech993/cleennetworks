@@ -4,6 +4,7 @@ import { call, json } from "./helpers/call";
 import { h } from "./helpers/setup";
 
 const darajaMock = vi.hoisted(() => ({ query: vi.fn() }));
+const omadaMock = vi.hoisted(() => ({ process: vi.fn() }));
 
 vi.mock("@/integrations/supabase/client.server", () => ({
   get supabaseAdmin() {
@@ -13,6 +14,9 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 vi.mock("@/lib/daraja.server", () => ({ queryDarajaStkPush: darajaMock.query }));
 vi.mock("@/lib/rate-limit.server", () => ({
   rateLimit: vi.fn(() => true),
+}));
+vi.mock("@/lib/omada-authorization.server", () => ({
+  processOmadaAuthorization: omadaMock.process,
 }));
 
 import { Route } from "@/routes/api/public/portal/$slug/payment-status";
@@ -33,6 +37,7 @@ beforeEach(() => {
     resultCode: "0",
     resultDescription: "success",
   });
+  omadaMock.process.mockReset().mockResolvedValue({ status: "not_required" });
   h.db = new FakeDb()
     .seed("tenants", [{ id: TENANT, slug: "tenant" }])
     .seed("packages", [
@@ -85,6 +90,24 @@ describe("captive portal payment status recovery", () => {
       package_id: PACKAGE,
       payment_id: PAYMENT,
     });
+  });
+
+  it("reports the Omada authorization result after confirmed payment", async () => {
+    omadaMock.process.mockResolvedValue({
+      status: "authorized",
+      redirectUrl: "https://example.com/welcome",
+    });
+
+    const response = await send();
+
+    expect(await json(response)).toMatchObject({
+      status: "success",
+      omadaAuthorization: {
+        status: "authorized",
+        redirectUrl: "https://example.com/welcome",
+      },
+    });
+    expect(omadaMock.process).toHaveBeenCalledWith(PAYMENT, TENANT);
   });
 
   it("keeps the payment pending while Daraja has not returned a result", async () => {

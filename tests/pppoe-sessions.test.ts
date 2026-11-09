@@ -5,6 +5,7 @@ import {
   buildPppoeAgentLines,
   isClientConnected,
   parsePppoeReport,
+  pppoeReportedRouterId,
 } from "../src/lib/pppoe-sessions";
 
 describe("parsePppoeReport", () => {
@@ -121,14 +122,32 @@ describe("isClientConnected", () => {
   });
 });
 
+describe("pppoeReportedRouterId", () => {
+  it("uses the router that most recently reported the active session", () => {
+    expect(
+      pppoeReportedRouterId({
+        router_id: "assigned-router",
+        last_router_id: "reporting-router",
+      }),
+    ).toBe("reporting-router");
+  });
+
+  it("falls back to the assigned router before the first session report", () => {
+    expect(pppoeReportedRouterId({ router_id: "assigned-router", last_router_id: null })).toBe(
+      "assigned-router",
+    );
+    expect(pppoeReportedRouterId({ router_id: null, last_router_id: null })).toBeNull();
+  });
+});
+
 describe("buildPppoeAgentLines", () => {
   const URL = "https://portal.example.com/api/public/router/pppoe/abcDEF123_-token";
   const script = buildPppoeAgentLines(URL).join("\n");
 
-  it("installs a script and a 5 minute scheduler named netgrid-pppoe", () => {
+  it("installs a script and a 1 minute scheduler named netgrid-pppoe", () => {
     expect(script).toContain("add name=netgrid-pppoe source={");
     expect(script).toContain(
-      '/system scheduler add name=netgrid-pppoe interval=5m on-event="/system script run netgrid-pppoe"',
+      '/system scheduler add name=netgrid-pppoe interval=1m on-event="/system script run netgrid-pppoe"',
     );
   });
 

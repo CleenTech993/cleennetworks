@@ -30,7 +30,18 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
 
         const tenantId = router.tenant_id;
         const now = new Date().toISOString();
+        const nowMs = Date.parse(now);
         const macs = records.map((r) => r.mac);
+        const { data: previousTraffic, error: previousTrafficError } = await supabaseAdmin
+          .from("router_devices")
+          .select("mac,traffic_bytes_in,traffic_bytes_out,last_seen_at")
+          .eq("router_id", router.id)
+          .in("mac", macs);
+        if (previousTrafficError) {
+          console.error("Could not read previous hotspot traffic samples", previousTrafficError);
+          return new Response("error", { status: 500 });
+        }
+        const previousByMac = new Map((previousTraffic ?? []).map((row) => [row.mac, row]));
         const users = [...new Set(records.flatMap((r) => (r.user ? [r.user] : [])))];
 
         const sessionVouchers = users.length
@@ -129,6 +140,15 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
 
         const rows = records.map((r) => {
           const code = r.user ?? codeByMac.get(r.mac) ?? null;
+          const previous = previousByMac.get(r.mac);
+          const elapsedMs = previous?.last_seen_at ? nowMs - Date.parse(previous.last_seen_at) : 0;
+          const sampleRate = (current: string | null, old: number | null | undefined) => {
+            if (!current || old == null || elapsedMs < 1_000 || elapsedMs > 180_000) return 0;
+            const delta = Number(current) - Number(old);
+            return Number.isFinite(delta) && delta > 0
+              ? Math.min(Number.MAX_SAFE_INTEGER, Math.floor((delta * 1000) / elapsedMs))
+              : 0;
+          };
           return {
             tenant_id: tenantId,
             router_id: router.id,
@@ -139,6 +159,12 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
             voucher_code: code,
             authorized: r.authorized,
             tether_suspected: r.tether,
+            traffic_bytes_in: r.bytesIn ? Number(r.bytesIn) : (previous?.traffic_bytes_in ?? null),
+            traffic_bytes_out: r.bytesOut
+              ? Number(r.bytesOut)
+              : (previous?.traffic_bytes_out ?? null),
+            upload_bps: sampleRate(r.bytesIn, previous?.traffic_bytes_in),
+            download_bps: sampleRate(r.bytesOut, previous?.traffic_bytes_out),
             last_seen_at: now,
           };
         });

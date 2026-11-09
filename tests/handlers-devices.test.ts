@@ -222,6 +222,34 @@ describe("device report endpoint", () => {
     expect(voucher("RIVALCODE2").bound_mac).toBeNull();
   });
 
+  it("calculates hotspot upload and download rates from router byte-counter samples", async () => {
+    h.db.seed("router_devices", [
+      {
+        id: "traffic-device",
+        tenant_id: T,
+        router_id: R1,
+        mac: MAC_A,
+        traffic_bytes_in: 1000,
+        traffic_bytes_out: 2000,
+        last_seen_at: new Date(Date.now() - 60_000).toISOString(),
+      },
+    ]);
+    const token = await issueDeviceToken(R1);
+
+    await send(token, `${MAC_A}|10.5.50.20|phone||true|0|4000|8000;`);
+
+    expect(devices()[0]).toMatchObject({
+      traffic_bytes_in: 4000,
+      traffic_bytes_out: 8000,
+      upload_bps: expect.any(Number),
+      download_bps: expect.any(Number),
+    });
+    expect(Number(devices()[0]!.upload_bps)).toBeGreaterThanOrEqual(45);
+    expect(Number(devices()[0]!.upload_bps)).toBeLessThanOrEqual(55);
+    expect(Number(devices()[0]!.download_bps)).toBeGreaterThanOrEqual(95);
+    expect(Number(devices()[0]!.download_bps)).toBeLessThanOrEqual(105);
+  });
+
   it("cannot be tricked by a device name that contains the record separators", async () => {
     const token = await issueDeviceToken(R1);
     const forged = `${MAC_A}|10.5.50.20|x;${MAC_B}|10.5.50.21|y|ONEDEV0001|true|0|false|0;`;
