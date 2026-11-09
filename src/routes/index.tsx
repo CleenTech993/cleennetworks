@@ -14,45 +14,75 @@ import {
 import { Brand } from "@/components/brand";
 import { StatusDot } from "@/components/status-dot";
 import { Button } from "@/components/ui/button";
+import {
+  faqJsonLd,
+  organizationJsonLd,
+  pageHead,
+  softwareJsonLd,
+  websiteJsonLd,
+  type Faq,
+} from "@/lib/seo";
+import { siteOrigin } from "@/lib/site-origin";
+
+const faqs: Faq[] = [
+  {
+    q: "What is NetGrid?",
+    a: "NetGrid is a console for ISPs and Wi-Fi hotspot operators. It sets up MikroTik routers, sells hotspot and PPPoE packages, takes M-Pesa payments and shows which routers are online, all in one place.",
+  },
+  {
+    q: "Which routers does it work with?",
+    a: "MikroTik routers running RouterOS. You add a router in the console, paste one generated command into its terminal, and it configures hotspot, PPPoE and reporting by itself.",
+  },
+  {
+    q: "How do customers pay?",
+    a: "With M-Pesa. They get a payment prompt on their phone from your branded portal, and are connected once Safaricom confirms the payment.",
+  },
+  {
+    q: "Can I sell both hotspot Wi-Fi and monthly home internet?",
+    a: "Yes. Hotspot packages are sold by time and redeemed with M-Pesa checkout or vouchers. PPPoE packages carry a speed and an expiry for monthly subscribers. Both are managed from the same console.",
+  },
+  {
+    q: "How much does NetGrid cost?",
+    a: "NetGrid charges a monthly commission on successful income: 2% of hotspot and voucher income, and 1% of PPPoE income. Your monthly invoice shows the breakdown.",
+  },
+  {
+    q: "How do I get started?",
+    a: "Create an ISP account with your business details and verify your email if prompted; no approval step is needed. Then add a router, paste the generated command into it, and set up your packages, portal and M-Pesa collections.",
+  },
+  {
+    q: "Is my business kept separate from other ISPs?",
+    a: "Yes. Every ISP gets an isolated workspace, and team members can hold roles such as technician and billing agent.",
+  },
+];
+
+const guides = [
+  {
+    to: "/mikrotik-hotspot-billing",
+    title: "Hotspot billing",
+    body: "A branded captive portal, vouchers and M-Pesa checkout for paid Wi-Fi.",
+  },
+  {
+    to: "/pppoe-billing",
+    title: "PPPoE billing",
+    body: "Monthly subscribers with a speed and an expiry, kept in step with the router.",
+  },
+  {
+    to: "/mpesa-wifi-payments",
+    title: "M-Pesa payments",
+    body: "How customers pay, and how every payment is confirmed before access.",
+  },
+] as const;
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "ISP Management Software for MikroTik | NetGrid" },
-      {
-        name: "description",
-        content:
-          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
-      },
-      { property: "og:title", content: "ISP Management Software for MikroTik | NetGrid" },
-      {
-        property: "og:description",
-        content:
-          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
-      },
-      { name: "twitter:title", content: "ISP Management Software for MikroTik | NetGrid" },
-      {
-        name: "twitter:description",
-        content:
-          "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
-      },
-    ],
-    links: [{ rel: "canonical", href: "/" }],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "SoftwareApplication",
-          name: "NetGrid",
-          applicationCategory: "BusinessApplication",
-          operatingSystem: "Web",
-          description:
-            "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring.",
-        }),
-      },
-    ],
-  }),
+  head: () => {
+    const origin = siteOrigin();
+    return pageHead("/", origin, [
+      organizationJsonLd(origin),
+      websiteJsonLd(origin),
+      softwareJsonLd(origin),
+      faqJsonLd(faqs),
+    ]);
+  },
   component: Landing,
 });
 
@@ -141,6 +171,9 @@ function Landing() {
           </a>
           <a className="transition-colors hover:text-[#142b26]" href="#pricing">
             Pricing
+          </a>
+          <a className="transition-colors hover:text-[#142b26]" href="#guides">
+            Guides
           </a>
         </nav>
         <nav className="flex items-center gap-2" aria-label="Account">
@@ -419,7 +452,49 @@ function Landing() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-12">
+        <section id="guides" className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-12 lg:pb-24">
+          <p className="text-xs font-semibold tracking-[0.16em] text-[#54836a]">GUIDES</p>
+          <h2 className="mt-3 max-w-xl font-display text-3xl font-semibold tracking-tight text-[#142b26] sm:text-4xl">
+            Built for MikroTik ISPs.
+          </h2>
+          <ul className="mt-10 grid gap-4 md:grid-cols-3">
+            {guides.map((g) => (
+              <li key={g.to}>
+                <Link
+                  to={g.to}
+                  className="group block h-full rounded-2xl border border-[#e4e9e4] bg-[#fbfcfa] p-6 transition-all hover:-translate-y-1 hover:border-[#c5d9cb]"
+                >
+                  <span className="flex items-center justify-between font-display text-lg font-semibold tracking-tight text-[#1a3028]">
+                    {g.title}
+                    <ArrowUpRight className="h-4 w-4 text-[#54836a]" aria-hidden="true" />
+                  </span>
+                  <span className="mt-2 block text-sm leading-6 text-[#68756f]">{g.body}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section id="faq" className="border-y border-[#e5e9e4] bg-white/75">
+          <div className="mx-auto max-w-3xl px-5 py-20 sm:px-8 lg:py-24">
+            <p className="text-xs font-semibold tracking-[0.16em] text-[#54836a]">QUESTIONS</p>
+            <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-[#142b26] sm:text-4xl">
+              The short answers.
+            </h2>
+            <div className="mt-10 divide-y divide-[#e5e9e4] rounded-2xl border border-[#e4e9e4] bg-[#fbfcfa]">
+              {faqs.map((f) => (
+                <div key={f.q} className="p-6">
+                  <h3 className="font-display text-lg font-semibold tracking-tight text-[#1a3028]">
+                    {f.q}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-[#68756f]">{f.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-12">
           <div className="flex flex-col items-start justify-between gap-6 rounded-2xl border border-[#e2e9e1] bg-[#edf4ee] p-6 sm:flex-row sm:items-center sm:p-9">
             <div>
               <p className="text-xs font-semibold tracking-[0.16em] text-[#54836a]">
@@ -445,6 +520,16 @@ function Landing() {
       <footer className="border-t border-[#e5e9e4] bg-white/60">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-6 sm:px-8 lg:px-12">
           <Brand className="text-[#1b3028]" />
+          <nav
+            aria-label="Guides"
+            className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#52615d]"
+          >
+            {guides.map((g) => (
+              <Link key={g.to} to={g.to} className="transition-colors hover:text-[#142b26]">
+                {g.title}
+              </Link>
+            ))}
+          </nav>
           <p className="text-sm text-[#78837e]">
             © {new Date().getFullYear()} NetGrid. Built for better-connected communities.
           </p>

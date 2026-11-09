@@ -11,6 +11,8 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { ogImageMeta } from "@/lib/seo";
+import { siteOrigin } from "@/lib/site-origin";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
@@ -100,16 +102,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Manage a hotspot or PPPoE ISP with MikroTik provisioning, M-Pesa payments, and live router monitoring in one platform.",
       },
-      {
-        property: "og:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703",
-      },
-      {
-        name: "twitter:image",
-        content:
-          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/2b0ca07b-4803-4864-9c9e-566586b7c703",
-      },
+      ...ogImageMeta(siteOrigin()),
     ],
     links: [
       { rel: "stylesheet", href: appCss },
