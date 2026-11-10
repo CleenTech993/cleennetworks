@@ -83,6 +83,7 @@ SELECT t.allowed('admin registers custom domain', $$INSERT INTO public.tenant_do
 SELECT t.allowed('user edits own preferences',    $$UPDATE public.profiles SET preferences='{"theme":"dark"}' WHERE id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 SELECT t.allowed('admin inserts router',       $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R2')$$);
 SELECT t.allowed('admin inserts package',      $$INSERT INTO public.packages (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','P2')$$);
+SELECT t.allowed('admin creates active PPPoE account', $$INSERT INTO public.customers (tenant_id, customer_type, pppoe_username, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','pppoe','admin-pppoe','active')$$);
 SELECT t.allowed('admin reads payments',       $$SELECT 1 FROM public.payments$$);
 SELECT t.denied ('admin cannot set own commission', $$UPDATE public.tenants SET platform_commission_pct = 0 WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('admin cannot change tenant status',$$UPDATE public.tenants SET status = 'active' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
@@ -94,11 +95,16 @@ SELECT t.denied ('admin cannot write into other tenant',     $$INSERT INTO publi
 
 -- ---- support_staff -----------------------------------------------------------------------------
 SELECT t.as_user(:support, 'aal2');
+INSERT INTO t.results VALUES ('role helpers return caller support role', public.has_role(auth.uid(), 'support_staff'));
+INSERT INTO t.results VALUES ('role helpers hide other platform roles', NOT public.has_role(:admin1, 'tenant_admin'));
+INSERT INTO t.results VALUES ('super-admin helper hides another user', NOT public.is_super_admin(:super));
+INSERT INTO t.results VALUES ('tenant-role helper hides other workspace roles', NOT public.has_tenant_role(:admin2, 'aaaaaaaa-0000-0000-0000-000000000002', ARRAY['tenant_admin']::public.app_role[]));
 SELECT t.allowed('support reads customers',  $$SELECT 1 FROM public.customers$$);
 SELECT t.allowed('support reads payments',   $$SELECT 1 FROM public.payments$$);
 SELECT t.allowed('support edits customer',   $$UPDATE public.customers SET full_name='n' WHERE id='cccccccc-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('support opens ticket',     $$INSERT INTO public.support_tickets (tenant_id, subject) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','s')$$);
 SELECT t.allowed('support issues reconnect voucher', $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','SUP1')$$);
+SELECT t.denied('support cannot create active PPPoE account', $$INSERT INTO public.customers (tenant_id, customer_type, pppoe_username, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','pppoe','support-pppoe','active')$$);
 SELECT t.denied ('support cannot edit tenant settings', $$UPDATE public.tenants SET mpesa_paybill='999999' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('support cannot edit tenant labels',   $$UPDATE public.tenants SET ui_labels='{"pppoe":"Other"}' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('support cannot register custom domain', $$INSERT INTO public.tenant_domains (tenant_id, purpose, domain) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','console','console.tenant-one.example')$$);
@@ -122,6 +128,10 @@ SELECT t.as_user(:billing, 'aal2');
 SELECT t.allowed('billing reads payments',  $$SELECT 1 FROM public.payments$$);
 SELECT t.allowed('billing edits packages',  $$UPDATE public.packages SET name='P' WHERE id='dddddddd-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('billing mints vouchers',  $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','BIL1')$$);
+SELECT t.allowed('billing creates suspended PPPoE account', $$INSERT INTO public.customers (id, tenant_id, customer_type, pppoe_username, status) VALUES ('cccccccc-0000-0000-0000-000000000010','aaaaaaaa-0000-0000-0000-000000000001','pppoe','billing-pppoe','suspended')$$);
+SELECT t.denied('billing cannot activate PPPoE account without payment', $$UPDATE public.customers SET status='active' WHERE id='cccccccc-0000-0000-0000-000000000010'$$);
+SELECT t.denied('billing cannot extend PPPoE expiry without payment', $$UPDATE public.customers SET expires_at=now() + interval '30 days' WHERE id='cccccccc-0000-0000-0000-000000000010'$$);
+SELECT t.denied('billing cannot create active PPPoE account', $$INSERT INTO public.customers (tenant_id, customer_type, pppoe_username, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','pppoe','billing-free','active')$$);
 SELECT t.denied ('billing cannot delete routers', $$DELETE FROM public.routers$$);
 SELECT t.denied ('billing cannot edit tenant',    $$UPDATE public.tenants SET name='x' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 
@@ -170,6 +180,8 @@ END $$;
 
 -- ---- cross-tenant -------------------------------------------------------------------------------
 SELECT t.as_user(:admin2, 'aal2');
+INSERT INTO t.results VALUES ('role helper returns own tenant-admin role', public.has_role(auth.uid(), 'tenant_admin'));
+INSERT INTO t.results VALUES ('tenant-role helper returns own workspace role', public.has_tenant_role(auth.uid(), 'aaaaaaaa-0000-0000-0000-000000000002', ARRAY['tenant_admin']::public.app_role[]));
 SELECT t.denied ('other tenant admin cannot read T1 customers', $$SELECT 1 FROM public.customers WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('other tenant admin cannot edit T1 settings',  $$UPDATE public.tenants SET name='hijack' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 

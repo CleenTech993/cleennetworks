@@ -40,6 +40,22 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
     if (!Number.isFinite(amount) || amount < 1)
       throw new Error("This package cannot be paid online.");
 
+    if (data.customerId) {
+      const { data: customer, error: customerError } = await supabaseAdmin
+        .from("customers")
+        .select("id,customer_type")
+        .eq("id", data.customerId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      if (customerError) {
+        console.error("Could not verify STK customer ownership", customerError);
+        throw new Error("Could not verify the customer account.");
+      }
+      if (!customer) throw new Error("Customer not found.");
+      if (pkg.kind === "pppoe" && customer.customer_type !== "pppoe")
+        throw new Error("A PPPoE package requires a PPPoE customer account.");
+    }
+
     const callbackUrl = `https://${getRequestHost()}/api/public/mpesa/callback/${tenantId}`;
 
     // Insert pending payment first so the callback can find it
