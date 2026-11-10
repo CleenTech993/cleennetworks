@@ -1,0 +1,19 @@
+{
+  "name": "@cleennetworks/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --cwd . --config wrangler.toml",
+    "build": "wrangler deploy --no-autoconfig --dry-run --outdir dist --cwd . --config wrangler.toml",
+    "deploy": "wrangler deploy --no-autoconfig --cwd . --config wrangler.toml",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@cleennetworks/api-contracts": "1.0.0",
+    "@supabase/supabase-js": "^2.106.2",
+    "hono": "^4.13.17"
+  },
+  "devDependencies": {
+    "wrangler": "^4.159.0"
+  }
+}

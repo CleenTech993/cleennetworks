@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { listStaticIpCustomers, saveStaticIpAssignment } from "@/lib/api/static-ips";
+import { isIpv4, type StaticIpCustomer } from "@cleennetworks/api-contracts/static-ips";
 
 export const Route = createFileRoute("/tenant/static-ips")({
   head: () => ({
@@ -28,27 +29,10 @@ export const Route = createFileRoute("/tenant/static-ips")({
   component: StaticIps,
 });
 
-type Customer = {
-  id: string;
-  full_name: string | null;
-  phone: string | null;
-  pppoe_username: string | null;
-  status: string;
-  static_ip: string | null;
-};
-
-function isIpv4(value: string) {
-  const octets = value.split(".");
-  return (
-    octets.length === 4 &&
-    octets.every((octet) => /^(0|[1-9]\d{0,2})$/.test(octet) && Number(octet) <= 255)
-  );
-}
-
 function StaticIps() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<Customer | null>(null);
+  const [editing, setEditing] = useState<StaticIpCustomer | null>(null);
   const [ip, setIp] = useState("");
 
   const {
@@ -58,36 +42,21 @@ function StaticIps() {
     error,
   } = useQuery({
     queryKey: ["static-ip-customers"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("id,full_name,phone,pppoe_username,status,static_ip")
-        .eq("customer_type", "pppoe")
-        .order("full_name");
-      if (error) throw error;
-      return data as Customer[];
-    },
+    queryFn: listStaticIpCustomers,
   });
 
   const assignIp = useMutation({
-    mutationFn: async ({ customer, value }: { customer: Customer; value: string | null }) => {
+    mutationFn: async ({
+      customer,
+      value,
+    }: {
+      customer: StaticIpCustomer;
+      value: string | null;
+    }) => {
       if (value) {
         if (!isIpv4(value)) throw new Error("Enter a valid IPv4 address.");
-        const { data: conflicts, error: conflictError } = await supabase
-          .from("customers")
-          .select("id")
-          .eq("static_ip", value)
-          .neq("id", customer.id)
-          .limit(1);
-        if (conflictError) throw conflictError;
-        if (conflicts.length) throw new Error("That IP address is already assigned.");
       }
-
-      const { error } = await supabase
-        .from("customers")
-        .update({ static_ip: value })
-        .eq("id", customer.id);
-      if (error) throw error;
+      await saveStaticIpAssignment(customer.id, { staticIp: value });
     },
     onSuccess: () => {
       toast.success("Static IP assignment updated.");

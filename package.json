@@ -1,11 +1,19 @@
 {
   "name": "tanstack_start_ts",
   "private": true,
+  "workspaces": [
+    "apps/api",
+    "packages/api-contracts"
+  ],
   "sideEffects": false,
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "dev:api": "npm run dev --workspace @cleennetworks/api",
+    "build:api": "npm run build --workspace @cleennetworks/api",
+    "deploy:api": "npm run deploy --workspace @cleennetworks/api",
+    "typecheck:api": "npm run typecheck --workspace @cleennetworks/api",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -14,6 +22,7 @@
     "db:verify-gen": "node scripts/db/gen-live-check.mjs"
   },
   "dependencies": {
+    "@cleennetworks/api-contracts": "1.0.0",
     "@ai-sdk/openai": "^4.0.83",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/instrument-sans": "^5.3.0",

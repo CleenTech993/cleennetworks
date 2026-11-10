@@ -1,0 +1,9 @@
+{
+  "name": "@cleennetworks/api-contracts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./static-ips": "./src/static-ips.ts"
+  }
+}
