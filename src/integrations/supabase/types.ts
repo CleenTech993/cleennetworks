@@ -817,6 +817,7 @@ export type Database = {
       payments: {
         Row: {
           amount: number;
+          bound_mac: string | null;
           checkout_request_id: string | null;
           created_at: string;
           customer_id: string | null;
@@ -835,6 +836,7 @@ export type Database = {
         };
         Insert: {
           amount: number;
+          bound_mac?: string | null;
           checkout_request_id?: string | null;
           created_at?: string;
           customer_id?: string | null;
@@ -853,6 +855,7 @@ export type Database = {
         };
         Update: {
           amount?: number;
+          bound_mac?: string | null;
           checkout_request_id?: string | null;
           created_at?: string;
           customer_id?: string | null;

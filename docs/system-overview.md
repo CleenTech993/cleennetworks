@@ -48,7 +48,8 @@ conventions and next steps.
 Feature-specific notes: [device management](./device-management.md),
 [customer communications](./customer-communications.md), [Daraja / M-Pesa](./daraja.md),
 [platform billing](./platform-billing.md), and
-[router troubleshooting](./ROUTER_TROUBLESHOOTING.md).
+[router troubleshooting](./ROUTER_TROUBLESHOOTING.md). The device guide also documents the
+M-Pesa hotspot access-code flow, legacy voucher transition, and separate RADIUS deployment plan.
 
 ## Repository map
 

@@ -115,7 +115,7 @@ class Query implements PromiseLike<Result> {
     return this;
   }
   gt(c: string, v: unknown) {
-    this.preds.push((r) => String(r[c]) > String(v));
+    this.preds.push((r) => r[c] != null && String(r[c]) > String(v));
     return this;
   }
   lt(c: string, v: unknown) {

@@ -72,7 +72,7 @@ function Hotspot() {
     <div>
       <PageHeader
         title={labels.hotspot}
-        description="Active hotspot users, vouchers and live sessions."
+        description="Active hotspot users, legacy vouchers and live sessions."
       />
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Online now" value={data?.online ?? "—"} />

@@ -116,7 +116,7 @@ function sessionStore(): Storage | null {
   }
 }
 
-async function copyVoucher(code: string) {
+async function copyAccessCode(code: string) {
   let copied = false;
   try {
     if (navigator.clipboard?.writeText) {
@@ -142,15 +142,19 @@ async function copyVoucher(code: string) {
       input.remove();
     }
   }
-  if (copied) toast.success("Voucher copied");
-  else toast.error("Could not copy the voucher. Please select and copy it manually.");
+  if (copied) toast.success("Access code copied");
+  else toast.error("Could not copy the access code. Please select and copy it manually.");
 }
 
-function VoucherCopyButton({ code }: { code: string }) {
+function AccessCodeCopyButton({ code }: { code: string }) {
   return (
-    <Button variant="outline" className="mx-auto mt-3 flex" onClick={() => void copyVoucher(code)}>
+    <Button
+      variant="outline"
+      className="mx-auto mt-3 flex"
+      onClick={() => void copyAccessCode(code)}
+    >
       <Copy aria-hidden="true" />
-      Copy voucher
+      Copy access code
     </Button>
   );
 }
@@ -172,8 +176,7 @@ function PortalPage() {
     setRouterId(params.routerId);
     const mac = normalizeMac(query.get("mac") ?? "");
     setDeviceMac(mac);
-    // The router refused a voucher login and sent the customer back: show the voucher tab, which
-    // keeps retrying (see VoucherFlow), instead of the purchase screen.
+    // The router refused an access-code login and sent the customer back: show its recovery path.
     if (routerLoginFailed(search) && recallVoucher(store, slug)) setTab("voucher");
 
     const saved = recallVoucher(store, slug);
@@ -211,30 +214,47 @@ function PortalPage() {
         }
 
         setAutoReconnectStatus("reconnecting");
-        const response = await fetch(`/api/public/portal/${slug}/voucher`, {
+        const receiptResponse = await fetch(`/api/public/portal/${slug}/reconnect`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
-            code: saved.code,
+            mpesaCode: saved.code,
             mac,
             routerId: params.routerId ?? undefined,
           }),
         });
-        const result = await response.json();
-        if (
-          !response.ok ||
-          typeof result.code !== "string" ||
-          !/^[A-Za-z0-9._@-]{1,64}$/.test(result.code)
-        )
-          throw new Error(result.error ?? "Saved Wi-Fi session is unavailable.");
+        const receipt = await receiptResponse.json();
+        if (!receiptResponse.ok)
+          throw new Error(receipt.error ?? "Saved Wi-Fi session is unavailable.");
+        let accessCode =
+          receipt.active && typeof receipt.access_code === "string" ? receipt.access_code : null;
+        if (!accessCode) {
+          const response = await fetch(`/api/public/portal/${slug}/voucher`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              code: saved.code,
+              mac,
+              routerId: params.routerId ?? undefined,
+            }),
+          });
+          const result = await response.json();
+          if (
+            !response.ok ||
+            typeof result.code !== "string" ||
+            !/^[A-Za-z0-9._@-]{1,64}$/.test(result.code)
+          )
+            throw new Error(result.error ?? "Saved Wi-Fi session is unavailable.");
+          accessCode = result.code;
+        }
         if (cancelled) return;
         const target = buildHotspotLoginRedirect(
           query.get("login"),
-          result.code,
+          accessCode,
           params.destination,
         );
         if (!target) throw new Error("Wi-Fi login link is unavailable.");
-        rememberVoucher(store, result.code, slug);
+        rememberVoucher(store, accessCode, slug);
         window.location.replace(target);
       } catch {
         if (!cancelled) setAutoReconnectStatus("unavailable");
@@ -299,7 +319,8 @@ function PortalPage() {
         logoUrl={data.portal?.logo_url ?? data.tenant.logo_url}
         backgroundUrl={data.portal?.background_url}
         welcomeText={
-          data.portal?.welcome_text ?? "Connect to Wi-Fi — buy, reconnect, or redeem a voucher."
+          data.portal?.welcome_text ??
+          "Connect to Wi-Fi — buy with M-Pesa, reconnect with your transaction code, or use an existing voucher."
         }
         accent={primary}
       />
@@ -402,7 +423,8 @@ function PortalPage() {
                     "No active session found. Pick an option to connect."}
                   {autoReconnectStatus === "unavailable" &&
                     "We couldn’t verify your session. Try Reconnect or contact support."}
-                  {!autoReconnectStatus && "Buy a plan or use an existing voucher to connect."}
+                  {!autoReconnectStatus &&
+                    "Buy a plan with M-Pesa, reconnect with your transaction code, or use an existing voucher."}
                 </div>
                 <div className="rounded-xl bg-muted/50 px-3 py-2.5 text-sm">
                   <span className="text-muted-foreground">This device</span>
@@ -421,7 +443,7 @@ function PortalPage() {
                   <ol className="mt-3 space-y-2 border-t pt-3 text-sm text-muted-foreground">
                     <li>1. Connect to this Wi-Fi and open the sign-in page.</li>
                     <li>
-                      2. Buy a plan, enter a voucher, or use Reconnect with your M-Pesa receipt.
+                      2. Buy a plan, enter your M-Pesa transaction code, or use an existing voucher.
                     </li>
                     <li>
                       3. If disconnected, reopen this page. We’ll check your session and try to
@@ -494,9 +516,9 @@ function PortalPage() {
                   >
                     <Ticket className="h-4 w-4 shrink-0" aria-hidden="true" />
                     <span className="min-w-0">
-                      <span className="block font-semibold">Use voucher</span>
+                      <span className="block font-semibold">Access code</span>
                       <span className="block text-xs font-normal text-muted-foreground">
-                        Enter code
+                        M-Pesa receipt or old voucher
                       </span>
                     </span>
                   </TabsTrigger>
@@ -921,7 +943,9 @@ function PaymentWaiting({
   onChangePhone?: () => void;
 }) {
   const [status, setStatus] = useState<string>("pending");
-  const [voucher, setVoucher] = useState<string | null>(null);
+  const [accessCode, setAccessCode] = useState<string | null>(null);
+  const [receiptCode, setReceiptCode] = useState(false);
+  const [receiptPending, setReceiptPending] = useState(false);
   const [autoConnecting, setAutoConnecting] = useState(false);
   const [omadaAuthorization, setOmadaAuthorization] = useState<
     "not_required" | "pending" | "processing" | "authorized" | "failed"
@@ -943,7 +967,11 @@ function PaymentWaiting({
           const json = await res.json();
           if (!active) return;
           setStatus(json.status);
-          if (json.voucher_code) setVoucher(json.voucher_code);
+          setReceiptPending(json.receipt_pending === true);
+          if (json.mpesa_receipt || json.voucher_code) {
+            setAccessCode(json.mpesa_receipt ?? json.voucher_code);
+            setReceiptCode(Boolean(json.mpesa_receipt));
+          }
           const authorization = json.omadaAuthorization;
           if (
             authorization &&
@@ -965,10 +993,13 @@ function PaymentWaiting({
           if (
             json.status === "failed" ||
             (json.status === "success" &&
-              (!omadaPortal ||
-                ["authorized", "failed", "not_required"].includes(
-                  authorization?.status ?? "not_required",
-                )))
+              (tv ||
+                !!pppoeUsername ||
+                (omadaPortal &&
+                  ["authorized", "failed", "not_required"].includes(
+                    authorization?.status ?? "not_required",
+                  )) ||
+                Boolean(json.mpesa_receipt || json.voucher_code)))
           )
             return;
         }
@@ -984,7 +1015,7 @@ function PaymentWaiting({
       if (timer !== undefined) window.clearTimeout(timer);
       controller?.abort();
     };
-  }, [paymentId, slug, omadaPortal]);
+  }, [paymentId, slug, omadaPortal, tv, pppoeUsername]);
 
   useEffect(() => {
     if (omadaPortal) {
@@ -998,20 +1029,54 @@ function PaymentWaiting({
       }
       return;
     }
-    if (tv || status !== "success" || !voucher || autoConnectAttempted.current) return;
+    if (tv || status !== "success" || !accessCode || autoConnectAttempted.current) return;
     const store = sessionStore();
     const params = routerParams(window.location.search, store, slug);
-    const target = buildHotspotLoginRedirect(
-      params.login || "http://10.5.50.1/login",
-      voucher,
-      postLoginUrl || params.destination,
-    );
-    if (!target) return;
+    if (receiptCode && !params.mac) return;
     autoConnectAttempted.current = true;
     setAutoConnecting(true);
-    rememberVoucher(store, voucher, slug);
-    window.location.assign(target);
-  }, [status, tv, voucher, postLoginUrl, slug, omadaPortal, omadaAuthorization, omadaRedirectUrl]);
+    void (async () => {
+      try {
+        let code = accessCode;
+        if (receiptCode) {
+          const response = await fetch(`/api/public/portal/${slug}/reconnect`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              mpesaCode: accessCode,
+              mac: params.mac ?? undefined,
+              routerId: params.routerId ?? undefined,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error ?? "Could not verify the M-Pesa code.");
+          if (result.active && typeof result.access_code === "string") code = result.access_code;
+          else throw new Error(result.reason ?? "Could not secure this device for Wi-Fi access.");
+        }
+        const target = buildHotspotLoginRedirect(
+          params.login || "http://10.5.50.1/login",
+          code,
+          postLoginUrl || params.destination,
+        );
+        if (!target) throw new Error("The hotspot login address is unavailable.");
+        rememberVoucher(store, code, slug);
+        window.location.assign(target);
+      } catch (error) {
+        setAutoConnecting(false);
+        toast.error(error instanceof Error ? error.message : "Could not connect to Wi-Fi.");
+      }
+    })();
+  }, [
+    status,
+    tv,
+    accessCode,
+    receiptCode,
+    postLoginUrl,
+    slug,
+    omadaPortal,
+    omadaAuthorization,
+    omadaRedirectUrl,
+  ]);
 
   if (status === "success" && omadaPortal && omadaAuthorization !== "authorized") {
     return (
@@ -1085,7 +1150,9 @@ function PaymentWaiting({
         <p className="mt-1 text-sm text-muted-foreground">
           {autoConnecting
             ? "Connecting you to Wi-Fi…"
-            : "Your voucher is ready. Use it on the Wi-Fi login page."}
+            : accessCode
+              ? "Your M-Pesa transaction code is your Wi-Fi access code."
+              : "Payment confirmed. Waiting for the M-Pesa receipt code…"}
         </p>
         {tvIncluded && (
           <p className="mt-2 text-sm text-muted-foreground">
@@ -1093,27 +1160,54 @@ function PaymentWaiting({
             provided.
           </p>
         )}
-        {voucher && (
+        {accessCode && (
           <>
             <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-lg tracking-widest">
-              {voucher}
+              {accessCode}
             </p>
-            <VoucherCopyButton code={voucher} />
+            <AccessCodeCopyButton code={accessCode} />
             <Button
               className="pt-btn mt-4 w-full"
               style={{ backgroundColor: primary }}
               onClick={() => {
                 const store = sessionStore();
                 const params = routerParams(window.location.search, store, slug);
-                const target = buildHotspotLoginRedirect(
-                  params.login || "http://10.5.50.1/login",
-                  voucher,
-                  postLoginUrl || params.destination,
-                );
-                if (target) {
-                  rememberVoucher(store, voucher, slug);
-                  window.location.assign(target);
-                }
+                setAutoConnecting(true);
+                void (async () => {
+                  try {
+                    let code = accessCode;
+                    if (receiptCode) {
+                      const response = await fetch(`/api/public/portal/${slug}/reconnect`, {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({
+                          mpesaCode: accessCode,
+                          mac: params.mac ?? undefined,
+                          routerId: params.routerId ?? undefined,
+                        }),
+                      });
+                      const result = await response.json();
+                      if (!response.ok)
+                        throw new Error(result.error ?? "Could not verify the M-Pesa code.");
+                      if (result.active && typeof result.access_code === "string")
+                        code = result.access_code;
+                      else throw new Error(result.reason ?? "Could not secure this device.");
+                    }
+                    const target = buildHotspotLoginRedirect(
+                      params.login || "http://10.5.50.1/login",
+                      code,
+                      postLoginUrl || params.destination,
+                    );
+                    if (!target) throw new Error("The hotspot login address is unavailable.");
+                    rememberVoucher(store, code, slug);
+                    window.location.assign(target);
+                  } catch (error) {
+                    setAutoConnecting(false);
+                    toast.error(
+                      error instanceof Error ? error.message : "Could not connect to Wi-Fi.",
+                    );
+                  }
+                })();
               }}
             >
               Connect to Wi-Fi now
@@ -1160,8 +1254,9 @@ function PaymentWaiting({
       <Loader2 className="mx-auto h-8 w-8 animate-spin" style={{ color: primary }} />
       <p className="mt-3 font-medium">Waiting for M-Pesa…</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Approve the prompt on your phone. We’ll keep checking until M-Pesa confirms payment or
-        reports the request cancelled or failed.
+        {receiptPending
+          ? "M-Pesa confirms the payment. We’re waiting for the verified transaction code before enabling Wi-Fi access."
+          : "Approve the prompt on your phone. We’ll keep checking until M-Pesa confirms payment or reports the request cancelled or failed."}
       </p>
     </div>
   );
@@ -1376,7 +1471,7 @@ interface ReconnectResult {
   package?: { name: string; duration_value: number | null; duration_unit: string | null } | null;
   expires_at?: string;
   remaining_minutes?: number;
-  voucher_code?: string | null;
+  access_code?: string | null;
   mpesa_receipt?: string | null;
 }
 
@@ -1389,20 +1484,34 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
   async function go() {
     setBusy(true);
     try {
+      const store = sessionStore();
+      const params = routerParams(window.location.search, store, slug);
       const res = await fetch(`/api/public/portal/${slug}/reconnect`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           phone: phone || undefined,
           mpesaCode: code,
-          routerId:
-            routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,
+          routerId: params.routerId ?? undefined,
+          mac: params.mac ?? undefined,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setResult(json);
       if (!json.active) toast.error(json.reason ?? "No active package");
+      else if (typeof json.access_code === "string") {
+        if (params.login) {
+          const target = buildHotspotLoginRedirect(
+            params.login,
+            json.access_code,
+            params.destination,
+          );
+          if (!target) throw new Error("The hotspot login address is unavailable.");
+          rememberVoucher(store, json.access_code, slug);
+          window.location.assign(target);
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -1414,19 +1523,24 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
-        <h2 className="mt-3 text-lg font-semibold">You're online</h2>
+        <h2 className="mt-3 text-lg font-semibold">M-Pesa transaction verified</h2>
         {result.package && <p className="mt-1 text-sm">{result.package.name}</p>}
         <p className="mt-1 text-xs text-muted-foreground">
           Expires {result.expires_at ? new Date(result.expires_at).toLocaleString() : "—"}
           {typeof result.remaining_minutes === "number" &&
             ` · ${result.remaining_minutes} min left`}
         </p>
-        {result.voucher_code && (
+        {!routerParams(window.location.search, sessionStore(), slug).login && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Connect to the hotspot and enter this transaction code on its sign-in page.
+          </p>
+        )}
+        {result.access_code && (
           <>
             <p className="mt-3 inline-block rounded-md bg-muted px-4 py-2 font-mono text-sm tracking-widest">
-              {result.voucher_code}
+              {result.access_code}
             </p>
-            <VoucherCopyButton code={result.voucher_code} />
+            <AccessCodeCopyButton code={result.access_code} />
           </>
         )}
       </div>
@@ -1451,7 +1565,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
         />
       </div>
       <div>
-        <Label htmlFor="rcode">M-Pesa message or transaction code</Label>
+        <Label htmlFor="rcode">M-Pesa transaction code</Label>
         <Textarea
           id="rcode"
           autoCapitalize="characters"
@@ -1554,9 +1668,8 @@ function VoucherFlow({
   );
   const [busy, setBusy] = useState(false);
 
-  // The router sent the customer back because it refused the login. That is expected for a minute
-  // or two after redeeming: the router only learns about the voucher on its next sync. Keep trying
-  // the router login (the voucher is already redeemed) until it is accepted, then give up politely.
+  // The router sent the customer back because it refused the login. Retry the saved code while the
+  // next router sync installs it, then give up politely.
   useEffect(() => {
     if (!routerLoginFailed(window.location.search)) return;
     const store = sessionStore();
@@ -1601,24 +1714,41 @@ function VoucherFlow({
       // The router's login page sends the customer here with ?mac=…&ip=…&login=<hotspot login URL>.
       const store = sessionStore();
       const params = routerParams(window.location.search, store, slug);
-      const res = await fetch(`/api/public/portal/${slug}/voucher`, {
+      const receiptResponse = await fetch(`/api/public/portal/${slug}/reconnect`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          code,
-          mac: params.mac || undefined,
+          mpesaCode: code,
+          mac: params.mac ?? undefined,
           routerId: params.routerId ?? undefined,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed");
-      toast.success(json.resumed ? "Voucher found — reconnecting you" : "Voucher redeemed");
-      const redeemed: string = json.code ?? code;
-      rememberVoucher(store, redeemed, slug);
+      const receipt = await receiptResponse.json();
+      if (!receiptResponse.ok) throw new Error(receipt.error ?? "Failed");
+      let accessCode =
+        receipt.active && typeof receipt.access_code === "string" ? receipt.access_code : null;
+      if (!accessCode) {
+        const res = await fetch(`/api/public/portal/${slug}/voucher`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            code,
+            mac: params.mac || undefined,
+            routerId: params.routerId ?? undefined,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "No active M-Pesa purchase or voucher found.");
+        accessCode = json.code ?? code;
+        toast.success(json.resumed ? "Voucher found — reconnecting you" : "Voucher redeemed");
+      } else {
+        toast.success("M-Pesa transaction verified — reconnecting you");
+      }
+      rememberVoucher(store, accessCode, slug);
       // Hand the browser to the router so the device is actually logged in.
       const target = buildHotspotLoginRedirect(
         params.login || "http://10.5.50.1/login",
-        redeemed,
+        accessCode,
         postLoginUrl || params.destination,
       );
       if (target) {
@@ -1682,13 +1812,13 @@ function VoucherFlow({
   }
   return (
     <div>
-      <Label htmlFor="vcode">Voucher code</Label>
+      <Label htmlFor="vcode">M-Pesa receipt or existing voucher code</Label>
       <Input
         id="vcode"
         autoCapitalize="characters"
         value={code}
         onChange={(e) => setCode(e.target.value.toUpperCase())}
-        placeholder="ABCD1234"
+        placeholder="Transaction code or voucher"
         className="mt-1 font-mono tracking-widest"
       />
       <Button
@@ -1697,7 +1827,7 @@ function VoucherFlow({
         disabled={!code || busy}
         onClick={redeem}
       >
-        {busy ? "Checking…" : "Redeem voucher"}
+        {busy ? "Checking…" : "Connect"}
       </Button>
     </div>
   );

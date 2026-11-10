@@ -24,6 +24,11 @@ export const TETHER_LIST = "netgrid-tether";
 export const BLOCK_COMMENT = "netgrid-block";
 export const MAX_DEVICES_PER_REPORT = 300;
 export const MAX_DEVICE_LIMIT = 10;
+export const HOTSPOT_PACKAGE_KINDS = ["hotspot", "voucher", "hotspot_tv"] as const;
+
+export function isHotspotPackageKind(kind: string): boolean {
+  return (HOTSPOT_PACKAGE_KINDS as readonly string[]).includes(kind);
+}
 
 /** packages.device_limit (default 1). Missing/invalid values fall back to 1; capped at 10. */
 export function deviceLimitOf(pkg: { device_limit: number | null } | null | undefined): number {
@@ -210,7 +215,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   return lines;
 }
 
-/** Adds missing voucher users without rebuilding the full list on the fast refresh schedule. */
+/** Refreshes managed hotspot users without rebuilding the full list on the fast schedule. */
 export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
   const limits = [...new Set(valid.map((v) => v.limit))].sort((a, b) => a - b);
@@ -232,7 +237,7 @@ export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string
         : "";
     const user = `name="${voucher.code}" password="${voucher.code}" profile=${profile}${mac} comment="netgrid-voucher"`;
     lines.push(
-      `:if ([:len [find where name="${voucher.code}"]] = 0) do={ :do { add ${user} server=netgrid-hs } on-error={ :do { add ${user} } on-error={} } }`,
+      `:if ([:len [find where name="${voucher.code}" comment="netgrid-voucher"]] > 0) do={ :do { set [find where name="${voucher.code}" comment="netgrid-voucher"] server=netgrid-hs profile=${profile}${mac} } on-error={} } else={ :do { add ${user} server=netgrid-hs } on-error={ :do { add ${user} } on-error={} } }`,
     );
   }
   lines.push(...buildHotspotMacAuthLines(valid));

@@ -110,19 +110,13 @@ describe("settlePayment for a smart TV", () => {
     expect(h.db.tables.payments[0].status).toBe("pending");
   });
 
-  it("activates a phone voucher and TV with the same expiry for a combined package", async () => {
+  it("uses the payment receipt for hotspot access and activates the TV with the same expiry", async () => {
     seed("expired", null, null, "hotspot_tv");
     await settle();
 
-    const voucher = h.db.tables.vouchers[0];
     const payment = h.db.tables.payments[0];
-    expect(voucher).toMatchObject({
-      tenant_id: TENANT,
-      package_id: PKG,
-      payment_id: PAY,
-      code: payment.voucher_code,
-      expires_at: payment.expires_at,
-    });
+    expect(h.db.tables.vouchers).toHaveLength(0);
+    expect(payment).toMatchObject({ mpesa_receipt: "RCP123", voucher_code: null });
     expect(h.db.tables.tv_devices[0]).toMatchObject({
       status: "active",
       package_id: PKG,
@@ -131,17 +125,15 @@ describe("settlePayment for a smart TV", () => {
     expect(payment.status).toBe("success");
   });
 
-  it("reuses the existing combined voucher and expiry on a settlement retry", async () => {
+  it("reuses the combined expiry on a settlement retry", async () => {
     seed("expired", null, null, "hotspot_tv");
     await settle();
     const firstExpiry = h.db.tables.payments[0].expires_at;
-    const firstVoucher = h.db.tables.payments[0].voucher_code;
     h.db.tables.payments[0].status = "pending";
 
     await settle(firstExpiry as string);
 
-    expect(h.db.tables.vouchers).toHaveLength(1);
-    expect(h.db.tables.vouchers[0].code).toBe(firstVoucher);
+    expect(h.db.tables.vouchers).toHaveLength(0);
     expect(h.db.tables.payments[0].expires_at).toBe(firstExpiry);
     expect(h.db.tables.tv_devices[0].expires_at).toBe(firstExpiry);
   });

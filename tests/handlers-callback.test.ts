@@ -86,23 +86,16 @@ afterEach(() => {
 const payment = () => h.db.rows("payments").find((row) => row.id === PAY)!;
 
 describe("tenant Daraja callback", () => {
-  it("settles a validated successful callback without waiting for a second STK query", async () => {
+  it("settles a validated callback and uses its M-Pesa receipt instead of creating a voucher", async () => {
     const response = await send();
     expect(response.status).toBe(200);
     expect(darajaMock.query).not.toHaveBeenCalled();
 
-    const vouchers = h.db.rows("vouchers");
-    expect(vouchers).toHaveLength(1);
-    expect(vouchers[0]).toMatchObject({
-      tenant_id: TENANT,
-      package_id: HOTSPOT_PKG,
-      payment_id: PAY,
-    });
-    expect(vouchers[0].code).toMatch(/^[A-Z2-9]{10}$/);
+    expect(h.db.rows("vouchers")).toHaveLength(0);
     expect(payment()).toMatchObject({
       status: "success",
       mpesa_receipt: "DAR1234567",
-      voucher_code: vouchers[0].code,
+      voucher_code: null,
     });
     const hours = (new Date(String(payment().expires_at)).getTime() - Date.now()) / 3_600_000;
     expect(hours).toBeGreaterThan(1.9);
@@ -176,13 +169,13 @@ describe("tenant Daraja callback", () => {
     await send();
     const response = await send();
     expect(await json(response)).toMatchObject({ note: "Already processed" });
-    expect(h.db.rows("vouchers")).toHaveLength(1);
+    expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
-  it("issues exactly one voucher for concurrent duplicate callbacks", async () => {
+  it("settles concurrent duplicate callbacks once without creating vouchers", async () => {
     const responses = await Promise.all([send(), send(), send(), send()]);
     expect(responses.every((response) => response.status === 200)).toBe(true);
-    expect(h.db.rows("vouchers")).toHaveLength(1);
+    expect(h.db.rows("vouchers")).toHaveLength(0);
     expect(payment().status).toBe("success");
   });
 
@@ -190,7 +183,7 @@ describe("tenant Daraja callback", () => {
     payment().status = "failed";
     await send();
     expect(payment().status).toBe("success");
-    expect(h.db.rows("vouchers")).toHaveLength(1);
+    expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
   it("backfills the receipt from a late callback without issuing another voucher", async () => {
@@ -218,16 +211,16 @@ describe("tenant Daraja callback", () => {
     expect(darajaMock.query).not.toHaveBeenCalled();
   });
 
-  it("releases the claim after voucher creation fails so a callback retry can finish", async () => {
+  it("releases the claim after package lookup fails so a callback retry can finish", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    h.db.failNext("vouchers", "insert", "disk full");
+    h.db.failNext("packages", "select", "database unavailable");
     const first = await send();
     expect(first.status).toBe(500);
     expect(payment().status).toBe("pending");
 
     expect((await send()).status).toBe(200);
     expect(payment().status).toBe("success");
-    expect(h.db.rows("vouchers")).toHaveLength(1);
+    expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
   it("renews a PPPoE account without issuing a voucher", async () => {

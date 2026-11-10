@@ -267,13 +267,16 @@ describe("buildHotspotUserLines", () => {
 });
 
 describe("buildHotspotVoucherRefreshLines", () => {
-  it("adds only missing vouchers and does not rebuild the managed user list", () => {
+  it("refreshes managed users without rebuilding the list or interrupting active sessions", () => {
     const lines = buildHotspotVoucherRefreshLines([
       { code: "FASTCODE01", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 },
       { code: 'bad"code', bound_mac: null, limit: 1 },
     ]);
     const script = lines.join("\n");
     expect(script).toContain('find where name="FASTCODE01"');
+    expect(script).toContain(
+      'set [find where name="FASTCODE01" comment="netgrid-voucher"] server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
+    );
     expect(script).toContain("idle-timeout=none keepalive-timeout=none session-timeout=0s");
     expect(script).toContain("/ip hotspot active");
     expect(script).toContain('[:toarray "FASTCODE01"]');

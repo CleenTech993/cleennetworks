@@ -53,6 +53,44 @@ This page is not automatically intercepted for a disconnected PPPoE line: provid
 portal URL, such as a walled-garden exception or a separate connected device, so the customer can
 open it to renew.
 
+## Hotspot payment codes
+
+New hotspot and phone-plus-TV purchases use the verified M-Pesa receipt as the hotspot username
+and password. A receipt is enabled only after a successful, tenant-scoped payment with an unexpired
+hotspot package; the reconnect endpoint binds one-device packages to the requesting MAC. Router
+sync imports only successful, unexpired payment receipts. A successful STK status query without the
+receipt does not grant access: the portal keeps waiting for the authenticated callback that carries
+the receipt. Existing voucher redemption and router sync remain available for unexpired vouchers,
+but voucher generation is disabled.
+
+## RADIUS deployment plan and current stability status
+
+The application does **not** currently run or configure a RADIUS server. MikroTik hotspot accounts
+are managed locally by the RouterOS sync agent. The Omada captive-portal integration is also
+separate from RADIUS/RadSec. Receipt-code authentication does not install RADIUS.
+
+RADIUS should be a separate infrastructure project, not an untested change on live routers:
+
+1. Inventory router models and RouterOS versions, access sites, peak concurrent sessions, and
+   required availability. Decide the hosting location, data-retention policy, and recovery target.
+2. Select a RADIUS implementation and deploy it privately (for example, FreeRADIUS with a
+   supported SQL-backed entitlement/accounting store). Provide a private routed or VPN path from
+   routers; do not expose unauthenticated RADIUS UDP ports to the public internet.
+3. Configure each router as a scoped NAS with unique, protected shared secrets. Enable accounting
+   and define how a confirmed payment receipt, expiry, device limit, and existing voucher are
+   represented and revoked. Verify timeout and temporary-server-outage behavior before choosing a
+   local fallback.
+4. Pilot one non-critical router, compare authentication and accounting records with the current
+   local-user path, test expiry/revocation and server failover, then roll out gradually with a
+   tested rollback to local authentication.
+
+The network-disconnect reports are not yet diagnosed or proven fixed by this change. Router
+heartbeats provide periodic latency, loss, jitter, DNS, CPU, and memory signals; correlate those
+with the router's active-session state and RouterOS logs at the time of a reported drop. A RADIUS
+deployment can centralize authentication and accounting, but does not by itself repair WAN, Wi-Fi,
+power, or router stability. Choose hosting and availability requirements before provisioning
+servers or changing production router authentication.
+
 ## Omada RadSec
 
 RadSec carries RADIUS traffic over TLS and is separate from the Omada external captive-portal API

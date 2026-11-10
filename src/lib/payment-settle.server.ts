@@ -1,8 +1,8 @@
 // Shared "this payment is really paid" step used by every gateway callback: claim the payment
-// atomically, issue the voucher, mark it successful.
+// atomically, apply the entitlement, and mark it successful.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Json } from "@/integrations/supabase/types";
-import { expiryFrom, randomVoucher } from "@/lib/mpesa.server";
+import { expiryFrom } from "@/lib/mpesa.server";
 import { renewedExpiry } from "@/lib/pppoe";
 
 export interface SettleInput {
@@ -25,8 +25,8 @@ export interface SettleInput {
 
 /**
  * Only the request that flips pending|failed -> processing proceeds, so concurrent or replayed
- * callbacks cannot each issue a voucher. On any error the claim is released and the error rethrown
- * so the gateway's retry can try again instead of losing the payment.
+ * callbacks cannot each apply the entitlement. On any error the claim is released and the error
+ * rethrown so the gateway's retry can try again instead of losing the payment.
  */
 export async function settlePayment(i: SettleInput): Promise<"settled" | "already"> {
   const { payment } = i;
@@ -38,10 +38,21 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
     .select("id")
     .maybeSingle();
   if (claimError) throw claimError;
-  if (!claimed) return "already";
+  if (!claimed) {
+    if (i.receipt) {
+      const { error: receiptError } = await supabaseAdmin
+        .from("payments")
+        .update({ mpesa_receipt: i.receipt })
+        .eq("id", payment.id)
+        .eq("status", "success")
+        .is("mpesa_receipt", null);
+      if (receiptError) throw receiptError;
+    }
+    return "already";
+  }
 
   try {
-    let voucherCode: string | null = null;
+    const voucherCode: string | null = null;
     let expiresAt: string | null = null;
     if (payment.package_id) {
       const { data: pkg, error: packageError } = await supabaseAdmin
@@ -68,47 +79,15 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
         if (deviceError) throw deviceError;
         if (!dev) throw new Error("TV device not found");
 
-        const { data: savedPayment, error: paymentLookupError } = await supabaseAdmin
-          .from("payments")
-          .select("voucher_code,expires_at")
-          .eq("id", payment.id)
-          .maybeSingle();
-        if (paymentLookupError) throw paymentLookupError;
-        expiresAt =
-          savedPayment?.expires_at ??
-          payment.expires_at ??
-          expiryFrom(pkg.duration_value, pkg.duration_unit);
+        expiresAt = payment.expires_at ?? expiryFrom(pkg.duration_value, pkg.duration_unit);
         const { error: expiryError } = await supabaseAdmin
           .from("payments")
           .update({ expires_at: expiresAt })
           .eq("id", payment.id);
         if (expiryError) throw expiryError;
 
-        const { data: existingVoucher, error: voucherLookupError } = await supabaseAdmin
-          .from("vouchers")
-          .select("code")
-          .eq("payment_id", payment.id)
-          .maybeSingle();
-        if (voucherLookupError) throw voucherLookupError;
-        voucherCode = existingVoucher?.code ?? savedPayment?.voucher_code ?? randomVoucher();
-        if (!existingVoucher) {
-          const { error: voucherError } = await supabaseAdmin.from("vouchers").insert({
-            tenant_id: payment.tenant_id,
-            package_id: payment.package_id,
-            code: voucherCode,
-            payment_id: payment.id,
-            expires_at: expiresAt,
-          });
-          if (voucherError) throw voucherError;
-        }
-        const { error: voucherSaveError } = await supabaseAdmin
-          .from("payments")
-          .update({ voucher_code: voucherCode })
-          .eq("id", payment.id);
-        if (voucherSaveError) throw voucherSaveError;
-
         // A combined purchase uses one fixed expiry for both entitlements; it does not extend an
-        // earlier TV expiry independently of the phone voucher.
+        // earlier TV expiry independently of hotspot access.
         if (dev.status !== "blocked") {
           const { error: tvUpdateError } = await supabaseAdmin
             .from("tv_devices")
@@ -190,15 +169,7 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
           .eq("tenant_id", payment.tenant_id);
         if (customerUpdateError) throw customerUpdateError;
       } else if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
-        voucherCode = randomVoucher();
-        const { error: vErr } = await supabaseAdmin.from("vouchers").insert({
-          tenant_id: payment.tenant_id,
-          package_id: payment.package_id,
-          code: voucherCode,
-          payment_id: payment.id,
-          expires_at: expiresAt,
-        });
-        if (vErr) throw vErr;
+        // The verified M-Pesa receipt is the hotspot credential; no voucher is minted.
       }
     }
 

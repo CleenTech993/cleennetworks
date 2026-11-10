@@ -17,6 +17,7 @@ import {
   buildHotspotUserLines,
   buildTetherLines,
   deviceLimitOf,
+  isHotspotPackageKind,
   type SyncVoucher,
 } from "@/lib/devices";
 import { authenticateRouter } from "@/lib/router-auth.server";
@@ -102,14 +103,28 @@ async function voucherRefreshResponse(router: {
     package_id: string | null;
   };
   const voucherRows = voucherQuery.data as unknown as RefreshVoucherRow[];
+  const { data: receiptPayments, error: receiptPaymentsError } = await supabaseAdmin
+    .from("payments")
+    .select("mpesa_receipt,bound_mac,package_id")
+    .eq("tenant_id", router.tenant_id)
+    .eq("status", "success")
+    .not("mpesa_receipt", "is", null)
+    .gt("expires_at", now);
+  if (receiptPaymentsError || !receiptPayments) {
+    console.error("sync: fast payment receipt query failed", receiptPaymentsError);
+    return new Response("# voucher sync unavailable\n", { status: 503 });
+  }
 
   const packageIds = [
-    ...new Set(voucherRows.flatMap((voucher) => (voucher.package_id ? [voucher.package_id] : []))),
+    ...new Set([
+      ...voucherRows.flatMap((voucher) => (voucher.package_id ? [voucher.package_id] : [])),
+      ...receiptPayments.flatMap((payment) => (payment.package_id ? [payment.package_id] : [])),
+    ]),
   ];
   const packages = packageIds.length
     ? await supabaseAdmin
         .from("packages")
-        .select("id,device_limit")
+        .select("id,device_limit,kind")
         .eq("tenant_id", router.tenant_id)
         .in("id", packageIds)
     : { data: [], error: null };
@@ -118,15 +133,44 @@ async function voucherRefreshResponse(router: {
     return new Response("# voucher sync unavailable\n", { status: 503 });
   }
 
-  const limitByPackage = new Map(packages.data.map((pkg) => [pkg.id, deviceLimitOf(pkg)]));
-  const vouchers: SyncVoucher[] = voucherRows.map((voucher) => ({
-    code: voucher.code,
-    bound_mac: "bound_mac" in voucher ? (voucher.bound_mac ?? null) : null,
-    limit: voucher.package_id ? (limitByPackage.get(voucher.package_id) ?? 1) : 1,
-  }));
-  return new Response(buildHotspotVoucherRefreshLines(vouchers).join("\n"), {
-    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
-  });
+  const packageById = new Map(packages.data.map((pkg) => [pkg.id, pkg]));
+  const vouchers: SyncVoucher[] = [
+    ...voucherRows.map((voucher) => ({
+      code: voucher.code,
+      bound_mac: "bound_mac" in voucher ? (voucher.bound_mac ?? null) : null,
+      limit: voucher.package_id ? (limitByPackage.get(voucher.package_id) ?? 1) : 1,
+    })),
+    ...receiptPayments.flatMap((payment) =>
+      payment.mpesa_receipt &&
+      payment.package_id &&
+      isHotspotPackageKind(packageById.get(payment.package_id)?.kind ?? "")
+        ? [
+            {
+              code: payment.mpesa_receipt,
+              bound_mac: payment.bound_mac,
+              limit: deviceLimitOf(packageById.get(payment.package_id)),
+            },
+          ]
+        : [],
+    ),
+  ];
+  const { data: tvs, error: tvError } = await supabaseAdmin
+    .from("tv_devices")
+    .select("mac_address,status,expires_at")
+    .eq("tenant_id", router.tenant_id)
+    .eq("status", "active")
+    .gt("expires_at", now);
+  if (tvError || !tvs) {
+    console.error("voucher sync: TV access could not be read", tvError);
+    return new Response("# voucher sync unavailable\n", { status: 503 });
+  }
+
+  return new Response(
+    [...buildHotspotVoucherRefreshLines(vouchers), ...buildTvSyncLines(tvs)].join("\n"),
+    {
+      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+    },
+  );
 }
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
@@ -168,9 +212,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           { data: tenant, error: tenantError },
           { data: customers, error: customersError },
           { data: vouchers, error: vouchersError },
+          { data: receiptPayments, error: receiptPaymentsError },
           { data: packages, error: packagesError },
           { data: tvs, error: tvsError },
-          { data: hotspotPkgs },
+          { data: hotspotPkgs, error: hotspotPackagesError },
           { data: blocked, error: blockedError },
           { data: routerRow, error: routerRowError },
           { data: monitored, error: monitoredError },
@@ -202,6 +247,13 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
                 : ["unused", "used", "active"],
             )
             .or(`expires_at.is.null,expires_at.gt.${now}`),
+          supabaseAdmin
+            .from("payments")
+            .select("mpesa_receipt,bound_mac,package_id")
+            .eq("tenant_id", router.tenant_id)
+            .eq("status", "success")
+            .not("mpesa_receipt", "is", null)
+            .gt("expires_at", now),
           supabaseAdmin
             .from("packages")
             .select(
@@ -357,19 +409,47 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
 
         if (serviceRestricted) {
           lines.push(...buildHotspotSuspendLines());
-        } else if (voucherRows) {
+        } else if (
+          voucherRows &&
+          !receiptPaymentsError &&
+          receiptPayments &&
+          !hotspotPackagesError &&
+          hotspotPkgs
+        ) {
           const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
+          const hotspotPackageIds = new Set((hotspotPkgs ?? []).map((pkg) => pkg.id));
           const visibleVouchers = maintenance.some((notice) => notice.mode === "block_new")
             ? voucherRows.filter((voucher) => voucher.status !== "unused")
             : voucherRows;
-          const syncVouchers: SyncVoucher[] = visibleVouchers.map((v) => ({
-            code: v.code,
-            bound_mac: v.bound_mac ?? null,
-            limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
-          }));
-          lines.push(...buildHotspotUserLines(syncVouchers));
+          const syncUsers: SyncVoucher[] = [
+            ...visibleVouchers.map((v) => ({
+              code: v.code,
+              bound_mac: v.bound_mac ?? null,
+              limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
+            })),
+            ...receiptPayments.flatMap((payment) =>
+              payment.mpesa_receipt &&
+              payment.package_id &&
+              hotspotPackageIds.has(payment.package_id)
+                ? [
+                    {
+                      code: payment.mpesa_receipt,
+                      bound_mac: payment.bound_mac,
+                      limit: limitByPackage.get(payment.package_id) ?? 1,
+                    },
+                  ]
+                : [],
+            ),
+          ];
+          lines.push(...buildHotspotUserLines(syncUsers));
         } else {
-          lines.push(':log warning "NetGrid: voucher list unavailable, keeping current vouchers"');
+          if (receiptPaymentsError)
+            console.error("sync: payment receipt list unavailable", receiptPaymentsError);
+          if (hotspotPackagesError)
+            console.error("sync: hotspot package list unavailable", hotspotPackagesError);
+          lines.push(
+            ':log warning "NetGrid: hotspot access list unavailable, keeping current users"',
+          );
         }
 
         // Blocked devices

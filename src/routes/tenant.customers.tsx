@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Search, RefreshCw, Copy } from "lucide-react";
+import { Plus, Search, RefreshCw } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,6 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -75,9 +74,6 @@ function Customers() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [form, setForm] = useState(emptyForm);
-  const [reconnect, setReconnect] = useState<Customer | null>(null);
-  const [rcPkg, setRcPkg] = useState("");
-  const [issued, setIssued] = useState<string | null>(null);
 
   const { data: customers, isLoading } = useQuery({
     queryKey: ["customers"],
@@ -164,34 +160,6 @@ function Customers() {
       qc.invalidateQueries({ queryKey: ["customers"] });
       setOpen(false);
       setForm(emptyForm);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const issueVoucher = useMutation({
-    mutationFn: async () => {
-      if (!tenantId || !reconnect) throw new Error("No tenant");
-      const pkg = packages?.find((p) => p.id === rcPkg);
-      if (!pkg) throw new Error("Choose a package");
-      const code = randomCode(8);
-      const expires = addDuration(pkg.duration_value, pkg.duration_unit).toISOString();
-      const { error } = await supabase.from("vouchers").insert({
-        tenant_id: tenantId,
-        package_id: pkg.id,
-        code,
-        status: "unused",
-        expires_at: expires,
-      });
-      if (error) throw error;
-      await supabase
-        .from("customers")
-        .update({ status: "active", package_id: pkg.id, expires_at: expires })
-        .eq("id", reconnect.id);
-      return code;
-    },
-    onSuccess: (code) => {
-      setIssued(code);
-      qc.invalidateQueries({ queryKey: ["customers"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -362,7 +330,6 @@ function Customers() {
                 <th className="px-4 py-2.5 text-left">Status</th>
                 <th className="px-4 py-2.5 text-left">Expires</th>
                 {canSeeEquipment && <th className="px-4 py-2.5 text-left">Equipment</th>}
-                <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody>
@@ -397,19 +364,6 @@ function Customers() {
                       </Button>
                     </td>
                   )}
-                  <td className="px-4 py-2.5 text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setReconnect(c);
-                        setRcPkg(c.package_id ?? "");
-                        setIssued(null);
-                      }}
-                    >
-                      Reconnect
-                    </Button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -424,63 +378,6 @@ function Customers() {
           onClose={() => setEquipmentFor(null)}
         />
       )}
-
-      <Dialog open={!!reconnect} onOpenChange={(o) => !o && setReconnect(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reconnect {reconnect?.full_name}</DialogTitle>
-            <DialogDescription>
-              Issue a voucher code. The customer enters it on the hotspot login page (as username
-              and password) to get back online.
-            </DialogDescription>
-          </DialogHeader>
-          {issued ? (
-            <div className="rounded-lg border bg-muted/40 p-4 text-center">
-              <p className="text-xs text-muted-foreground">Voucher code</p>
-              <p className="my-2 font-mono text-3xl font-bold tracking-widest">{issued}</p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  navigator.clipboard.writeText(issued);
-                  toast.success("Copied");
-                }}
-              >
-                <Copy className="h-4 w-4" /> Copy
-              </Button>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Ready on the router within 2 minutes.
-              </p>
-            </div>
-          ) : (
-            <div>
-              <Label>Package</Label>
-              <Select value={rcPkg} onValueChange={setRcPkg}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select package" />
-                </SelectTrigger>
-                <SelectContent>
-                  {packages?.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} · {p.duration_value} {p.duration_unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <DialogFooter>
-            {!issued && (
-              <Button
-                onClick={() => issueVoucher.mutate()}
-                disabled={issueVoucher.isPending || !rcPkg}
-              >
-                Issue voucher
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

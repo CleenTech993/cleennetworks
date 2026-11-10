@@ -74,22 +74,19 @@ afterEach(() => {
 });
 
 describe("captive portal payment status recovery", () => {
-  it("settles a pending payment when Daraja confirms success despite a missing callback", async () => {
+  it("waits for the callback receipt after Daraja confirms payment", async () => {
     const response = await send();
 
     expect(response.status).toBe(200);
     expect(await json(response)).toMatchObject({
       id: PAYMENT,
-      status: "success",
+      status: "pending",
       mpesa_receipt: null,
+      receipt_pending: true,
     });
     expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
-    expect(h.db.rows("vouchers")).toHaveLength(1);
-    expect(h.db.rows("vouchers")[0]).toMatchObject({
-      tenant_id: TENANT,
-      package_id: PACKAGE,
-      payment_id: PAYMENT,
-    });
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+    expect(h.db.rows("payments")[0].status).toBe("pending");
   });
 
   it("reports the Omada authorization result after confirmed payment", async () => {
@@ -97,11 +94,15 @@ describe("captive portal payment status recovery", () => {
       status: "authorized",
       redirectUrl: "https://example.com/welcome",
     });
+    h.db.seed("omada_authorization_jobs", [
+      { id: "omada-job", payment_id: PAYMENT, tenant_id: TENANT },
+    ]);
 
     const response = await send();
 
     expect(await json(response)).toMatchObject({
       status: "success",
+      mpesa_receipt: null,
       omadaAuthorization: {
         status: "authorized",
         redirectUrl: "https://example.com/welcome",
