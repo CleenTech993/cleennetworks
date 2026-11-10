@@ -31,7 +31,7 @@ const BlockSchema = z.object({ mac: z.string().min(11).max(32), blocked: z.boole
 /** Block / unblock a device on every router of the tenant (applied by the next router sync, within ~2 min). */
 export const setDeviceBlocked = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => BlockSchema.parse(input))
+  .validator((input) => BlockSchema.parse(input))
   .handler(async ({ data, context }): Promise<Ok | Fail> => {
     const tenantId = await tenantOf(context.userId, BLOCK_ROLES);
     if (!tenantId)
@@ -58,7 +58,7 @@ const UnbindSchema = z.object({ code: z.string().min(1).max(64) });
 /** Frees a voucher from its pinned device so the customer can log in from a different one. */
 export const unbindVoucherDevice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => UnbindSchema.parse(input))
+  .validator((input) => UnbindSchema.parse(input))
   .handler(async ({ data, context }): Promise<Ok | Fail> => {
     const tenantId = await tenantOf(context.userId, UNBIND_ROLES);
     if (!tenantId) return { ok: false, error: "You don't have permission to reset devices." };

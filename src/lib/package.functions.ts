@@ -70,7 +70,7 @@ function validateFupSpeeds(input: PackageRateValues, kind: string): string | nul
 
 export const createPackage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: unknown) => PackageSchema.parse(input))
+  .validator((input: unknown) => PackageSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
@@ -95,7 +95,7 @@ export const createPackage = createServerFn({ method: "POST" })
  */
 export const updatePackage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: unknown) => UpdateSchema.parse(input))
+  .validator((input: unknown) => UpdateSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;
@@ -161,7 +161,7 @@ async function archive(id: string, tenantId: string): Promise<boolean> {
  */
 export const deletePackage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: unknown) => DeleteSchema.parse(input))
+  .validator((input: unknown) => DeleteSchema.parse(input))
   .handler(async ({ data, context }): Promise<DeletePackageResult> => {
     const tenantId = await adminTenantOf(context.userId);
     if (!tenantId) return NOT_ADMIN;

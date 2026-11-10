@@ -14,7 +14,7 @@ const StkSchema = z.object({
 
 export const initiateStkPushTenant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => StkSchema.parse(input))
+  .validator((input) => StkSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     // Resolve tenant of the current user

@@ -107,7 +107,7 @@ const FIELD_NAMES = {
 
 export const saveTenantServiceCredentials = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: z.input<typeof SaveSchema>) => SaveSchema.parse(input))
+  .validator((input: z.input<typeof SaveSchema>) => SaveSchema.parse(input))
   .handler(async ({ data, context }) => {
     const tenantId = await tenantAdminId(context.userId);
     const entries: [keyof typeof FIELD_NAMES, string | undefined][] = [
@@ -197,7 +197,7 @@ const ReviewDirectPaymentSchema = z.discriminatedUnion("action", [
 
 export const reviewDirectMpesaTransaction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: z.input<typeof ReviewDirectPaymentSchema>) =>
+  .validator((input: z.input<typeof ReviewDirectPaymentSchema>) =>
     ReviewDirectPaymentSchema.parse(input),
   )
   .handler(async ({ data, context }) => {

@@ -7,7 +7,7 @@ const ResetMfaSchema = z.object({ userId: z.string().uuid() });
 
 export const resetUserMfa = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: z.input<typeof ResetMfaSchema>) => ResetMfaSchema.parse(input))
+  .validator((input: z.input<typeof ResetMfaSchema>) => ResetMfaSchema.parse(input))
   .handler(async ({ data, context }) => {
     if (data.userId === context.userId) {
       throw new Error("You cannot reset your own MFA. Ask another administrator for help.");

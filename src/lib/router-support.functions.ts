@@ -23,7 +23,9 @@ async function tenantAdminId(userId: string): Promise<string> {
 
 export const createRouterSupportSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: { routerId: string }) => z.object({ routerId: z.string().uuid() }).parse(input))
+  .validator((input: { routerId: string }) =>
+    z.object({ routerId: z.string().uuid() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const tenantId = await tenantAdminId(context.userId);
     const { data: router, error: routerError } = await supabaseAdmin
@@ -68,7 +70,9 @@ export const createRouterSupportSession = createServerFn({ method: "POST" })
 
 export const revokeRouterSupportSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: { sessionId: string }) => z.object({ sessionId: z.string().uuid() }).parse(input))
+  .validator((input: { sessionId: string }) =>
+    z.object({ sessionId: z.string().uuid() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
     const tenantId = await tenantAdminId(context.userId);
     const { data: revoked, error } = await supabaseAdmin

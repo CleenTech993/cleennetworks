@@ -36,7 +36,7 @@ const DeleteSchema = z.object({
  */
 export const deleteVouchers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => DeleteSchema.parse(input))
+  .validator((input) => DeleteSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true; deleted: number } | Fail> => {
     const tenantId = await voucherTenantOf(context.userId);
     if (!tenantId)
@@ -65,7 +65,7 @@ const UpdateSchema = z.object({
 
 export const updateVoucher = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input) => UpdateSchema.parse(input))
+  .validator((input) => UpdateSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const tenantId = await voucherTenantOf(context.userId);
     if (!tenantId)

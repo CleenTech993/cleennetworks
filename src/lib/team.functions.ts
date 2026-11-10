@@ -113,7 +113,7 @@ const AddSchema = z.object({
 
 export const addTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: unknown) => AddSchema.parse(input))
+  .validator((input: unknown) => AddSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const input = AddSchema.parse(data);
     const tenantId = await adminTenantOf(context.userId);
@@ -208,7 +208,7 @@ const TemporaryPasswordSchema = z.object({
 
 export const changeTemporaryPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => TemporaryPasswordSchema.parse(input))
+  .validator((input: unknown) => TemporaryPasswordSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const { data: result, error: lookupError } = await supabaseAdmin.auth.admin.getUserById(
       context.userId,
@@ -245,7 +245,7 @@ const RoleSchema = z.object({
 
 export const updateTeamMemberRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: unknown) => RoleSchema.parse(input))
+  .validator((input: unknown) => RoleSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const input = RoleSchema.parse(data);
     const tenantId = await adminTenantOf(context.userId);
@@ -268,7 +268,7 @@ const RemoveSchema = z.object({ userId: z.string().uuid() });
 
 export const removeTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAal2])
-  .inputValidator((input: unknown) => RemoveSchema.parse(input))
+  .validator((input: unknown) => RemoveSchema.parse(input))
   .handler(async ({ data, context }): Promise<{ ok: true } | Fail> => {
     const input = RemoveSchema.parse(data);
     const tenantId = await adminTenantOf(context.userId);
