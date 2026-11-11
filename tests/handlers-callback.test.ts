@@ -89,7 +89,7 @@ describe("tenant Daraja callback", () => {
   it("settles a validated callback and uses its M-Pesa receipt instead of creating a voucher", async () => {
     const response = await send();
     expect(response.status).toBe(200);
-    expect(darajaMock.query).not.toHaveBeenCalled();
+    expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
 
     expect(h.db.rows("vouchers")).toHaveLength(0);
     expect(payment()).toMatchObject({
@@ -120,6 +120,44 @@ describe("tenant Daraja callback", () => {
 
     await send(callbackBody({ phone: 254700000000 }));
     expect(darajaMock.query).not.toHaveBeenCalled();
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
+  it("does not settle a success callback unless Daraja confirms success", async () => {
+    darajaMock.query.mockResolvedValue({
+      resultCode: "1032",
+      resultDescription: "cancelled",
+    });
+
+    const response = await send();
+
+    expect(response.status).toBe(200);
+    expect(payment().status).toBe("failed");
+    expect(payment().mpesa_receipt ?? null).toBeNull();
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
+  it("keeps the payment pending when Daraja reports the transaction is still processing", async () => {
+    darajaMock.query.mockResolvedValue({
+      resultCode: null,
+      resultDescription: "The transaction is being processed",
+    });
+
+    const response = await send();
+
+    expect(response.status).toBe(202);
+    expect(payment().status).toBe("pending");
+    expect(h.db.rows("vouchers")).toHaveLength(0);
+  });
+
+  it("returns a retryable error when Daraja cannot verify a success callback", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    darajaMock.query.mockRejectedValue(new Error("Daraja unavailable"));
+
+    const response = await send();
+
+    expect(response.status).toBe(502);
+    expect(payment().status).toBe("pending");
     expect(h.db.rows("vouchers")).toHaveLength(0);
   });
 
@@ -208,7 +246,7 @@ describe("tenant Daraja callback", () => {
       voucher_code: existingVoucher.code,
     });
     expect(h.db.rows("vouchers")).toHaveLength(1);
-    expect(darajaMock.query).not.toHaveBeenCalled();
+    expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
   });
 
   it("releases the claim after package lookup fails so a callback retry can finish", async () => {

@@ -83,6 +83,28 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
     return Response.json({ ok: true, note: "Payment details did not match" });
   }
 
+  try {
+    const verification = await queryDarajaStkPush(tenantId, checkoutId);
+    if (verification.resultCode !== "0") {
+      if (verification.resultCode !== null && payment.status !== "success") {
+        await markPaymentFailed(payment.id, rawJson);
+      }
+      return Response.json(
+        {
+          ok: true,
+          note:
+            verification.resultCode === null
+              ? "Payment is not yet confirmed"
+              : "Payment was not completed",
+        },
+        { status: verification.resultCode === null ? 202 : 200 },
+      );
+    }
+  } catch (error) {
+    console.error("Daraja callback success verification failed", error);
+    return Response.json({ ok: false, error: "Verification failed" }, { status: 502 });
+  }
+
   if (payment.status === "success" || payment.status === "processing") {
     if (payment.status === "success" && typeof receipt === "string" && receipt) {
       const { error } = await supabaseAdmin

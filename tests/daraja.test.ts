@@ -356,4 +356,23 @@ describe("tenant Daraja STK Push", () => {
       resultCode: "0",
     });
   });
+
+  it("rejects a failed HTTP response even if its body claims the STK query succeeded", async () => {
+    stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "access-token" })
+        : Response.json(
+            {
+              ResponseCode: "0",
+              ResultCode: "0",
+              ResultDesc: "The service request is processed successfully",
+            },
+            { status: 500 },
+          ),
+    );
+
+    await expect(queryDarajaStkPush(TENANT, "ws_CO_123")).rejects.toThrow(
+      "Could not verify the M-Pesa payment.",
+    );
+  });
 });

@@ -84,6 +84,7 @@ SELECT t.allowed('user edits own preferences',    $$UPDATE public.profiles SET p
 SELECT t.allowed('admin inserts router',       $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R2')$$);
 SELECT t.allowed('admin inserts package',      $$INSERT INTO public.packages (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','P2')$$);
 SELECT t.allowed('admin creates active PPPoE account', $$INSERT INTO public.customers (tenant_id, customer_type, pppoe_username, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','pppoe','admin-pppoe','active')$$);
+SELECT t.allowed('admin creates suspended PPPoE account for technician check', $$INSERT INTO public.customers (id, tenant_id, customer_type, pppoe_username, status) VALUES ('cccccccc-0000-0000-0000-000000000011','aaaaaaaa-0000-0000-0000-000000000001','pppoe','tech-pppoe','suspended')$$);
 SELECT t.allowed('admin reads payments',       $$SELECT 1 FROM public.payments$$);
 SELECT t.denied ('admin cannot set own commission', $$UPDATE public.tenants SET platform_commission_pct = 0 WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('admin cannot change tenant status',$$UPDATE public.tenants SET status = 'active' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
@@ -122,6 +123,9 @@ SELECT t.allowed('tech adds router',     $$INSERT INTO public.routers (tenant_id
 SELECT t.denied ('tech cannot read payments',  $$SELECT 1 FROM public.payments$$);
 SELECT t.denied ('tech cannot mint vouchers',  $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','TECH1')$$);
 SELECT t.denied ('tech cannot edit tenant',    $$UPDATE public.tenants SET name='x' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied ('tech cannot create active PPPoE account', $$INSERT INTO public.customers (tenant_id, customer_type, pppoe_username, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','pppoe','tech-free','active')$$);
+SELECT t.denied ('tech cannot activate PPPoE account without payment', $$UPDATE public.customers SET status='active' WHERE id='cccccccc-0000-0000-0000-000000000011'$$);
+SELECT t.denied ('tech cannot extend PPPoE expiry without payment', $$UPDATE public.customers SET expires_at=now() + interval '30 days' WHERE id='cccccccc-0000-0000-0000-000000000011'$$);
 
 -- ---- billing_agent -----------------------------------------------------------------------------
 SELECT t.as_user(:billing, 'aal2');

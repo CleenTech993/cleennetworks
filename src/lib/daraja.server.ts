@@ -308,8 +308,8 @@ export async function queryDarajaStkPush(
   const resultCode = result?.ResultCode;
   const responseCode = result?.ResponseCode;
   if (
-    (!response.ok && resultCode === undefined) ||
-    (responseCode !== undefined && String(responseCode) !== "0" && resultCode === undefined) ||
+    !response.ok ||
+    (responseCode !== undefined && String(responseCode) !== "0") ||
     (resultCode === undefined && responseCode === undefined)
   ) {
     console.error(`Daraja STK query failed [${response.status}]`, desc);
