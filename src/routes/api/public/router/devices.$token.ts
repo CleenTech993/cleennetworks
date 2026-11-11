@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { authenticateRouter } from "@/lib/router-auth.server";
-import { deviceLimitOf, parseDeviceReport } from "@/lib/devices";
+import { deviceLimitOf, isHotspotPackageKind, parseDeviceReport } from "@/lib/devices";
 import { expiryFrom } from "@/lib/duration";
 
 // Device report pushed by the router every minute (see buildDeviceAgentLines).
@@ -44,23 +44,63 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
         const previousByMac = new Map((previousTraffic ?? []).map((row) => [row.mac, row]));
         const users = [...new Set(records.flatMap((r) => (r.user ? [r.user] : [])))];
 
-        const sessionVouchers = users.length
-          ? ((
-              await supabaseAdmin
+        const [voucherResult, paymentResult, usageResult] = await Promise.all([
+          users.length
+            ? supabaseAdmin
                 .from("vouchers")
                 .select("id,code,status,bound_mac,expires_at,package_id,payment_id")
                 .eq("tenant_id", tenantId)
                 .in("code", users)
-            ).data ?? [])
-          : [];
+            : Promise.resolve({ data: [], error: null }),
+          users.length
+            ? supabaseAdmin
+                .from("payments")
+                .select("id,mpesa_receipt,package_id,router_id")
+                .eq("tenant_id", tenantId)
+                .eq("status", "success")
+                .in("mpesa_receipt", users)
+            : Promise.resolve({ data: [], error: null }),
+          supabaseAdmin
+            .from("hotspot_payment_sessions")
+            .select(
+              "id,payment_id,router_id,mac,connected_seconds,completed_seconds,last_router_uptime_seconds,active,last_active_at",
+            )
+            .eq("router_id", router.id)
+            .in("mac", macs),
+        ]);
+        if (voucherResult.error || paymentResult.error || usageResult.error) {
+          console.error("Could not load paid hotspot session tracking data", {
+            voucherError: voucherResult.error,
+            paymentError: paymentResult.error,
+            usageError: usageResult.error,
+          });
+          return new Response("error", { status: 500 });
+        }
+        const sessionVouchers = voucherResult.data ?? [];
+        const receiptPayments = paymentResult.data ?? [];
+        const paymentByReceipt = new Map(
+          receiptPayments
+            .filter((payment) => payment.mpesa_receipt)
+            .map((payment) => [payment.mpesa_receipt!, payment]),
+        );
+        const usageRows = usageResult.data ?? [];
+        const usageByMac = new Map<string, (typeof usageRows)[number][]>();
+        for (const row of usageRows) {
+          const current = usageByMac.get(row.mac) ?? [];
+          current.push(row);
+          usageByMac.set(row.mac, current);
+        }
         const pkgIds = [
-          ...new Set(sessionVouchers.flatMap((v) => (v.package_id ? [v.package_id] : []))),
+          ...new Set([
+            ...sessionVouchers.flatMap((v) => (v.package_id ? [v.package_id] : [])),
+            ...receiptPayments.flatMap((p) => (p.package_id ? [p.package_id] : [])),
+          ]),
         ];
         const pkgs = pkgIds.length
           ? ((
               await supabaseAdmin
                 .from("packages")
-                .select("id,device_limit,duration_value,duration_unit")
+                .select("id,device_limit,duration_value,duration_unit,kind")
                 .eq("tenant_id", tenantId)
                 .in("id", pkgIds)
             ).data ?? [])
@@ -115,6 +155,145 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
               .maybeSingle();
             if (bound) pinned.set(r.mac, v.code);
           }
+        }
+
+        const activePaymentByMac = new Map(
+          records.flatMap((record) => {
+            const payment =
+              record.authorized && record.activeUptimeSeconds != null && record.user
+                ? paymentByReceipt.get(record.user)
+                : undefined;
+            const pkg = payment?.package_id ? pkgById.get(payment.package_id) : undefined;
+            return payment && pkg && isHotspotPackageKind(pkg.kind)
+              ? [[record.mac, payment] as const]
+              : [];
+          }),
+        );
+        const usageUpserts: {
+          tenant_id: string;
+          router_id: string;
+          payment_id: string;
+          mac: string;
+          connected_seconds: number;
+          completed_seconds: number;
+          last_router_uptime_seconds: number;
+          active: boolean;
+          last_active_at: string;
+          updated_at: string;
+        }[] = [];
+        const usageSamples: {
+          tenant_id: string;
+          router_id: string;
+          payment_id: string;
+          mac: string;
+          connected_seconds: number;
+          observed_at: string;
+        }[] = [];
+
+        for (const record of records) {
+          const activePayment = activePaymentByMac.get(record.mac);
+          for (const previous of usageByMac.get(record.mac) ?? []) {
+            if (previous.active && previous.payment_id !== activePayment?.id) {
+              usageUpserts.push({
+                tenant_id: tenantId,
+                router_id: router.id,
+                payment_id: previous.payment_id,
+                mac: record.mac,
+                connected_seconds: previous.connected_seconds,
+                completed_seconds: previous.connected_seconds,
+                last_router_uptime_seconds: 0,
+                active: false,
+                last_active_at: previous.last_active_at,
+                updated_at: now,
+              });
+            }
+          }
+
+          if (!activePayment || record.activeUptimeSeconds == null) continue;
+          const previous = (usageByMac.get(record.mac) ?? []).find(
+            (row) => row.payment_id === activePayment.id,
+          );
+          let completedSeconds = previous?.completed_seconds ?? 0;
+          if (
+            previous?.active &&
+            record.activeUptimeSeconds < previous.last_router_uptime_seconds
+          ) {
+            completedSeconds += previous.last_router_uptime_seconds;
+          } else if (previous && !previous.active) {
+            completedSeconds = previous.connected_seconds;
+          }
+          const connectedSeconds = Math.min(
+            Number.MAX_SAFE_INTEGER,
+            completedSeconds + record.activeUptimeSeconds,
+          );
+          usageUpserts.push({
+            tenant_id: tenantId,
+            router_id: router.id,
+            payment_id: activePayment.id,
+            mac: record.mac,
+            connected_seconds: connectedSeconds,
+            completed_seconds: completedSeconds,
+            last_router_uptime_seconds: record.activeUptimeSeconds,
+            active: true,
+            last_active_at: now,
+            updated_at: now,
+          });
+          usageSamples.push({
+            tenant_id: tenantId,
+            router_id: router.id,
+            payment_id: activePayment.id,
+            mac: record.mac,
+            connected_seconds: connectedSeconds,
+            observed_at: now,
+          });
+          if (!activePayment.router_id) {
+            const { error: routerLinkError } = await supabaseAdmin
+              .from("payments")
+              .update({ router_id: router.id })
+              .eq("id", activePayment.id)
+              .eq("tenant_id", tenantId)
+              .is("router_id", null);
+            if (routerLinkError) {
+              console.error(
+                "Could not link hotspot payment to the reporting router",
+                routerLinkError,
+              );
+              return new Response("error", { status: 500 });
+            }
+            activePayment.router_id = router.id;
+          }
+        }
+
+        if (usageUpserts.length) {
+          const { error: usageUpsertError } = await supabaseAdmin
+            .from("hotspot_payment_sessions")
+            .upsert(usageUpserts, { onConflict: "payment_id,router_id,mac" });
+          if (usageUpsertError) {
+            console.error("Could not save paid hotspot session duration", usageUpsertError);
+            return new Response("error", { status: 500 });
+          }
+        }
+        if (usageSamples.length) {
+          const { error: sampleInsertError } = await supabaseAdmin
+            .from("hotspot_payment_session_samples")
+            .insert(usageSamples);
+          if (sampleInsertError) {
+            console.error("Could not save hotspot session usage samples", sampleInsertError);
+            return new Response("error", { status: 500 });
+          }
+        }
+        const nowDate = new Date();
+        const minuteOfDay = nowDate.getUTCHours() * 60 + nowDate.getUTCMinutes();
+        const cleanupMinute = Number.parseInt(router.id.replaceAll("-", "").slice(0, 3), 16) % 1440;
+        if (minuteOfDay === cleanupMinute) {
+          const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString();
+          const { error: sampleCleanupError } = await supabaseAdmin
+            .from("hotspot_payment_session_samples")
+            .delete()
+            .eq("router_id", router.id)
+            .lt("observed_at", cutoff);
+          if (sampleCleanupError)
+            console.warn("Could not prune old hotspot session samples", sampleCleanupError);
         }
 
         // Which devices are "registered": pinned to a voucher, or a paid smart TV.

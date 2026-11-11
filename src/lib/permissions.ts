@@ -3,7 +3,12 @@
 // Keep the two in step: a page should be reachable only by roles that can read what it needs.
 
 export type AppRole =
-  "super_admin" | "tenant_admin" | "technician" | "billing_agent" | "support_staff" | "end_user";
+  | "super_admin"
+  | "tenant_admin"
+  | "technician"
+  | "billing_agent"
+  | "support_staff"
+  | "end_user";
 
 const A: AppRole = "tenant_admin";
 const T: AppRole = "technician";
@@ -13,6 +18,7 @@ const S: AppRole = "support_staff";
 /** Page path prefix -> roles allowed. Anything under /tenant not listed here is admin-only. */
 const PAGE_ROLES: Record<string, AppRole[]> = {
   "/tenant/routers": [A, T],
+  "/tenant/recovery": [A, T],
   "/tenant/hotspot": [A, T],
   "/tenant/devices": [A, T, S],
   "/tenant/pppoe": [A, T],

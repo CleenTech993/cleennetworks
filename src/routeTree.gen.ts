@@ -54,6 +54,7 @@ import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
 import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
 import { Route as TenantPortalRouteImport } from './routes/tenant.portal'
 import { Route as TenantPppoeRouteImport } from './routes/tenant.pppoe'
+import { Route as TenantRecoveryRouteImport } from './routes/tenant.recovery'
 import { Route as TenantRoutersRouteImport } from './routes/tenant.routers'
 import { Route as TenantSessionsRouteImport } from './routes/tenant.sessions'
 import { Route as TenantSettingsRouteImport } from './routes/tenant.settings'
@@ -319,6 +320,11 @@ const TenantPortalRoute = TenantPortalRouteImport.update({
 const TenantPppoeRoute = TenantPppoeRouteImport.update({
   id: '/pppoe',
   path: '/pppoe',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantRecoveryRoute = TenantRecoveryRouteImport.update({
+  id: '/recovery',
+  path: '/recovery',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantRoutersRoute = TenantRoutersRouteImport.update({
@@ -591,6 +597,7 @@ export interface FileRoutesByFullPath {
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
   '/tenant/pppoe': typeof TenantPppoeRoute
+  '/tenant/recovery': typeof TenantRecoveryRoute
   '/tenant/routers': typeof TenantRoutersRouteWithChildren
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
@@ -675,6 +682,7 @@ export interface FileRoutesByTo {
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
   '/tenant/pppoe': typeof TenantPppoeRoute
+  '/tenant/recovery': typeof TenantRecoveryRoute
   '/tenant/routers': typeof TenantRoutersRouteWithChildren
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
@@ -763,6 +771,7 @@ export interface FileRoutesById {
   '/tenant/payments': typeof TenantPaymentsRoute
   '/tenant/portal': typeof TenantPortalRoute
   '/tenant/pppoe': typeof TenantPppoeRoute
+  '/tenant/recovery': typeof TenantRecoveryRoute
   '/tenant/routers': typeof TenantRoutersRouteWithChildren
   '/tenant/sessions': typeof TenantSessionsRoute
   '/tenant/settings': typeof TenantSettingsRoute
@@ -852,6 +861,7 @@ export interface FileRouteTypes {
     | '/tenant/payments'
     | '/tenant/portal'
     | '/tenant/pppoe'
+    | '/tenant/recovery'
     | '/tenant/routers'
     | '/tenant/sessions'
     | '/tenant/settings'
@@ -936,6 +946,7 @@ export interface FileRouteTypes {
     | '/tenant/payments'
     | '/tenant/portal'
     | '/tenant/pppoe'
+    | '/tenant/recovery'
     | '/tenant/routers'
     | '/tenant/sessions'
     | '/tenant/settings'
@@ -1023,6 +1034,7 @@ export interface FileRouteTypes {
     | '/tenant/payments'
     | '/tenant/portal'
     | '/tenant/pppoe'
+    | '/tenant/recovery'
     | '/tenant/routers'
     | '/tenant/sessions'
     | '/tenant/settings'
@@ -1428,6 +1440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantPppoeRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/recovery': {
+      id: '/tenant/recovery'
+      path: '/recovery'
+      fullPath: '/tenant/recovery'
+      preLoaderRoute: typeof TenantRecoveryRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/tenant/routers': {
       id: '/tenant/routers'
       path: '/routers'
@@ -1786,6 +1805,7 @@ interface TenantRouteChildren {
   TenantPaymentsRoute: typeof TenantPaymentsRoute
   TenantPortalRoute: typeof TenantPortalRoute
   TenantPppoeRoute: typeof TenantPppoeRoute
+  TenantRecoveryRoute: typeof TenantRecoveryRoute
   TenantRoutersRoute: typeof TenantRoutersRouteWithChildren
   TenantSessionsRoute: typeof TenantSessionsRoute
   TenantSettingsRoute: typeof TenantSettingsRoute
@@ -1811,6 +1831,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantPaymentsRoute: TenantPaymentsRoute,
   TenantPortalRoute: TenantPortalRoute,
   TenantPppoeRoute: TenantPppoeRoute,
+  TenantRecoveryRoute: TenantRecoveryRoute,
   TenantRoutersRoute: TenantRoutersRouteWithChildren,
   TenantSessionsRoute: TenantSessionsRoute,
   TenantSettingsRoute: TenantSettingsRoute,

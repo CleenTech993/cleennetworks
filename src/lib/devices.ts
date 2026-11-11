@@ -14,6 +14,7 @@
 //   * Every minute the router reports the devices on the hotspot to the platform.
 
 import { isUsableMac, normalizeMac } from "./tv";
+import { parseRouterOsDuration } from "./router-health";
 
 export { normalizeMac, isUsableMac };
 
@@ -66,6 +67,7 @@ export interface DeviceRecord {
   tether: boolean;
   bytesIn: string | null;
   bytesOut: string | null;
+  activeUptimeSeconds: number | null;
 }
 
 function cleanIp(raw: string | undefined): string | null {
@@ -84,7 +86,7 @@ function cleanHostname(raw: string | undefined): string | null {
 
 /**
  * Parses the body pushed by the router: records separated by ";" (or newlines), fields by "|":
- *   mac|ip|hostname|user|authorized|tether|bytes-in|bytes-out
+ *   mac|ip|hostname|user|authorized|tether|bytes-in|bytes-out|active-session-uptime
  * Everything comes from a device on the customer's LAN (hostnames are chosen by the customer),
  * so every field is validated and anything malformed is dropped.
  */
@@ -94,20 +96,21 @@ export function parseDeviceReport(body: string): DeviceRecord[] {
   for (const rec of body.split(/;|\r?\n/)) {
     if (out.length >= MAX_DEVICES_PER_REPORT) break;
     const parts = rec.trim().split("|");
-    if (parts.length !== 6 && parts.length !== 8) continue;
+    if (parts.length !== 6 && parts.length !== 8 && parts.length !== 9) continue;
     const mac = normalizeMac(parts[0] ?? "");
     if (!mac || seen.has(mac)) continue;
     seen.add(mac);
     const user = (parts[3] ?? "").trim();
     const bytesIn = (parts[6] ?? "").trim();
     const bytesOut = (parts[7] ?? "").trim();
+    const activeUptimeSeconds = parts.length === 9 ? parseRouterOsDuration(parts[8]) : null;
     const trafficValid =
-      parts.length === 8 &&
+      parts.length >= 8 &&
       /^\d{1,19}$/.test(bytesIn) &&
       /^\d{1,19}$/.test(bytesOut) &&
       BigInt(bytesIn) <= 9_223_372_036_854_775_807n &&
       BigInt(bytesOut) <= 9_223_372_036_854_775_807n;
-    if (parts.length === 8 && !trafficValid) continue;
+    if (parts.length >= 8 && !trafficValid) continue;
     out.push({
       mac,
       ip: cleanIp(parts[1]),
@@ -117,6 +120,10 @@ export function parseDeviceReport(body: string): DeviceRecord[] {
       tether: (parts[5] ?? "").trim() === "1",
       bytesIn: trafficValid ? bytesIn : null,
       bytesOut: trafficValid ? bytesOut : null,
+      activeUptimeSeconds:
+        activeUptimeSeconds != null && activeUptimeSeconds <= 31_536_000
+          ? activeUptimeSeconds
+          : null,
     });
   }
   return out;
@@ -326,6 +333,7 @@ const DEVICE_SCRIPT = `
       :local hn ""
       :local bi "0"
       :local bo "0"
+      :local up ""
       :local tt 0
       :local act [/ip hotspot active find where mac-address=$m]
       :if ([:len $act] > 0) do={
@@ -333,6 +341,7 @@ const DEVICE_SCRIPT = `
         :set usr [/ip hotspot active get $active user]
         :set bi [:tostr [/ip hotspot active get $active bytes-in]]
         :set bo [:tostr [/ip hotspot active get $active bytes-out]]
+        :set up [:tostr [/ip hotspot active get $active uptime]]
       }
       :do {
         :local ls [/ip dhcp-server lease find where mac-address=$m]
@@ -353,7 +362,7 @@ const DEVICE_SCRIPT = `
         }
       } on-error={}
       :if ([:len [/ip firewall address-list find where list=${TETHER_LIST} and address=$ip]] > 0) do={ :set tt 1 }
-      :set d ($d . $mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . "|" . $bi . "|" . $bo . ";")
+      :set d ($d . $mac . "|" . $ip . "|" . $hn . "|" . $usr . "|" . $au . "|" . $tt . "|" . $bi . "|" . $bo . "|" . $up . ";")
       :set n ($n + 1)
     } on-error={}
   }

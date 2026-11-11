@@ -57,6 +57,17 @@ beforeEach(() => {
         block_tethering: true,
       },
     ])
+    .seed("payments", [
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        tenant_id: T,
+        package_id: P1,
+        router_id: null,
+        mpesa_receipt: "PAID123456",
+        status: "success",
+        provider: "daraja",
+      },
+    ])
     .seed("packages", [
       {
         id: P1,
@@ -170,6 +181,32 @@ describe("device report endpoint", () => {
     const token = await issueDeviceToken(R1);
     await send(token, rec(MAC_TV, "10.5.50.30", "LG-TV", "", false));
     expect(devices()[0]!.registered_kind).toBe("tv");
+  });
+
+  it("tracks paid connected time from RouterOS uptime and closes sessions on disconnect", async () => {
+    const token = await issueDeviceToken(R1);
+    await send(token, `${MAC_A}|10.5.50.20|phone|PAID123456|true|0|1000|2000|00:02:00`);
+    await send(token, `${MAC_A}|10.5.50.20|phone|PAID123456|true|0|2000|4000|00:03:00`);
+
+    expect(h.db.rows("hotspot_payment_sessions")).toMatchObject([
+      {
+        payment_id: "44444444-4444-4444-8444-444444444444",
+        router_id: R1,
+        mac: MAC_A,
+        connected_seconds: 180,
+        active: true,
+      },
+    ]);
+    expect(h.db.rows("hotspot_payment_session_samples")).toHaveLength(2);
+    expect(h.db.rows("payments")[0]!.router_id).toBe(R1);
+
+    await send(token, rec(MAC_A, "10.5.50.20", "phone", "", false));
+    expect(h.db.rows("hotspot_payment_sessions")[0]).toMatchObject({
+      connected_seconds: 180,
+      completed_seconds: 180,
+      last_router_uptime_seconds: 0,
+      active: false,
+    });
   });
 
   it("redeems and pins a one-device voucher that was logged in directly on the router", async () => {

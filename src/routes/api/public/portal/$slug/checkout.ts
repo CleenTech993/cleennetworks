@@ -362,6 +362,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             .insert({
               tenant_id: tenant.id,
               package_id: pkg.id,
+              ...(parsed.data.routerId && pkg.kind !== "hotspot_tv"
+                ? { router_id: parsed.data.routerId }
+                : {}),
               phone,
               amount,
               status: "pending",

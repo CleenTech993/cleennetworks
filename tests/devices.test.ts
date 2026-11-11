@@ -61,6 +61,7 @@ describe("parseDeviceReport", () => {
         tether: false,
         bytesIn: null,
         bytesOut: null,
+        activeUptimeSeconds: null,
       },
       {
         mac: "AA:BB:CC:DD:EE:04",
@@ -71,6 +72,7 @@ describe("parseDeviceReport", () => {
         tether: true,
         bytesIn: null,
         bytesOut: null,
+        activeUptimeSeconds: null,
       },
     ]);
   });
@@ -82,6 +84,22 @@ describe("parseDeviceReport", () => {
     expect(
       parseDeviceReport("AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|invalid|1"),
     ).toEqual([]);
+  });
+
+  it("parses bounded RouterOS active-session uptime for paid access tracking", () => {
+    expect(
+      parseDeviceReport(
+        "AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|12000|24000|1d02:03:04",
+      ),
+    ).toMatchObject([{ activeUptimeSeconds: 93_784 }]);
+    expect(
+      parseDeviceReport("AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|12000|24000|bad"),
+    ).toMatchObject([{ activeUptimeSeconds: null }]);
+    expect(
+      parseDeviceReport(
+        "AA:BB:CC:DD:EE:02|10.5.50.20|phone|ABCDEF2345|true|0|12000|24000|999999999",
+      ),
+    ).toMatchObject([{ activeUptimeSeconds: null }]);
   });
 
   it("drops malformed, multicast, zero and duplicate MACs", () => {

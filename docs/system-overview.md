@@ -38,6 +38,9 @@ conventions and next steps.
   sessions, devices, inventory, payments, billing, communications, team, audit, and configuration.
 - **Subscriber portal and captive portal** — public hotspot sign-in and customer access to account,
   usage, messages, invoices, and package flows.
+- **Hotspot outage recovery** — router-reported session uptime supports tenant staff previewing
+  and restoring remaining paid package time after a site outage. Historical recoveries are marked
+  as estimates when connected-time samples are unavailable, and each payment can be recovered once.
 - **PPPoE customer portal** — a separate customer sign-in at `/pppoe/{tenantSlug}` for PPPoE
   service status, usage, payment history, M-Pesa renewals, and provider support. Customers sign in
   with their PPPoE credentials; the portal session is signed and stored in an HTTP-only cookie.

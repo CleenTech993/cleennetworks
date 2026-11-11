@@ -22,6 +22,7 @@ import {
   UserCog,
   Smartphone,
   Archive,
+  Power,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { TenantWhatsAppSupport } from "@/components/tenant-whatsapp-support";
@@ -34,6 +35,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
   { to: "/tenant/noc", label: "NOC Monitor", icon: Radar },
   { to: "/tenant/routers", label: "Routers", icon: Router },
+  { to: "/tenant/recovery", label: "Outage Recovery", icon: Power },
   { to: "/tenant/hotspot", label: "Hotspot", icon: Wifi },
   { to: "/tenant/devices", label: "Devices", icon: Smartphone },
   { to: "/tenant/pppoe", label: "PPPoE", icon: Network },
