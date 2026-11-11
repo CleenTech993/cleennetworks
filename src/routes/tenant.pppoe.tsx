@@ -18,6 +18,7 @@ import {
   Smartphone,
   ShieldAlert,
   Radio,
+  ExternalLink,
 } from "lucide-react";
 import { PageHeader, EmptyState, StatCard } from "@/components/dashboard-shell";
 import { isRouterLive } from "@/lib/router-health";
@@ -165,6 +166,20 @@ function PPPoE() {
         .order("price");
       if (error) throw error;
       return data as Pkg[];
+    },
+  });
+
+  const { data: portalTenant } = useQuery({
+    queryKey: ["pppoe-portal-tenant", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("slug")
+        .eq("id", tenantId!)
+        .single();
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -418,6 +433,13 @@ function PPPoE() {
         description="Manage PPPoE client logins, monitor real-time connected devices, speeds, and router assignments."
         action={
           <div className="flex gap-2">
+            {portalTenant?.slug && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={`/pppoe/${portalTenant.slug}`} target="_blank" rel="noreferrer">
+                  <ExternalLink className="h-4 w-4" /> Customer portal
+                </a>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowPw((v) => !v)}>
               {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{" "}
               {showPw ? "Hide" : "Show"} passwords

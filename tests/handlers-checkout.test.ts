@@ -18,11 +18,10 @@ vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.t
 import { Route } from "@/routes/api/public/portal/$slug/checkout";
 import { startDarajaStkPush } from "@/lib/daraja.server";
 
-const TENANT = "11111111-1111-1111-1111-111111111111";
-const PKG = "22222222-2222-2222-2222-222222222222";
-const COMBO_PKG = "55555555-5555-5555-5555-555555555555";
-const PPPOE_PKG = "77777777-7777-7777-7777-777777777777";
-const PPPOE_CUSTOMER = "88888888-8888-8888-8888-888888888888";
+const TENANT = "11111111-1111-4111-8111-111111111111";
+const PKG = "22222222-2222-4222-8222-222222222222";
+const COMBO_PKG = "55555555-5555-4555-8555-555555555555";
+const PPPOE_PKG = "77777777-7777-4777-8777-777777777777";
 const PARAMS = { slug: "acme" };
 let nextRef = 0;
 
@@ -59,7 +58,7 @@ beforeEach(() => {
         active: true,
       },
       {
-        id: "33333333-3333-3333-3333-333333333333",
+        id: "33333333-3333-4333-8333-333333333333",
         tenant_id: TENANT,
         name: "old",
         price: 10,
@@ -67,8 +66,8 @@ beforeEach(() => {
         active: false,
       },
       {
-        id: "44444444-4444-4444-4444-444444444444",
-        tenant_id: "99999999-9999-9999-9999-999999999999",
+        id: "44444444-4444-4444-8444-444444444444",
+        tenant_id: "99999999-9999-4999-8999-999999999999",
         name: "other",
         price: 10,
         kind: "hotspot",
@@ -92,7 +91,7 @@ describe("checkout", () => {
     const res = await checkout({ packageId: PKG, phone: "0712 345 678" });
     const body = await json(res);
 
-    expect(res.status).toBe(200);
+    expect(res.status, JSON.stringify(body)).toBe(200);
     expect(darajaSpy).toHaveBeenCalledTimes(1);
     expect(darajaSpy).toHaveBeenCalledWith({
       tenantId: TENANT,
@@ -119,7 +118,7 @@ describe("checkout", () => {
   });
 
   it("queues validated Omada client context for authorization after confirmed payment", async () => {
-    const routerId = "66666666-6666-6666-6666-666666666666";
+    const routerId = "66666666-6666-4666-8666-666666666666";
     h.db
       .seed("routers", [{ id: routerId, tenant_id: TENANT, vendor: "tp_link_omada" }])
       .seed("omada_integrations", [
@@ -167,65 +166,19 @@ describe("checkout", () => {
     ]);
   });
 
-  it("starts a PPPoE package payment only for the matching registered username and phone", async () => {
-    h.db.seed("customers", [
-      {
-        id: PPPOE_CUSTOMER,
-        tenant_id: TENANT,
-        customer_type: "pppoe",
-        pppoe_username: "home-123",
-        phone: "0712345678",
-        status: "active",
-      },
-    ]);
-
+  it("requires PPPoE customers to sign in to their separate account portal before renewing", async () => {
     const response = await checkout({
       packageId: PPPOE_PKG,
-      pppoeUsername: "home-123",
       phone: "0712345678",
     });
-    const body = await json(response);
 
-    expect(response.status).toBe(200);
-    expect(h.db.rows("payments")).toMatchObject([
-      {
-        customer_id: PPPOE_CUSTOMER,
-        package_id: PPPOE_PKG,
-        phone: "254712345678",
-        amount: 1500,
-        status: "pending",
-      },
-    ]);
-    expect(daraja()).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentId: body.paymentId, amount: 1500 }),
-    );
-  });
-
-  it("rejects PPPoE payment attempts from a phone not registered to the account", async () => {
-    h.db.seed("customers", [
-      {
-        id: PPPOE_CUSTOMER,
-        tenant_id: TENANT,
-        customer_type: "pppoe",
-        pppoe_username: "home-123",
-        phone: "0712345678",
-        status: "active",
-      },
-    ]);
-
-    const response = await checkout({
-      packageId: PPPOE_PKG,
-      pppoeUsername: "home-123",
-      phone: "0712345679",
-    });
-
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(400);
     expect(h.db.rows("payments")).toHaveLength(0);
     expect(daraja()).not.toHaveBeenCalled();
   });
 
   it("rejects an Omada site mismatch before starting payment", async () => {
-    const routerId = "66666666-6666-6666-6666-666666666666";
+    const routerId = "66666666-6666-4666-8666-666666666666";
     h.db
       .seed("routers", [{ id: routerId, tenant_id: TENANT, vendor: "tp_link_omada" }])
       .seed("omada_integrations", [
@@ -279,11 +232,11 @@ describe("checkout", () => {
   it("rejects inactive packages, other tenants' packages and unknown portals", async () => {
     const darajaSpy = daraja();
     expect(
-      (await checkout({ packageId: "33333333-3333-3333-3333-333333333333", phone: "0712345678" }))
+      (await checkout({ packageId: "33333333-3333-4333-8333-333333333333", phone: "0712345678" }))
         .status,
     ).toBe(400);
     expect(
-      (await checkout({ packageId: "44444444-4444-4444-4444-444444444444", phone: "0712345678" }))
+      (await checkout({ packageId: "44444444-4444-4444-8444-444444444444", phone: "0712345678" }))
         .status,
     ).toBe(400);
     expect(

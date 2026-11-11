@@ -28,6 +28,7 @@ import { Route as PortalInvoicesRouteImport } from './routes/portal.invoices'
 import { Route as PortalMessagesRouteImport } from './routes/portal.messages'
 import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
 import { Route as PortalUsageRouteImport } from './routes/portal.usage'
+import { Route as PppoeSlugRouteImport } from './routes/pppoe.$slug'
 import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
 import { Route as SuperAdminAuditRouteImport } from './routes/super-admin.audit'
 import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
@@ -79,6 +80,10 @@ import { Route as ApiPublicPortalSlugSessionRouteImport } from './routes/api/pub
 import { Route as ApiPublicPortalSlugStatusRouteImport } from './routes/api/public/portal/$slug/status'
 import { Route as ApiPublicPortalSlugTvRouteImport } from './routes/api/public/portal/$slug/tv'
 import { Route as ApiPublicPortalSlugVoucherRouteImport } from './routes/api/public/portal/$slug/voucher'
+import { Route as ApiPublicPppoePortalSlugAccountRouteImport } from './routes/api/public/pppoe-portal.$slug.account'
+import { Route as ApiPublicPppoePortalSlugCheckoutRouteImport } from './routes/api/public/pppoe-portal.$slug.checkout'
+import { Route as ApiPublicPppoePortalSlugLoginRouteImport } from './routes/api/public/pppoe-portal.$slug.login'
+import { Route as ApiPublicPppoePortalSlugLogoutRouteImport } from './routes/api/public/pppoe-portal.$slug.logout'
 import { Route as ApiPublicProvisionTokenLoginDothtmlRouteImport } from './routes/api/public/provision/$token/login[.]html'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
 import { Route as ApiPublicRouterDevicesTokenRouteImport } from './routes/api/public/router/devices.$token'
@@ -184,6 +189,11 @@ const PortalUsageRoute = PortalUsageRouteImport.update({
   id: '/usage',
   path: '/usage',
   getParentRoute: () => PortalRoute,
+} as any)
+const PppoeSlugRoute = PppoeSlugRouteImport.update({
+  id: '/pppoe/$slug',
+  path: '/pppoe/$slug',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
   id: '/',
@@ -453,6 +463,30 @@ const ApiPublicPortalSlugVoucherRoute =
     path: '/voucher',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
+const ApiPublicPppoePortalSlugAccountRoute =
+  ApiPublicPppoePortalSlugAccountRouteImport.update({
+    id: '/api/public/pppoe-portal/$slug/account',
+    path: '/api/public/pppoe-portal/$slug/account',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPppoePortalSlugCheckoutRoute =
+  ApiPublicPppoePortalSlugCheckoutRouteImport.update({
+    id: '/api/public/pppoe-portal/$slug/checkout',
+    path: '/api/public/pppoe-portal/$slug/checkout',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPppoePortalSlugLoginRoute =
+  ApiPublicPppoePortalSlugLoginRouteImport.update({
+    id: '/api/public/pppoe-portal/$slug/login',
+    path: '/api/public/pppoe-portal/$slug/login',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicPppoePortalSlugLogoutRoute =
+  ApiPublicPppoePortalSlugLogoutRouteImport.update({
+    id: '/api/public/pppoe-portal/$slug/logout',
+    path: '/api/public/pppoe-portal/$slug/logout',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicProvisionTokenLoginDothtmlRoute =
   ApiPublicProvisionTokenLoginDothtmlRouteImport.update({
     id: '/api/public/provision/$token/login.html',
@@ -533,6 +567,7 @@ export interface FileRoutesByFullPath {
   '/portal/messages': typeof PortalMessagesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
+  '/pppoe/$slug': typeof PppoeSlugRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
@@ -585,6 +620,10 @@ export interface FileRoutesByFullPath {
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/pppoe-portal/$slug/account': typeof ApiPublicPppoePortalSlugAccountRoute
+  '/api/public/pppoe-portal/$slug/checkout': typeof ApiPublicPppoePortalSlugCheckoutRoute
+  '/api/public/pppoe-portal/$slug/login': typeof ApiPublicPppoePortalSlugLoginRoute
+  '/api/public/pppoe-portal/$slug/logout': typeof ApiPublicPppoePortalSlugLogoutRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
@@ -612,6 +651,7 @@ export interface FileRoutesByTo {
   '/portal/messages': typeof PortalMessagesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
+  '/pppoe/$slug': typeof PppoeSlugRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
@@ -664,6 +704,10 @@ export interface FileRoutesByTo {
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/pppoe-portal/$slug/account': typeof ApiPublicPppoePortalSlugAccountRoute
+  '/api/public/pppoe-portal/$slug/checkout': typeof ApiPublicPppoePortalSlugCheckoutRoute
+  '/api/public/pppoe-portal/$slug/login': typeof ApiPublicPppoePortalSlugLoginRoute
+  '/api/public/pppoe-portal/$slug/logout': typeof ApiPublicPppoePortalSlugLogoutRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
@@ -695,6 +739,7 @@ export interface FileRoutesById {
   '/portal/messages': typeof PortalMessagesRoute
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
+  '/pppoe/$slug': typeof PppoeSlugRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
@@ -747,6 +792,10 @@ export interface FileRoutesById {
   '/api/public/portal/$slug/status': typeof ApiPublicPortalSlugStatusRoute
   '/api/public/portal/$slug/tv': typeof ApiPublicPortalSlugTvRoute
   '/api/public/portal/$slug/voucher': typeof ApiPublicPortalSlugVoucherRoute
+  '/api/public/pppoe-portal/$slug/account': typeof ApiPublicPppoePortalSlugAccountRoute
+  '/api/public/pppoe-portal/$slug/checkout': typeof ApiPublicPppoePortalSlugCheckoutRoute
+  '/api/public/pppoe-portal/$slug/login': typeof ApiPublicPppoePortalSlugLoginRoute
+  '/api/public/pppoe-portal/$slug/logout': typeof ApiPublicPppoePortalSlugLogoutRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
@@ -779,6 +828,7 @@ export interface FileRouteTypes {
     | '/portal/messages'
     | '/portal/packages'
     | '/portal/usage'
+    | '/pppoe/$slug'
     | '/super-admin/audit'
     | '/super-admin/billing'
     | '/super-admin/communications'
@@ -831,6 +881,10 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/pppoe-portal/$slug/account'
+    | '/api/public/pppoe-portal/$slug/checkout'
+    | '/api/public/pppoe-portal/$slug/login'
+    | '/api/public/pppoe-portal/$slug/logout'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/devices/$token'
@@ -858,6 +912,7 @@ export interface FileRouteTypes {
     | '/portal/messages'
     | '/portal/packages'
     | '/portal/usage'
+    | '/pppoe/$slug'
     | '/super-admin/audit'
     | '/super-admin/billing'
     | '/super-admin/communications'
@@ -910,6 +965,10 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/pppoe-portal/$slug/account'
+    | '/api/public/pppoe-portal/$slug/checkout'
+    | '/api/public/pppoe-portal/$slug/login'
+    | '/api/public/pppoe-portal/$slug/logout'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/devices/$token'
@@ -940,6 +999,7 @@ export interface FileRouteTypes {
     | '/portal/messages'
     | '/portal/packages'
     | '/portal/usage'
+    | '/pppoe/$slug'
     | '/super-admin/audit'
     | '/super-admin/billing'
     | '/super-admin/communications'
@@ -992,6 +1052,10 @@ export interface FileRouteTypes {
     | '/api/public/portal/$slug/status'
     | '/api/public/portal/$slug/tv'
     | '/api/public/portal/$slug/voucher'
+    | '/api/public/pppoe-portal/$slug/account'
+    | '/api/public/pppoe-portal/$slug/checkout'
+    | '/api/public/pppoe-portal/$slug/login'
+    | '/api/public/pppoe-portal/$slug/logout'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
     | '/api/public/router/devices/$token'
@@ -1019,6 +1083,7 @@ export interface RootRouteChildren {
   SuperAdminRoute: typeof SuperAdminRouteWithChildren
   TenantRoute: typeof TenantRouteWithChildren
   PSlugRoute: typeof PSlugRoute
+  PppoeSlugRoute: typeof PppoeSlugRoute
   SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
   ApiPublicDomainRoute: typeof ApiPublicDomainRoute
@@ -1030,6 +1095,10 @@ export interface RootRouteChildren {
   ApiPublicMpesaPlatformC2bValidationTokenRoute: typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   ApiPublicMpesaPlatformC2bTokenRoute: typeof ApiPublicMpesaPlatformC2bTokenRoute
   ApiPublicMpesaPlatformStkTokenRoute: typeof ApiPublicMpesaPlatformStkTokenRoute
+  ApiPublicPppoePortalSlugAccountRoute: typeof ApiPublicPppoePortalSlugAccountRoute
+  ApiPublicPppoePortalSlugCheckoutRoute: typeof ApiPublicPppoePortalSlugCheckoutRoute
+  ApiPublicPppoePortalSlugLoginRoute: typeof ApiPublicPppoePortalSlugLoginRoute
+  ApiPublicPppoePortalSlugLogoutRoute: typeof ApiPublicPppoePortalSlugLogoutRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
   ApiPublicRouterDevicesTokenRoute: typeof ApiPublicRouterDevicesTokenRoute
@@ -1176,6 +1245,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/portal/usage'
       preLoaderRoute: typeof PortalUsageRouteImport
       parentRoute: typeof PortalRoute
+    }
+    '/pppoe/$slug': {
+      id: '/pppoe/$slug'
+      path: '/pppoe/$slug'
+      fullPath: '/pppoe/$slug'
+      preLoaderRoute: typeof PppoeSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/super-admin/': {
       id: '/super-admin/'
@@ -1534,6 +1610,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPortalSlugVoucherRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
+    '/api/public/pppoe-portal/$slug/account': {
+      id: '/api/public/pppoe-portal/$slug/account'
+      path: '/api/public/pppoe-portal/$slug/account'
+      fullPath: '/api/public/pppoe-portal/$slug/account'
+      preLoaderRoute: typeof ApiPublicPppoePortalSlugAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pppoe-portal/$slug/checkout': {
+      id: '/api/public/pppoe-portal/$slug/checkout'
+      path: '/api/public/pppoe-portal/$slug/checkout'
+      fullPath: '/api/public/pppoe-portal/$slug/checkout'
+      preLoaderRoute: typeof ApiPublicPppoePortalSlugCheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pppoe-portal/$slug/login': {
+      id: '/api/public/pppoe-portal/$slug/login'
+      path: '/api/public/pppoe-portal/$slug/login'
+      fullPath: '/api/public/pppoe-portal/$slug/login'
+      preLoaderRoute: typeof ApiPublicPppoePortalSlugLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/pppoe-portal/$slug/logout': {
+      id: '/api/public/pppoe-portal/$slug/logout'
+      path: '/api/public/pppoe-portal/$slug/logout'
+      fullPath: '/api/public/pppoe-portal/$slug/logout'
+      preLoaderRoute: typeof ApiPublicPppoePortalSlugLogoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/provision/$token/login.html': {
       id: '/api/public/provision/$token/login.html'
       path: '/api/public/provision/$token/login.html'
@@ -1759,6 +1863,7 @@ const rootRouteChildren: RootRouteChildren = {
   SuperAdminRoute: SuperAdminRouteWithChildren,
   TenantRoute: TenantRouteWithChildren,
   PSlugRoute: PSlugRoute,
+  PppoeSlugRoute: PppoeSlugRoute,
   SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
   ApiPublicDomainRoute: ApiPublicDomainRoute,
@@ -1772,6 +1877,10 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicMpesaPlatformC2bValidationTokenRoute,
   ApiPublicMpesaPlatformC2bTokenRoute: ApiPublicMpesaPlatformC2bTokenRoute,
   ApiPublicMpesaPlatformStkTokenRoute: ApiPublicMpesaPlatformStkTokenRoute,
+  ApiPublicPppoePortalSlugAccountRoute: ApiPublicPppoePortalSlugAccountRoute,
+  ApiPublicPppoePortalSlugCheckoutRoute: ApiPublicPppoePortalSlugCheckoutRoute,
+  ApiPublicPppoePortalSlugLoginRoute: ApiPublicPppoePortalSlugLoginRoute,
+  ApiPublicPppoePortalSlugLogoutRoute: ApiPublicPppoePortalSlugLogoutRoute,
   ApiPublicProvisionTokenLoginDothtmlRoute:
     ApiPublicProvisionTokenLoginDothtmlRoute,
   ApiPublicProvisionTokenRouterDotrscRoute:

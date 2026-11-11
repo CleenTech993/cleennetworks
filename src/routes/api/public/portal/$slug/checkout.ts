@@ -54,11 +54,6 @@ const OmadaContextSchema = z.discriminatedUnion("kind", [
 const Schema = z.object({
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
-  pppoeUsername: z
-    .string()
-    .trim()
-    .regex(/^[A-Za-z0-9._@-]{3,64}$/)
-    .optional(),
   tvMac: z.string().min(11).max(40).optional(),
   routerId: z.string().uuid().optional(),
   omadaContext: OmadaContextSchema.optional(),
@@ -78,8 +73,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           return Response.json({ error: "Bad JSON" }, { status: 400 });
         }
         const parsed = Schema.safeParse(body);
-        if (!parsed.success)
+        if (!parsed.success) {
           return Response.json({ error: "Please fill in all fields." }, { status: 400 });
+        }
 
         const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
@@ -182,46 +178,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
           if (!pkg || pkg.tenant_id !== tenant.id || !pkg.active) {
             return Response.json({ error: "Invalid package" }, { status: 400 });
           }
-          if (!["hotspot", "voucher", "hotspot_tv", "pppoe"].includes(pkg.kind)) {
+          if (!["hotspot", "voucher", "hotspot_tv"].includes(pkg.kind)) {
             return Response.json(
               { error: "This package cannot be purchased from the portal." },
-              { status: 400 },
-            );
-          }
-          let pppoeCustomerId: string | null = null;
-          if (pkg.kind === "pppoe") {
-            if (!parsed.data.pppoeUsername) {
-              return Response.json({ error: "Enter your PPPoE username." }, { status: 400 });
-            }
-            const { data: customer, error: customerError } = await supabaseAdmin
-              .from("customers")
-              .select("id,phone,status")
-              .eq("tenant_id", tenant.id)
-              .eq("customer_type", "pppoe")
-              .eq("pppoe_username", parsed.data.pppoeUsername)
-              .maybeSingle();
-            if (customerError) {
-              console.error("Could not verify PPPoE customer checkout", customerError);
-              return Response.json({ error: "Could not start the payment." }, { status: 500 });
-            }
-            if (
-              !customer ||
-              customer.status !== "active" ||
-              !customer.phone ||
-              normalizePhone(customer.phone) !== phone
-            ) {
-              return Response.json(
-                {
-                  error:
-                    "We couldn't verify that PPPoE account. Check the username and registered phone, or contact your provider.",
-                },
-                { status: 403 },
-              );
-            }
-            pppoeCustomerId = customer.id;
-          } else if (parsed.data.pppoeUsername) {
-            return Response.json(
-              { error: "A PPPoE username can only be used with a PPPoE package." },
               { status: 400 },
             );
           }
@@ -264,12 +223,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             console.error("Could not check for an active STK payment", activePaymentError);
             return Response.json({ error: "Could not start the payment." }, { status: 500 });
           }
-          if (
-            activePayment &&
-            (pppoeCustomerId
-              ? activePayment.customer_id !== pppoeCustomerId
-              : Boolean(activePayment.customer_id))
-          ) {
+          if (activePayment && Boolean(activePayment.customer_id)) {
             return Response.json(
               {
                 error:
@@ -412,7 +366,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               amount,
               status: "pending",
               provider: "daraja",
-              ...(pppoeCustomerId ? { customer_id: pppoeCustomerId } : {}),
               ...(tvDeviceId ? { tv_device_id: tvDeviceId } : {}),
             })
             .select("id,created_at,status,package_id")

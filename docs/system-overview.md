@@ -38,6 +38,9 @@ conventions and next steps.
   sessions, devices, inventory, payments, billing, communications, team, audit, and configuration.
 - **Subscriber portal and captive portal** — public hotspot sign-in and customer access to account,
   usage, messages, invoices, and package flows.
+- **PPPoE customer portal** — a separate customer sign-in at `/pppoe/{tenantSlug}` for PPPoE
+  service status, usage, payment history, M-Pesa renewals, and provider support. Customers sign in
+  with their PPPoE credentials; the portal session is signed and stored in an HTTP-only cookie.
 - **Router integration** — RouterOS provisioning and sync, router heartbeat, connected devices,
   interfaces, inventory monitoring, and PPPoE session reporting.
 - **Payments and billing** — tenant payment flows and callbacks, customer communications, platform
@@ -58,8 +61,8 @@ M-Pesa hotspot access-code flow, legacy voucher transition, and separate RADIUS 
 | `src/routes/`                                      | TanStack file-based pages and the existing server API routes.                                                            |
 | `src/routes/tenant*.tsx`                           | Tenant-console pages and shell.                                                                                          |
 | `src/routes/super-admin*.tsx`                      | Platform-administration pages and shell.                                                                                 |
-| `src/routes/portal*.tsx`, `src/routes/p.$slug.tsx` | Subscriber and public captive portal pages.                                                                              |
-| `src/routes/api/`                                  | Existing TanStack Start HTTP endpoints: public portal, router, payment, callback, provisioning, tenant, and cron routes. |
+| `src/routes/portal*.tsx`, `src/routes/p.$slug.tsx`, `src/routes/pppoe.$slug.tsx` | Subscriber, hotspot captive, and PPPoE customer portal pages. |
+| `src/routes/api/`                                  | Existing TanStack Start HTTP endpoints: public portals, router, payment, callback, provisioning, tenant, and cron routes. |
 | `src/components/`, `src/hooks/`                    | Shared React UI and browser state/auth helpers.                                                                          |
 | `src/lib/`                                         | Domain logic, integrations, server functions (`*.functions.ts`), and server-only modules (`*.server.ts`).                |
 | `src/integrations/supabase/`                       | Browser and server Supabase clients, generated database types, and auth middleware.                                      |
