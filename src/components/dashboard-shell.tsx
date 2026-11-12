@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
-import { LogOut, Menu, ShieldCheck } from "lucide-react";
+import { ChevronDown, LogOut, Menu, ShieldCheck } from "lucide-react";
 import { MfaSecurityDialog } from "@/components/mfa-security-card";
 import { ConfirmSignOut } from "@/components/confirm-sign-out";
 import { RouterAlertsNotification } from "@/components/router-alerts-notification";
@@ -15,6 +15,7 @@ export interface NavItem {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  group?: string;
 }
 
 interface Props {
@@ -35,9 +36,16 @@ function NavList({
   onNavigate?: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const activeItem =
+    nav.find((item) => pathname === item.to) ??
+    nav
+      .filter((item) => pathname.startsWith(item.to + "/"))
+      .sort((a, b) => b.to.length - a.to.length)[0];
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   // The root item (e.g. /tenant) must only match exactly, or it would be active on every page.
   const rootTo = nav.reduce((a, b) => (b.to.length < a.length ? b.to : a), nav[0]?.to ?? "");
+  const renderedGroups = new Set<string>();
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -54,32 +62,70 @@ function NavList({
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2" aria-label="Main">
         {nav.map((item) => {
-          const active =
-            item.to === rootTo
-              ? pathname === item.to
-              : pathname === item.to || pathname.startsWith(item.to + "/");
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-medium transition-all duration-150",
-                active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary"
-                  : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-              )}
-            >
-              <Icon
+          if (item.group && renderedGroups.has(item.group)) return null;
+          if (item.group) renderedGroups.add(item.group);
+
+          const groupItems = item.group
+            ? nav.filter((entry) => entry.group === item.group)
+            : [item];
+          const isExpanded = item.group
+            ? (expandedGroups[item.group] ?? activeItem?.group === item.group)
+            : true;
+
+          const renderItem = (navItem: NavItem) => {
+            const active =
+              navItem.to === rootTo
+                ? pathname === navItem.to
+                : pathname === navItem.to || pathname.startsWith(navItem.to + "/");
+            const Icon = navItem.icon;
+            return (
+              <Link
+                key={navItem.to}
+                to={navItem.to}
+                onClick={onNavigate}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "h-[17px] w-[17px] shrink-0",
-                  active ? "text-sidebar-primary" : "text-sidebar-foreground/55",
+                  "relative flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary"
+                    : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
                 )}
-              />
-              {item.label}
-            </Link>
+              >
+                <Icon
+                  className={cn(
+                    "h-[17px] w-[17px] shrink-0",
+                    active ? "text-sidebar-primary" : "text-sidebar-foreground/55",
+                  )}
+                  aria-hidden="true"
+                />
+                {navItem.label}
+              </Link>
+            );
+          };
+
+          if (!item.group) return renderItem(item);
+
+          return (
+            <div key={item.group}>
+              <button
+                type="button"
+                aria-expanded={isExpanded}
+                onClick={() =>
+                  setExpandedGroups((current) => ({
+                    ...current,
+                    [item.group!]: !current[item.group!],
+                  }))
+                }
+                className="flex w-full items-center justify-between rounded-md px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/45 transition-colors hover:text-sidebar-foreground/75"
+              >
+                {item.group}
+                <ChevronDown
+                  className={cn("h-3.5 w-3.5 transition-transform", isExpanded && "rotate-180")}
+                  aria-hidden="true"
+                />
+              </button>
+              {isExpanded && <div className="space-y-0.5">{groupItems.map(renderItem)}</div>}
+            </div>
           );
         })}
       </nav>
