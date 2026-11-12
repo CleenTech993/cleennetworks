@@ -11,12 +11,15 @@ VALUES
    'bbbbbbbb-0000-0000-0000-000000000002', 'Customer B');
 
 INSERT INTO public.support_tickets (id, tenant_id, customer_id, subject)
-VALUES (
-  'dddddddd-0000-0000-0000-000000000001',
-  'aaaaaaaa-0000-0000-0000-000000000001',
-  'cccccccc-0000-0000-0000-000000000001',
-  'Router offline'
-);
+VALUES
+  ('dddddddd-0000-0000-0000-000000000001',
+   'aaaaaaaa-0000-0000-0000-000000000001',
+   'cccccccc-0000-0000-0000-000000000001',
+   'Router offline'),
+  ('dddddddd-0000-0000-0000-000000000002',
+   'aaaaaaaa-0000-0000-0000-000000000001',
+   'cccccccc-0000-0000-0000-000000000001',
+   'Slow connection');
 
 INSERT INTO public.work_orders (
   id, tenant_id, customer_id, ticket_id, title, assigned_to, created_by
@@ -95,6 +98,21 @@ SELECT t.expect(
     VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 'Unauthorized job')$$
 );
 SELECT t.expect(
+  'a ticket can only have one linked work order',
+  'blocked',
+  'authenticated',
+  '11111111-0000-0000-0000-000000000001',
+  $$INSERT INTO public.work_orders (
+      tenant_id, customer_id, ticket_id, title
+    )
+    VALUES (
+      'aaaaaaaa-0000-0000-0000-000000000001',
+      'cccccccc-0000-0000-0000-000000000001',
+      'dddddddd-0000-0000-0000-000000000001',
+      'Duplicate ticket job'
+    )$$
+);
+SELECT t.expect(
   'technician can complete assigned work',
   'ok',
   'authenticated',
@@ -150,7 +168,7 @@ BEGIN
     VALUES (
       'aaaaaaaa-0000-0000-0000-000000000001',
       'cccccccc-0000-0000-0000-000000000001',
-      'dddddddd-0000-0000-0000-000000000001',
+      'dddddddd-0000-0000-0000-000000000002',
       'Valid matching ticket'
     );
   EXCEPTION WHEN OTHERS THEN
