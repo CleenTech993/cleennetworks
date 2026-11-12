@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { randomCode, addDuration } from "@/lib/codes";
 import { hasAnyRole } from "@/lib/permissions";
 import { CustomerEquipmentDialog, useEquipmentByCustomer } from "@/components/customer-equipment";
+import { CustomerProfileDialog } from "@/components/customer-profile-dialog";
 import { useTenantLabels } from "@/hooks/use-tenant-customization";
 import { formatTenantDate } from "@/lib/tenant-customization";
 
@@ -45,11 +46,20 @@ type Customer = {
   id: string;
   full_name: string | null;
   phone: string | null;
+  email: string | null;
   customer_type: string;
   status: string;
   pppoe_username: string | null;
   package_id: string | null;
+  router_id: string | null;
+  static_ip: string | null;
   expires_at: string | null;
+  created_at: string;
+  last_ip: string | null;
+  last_seen_at: string | null;
+  data_used_bytes: number;
+  usage_bytes_in: number;
+  usage_bytes_out: number;
 };
 
 const emptyForm = {
@@ -69,6 +79,7 @@ function Customers() {
   const canSeeEquipment = hasAnyRole(roles, ["tenant_admin", "technician", "support_staff"]);
   const equipmentByCustomer = useEquipmentByCustomer();
   const [equipmentFor, setEquipmentFor] = useState<Customer | null>(null);
+  const [profileFor, setProfileFor] = useState<Customer | null>(null);
   const qc = useQueryClient();
   const { tenantId } = useAuth();
   const [open, setOpen] = useState(false);
@@ -80,7 +91,9 @@ function Customers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customers")
-        .select("*")
+        .select(
+          "id,full_name,phone,email,customer_type,status,pppoe_username,package_id,router_id,static_ip,expires_at,created_at,last_ip,last_seen_at,data_used_bytes,usage_bytes_in,usage_bytes_out",
+        )
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as Customer[];
@@ -335,8 +348,14 @@ function Customers() {
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id} className="border-t">
-                  <td className="px-4 py-2.5 font-medium">
-                    {c.full_name}
+                  <td className="px-4 py-2.5">
+                    <Button
+                      variant="link"
+                      className="h-auto p-0 text-left font-medium"
+                      onClick={() => setProfileFor(c)}
+                    >
+                      {c.full_name || "Unnamed customer"}
+                    </Button>
                     {c.pppoe_username && (
                       <div className="font-mono text-xs text-muted-foreground">
                         {c.pppoe_username}
@@ -376,6 +395,20 @@ function Customers() {
           customer={equipmentFor}
           devices={equipmentByCustomer.get(equipmentFor.id) ?? []}
           onClose={() => setEquipmentFor(null)}
+        />
+      )}
+      {profileFor && tenantId && (
+        <CustomerProfileDialog
+          customer={profileFor}
+          tenantId={tenantId}
+          packageName={packages?.find((pkg) => pkg.id === profileFor.package_id)?.name ?? null}
+          routerName={routers?.find((router) => router.id === profileFor.router_id)?.name ?? null}
+          canSeeEquipment={canSeeEquipment}
+          onViewEquipment={() => {
+            setEquipmentFor(profileFor);
+            setProfileFor(null);
+          }}
+          onClose={() => setProfileFor(null)}
         />
       )}
     </div>
