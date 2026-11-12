@@ -16,12 +16,15 @@ vi.mock("@/lib/platform-billing.server", () => ({
 import { Route } from "@/routes/api/public/portal/$slug/reconnect";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
+const ROUTER = "22222222-2222-4222-8222-222222222222";
+const OTHER_ROUTER = "33333333-3333-4333-8333-333333333333";
 const RECEIPT = "SFE1A2B3CD";
 const MAC = "AA:BB:CC:DD:EE:02";
+const OLD_MAC = "AA:BB:CC:DD:EE:04";
 
-const reconnect = (mpesaCode: string, phone?: string, mac?: string) =>
+const reconnect = (mpesaCode: string, phone?: string, mac?: string, routerId?: string) =>
   call(Route, "POST", {
-    body: { mpesaCode, phone, mac },
+    body: { mpesaCode, phone, mac, routerId },
     ip: freshIp(),
     params: { slug: "acme" },
   });
@@ -29,6 +32,10 @@ const reconnect = (mpesaCode: string, phone?: string, mac?: string) =>
 beforeEach(() => {
   h.db = new FakeDb()
     .seed("tenants", [{ id: TENANT, slug: "acme" }])
+    .seed("routers", [
+      { id: ROUTER, tenant_id: TENANT },
+      { id: OTHER_ROUTER, tenant_id: TENANT },
+    ])
     .seed("packages", [
       {
         id: "hotspot-package",
@@ -81,6 +88,73 @@ describe("portal reconnect by M-Pesa confirmation", () => {
       active: false,
       reason: "This M-Pesa access code is already assigned to another device.",
     });
+  });
+
+  it("moves a paid one-device code to a new randomized MAC when the old device is offline", async () => {
+    h.db.rows("payments")[0].bound_mac = OLD_MAC;
+    h.db.seed("router_devices", [
+      {
+        tenant_id: TENANT,
+        router_id: ROUTER,
+        mac: OLD_MAC,
+        authorized: false,
+        last_seen_at: new Date().toISOString(),
+      },
+    ]);
+
+    expect(await json(await reconnect(RECEIPT, "0712345678", MAC, ROUTER))).toMatchObject({
+      active: true,
+      access_code: RECEIPT,
+    });
+    expect(h.db.rows("payments")[0].bound_mac).toBe(MAC);
+  });
+
+  it("does not move the paid code while the previously bound device is still online", async () => {
+    h.db.rows("payments")[0].bound_mac = OLD_MAC;
+    h.db.seed("router_devices", [
+      {
+        tenant_id: TENANT,
+        router_id: ROUTER,
+        mac: OLD_MAC,
+        authorized: true,
+        last_seen_at: new Date().toISOString(),
+      },
+    ]);
+
+    expect(await json(await reconnect(RECEIPT, "0712345678", MAC, ROUTER))).toMatchObject({
+      active: false,
+      reason: expect.stringContaining("still active on another device"),
+    });
+    expect(h.db.rows("payments")[0].bound_mac).toBe(OLD_MAC);
+  });
+
+  it("does not move the paid code to a different hotspot", async () => {
+    h.db.rows("payments")[0].bound_mac = OLD_MAC;
+    h.db.rows("payments")[0].router_id = ROUTER;
+
+    expect(await json(await reconnect(RECEIPT, "0712345678", MAC, OTHER_ROUTER))).toMatchObject({
+      active: false,
+      reason: "Reconnect through the hotspot where this access code was purchased.",
+    });
+    expect(h.db.rows("payments")[0].bound_mac).toBe(OLD_MAC);
+  });
+
+  it("allows moving the paid code when the old router report is stale", async () => {
+    h.db.rows("payments")[0].bound_mac = OLD_MAC;
+    h.db.seed("router_devices", [
+      {
+        tenant_id: TENANT,
+        router_id: ROUTER,
+        mac: OLD_MAC,
+        authorized: true,
+        last_seen_at: new Date(Date.now() - 3 * 60_000).toISOString(),
+      },
+    ]);
+
+    expect(await json(await reconnect(RECEIPT, "0712345678", MAC, ROUTER))).toMatchObject({
+      active: true,
+    });
+    expect(h.db.rows("payments")[0].bound_mac).toBe(MAC);
   });
 
   it("does not reveal a payment when the receipt or optional phone does not match", async () => {

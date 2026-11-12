@@ -11,6 +11,8 @@ import {
 } from "@/lib/platform-billing.server";
 import { portalMaintenanceBlock } from "@/lib/maintenance.server";
 
+const RECENT_DEVICE_REPORT_MS = 2 * 60_000;
+
 // The M-Pesa receipt code is required: a phone number alone is not a secret, so it must
 // never be enough to retrieve a paid voucher. Phone, if given, is an extra filter.
 const Schema = z.object({
@@ -63,7 +65,9 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
 
         let q = supabaseAdmin
           .from("payments")
-          .select("id,status,expires_at,phone,mpesa_receipt,bound_mac,package_id,created_at")
+          .select(
+            "id,status,expires_at,phone,mpesa_receipt,bound_mac,package_id,router_id,created_at",
+          )
           .eq("tenant_id", tenant.id)
           .eq("status", "success")
           .order("created_at", { ascending: false })
@@ -117,10 +121,85 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
             });
           }
           if (pay.bound_mac && pay.bound_mac !== mac) {
-            return Response.json({
-              active: false,
-              reason: "This M-Pesa access code is already assigned to another device.",
-            });
+            const routerId = parsed.data.routerId;
+            if (!routerId) {
+              return Response.json({
+                active: false,
+                reason: "This M-Pesa access code is already assigned to another device.",
+              });
+            }
+            if (pay.router_id && pay.router_id !== routerId) {
+              return Response.json({
+                active: false,
+                reason: "Reconnect through the hotspot where this access code was purchased.",
+              });
+            }
+
+            const { data: previousDevice, error: previousDeviceError } = await supabaseAdmin
+              .from("router_devices")
+              .select("authorized,last_seen_at")
+              .eq("tenant_id", tenant.id)
+              .eq("router_id", routerId)
+              .eq("mac", pay.bound_mac)
+              .maybeSingle();
+            if (previousDeviceError) {
+              console.error(
+                "Could not check the previous paid hotspot device",
+                previousDeviceError,
+              );
+              return Response.json(
+                { error: "Could not check the previous device. Please try again." },
+                { status: 503 },
+              );
+            }
+
+            const lastSeen = previousDevice ? Date.parse(previousDevice.last_seen_at) : Number.NaN;
+            const previousDeviceIsActive =
+              previousDevice?.authorized === true &&
+              Number.isFinite(lastSeen) &&
+              lastSeen <= Date.now() + 30_000 &&
+              Date.now() - lastSeen <= RECENT_DEVICE_REPORT_MS;
+            if (previousDeviceIsActive) {
+              return Response.json({
+                active: false,
+                reason:
+                  "This access code is still active on another device. Disconnect that device from Wi-Fi, then try again.",
+              });
+            }
+
+            const { data: rebound, error: rebindError } = await supabaseAdmin
+              .from("payments")
+              .update({ bound_mac: mac })
+              .eq("id", pay.id)
+              .eq("tenant_id", tenant.id)
+              .eq("bound_mac", pay.bound_mac)
+              .select("bound_mac")
+              .maybeSingle();
+            if (rebindError) {
+              console.error("Could not move paid hotspot access to the new device", rebindError);
+              return Response.json({ error: "Could not secure this device." }, { status: 500 });
+            }
+            if (rebound?.bound_mac !== mac) {
+              const { data: current, error: bindingReadError } = await supabaseAdmin
+                .from("payments")
+                .select("bound_mac")
+                .eq("id", pay.id)
+                .eq("tenant_id", tenant.id)
+                .maybeSingle();
+              if (bindingReadError) {
+                console.error(
+                  "Could not verify the updated hotspot device binding",
+                  bindingReadError,
+                );
+                return Response.json({ error: "Could not verify this device." }, { status: 500 });
+              }
+              if (current?.bound_mac !== mac) {
+                return Response.json({
+                  active: false,
+                  reason: "This M-Pesa access code is already assigned to another device.",
+                });
+              }
+            }
           }
           if (!pay.bound_mac) {
             const { data: bound, error: bindError } = await supabaseAdmin
