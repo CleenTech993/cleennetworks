@@ -118,7 +118,7 @@ function CustomerBilling() {
   const customerById = new Map(customers.map((customer) => [customer.id, customer]));
   const packageById = useMemo(() => new Map(packages.map((pkg) => [pkg.id, pkg])), [packages]);
   const openInvoices = invoices.filter((invoice) =>
-    ["pending", "overdue"].includes(invoice.status),
+    ["pending", "overdue", "partial"].includes(invoice.status),
   );
   const collected = payments
     .filter((payment) => payment.status === "success")
@@ -205,6 +205,7 @@ function CustomerBilling() {
           <option value="all">All statuses</option>
           <option value="pending">Pending</option>
           <option value="overdue">Overdue</option>
+          <option value="partial">Partial</option>
           <option value="paid">Paid</option>
           <option value="success">Successful payment</option>
           <option value="failed">Failed payment</option>
