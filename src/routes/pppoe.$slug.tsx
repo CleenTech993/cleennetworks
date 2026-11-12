@@ -1,7 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Activity, Clock3, LogOut, Mail, Phone, RefreshCw, Wifi } from "lucide-react";
+import {
+  Activity,
+  Clock3,
+  Loader2,
+  LogOut,
+  Mail,
+  Phone,
+  RefreshCw,
+  ShieldCheck,
+  Smartphone,
+  Wifi,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -551,16 +562,29 @@ function PppoePortalPage() {
             if (!open) setCheckoutSelection(null);
           }}
         >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Confirm your package</DialogTitle>
-              <DialogDescription>
-                Enter the phone number that should receive the M-Pesa payment prompt.
-              </DialogDescription>
+          <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-md">
+            <DialogHeader className="border-b px-6 py-5 text-left">
+              <div className="flex items-start gap-3">
+                <span
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10"
+                  style={{ color: brandColor }}
+                >
+                  <Wifi className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Secure checkout
+                  </p>
+                  <DialogTitle className="text-xl">Review your renewal</DialogTitle>
+                  <DialogDescription>
+                    Confirm the amount and enter the phone number for the M-Pesa prompt.
+                  </DialogDescription>
+                </div>
+              </div>
             </DialogHeader>
             {checkoutSelection && (
               <form
-                className="space-y-4"
+                className="space-y-5 p-6"
                 onSubmit={(event) => {
                   event.preventDefault();
                   checkout.mutate({
@@ -569,34 +593,78 @@ function PppoePortalPage() {
                   });
                 }}
               >
-                <div className="rounded-lg border bg-muted/40 p-3">
-                  <p className="font-medium">{checkoutSelection.packageName}</p>
-                  <p className="mt-1 text-lg font-semibold">
-                    KES {Number(checkoutSelection.amount).toLocaleString()}
+                <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-4">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10"
+                    style={{ color: brandColor }}
+                  >
+                    <Wifi className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words font-semibold">{checkoutSelection.packageName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">PPPoE broadband renewal</p>
+                  </div>
+                  <p className="shrink-0 text-right">
+                    <span className="block text-xs text-muted-foreground">Total</span>
+                    <span className="text-lg font-bold tabular-nums">
+                      KES {Number(checkoutSelection.amount).toLocaleString()}
+                    </span>
                   </p>
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="pppoe-payment-phone">M-Pesa phone number</Label>
-                  <Input
-                    id="pppoe-payment-phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    placeholder="07XXXXXXXX"
-                    required
-                    maxLength={20}
-                    value={paymentPhone}
-                    onChange={(event) => setPaymentPhone(event.target.value)}
-                  />
+                  <div className="relative">
+                    <Smartphone
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <Input
+                      id="pppoe-payment-phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="07XX XXX XXX"
+                      required
+                      maxLength={20}
+                      value={paymentPhone}
+                      onChange={(event) => setPaymentPhone(event.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enter the number for the payment prompt, e.g. 0712 345 678.
+                  </p>
                 </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  style={{ backgroundColor: brandColor }}
-                  disabled={checkout.isPending || !paymentPhone.trim()}
-                >
-                  {checkout.isPending ? "Starting…" : "Continue to M-Pesa"}
-                </Button>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="sm:min-w-24"
+                    onClick={() => setCheckoutSelection(null)}
+                    disabled={checkout.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="sm:min-w-48"
+                    style={{ backgroundColor: brandColor }}
+                    disabled={checkout.isPending || !paymentPhone.trim()}
+                  >
+                    {checkout.isPending ? (
+                      <>
+                        <Loader2 className="animate-spin" aria-hidden="true" />
+                        Starting…
+                      </>
+                    ) : (
+                      "Send M-Pesa prompt"
+                    )}
+                  </Button>
+                </div>
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                  You will approve the payment on your phone.
+                </p>
               </form>
             )}
           </DialogContent>

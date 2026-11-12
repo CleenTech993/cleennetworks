@@ -14,7 +14,9 @@ import {
   MessageCircle,
   Phone,
   RefreshCw,
+  ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Ticket,
   Tv,
   Wifi,
@@ -40,6 +42,7 @@ import {
   routerParams,
 } from "@/lib/hotspot-redirect";
 import { normalizeMac } from "@/lib/devices";
+import { formatDuration } from "@/lib/duration";
 import { readOmadaPortalContext } from "@/lib/omada-portal";
 import { parseHotspotDestinationUrl } from "@/lib/hotspot-redirect";
 import { PortalHeader } from "@/components/portal/header";
@@ -739,29 +742,59 @@ function BuyFlow({
           setCheckoutOpen(open);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm your package</DialogTitle>
-            <DialogDescription>
-              Enter the phone number that should receive the M-Pesa payment prompt.
-            </DialogDescription>
+        <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-md">
+          <DialogHeader className="border-b px-6 py-5 text-left">
+            <div className="flex items-start gap-3">
+              <span
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10"
+                style={{ color: primary }}
+              >
+                <ShoppingBag className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Secure checkout
+                </p>
+                <DialogTitle className="text-xl">Review your package</DialogTitle>
+                <DialogDescription>
+                  Confirm the plan and choose where to receive your M-Pesa prompt.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
           {selectedPlan && (
             <form
-              className="space-y-4"
+              className="space-y-5 p-6"
               onSubmit={(event) => {
                 event.preventDefault();
                 void pay();
               }}
             >
-              <div className="rounded-lg border bg-muted/40 p-3">
-                <p className="font-medium">{selectedPlan.name}</p>
-                <p className="mt-1 text-lg font-semibold">
-                  KES {Number(selectedPlan.price).toLocaleString()}
+              <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-4">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10"
+                  style={{ color: primary }}
+                >
+                  <Wifi className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words font-semibold">{selectedPlan.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {selectedPlan.kind === "hotspot_tv" ? "Phone + TV access" : "Wi-Fi access"}
+                    {formatDuration(selectedPlan.duration_value, selectedPlan.duration_unit)
+                      ? ` · ${formatDuration(selectedPlan.duration_value, selectedPlan.duration_unit)}`
+                      : ""}
+                  </p>
+                </div>
+                <p className="shrink-0 text-right">
+                  <span className="block text-xs text-muted-foreground">Total</span>
+                  <span className="text-lg font-bold tabular-nums">
+                    KES {Number(selectedPlan.price).toLocaleString()}
+                  </span>
                 </p>
               </div>
               {selectedPlan.kind === "hotspot_tv" && (
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="phone-tv-mac">TV Wi-Fi MAC address</Label>
                   <Input
                     id="phone-tv-mac"
@@ -772,7 +805,7 @@ function BuyFlow({
                     required
                     value={tvMac}
                     onChange={(e) => setTvMac(e.target.value)}
-                    className="mt-1 font-mono"
+                    className="font-mono"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
                     Find this in the TV's Settings → Network. The phone and TV share this package's
@@ -780,36 +813,60 @@ function BuyFlow({
                   </p>
                 </div>
               )}
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="hotspot-payment-phone">M-Pesa phone number</Label>
-                <Input
-                  id="hotspot-payment-phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="07XXXXXXXX"
-                  required
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="mt-1"
-                />
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Payment to <span className="font-medium text-foreground">{payeeName}</span>. The
-                  prompt uses the official business name registered to its PayBill.
+                <div className="relative">
+                  <Smartphone
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    id="hotspot-payment-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="07XX XXX XXX"
+                    required
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter the number for the payment prompt, e.g. 0712 345 678.
                 </p>
               </div>
-              <Button
-                type="submit"
-                className="pt-btn w-full"
-                style={{ backgroundColor: primary }}
-                disabled={
-                  !phone ||
-                  (selectedPlan.kind === "hotspot_tv" && !normalizeMac(tvMac)) ||
-                  submitting
-                }
-              >
-                {submitting ? "Sending prompt…" : "Continue to M-Pesa"}
-              </Button>
+              <div className="rounded-lg bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                Payment to <span className="font-medium text-foreground">{payeeName}</span>. The
+                official business name will appear in the M-Pesa prompt.
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="sm:min-w-24"
+                  onClick={() => setCheckoutOpen(false)}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="pt-btn sm:min-w-48"
+                  style={{ backgroundColor: primary }}
+                  disabled={
+                    !phone.trim() ||
+                    (selectedPlan.kind === "hotspot_tv" && !normalizeMac(tvMac)) ||
+                    submitting
+                  }
+                >
+                  {submitting ? "Sending prompt…" : "Send M-Pesa prompt"}
+                </Button>
+              </div>
+              <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                You will approve the payment on your phone.
+              </p>
             </form>
           )}
         </DialogContent>
