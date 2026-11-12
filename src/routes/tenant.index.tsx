@@ -42,7 +42,7 @@ import { formatTenantDate } from "@/lib/tenant-customization";
 export const Route = createFileRoute("/tenant/")({ component: Overview });
 
 function Overview() {
-  const labels = useTenantLabels();
+  const { labels } = useTenantLabels();
   const { roles } = Route.useRouteContext();
   const { user, profile, tenantId } = useAuth();
   const showRevenue = hasAnyRole(roles, REVENUE_ROLES);

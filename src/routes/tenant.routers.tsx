@@ -52,7 +52,7 @@ import { formatTenantDate } from "@/lib/tenant-customization";
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
 
 function RoutersPage() {
-  const labels = useTenantLabels();
+  const { labels } = useTenantLabels();
   const qc = useQueryClient();
   const { tenantId } = useAuth();
   const [open, setOpen] = useState(false);

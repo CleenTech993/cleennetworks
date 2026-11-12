@@ -40,7 +40,7 @@ type Timeframe = "7d" | "14d" | "30d";
 function Overview() {
   const [timeframe, setTimeframe] = useState<Timeframe>("14d");
 
-  const { data, refetch, isFetching } = useQuery({
+  const { data, refetch, isFetching, isError, error } = useQuery({
     queryKey: ["super-overview", timeframe],
     queryFn: async () => {
       const [tenantsRes, routersRes, customersRes, paymentsRes, packagesRes, sessionsRes] =
@@ -49,7 +49,7 @@ function Overview() {
           supabase
             .from("routers")
             .select("id,name,status,tenant_id,last_heartbeat_at,cpu_load,cpu_usage"),
-          supabase.from("customers").select("id,customer_type,status"),
+          supabase.from("customers").select("id,customer_type,status,router_id"),
           supabase
             .from("payments")
             .select("amount,status,created_at,tenant_id,package_id")
@@ -59,12 +59,20 @@ function Overview() {
           supabase.from("sessions").select("id,status").eq("status", "active"),
         ]);
 
+      const failedRequest = [
+        tenantsRes,
+        routersRes,
+        customersRes,
+        paymentsRes,
+        packagesRes,
+        sessionsRes,
+      ].find((result) => result.error);
+      if (failedRequest?.error) throw failedRequest.error;
+
       const tenants = tenantsRes.data ?? [];
       const routers = routersRes.data ?? [];
       const customers = customersRes.data ?? [];
       const payments = paymentsRes.data ?? [];
-      if (paymentsRes.error) throw paymentsRes.error;
-      if (packagesRes.error) throw packagesRes.error;
       const packagesById = new Map((packagesRes.data ?? []).map((pkg) => [pkg.id, pkg]));
       const sessions = sessionsRes.data ?? [];
 
@@ -88,6 +96,9 @@ function Overview() {
 
       const onlineRouters = routers.filter(isRouterLive).length;
       const offlineRouters = routers.length - onlineRouters;
+      const degradedRouters = routers.filter(
+        (router) => isRouterLive(router) && (router.cpu_load ?? router.cpu_usage ?? 0) >= 75,
+      ).length;
       const activeCustomers = customers.filter((c) => c.status === "active").length;
       const pppoeCount = customers.filter((c) => c.customer_type === "pppoe").length;
       const hotspotCustCount = customers.filter((c) => c.customer_type === "hotspot").length;
@@ -107,6 +118,58 @@ function Overview() {
       for (const r of routers) {
         tenantRouterCounts.set(r.tenant_id, (tenantRouterCounts.get(r.tenant_id) ?? 0) + 1);
       }
+
+      const routersByTenant = new Map<string, (typeof routers)[number][]>();
+      for (const router of routers) {
+        const tenantRouters = routersByTenant.get(router.tenant_id) ?? [];
+        tenantRouters.push(router);
+        routersByTenant.set(router.tenant_id, tenantRouters);
+      }
+      const activePppoeByRouter = new Map<string, number>();
+      for (const customer of customers) {
+        if (
+          customer.status === "active" &&
+          customer.customer_type === "pppoe" &&
+          customer.router_id
+        ) {
+          activePppoeByRouter.set(
+            customer.router_id,
+            (activePppoeByRouter.get(customer.router_id) ?? 0) + 1,
+          );
+        }
+      }
+
+      const networkWatchlist = tenants
+        .flatMap((tenant) => {
+          const tenantRouters = routersByTenant.get(tenant.id) ?? [];
+          const offline = tenantRouters.filter((router) => !isRouterLive(router));
+          const degraded = tenantRouters.filter(
+            (router) => isRouterLive(router) && (router.cpu_load ?? router.cpu_usage ?? 0) >= 75,
+          );
+          if (!offline.length && !degraded.length) return [];
+          const flaggedRouterIds = new Set([...offline, ...degraded].map((router) => router.id));
+          const accountsOnFlaggedRouters = [...flaggedRouterIds].reduce(
+            (total, routerId) => total + (activePppoeByRouter.get(routerId) ?? 0),
+            0,
+          );
+          return [
+            {
+              id: tenant.id,
+              name: tenant.name,
+              slug: tenant.slug,
+              offlineRouters: offline.length,
+              degradedRouters: degraded.length,
+              accountsOnFlaggedRouters,
+            },
+          ];
+        })
+        .sort(
+          (a, b) =>
+            b.accountsOnFlaggedRouters - a.accountsOnFlaggedRouters ||
+            b.offlineRouters - a.offlineRouters ||
+            b.degradedRouters - a.degradedRouters ||
+            a.name.localeCompare(b.name),
+        );
 
       const leaderboard = tenants
         .map((t) => {
@@ -152,11 +215,13 @@ function Overview() {
         routersCount: routers.length,
         onlineRouters,
         offlineRouters,
+        degradedRouters,
         customersCount: customers.length,
         activeCustomers,
         pppoeCount,
         hotspotCustCount,
         activeHotspotSessions: sessions.length,
+        networkWatchlist,
         totalGMV,
         totalCommission,
         chartData: days,
@@ -173,7 +238,7 @@ function Overview() {
     // tenant-controlled name cannot execute as a formula when the report is opened.
     const csvCell = (v: string) => {
       const escaped = v.replace(/"/g, '""');
-      return /^[=+@\-]/.test(escaped) ? `'${escaped}` : escaped;
+      return /^[-=+@]/.test(escaped) ? `'${escaped}` : escaped;
     };
     const header =
       "Tenant,Slug,Status,Routers,Gross Turnover (KES),Estimated Platform Commission (KES),Transactions\n";
@@ -195,6 +260,24 @@ function Overview() {
   };
 
   const chartData = data?.chartData ?? [];
+
+  if (isError) {
+    return (
+      <div>
+        <PageHeader
+          title="Super Admin Executive Overview"
+          description="Platform operations and cross-tenant performance."
+        />
+        <div className="rounded-xl border border-destructive/30 bg-card p-5" role="alert">
+          <p className="font-semibold">Platform overview could not be loaded.</p>
+          <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
+          <Button className="mt-3" variant="outline" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -254,6 +337,88 @@ function Overview() {
           hint={data ? `${data.offlineRouters} offline (${data.routersCount} total)` : undefined}
         />
       </div>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm" aria-labelledby="impact-title">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 id="impact-title" className="text-lg font-semibold">
+                Network experience watchlist
+              </h2>
+              <Badge variant="outline" className="border-primary/20 text-primary">
+                <Sparkles className="mr-1 h-3 w-3" aria-hidden="true" />
+                Premium insights
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Offline or high-CPU gateways ranked by assigned active PPPoE accounts.
+            </p>
+          </div>
+          <Link to="/super-admin/noc">
+            <Button variant="outline" size="sm">
+              Open global NOC <ArrowUpRight className="ml-1 h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        {!data ? (
+          <p className="mt-5 text-sm text-muted-foreground" role="status">
+            Loading network impact…
+          </p>
+        ) : data.networkWatchlist.length ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="pb-2 pr-4">ISP tenant</th>
+                  <th className="pb-2 px-4 text-right">Offline</th>
+                  <th className="pb-2 px-4 text-right">High CPU</th>
+                  <th className="pb-2 px-4 text-right">Assigned active PPPoE accounts</th>
+                  <th className="pb-2 pl-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.networkWatchlist.slice(0, 5).map((tenant) => (
+                  <tr key={tenant.id} className="border-t">
+                    <td className="py-3 pr-4">
+                      <p className="font-medium">{tenant.name}</p>
+                      <p className="text-xs text-muted-foreground">{tenant.slug}</p>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Badge variant={tenant.offlineRouters ? "destructive" : "secondary"}>
+                        {tenant.offlineRouters}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Badge variant={tenant.degradedRouters ? "outline" : "secondary"}>
+                        {tenant.degradedRouters}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {tenant.accountsOnFlaggedRouters}
+                    </td>
+                    <td className="py-3 pl-4 text-right">
+                      <Link to="/super-admin/noc">
+                        <Button variant="ghost" size="sm">
+                          Investigate <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {data.networkWatchlist.length > 5 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Showing the 5 tenants with the highest estimated subscriber impact.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-lg bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+            No offline gateways reported by active tenant networks.
+          </p>
+        )}
+      </section>
 
       {/* Revenue & Growth Analytics AreaChart */}
       <div className="rounded-xl border bg-card p-6 shadow-sm">
@@ -463,9 +628,32 @@ function Overview() {
               <ShieldCheck className="h-4 w-4 text-emerald-500" />
               Platform Controls
             </h3>
-            <Badge variant="outline" className="text-emerald-600 border-emerald-500/20 text-xs">
-              All Systems Operational
-            </Badge>
+            {!data ? (
+              <Badge variant="outline" className="text-xs">
+                Checking fleet…
+              </Badge>
+            ) : data.offlineRouters ? (
+              <Badge
+                variant="outline"
+                className="border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs"
+              >
+                <ShieldAlert className="mr-1 h-3 w-3" />
+                {data.offlineRouters} offline
+              </Badge>
+            ) : data.degradedRouters ? (
+              <Badge
+                variant="outline"
+                className="border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs"
+              >
+                <ShieldAlert className="mr-1 h-3 w-3" />
+                {data.degradedRouters} high CPU
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-emerald-600 border-emerald-500/20 text-xs">
+                <ShieldCheck className="mr-1 h-3 w-3" />
+                Fleet online
+              </Badge>
+            )}
           </div>
           <div className="space-y-2">
             <Link

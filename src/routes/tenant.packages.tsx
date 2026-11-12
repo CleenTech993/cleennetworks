@@ -260,7 +260,7 @@ function PackageFields({
 }
 
 function Packages() {
-  const labels = useTenantLabels();
+  const { labels } = useTenantLabels();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);

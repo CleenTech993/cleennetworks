@@ -128,7 +128,7 @@ const toLocalInput = (iso: string | null) => {
 const fromLocalInput = (v: string) => (v ? new Date(v).toISOString() : null);
 
 function PPPoE() {
-  const labels = useTenantLabels();
+  const { labels } = useTenantLabels();
   const qc = useQueryClient();
   const { tenantId } = useAuth();
   const [editing, setEditing] = useState<Client | "new" | null>(null);

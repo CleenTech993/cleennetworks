@@ -5,7 +5,7 @@ import { DEFAULT_TENANT_LABELS, sanitizeTenantLabels } from "@/lib/tenant-custom
 
 export function useTenantLabels() {
   const { tenantId } = useAuth();
-  const { data } = useQuery({
+  const query = useQuery({
     queryKey: ["tenant-labels", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
@@ -21,5 +21,11 @@ export function useTenantLabels() {
       return sanitizeTenantLabels(tenant.ui_labels);
     },
   });
-  return data ?? DEFAULT_TENANT_LABELS;
+  return {
+    labels: query.data ?? DEFAULT_TENANT_LABELS,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }

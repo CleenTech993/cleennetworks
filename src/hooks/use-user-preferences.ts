@@ -68,6 +68,9 @@ export function useUserPreferences() {
   return {
     preferences: query.data ?? DEFAULT_USER_PREFERENCES,
     isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
     savePreferences: mutation.mutateAsync,
     isSaving: mutation.isPending,
   };

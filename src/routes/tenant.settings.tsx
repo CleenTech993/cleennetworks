@@ -43,11 +43,24 @@ const empty = {
 function Settings() {
   const qc = useQueryClient();
   const { tenantId, user } = useAuth();
-  const labels = useTenantLabels();
-  const { preferences, savePreferences, isSaving: preferencesSaving } = useUserPreferences();
+  const {
+    labels,
+    isLoading: labelsLoading,
+    isError: labelsError,
+    refetch: refetchLabels,
+  } = useTenantLabels();
+  const {
+    preferences,
+    isLoading: preferencesLoading,
+    isError: preferencesError,
+    error: preferencesLoadError,
+    refetch: refetchPreferences,
+    savePreferences,
+    isSaving: preferencesSaving,
+  } = useUserPreferences();
   const [labelForm, setLabelForm] = useState<TenantLabels>(DEFAULT_TENANT_LABELS);
   const [preferencesForm, setPreferencesForm] = useState<UserPreferences>(preferences);
-  const { data: tenant } = useQuery({
+  const tenantQuery = useQuery({
     queryKey: ["tenant", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
@@ -60,7 +73,8 @@ function Settings() {
       return data;
     },
   });
-  const { data: portalDomain } = useQuery({
+  const tenant = tenantQuery.data;
+  const portalDomainQuery = useQuery({
     queryKey: ["tenant-domain-url", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
@@ -74,6 +88,7 @@ function Settings() {
       return data;
     },
   });
+  const portalDomain = portalDomainQuery.data;
   const [form, setForm] = useState(empty);
   useEffect(() => {
     if (tenant) {
@@ -101,6 +116,9 @@ function Settings() {
   const save = useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error("Tenant account is not available.");
+      if (!tenant) throw new Error("Tenant settings have not finished loading.");
+      if (labelsLoading || labelsError)
+        throw new Error("Tenant terminology has not finished loading.");
       const color = form.primary_color.trim();
       if (color && !/^#[0-9a-f]{6}$/i.test(color)) {
         throw new Error("Brand color must be a six-digit hexadecimal color, such as #0ea5e9.");
@@ -137,6 +155,8 @@ function Settings() {
   const savePreferencesMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Sign in to save preferences.");
+      if (preferencesLoading || preferencesError)
+        throw new Error("Personal preferences have not finished loading.");
       const sanitized = sanitizeUserPreferences(preferencesForm);
       await savePreferences(sanitized);
     },
@@ -154,10 +174,12 @@ function Settings() {
         : "";
 
   function field<K extends keyof typeof form>(k: K, label: string, placeholder?: string) {
+    const id = `tenant-${k}`;
     return (
       <div>
-        <Label>{label}</Label>
+        <Label htmlFor={id}>{label}</Label>
         <Input
+          id={id}
           value={form[k]}
           placeholder={placeholder}
           onChange={(e) => setForm({ ...form, [k]: e.target.value })}
@@ -192,6 +214,57 @@ function Settings() {
         title="Settings"
         description="Branding, receiving details, and customer support."
       />
+      {tenantQuery.isPending && (
+        <p className="mb-4 text-sm text-muted-foreground" role="status">
+          Loading organization settings…
+        </p>
+      )}
+      {tenantQuery.isError && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-card p-4"
+          role="alert"
+        >
+          <div>
+            <p className="font-medium">Organization settings could not be loaded.</p>
+            <p className="mt-1 text-sm text-muted-foreground">{tenantQuery.error.message}</p>
+          </div>
+          <Button type="button" variant="outline" onClick={() => void tenantQuery.refetch()}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {portalDomainQuery.isError && (
+        <p className="mb-4 text-sm text-destructive" role="alert">
+          Custom portal domain status could not be loaded: {portalDomainQuery.error.message}
+        </p>
+      )}
+      {labelsError && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-card p-4"
+          role="alert"
+        >
+          <p className="text-sm text-destructive">
+            Tenant terminology could not be loaded. Retry before editing or saving settings.
+          </p>
+          <Button type="button" variant="outline" onClick={() => void refetchLabels()}>
+            Retry
+          </Button>
+        </div>
+      )}
+      {preferencesError && (
+        <div
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-card p-4"
+          role="alert"
+        >
+          <p className="text-sm text-destructive">
+            Personal preferences could not be loaded:{" "}
+            {preferencesLoadError?.message ?? "Please retry."}
+          </p>
+          <Button type="button" variant="outline" onClick={() => void refetchPreferences()}>
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="grid gap-6 md:grid-cols-2">
         <div className="rounded-xl border bg-card p-5">
           <h3 className="font-semibold mb-4">ISP branding</h3>
@@ -232,6 +305,11 @@ function Settings() {
             Choose the words your team uses. These labels update tenant navigation and matching page
             headings.
           </p>
+          {labelsLoading && (
+            <p className="mb-3 text-sm text-muted-foreground" role="status">
+              Loading tenant terminology…
+            </p>
+          )}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {labelField("overview", "Overview")}
             {labelField("noc", "NOC monitor")}
@@ -322,9 +400,18 @@ function Settings() {
           <Button
             className="mt-4"
             onClick={() => savePreferencesMutation.mutate()}
-            disabled={savePreferencesMutation.isPending || preferencesSaving}
+            disabled={
+              preferencesLoading ||
+              preferencesError ||
+              savePreferencesMutation.isPending ||
+              preferencesSaving
+            }
           >
-            Save my preferences
+            {preferencesLoading
+              ? "Loading preferences…"
+              : savePreferencesMutation.isPending || preferencesSaving
+                ? "Saving preferences…"
+                : "Save my preferences"}
           </Button>
         </div>
 
@@ -370,8 +457,18 @@ function Settings() {
         </div>
       </div>
       <div className="mt-6">
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>
-          Save changes
+        <Button
+          onClick={() => save.mutate()}
+          disabled={
+            save.isPending ||
+            tenantQuery.isPending ||
+            tenantQuery.isError ||
+            !tenant ||
+            labelsLoading ||
+            labelsError
+          }
+        >
+          {save.isPending ? "Saving changes…" : "Save changes"}
         </Button>
       </div>
 

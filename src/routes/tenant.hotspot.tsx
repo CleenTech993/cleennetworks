@@ -18,7 +18,7 @@ function formatRate(value: number) {
 export const Route = createFileRoute("/tenant/hotspot")({ component: Hotspot });
 
 function Hotspot() {
-  const labels = useTenantLabels();
+  const { labels } = useTenantLabels();
   const { data } = useQuery({
     queryKey: ["hotspot-overview"],
     queryFn: async () => {

@@ -73,7 +73,7 @@ const emptyForm = {
 };
 
 function Customers() {
-  const labels = useTenantLabels();
+  const { labels } = useTenantLabels();
   const { roles } = Route.useRouteContext();
   // Equipment is visible to the roles that can see inventory (not billing agents).
   const canSeeEquipment = hasAnyRole(roles, ["tenant_admin", "technician", "support_staff"]);

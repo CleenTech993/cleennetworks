@@ -141,7 +141,7 @@ export const Route = createFileRoute("/tenant")({
 
 function TenantLayout() {
   const { roles } = Route.useRouteContext();
-  const labels = useTenantLabels();
+  const { labels } = useTenantLabels();
   const labelKeyByPath: Record<string, keyof typeof labels> = {
     "/tenant": "overview",
     "/tenant/noc": "noc",
