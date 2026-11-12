@@ -275,7 +275,7 @@ function PortalPage() {
       cancelled = true;
     };
   }, [slug]);
-  const { data, isLoading, error } = useQuery<PortalData>({
+  const { data, isPending, isError, error, refetch } = useQuery<PortalData>({
     queryKey: ["portal", slug, routerId],
     enabled: routerId !== undefined,
     queryFn: async () => {
@@ -301,17 +301,39 @@ function PortalPage() {
   // Brand colour adjusted for this theme (e.g. lightened on a dark theme) so it stays legible.
   const primary = portalAccent(themeId, brand);
 
-  if (isLoading) {
+  if (routerId === undefined || isPending) {
     return (
-      <div className="grid min-h-screen place-items-center">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <div className="grid min-h-screen place-items-center bg-background px-5">
+        <div className="w-full max-w-sm rounded-2xl border bg-card p-6 text-center shadow-sm">
+          <Loader2 className="mx-auto h-7 w-7 animate-spin text-primary" aria-hidden="true" />
+          <h1 className="mt-4 text-lg font-semibold">Connecting to your Wi-Fi portal</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Please wait while we load the available internet plans.
+          </p>
+        </div>
       </div>
     );
   }
-  if (error || !data) {
+  if (isError || !data) {
     return (
-      <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">
-        {error instanceof Error ? error.message : "Portal not found."}
+      <div className="grid min-h-screen place-items-center bg-background px-5">
+        <div className="w-full max-w-sm rounded-2xl border bg-card p-6 text-center shadow-sm">
+          <Wifi className="mx-auto h-7 w-7 text-muted-foreground" aria-hidden="true" />
+          <h1 className="mt-4 text-lg font-semibold">
+            {error instanceof Error && error.message === "Portal not found"
+              ? "Portal not found"
+              : "We couldn’t load this Wi-Fi portal"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {error instanceof Error && error.message === "Portal not found"
+              ? "Check that you opened the sign-in page for the correct Wi-Fi network."
+              : "Your portal may be temporarily slow to respond. Please try again."}
+          </p>
+          <Button className="mt-4" variant="outline" onClick={() => void refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+            Try again
+          </Button>
+        </div>
       </div>
     );
   }

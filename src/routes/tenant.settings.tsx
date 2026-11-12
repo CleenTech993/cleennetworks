@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenantLabels } from "@/hooks/use-tenant-customization";
@@ -29,13 +28,6 @@ const empty = {
   name: "",
   primary_color: "",
   logo_url: "",
-  mpesa_paybill: "",
-  mpesa_till: "",
-  bank_name: "",
-  bank_account_name: "",
-  bank_account_number: "",
-  bank_branch: "",
-  payment_instructions: "",
   support_phone: "",
   support_email: "",
 };
@@ -97,13 +89,6 @@ function Settings() {
         name: t.name ?? "",
         primary_color: t.primary_color ?? "",
         logo_url: t.logo_url ?? "",
-        mpesa_paybill: t.mpesa_paybill ?? "",
-        mpesa_till: t.mpesa_till ?? "",
-        bank_name: t.bank_name ?? "",
-        bank_account_name: t.bank_account_name ?? "",
-        bank_account_number: t.bank_account_number ?? "",
-        bank_branch: t.bank_branch ?? "",
-        payment_instructions: t.payment_instructions ?? "",
         support_phone: t.support_phone ?? "",
         support_email: t.support_email ?? "",
       });
@@ -413,36 +398,6 @@ function Settings() {
                 ? "Saving preferences…"
                 : "Save my preferences"}
           </Button>
-        </div>
-
-        <div className="rounded-xl border bg-card p-5">
-          <h3 className="font-semibold mb-1">Receiving details</h3>
-          <p className="text-xs text-muted-foreground mb-4">
-            New online payments are sent directly to your M-Pesa account using the Daraja
-            credentials configured below. These details are for customer instructions and records;
-            they are not API credentials.
-          </p>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              {field("mpesa_paybill", "M-Pesa PayBill")}
-              {field("mpesa_till", "M-Pesa Till / Buy Goods")}
-            </div>
-            {field("bank_name", "Bank name")}
-            <div className="grid grid-cols-2 gap-3">
-              {field("bank_account_name", "Account name")}
-              {field("bank_account_number", "Account number")}
-            </div>
-            {field("bank_branch", "Branch")}
-            <div>
-              <Label>Payment instructions</Label>
-              <Textarea
-                value={form.payment_instructions}
-                onChange={(e) => setForm({ ...form, payment_instructions: e.target.value })}
-                placeholder="e.g. Use your phone number as the account reference."
-                className="mt-1"
-              />
-            </div>
-          </div>
         </div>
 
         <div className="rounded-xl border bg-card p-5 md:col-span-2">
