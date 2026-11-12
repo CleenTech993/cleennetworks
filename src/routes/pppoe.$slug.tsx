@@ -5,6 +5,13 @@ import { Activity, Clock3, LogOut, Mail, Phone, RefreshCw, Wifi } from "lucide-r
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -90,6 +97,12 @@ function PppoePortalPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [lastPaymentId, setLastPaymentId] = useState<string | null>(null);
+  const [checkoutSelection, setCheckoutSelection] = useState<{
+    packageId: string;
+    packageName: string;
+    amount: number;
+  } | null>(null);
+  const [paymentPhone, setPaymentPhone] = useState("");
 
   const accountQuery = useQuery({
     queryKey: ["pppoe-portal-account", slug],
@@ -145,14 +158,14 @@ function PppoePortalPage() {
   });
 
   const checkout = useMutation({
-    mutationFn: async (packageId: string) => {
+    mutationFn: async ({ packageId, phone }: { packageId: string; phone: string }) => {
       const response = await fetch(
         `/api/public/pppoe-portal/${encodeURIComponent(slug)}/checkout`,
         {
           method: "POST",
           headers: { "content-type": "application/json" },
           credentials: "same-origin",
-          body: JSON.stringify({ packageId }),
+          body: JSON.stringify({ packageId, phone }),
         },
       );
       const result = await responseJson(response);
@@ -163,7 +176,8 @@ function PppoePortalPage() {
     },
     onSuccess: async (paymentId) => {
       setLastPaymentId(paymentId);
-      toast.success("Check your registered phone for the M-Pesa prompt.");
+      setCheckoutSelection(null);
+      toast.success("Check your phone for the M-Pesa prompt.");
       await queryClient.invalidateQueries({ queryKey: ["pppoe-portal-account", slug] });
     },
     onError: (error) => toast.error(error.message),
@@ -181,6 +195,10 @@ function PppoePortalPage() {
   function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     login.mutate();
+  }
+
+  function choosePackage(packageId: string, packageName: string, amount: number) {
+    setCheckoutSelection({ packageId, packageName, amount });
   }
 
   if (accountQuery.isPending) {
@@ -388,7 +406,9 @@ function PppoePortalPage() {
                         <Button
                           style={{ backgroundColor: brandColor }}
                           disabled={checkout.isPending || pendingStatus}
-                          onClick={() => checkout.mutate(invoice.package_id)}
+                          onClick={() =>
+                            choosePackage(invoice.package_id, invoice.package_name, invoice.amount)
+                          }
                         >
                           {checkout.isPending ? "Starting…" : "Pay with M-Pesa"}
                         </Button>
@@ -410,7 +430,7 @@ function PppoePortalPage() {
           <div>
             <h2 className="text-lg font-semibold">Renew your broadband</h2>
             <p className="text-sm text-muted-foreground">
-              Select a PPPoE plan. M-Pesa will send a prompt to your registered phone.
+              Select a PPPoE plan, then enter the phone number for the M-Pesa prompt.
             </p>
           </div>
           {account.packages.length === 0 ? (
@@ -442,7 +462,17 @@ function PppoePortalPage() {
                       pendingStatus ||
                       Boolean(outstandingInvoice && outstandingInvoice.package_id !== pkg.id)
                     }
-                    onClick={() => checkout.mutate(pkg.id)}
+                    onClick={() =>
+                      choosePackage(
+                        pkg.id,
+                        outstandingInvoice?.package_id === pkg.id
+                          ? outstandingInvoice.package_name
+                          : pkg.name,
+                        outstandingInvoice?.package_id === pkg.id
+                          ? outstandingInvoice.amount
+                          : pkg.price,
+                      )
+                    }
                   >
                     {checkout.isPending
                       ? "Starting payment…"
@@ -515,6 +545,62 @@ function PppoePortalPage() {
             )}
           </footer>
         )}
+        <Dialog
+          open={checkoutSelection !== null}
+          onOpenChange={(open) => {
+            if (!open) setCheckoutSelection(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm your package</DialogTitle>
+              <DialogDescription>
+                Enter the phone number that should receive the M-Pesa payment prompt.
+              </DialogDescription>
+            </DialogHeader>
+            {checkoutSelection && (
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  checkout.mutate({
+                    packageId: checkoutSelection.packageId,
+                    phone: paymentPhone,
+                  });
+                }}
+              >
+                <div className="rounded-lg border bg-muted/40 p-3">
+                  <p className="font-medium">{checkoutSelection.packageName}</p>
+                  <p className="mt-1 text-lg font-semibold">
+                    KES {Number(checkoutSelection.amount).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="pppoe-payment-phone">M-Pesa phone number</Label>
+                  <Input
+                    id="pppoe-payment-phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    placeholder="07XXXXXXXX"
+                    required
+                    maxLength={20}
+                    value={paymentPhone}
+                    onChange={(event) => setPaymentPhone(event.target.value)}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  style={{ backgroundColor: brandColor }}
+                  disabled={checkout.isPending || !paymentPhone.trim()}
+                >
+                  {checkout.isPending ? "Starting…" : "Continue to M-Pesa"}
+                </Button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </main>
   );

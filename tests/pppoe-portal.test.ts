@@ -155,7 +155,7 @@ describe("PPPoE customer portal", () => {
     const signedIn = await login();
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
     const response = await call(CheckoutRoute, "POST", {
-      body: { packageId: PACKAGE },
+      body: { packageId: PACKAGE, phone: "0722334455" },
       params: PARAMS,
       headers: { cookie },
       ip: "192.0.2.22",
@@ -167,13 +167,33 @@ describe("PPPoE customer portal", () => {
       {
         customer_id: CUSTOMER,
         package_id: PACKAGE,
-        phone: "254712345678",
+        phone: "254722334455",
         status: "pending",
       },
     ]);
     expect(darajaMock.start).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: TENANT, paymentId: result.paymentId, amount: 1500 }),
+      expect.objectContaining({
+        tenantId: TENANT,
+        paymentId: result.paymentId,
+        amount: 1500,
+        phone: "254722334455",
+      }),
     );
+  });
+
+  it("rejects an invalid payment phone before creating a payment", async () => {
+    const signedIn = await login();
+    const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+    const response = await call(CheckoutRoute, "POST", {
+      body: { packageId: PACKAGE, phone: "12345" },
+      params: PARAMS,
+      headers: { cookie },
+      ip: "192.0.2.25",
+    });
+
+    expect(response.status).toBe(400);
+    expect(h.db.rows("payments")).toHaveLength(0);
+    expect(darajaMock.start).not.toHaveBeenCalled();
   });
 
   it("uses the invoice snapshot amount when the package price has changed", async () => {
@@ -191,7 +211,7 @@ describe("PPPoE customer portal", () => {
     const signedIn = await login();
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
     const response = await call(CheckoutRoute, "POST", {
-      body: { packageId: PACKAGE },
+      body: { packageId: PACKAGE, phone: "0712345678" },
       params: PARAMS,
       headers: { cookie },
       ip: "192.0.2.23",
@@ -234,7 +254,7 @@ describe("PPPoE customer portal", () => {
     const signedIn = await login();
     const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
     const response = await call(CheckoutRoute, "POST", {
-      body: { packageId: PACKAGE },
+      body: { packageId: PACKAGE, phone: "0712345678" },
       params: PARAMS,
       headers: { cookie },
       ip: "192.0.2.24",

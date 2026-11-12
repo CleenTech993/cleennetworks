@@ -20,6 +20,13 @@ import {
   Wifi,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -649,6 +656,7 @@ function BuyFlow({
   const [picked, setPicked] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
   const [tvMac, setTvMac] = useState("");
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const [omadaPortal, setOmadaPortal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -674,6 +682,7 @@ function BuyFlow({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setPaymentId(json.paymentId);
+      setCheckoutOpen(false);
       setOmadaPortal(Boolean(omadaContext));
       toast.success("Check your phone for the M-Pesa prompt");
     } catch (e) {
@@ -699,6 +708,7 @@ function BuyFlow({
         onChangePhone={() => {
           setPaymentId(null);
           setOmadaPortal(false);
+          setCheckoutOpen(true);
         }}
       />
     );
@@ -715,58 +725,95 @@ function BuyFlow({
             theme={theme}
             plan={p}
             selected={picked === p.id}
-            onSelect={() => setPicked(p.id)}
+            onSelect={() => {
+              setPicked(p.id);
+              setCheckoutOpen(true);
+            }}
             accent={primary}
           />
         ))}
       </div>
-      <div className="mt-5">
-        {selectedPlan?.kind === "hotspot_tv" && (
-          <div className="mb-4">
-            <Label htmlFor="phone-tv-mac">TV Wi-Fi MAC address</Label>
-            <Input
-              id="phone-tv-mac"
-              placeholder="AA:BB:CC:DD:EE:FF"
-              autoCapitalize="characters"
-              autoCorrect="off"
-              spellCheck={false}
-              value={tvMac}
-              onChange={(e) => setTvMac(e.target.value)}
-              className="mt-1 font-mono"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Find this in the TV's Settings → Network. The phone and TV share this package's
-              expiry.
-            </p>
-          </div>
-        )}
-        <Label htmlFor="phone">M-Pesa phone</Label>
-        <Input
-          id="phone"
-          inputMode="tel"
-          placeholder="07XXXXXXXX"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="mt-1"
-        />
-        <p className="mt-2 text-xs text-muted-foreground">
-          M-Pesa payment to <span className="font-medium text-foreground">{payeeName}</span>. The
-          prompt uses the official business name registered to its PayBill.
-        </p>
-      </div>
-      <Button
-        className="pt-btn mt-4 w-full"
-        style={{ backgroundColor: primary }}
-        disabled={
-          !picked ||
-          !phone ||
-          (selectedPlan?.kind === "hotspot_tv" && !normalizeMac(tvMac)) ||
-          submitting
-        }
-        onClick={pay}
+      <Dialog
+        open={checkoutOpen && Boolean(selectedPlan)}
+        onOpenChange={(open) => {
+          setCheckoutOpen(open);
+        }}
       >
-        {submitting ? "Sending prompt…" : "Pay with M-Pesa"}
-      </Button>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm your package</DialogTitle>
+            <DialogDescription>
+              Enter the phone number that should receive the M-Pesa payment prompt.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPlan && (
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void pay();
+              }}
+            >
+              <div className="rounded-lg border bg-muted/40 p-3">
+                <p className="font-medium">{selectedPlan.name}</p>
+                <p className="mt-1 text-lg font-semibold">
+                  KES {Number(selectedPlan.price).toLocaleString()}
+                </p>
+              </div>
+              {selectedPlan.kind === "hotspot_tv" && (
+                <div>
+                  <Label htmlFor="phone-tv-mac">TV Wi-Fi MAC address</Label>
+                  <Input
+                    id="phone-tv-mac"
+                    placeholder="AA:BB:CC:DD:EE:FF"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    required
+                    value={tvMac}
+                    onChange={(e) => setTvMac(e.target.value)}
+                    className="mt-1 font-mono"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Find this in the TV's Settings → Network. The phone and TV share this package's
+                    expiry.
+                  </p>
+                </div>
+              )}
+              <div>
+                <Label htmlFor="hotspot-payment-phone">M-Pesa phone number</Label>
+                <Input
+                  id="hotspot-payment-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="07XXXXXXXX"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Payment to <span className="font-medium text-foreground">{payeeName}</span>. The
+                  prompt uses the official business name registered to its PayBill.
+                </p>
+              </div>
+              <Button
+                type="submit"
+                className="pt-btn w-full"
+                style={{ backgroundColor: primary }}
+                disabled={
+                  !phone ||
+                  (selectedPlan.kind === "hotspot_tv" && !normalizeMac(tvMac)) ||
+                  submitting
+                }
+              >
+                {submitting ? "Sending prompt…" : "Continue to M-Pesa"}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

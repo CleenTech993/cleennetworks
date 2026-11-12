@@ -13,7 +13,10 @@ import {
   tenantServiceRestrictionMessage,
 } from "@/lib/platform-billing.server";
 
-const CheckoutSchema = z.object({ packageId: z.string().uuid() });
+const CheckoutSchema = z.object({
+  packageId: z.string().uuid(),
+  phone: z.string().min(7).max(20),
+});
 const PENDING_TIMEOUT_MS = 10 * 60_000;
 
 export const Route = createFileRoute("/api/public/pppoe-portal/$slug/checkout")({
@@ -65,7 +68,7 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/checkout")(
 
         const { data: customer, error: customerError } = await supabaseAdmin
           .from("customers")
-          .select("id,phone,status")
+          .select("id,status")
           .eq("id", session.customerId)
           .eq("tenant_id", tenant.id)
           .eq("customer_type", "pppoe")
@@ -75,16 +78,10 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/checkout")(
           return Response.json({ error: "Could not start payment." }, { status: 503 });
         }
         if (!customer) return Response.json({ error: "Account not found." }, { status: 404 });
-        if (!customer.phone) {
-          return Response.json(
-            { error: "Your account has no registered payment phone. Contact your provider." },
-            { status: 400 },
-          );
-        }
-        const phone = normalizePhone(customer.phone);
+        const phone = normalizePhone(parsed.data.phone);
         if (!isValidKenyanMobile(phone)) {
           return Response.json(
-            { error: "Your registered phone number is invalid. Contact your provider." },
+            { error: "Enter a valid M-Pesa number, e.g. 0712345678." },
             { status: 400 },
           );
         }
