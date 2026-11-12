@@ -13,565 +13,1353 @@
 -- Not covered: row data, column defaults, grants, and cron jobs (and function bodies and check
 -- constraints, except where a later migration redefines one under the same name: those rows are
 -- 'funcdef' / 'constraintdef' and mean "the definition from this migration"). For cron run
---   select jobname, schedule from cron.job;     -- expect the router liveness check
+--   select jobname, schedule from cron.job;     -- expect router liveness and STK cleanup jobs
 with expected(ord, track, migration, kind, ident) as (values
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.captive_portals.captive_portals_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.captive_portals.captive_portals_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.captive_portals.captive_portals_tenant_id_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_package_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_router_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.packages.packages_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.packages.packages_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_customer_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_mpesa_receipt_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_package_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.profiles.profiles_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.profiles.profiles_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.profiles.profiles_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.routers.routers_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.routers.routers_provision_token_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.routers.routers_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_customer_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_router_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.support_tickets.support_tickets_customer_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.support_tickets.support_tickets_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.support_tickets.support_tickets_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.tenants.tenants_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.tenants.tenants_slug_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.tenants.tenants_subdomain_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_tenant_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_user_id_fkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_user_id_role_tenant_id_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.billing_agent'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.end_user'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.super_admin'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.support_staff'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.technician'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.tenant_admin'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.handle_new_user()'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.has_role(_user_id uuid, _role app_role)'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.is_super_admin(_user_id uuid)'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.user_tenant_id(_user_id uuid)'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.captive_portals_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.captive_portals_tenant_id_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.customers_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.packages_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.payments_mpesa_receipt_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.payments_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.profiles_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.routers_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.routers_provision_token_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.sessions_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.support_tickets_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.tenants_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.tenants_slug_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.tenants_subdomain_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.user_roles_pkey'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.user_roles_user_id_role_tenant_id_key'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.profiles.profiles self read'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.profiles.profiles self update'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.tenants.tenants super delete'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.user_roles.roles self read'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.user_roles.roles super admin write'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.captive_portals'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.customers'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.packages'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.payments'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.profiles'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.routers'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.sessions'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.support_tickets'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.tenants'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.user_roles'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.captive_portals'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.customers'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.packages'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.payments'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.profiles'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.routers'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.sessions'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.support_tickets'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.tenants'),
-  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.user_roles'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.payments.merchant_request_id'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.payments.voucher_code'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_consumer_key'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_consumer_secret'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_env'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_passkey'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'constraint', 'public.vouchers.vouchers_pkey'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.payments_checkout_request_idx'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.payments_tenant_created_idx'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.sessions_tenant_started_idx'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.vouchers_pkey'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.vouchers_tenant_code_key'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'rls', 'public.vouchers'),
-  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'table', 'public.vouchers'),
-  (3, 'supabase', '20260603042955_7dc3ca0b-6b91-454b-8f93-31f5c43e8aba.sql', 'function', 'public.bootstrap_tenant(p_name text, p_slug text, p_full_name text)'),
-  (4, 'supabase', '20260603050402_bacd605a-0a6b-42a7-bd98-abcd60ff9f18.sql', 'function', 'public.admin_approve_user(p_user_id uuid, p_role app_role, p_tenant_id uuid, p_new_tenant_name text, p_new_tenant_slug text)'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.background_url'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.enable_otp'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.enable_voucher'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.logo_url'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.primary_color'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.terms_text'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.updated_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.captive_portals.welcome_text'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.customer_type'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.email'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.expires_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.full_name'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.package_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.phone'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.pppoe_password'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.pppoe_username'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.router_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.static_ip'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.status'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.customers.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.active'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.burst_kbps'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.data_limit_mb'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.description'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.device_limit'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.download_kbps'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.duration_unit'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.duration_value'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.idle_timeout_sec'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.kind'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.mac_binding'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.name'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.price'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.session_timeout_sec'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.simultaneous_logins'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.unlimited'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.packages.upload_kbps'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.amount'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.checkout_request_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.customer_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.mpesa_receipt'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.package_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.phone'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.raw_callback'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.status'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.payments.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.profiles.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.profiles.email'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.profiles.full_name'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.profiles.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.profiles.phone'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.profiles.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.cpu_usage'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.last_seen_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.mac_address'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.model'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.name'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.provision_token'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.provision_token_expires_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.public_ip'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.ram_usage'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.routeros_version'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.serial'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.status'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.routers.uptime_seconds'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.bytes_in'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.bytes_out'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.customer_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.ended_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.ip_address'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.mac_address'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.router_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.started_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.status'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.sessions.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.support_tickets.body'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.support_tickets.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.support_tickets.customer_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.support_tickets.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.support_tickets.status'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.support_tickets.subject'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.support_tickets.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.logo_url'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.mpesa_paybill'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.mpesa_shortcode'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.mpesa_till'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.name'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.primary_color'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.slug'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.status'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.subdomain'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.tenants.updated_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.user_roles.created_at'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.user_roles.id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.user_roles.role'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.user_roles.tenant_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'column', 'public.user_roles.user_id'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.captive_portals.captive_portals_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.captive_portals.captive_portals_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.captive_portals.captive_portals_tenant_id_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_package_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_router_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.customers.customers_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.packages.packages_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.packages.packages_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_customer_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_mpesa_receipt_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_package_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.payments.payments_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.profiles.profiles_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.profiles.profiles_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.profiles.profiles_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.routers.routers_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.routers.routers_provision_token_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.routers.routers_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_customer_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_router_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.sessions.sessions_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.support_tickets.support_tickets_customer_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.support_tickets.support_tickets_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.support_tickets.support_tickets_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.tenants.tenants_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.tenants.tenants_slug_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.tenants.tenants_subdomain_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_tenant_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_user_id_fkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'constraint', 'public.user_roles.user_roles_user_id_role_tenant_id_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.billing_agent'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.end_user'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.super_admin'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.support_staff'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.technician'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'enum', 'app_role.tenant_admin'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.handle_new_user()'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.has_role(_user_id uuid, _role app_role)'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.is_super_admin(_user_id uuid)'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'function', 'public.user_tenant_id(_user_id uuid)'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.captive_portals_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.captive_portals_tenant_id_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.customers_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.packages_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.payments_mpesa_receipt_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.payments_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.profiles_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.routers_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.routers_provision_token_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.sessions_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.support_tickets_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.tenants_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.tenants_slug_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.tenants_subdomain_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.user_roles_pkey'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'index', 'public.user_roles_user_id_role_tenant_id_key'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.profiles.profiles self read'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.profiles.profiles self update'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.tenants.tenants super delete'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.user_roles.roles self read'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'policy', 'public.user_roles.roles super admin write'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.captive_portals'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.customers'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.packages'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.payments'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.profiles'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.routers'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.sessions'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.support_tickets'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.tenants'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'rls', 'public.user_roles'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.captive_portals'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.customers'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.packages'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.payments'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.profiles'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.routers'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.sessions'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.support_tickets'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.tenants'),
+  (1, 'supabase', '20260531141120_a368e0f5-5bf5-456d-9536-c884d0cde707.sql', 'table', 'public.user_roles'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.payments.merchant_request_id'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.payments.voucher_code'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_consumer_key'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_consumer_secret'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_env'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.tenants.mpesa_passkey'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.code'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.created_at'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.expires_at'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.id'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.package_id'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.payment_id'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.status'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.tenant_id'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.used_at'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'column', 'public.vouchers.used_by_mac'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'constraint', 'public.vouchers.vouchers_pkey'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.payments_checkout_request_idx'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.payments_tenant_created_idx'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.sessions_tenant_started_idx'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.vouchers_pkey'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'index', 'public.vouchers_tenant_code_key'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'rls', 'public.vouchers'),
+  (2, 'supabase', '20260602051101_d5826c0c-6a3d-4e4f-8995-fd026949ee90.sql', 'table', 'public.vouchers'),
+  (3, 'supabase', '20260603042955_7dc3ca0b-6b91-454b-8f93-31f5c43e8aba.sql', 'function', 'public.bootstrap_tenant(p_name text, p_slug text, p_full_name text)'),
+  (4, 'supabase', '20260603050402_bacd605a-0a6b-42a7-bd98-abcd60ff9f18.sql', 'function', 'public.admin_approve_user(p_user_id uuid, p_role app_role, p_tenant_id uuid, p_new_tenant_name text, p_new_tenant_slug text)'),
   (5, 'supabase', '20260604053435_965a9e9c-5ba1-407e-94a1-e01b46a6e118.sql', 'none', ''),
-  (6, 'supabase', '20260604053624_5f4dac56-1538-4d1b-9917-e1228b5879cb.sql', 'policy', 'public.tenants.tenants super insert'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.payments.expires_at'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_account_name'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_account_number'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_branch'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_name'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.payment_instructions'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.platform_commission_pct'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.support_email'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.support_phone'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'constraint', 'public.platform_mpesa_config.platform_mpesa_config_pkey'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'constraint', 'public.platform_mpesa_config.singleton_row'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'constraint', 'public.settlements.settlements_pkey'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.payments_phone_idx'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.payments_receipt_idx'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.platform_mpesa_config_pkey'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.settlements_pkey'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.platform_mpesa_config.platform mpesa super insert'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.platform_mpesa_config.platform mpesa super read'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.platform_mpesa_config.platform mpesa super update'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.settlements.settlements super write'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'rls', 'public.platform_mpesa_config'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'rls', 'public.settlements'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'table', 'public.platform_mpesa_config'),
-  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'table', 'public.settlements'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.architecture'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.board_name'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.cpu_load'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.firmware_version'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.free_memory_mb'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.hdd_free_mb'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.lan_ip'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.last_heartbeat_at'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.tags'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.temperature'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.total_memory_mb'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.voltage'),
-  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.wan_ip'),
+  (6, 'supabase', '20260604053624_5f4dac56-1538-4d1b-9917-e1228b5879cb.sql', 'policy', 'public.tenants.tenants super insert'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.payments.expires_at'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.callback_base_url'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.confirmation_url'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.consumer_key'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.consumer_secret'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.id'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.mpesa_env'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.passkey'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.shortcode'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.updated_at'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.platform_mpesa_config.validation_url'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.commission_amount'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.created_at'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.gross_amount'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.id'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.net_amount'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.notes'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.paid_at'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.payment_method'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.period_end'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.period_start'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.status'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.settlements.tenant_id'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_account_name'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_account_number'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_branch'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.bank_name'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.payment_instructions'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.platform_commission_pct'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.support_email'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'column', 'public.tenants.support_phone'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'constraint', 'public.platform_mpesa_config.platform_mpesa_config_pkey'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'constraint', 'public.platform_mpesa_config.singleton_row'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'constraint', 'public.settlements.settlements_pkey'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.payments_phone_idx'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.payments_receipt_idx'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.platform_mpesa_config_pkey'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'index', 'public.settlements_pkey'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.platform_mpesa_config.platform mpesa super insert'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.platform_mpesa_config.platform mpesa super read'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.platform_mpesa_config.platform mpesa super update'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'policy', 'public.settlements.settlements super write'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'rls', 'public.platform_mpesa_config'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'rls', 'public.settlements'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'table', 'public.platform_mpesa_config'),
+  (7, 'supabase', '20260605010055_e20d4fdd-e37e-49c0-b90d-db2591894001.sql', 'table', 'public.settlements'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.architecture'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.board_name'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.cpu_load'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.firmware_version'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.free_memory_mb'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.hdd_free_mb'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.lan_ip'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.last_heartbeat_at'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.tags'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.temperature'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.total_memory_mb'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.voltage'),
+  (8, 'supabase', '20260606012419_291f4ebc-b15d-47b1-a9ab-e4b99ac447e3.sql', 'column', 'public.routers.wan_ip'),
   (9, 'supabase', '20261023000000_lock_profiles_columns.sql', 'none', ''),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics_daily.router_metrics_daily_pkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics_daily.router_metrics_daily_router_id_fkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics.router_metrics_pkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics.router_metrics_router_id_fkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_uptime_events.router_uptime_events_pkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_uptime_events.router_uptime_events_router_id_fkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'function', 'public.rollup_router_metrics()'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_metrics_daily_pkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_metrics_pkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_metrics_router_ts'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_uptime_events_pkey'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_uptime_events_router'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'rls', 'public.router_metrics'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'rls', 'public.router_metrics_daily'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'rls', 'public.router_uptime_events'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'table', 'public.router_metrics'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'table', 'public.router_metrics_daily'),
-  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'table', 'public.router_uptime_events'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_metrics.dns_ok'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_metrics.wan_jitter_ms'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'constraint', 'public.router_interfaces.router_interfaces_pkey'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'constraint', 'public.router_interfaces.router_interfaces_router_id_fkey'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'constraint', 'public.router_interfaces.router_interfaces_router_id_name_key'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'index', 'public.router_interfaces_pkey'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'index', 'public.router_interfaces_router_id_name_key'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'rls', 'public.router_interfaces'),
-  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'table', 'public.router_interfaces'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.avg_cpu'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.avg_mem'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.avg_temp'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.day'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.max_cpu'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.max_mem'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.router_id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.samples'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics_daily.tenant_id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.cpu_pct'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.mem_pct'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.router_id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.rx_bps'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.temp'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.tenant_id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.ts'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.tx_bps'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.wan_latency_ms'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_metrics.wan_loss_pct'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_uptime_events.ended_at'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_uptime_events.id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_uptime_events.kind'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_uptime_events.router_id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_uptime_events.started_at'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'column', 'public.router_uptime_events.tenant_id'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics_daily.router_metrics_daily_pkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics_daily.router_metrics_daily_router_id_fkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics.router_metrics_pkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_metrics.router_metrics_router_id_fkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_uptime_events.router_uptime_events_pkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'constraint', 'public.router_uptime_events.router_uptime_events_router_id_fkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'function', 'public.rollup_router_metrics()'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_metrics_daily_pkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_metrics_pkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_metrics_router_ts'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_uptime_events_pkey'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'index', 'public.router_uptime_events_router'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'rls', 'public.router_metrics'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'rls', 'public.router_metrics_daily'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'rls', 'public.router_uptime_events'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'table', 'public.router_metrics'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'table', 'public.router_metrics_daily'),
+  (10, 'drizzle', '0000_router_metrics_phase2.sql', 'table', 'public.router_uptime_events'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.disabled'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.id'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.name'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.router_id'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.running'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.rx_bps'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.rx_bytes'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.rx_drops'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.rx_errors'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.tenant_id'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.tx_bps'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.tx_bytes'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.tx_drops'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.tx_errors'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_interfaces.updated_at'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_metrics.dns_ok'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'column', 'public.router_metrics.wan_jitter_ms'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'constraint', 'public.router_interfaces.router_interfaces_pkey'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'constraint', 'public.router_interfaces.router_interfaces_router_id_fkey'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'constraint', 'public.router_interfaces.router_interfaces_router_id_name_key'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'index', 'public.router_interfaces_pkey'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'index', 'public.router_interfaces_router_id_name_key'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'rls', 'public.router_interfaces'),
+  (11, 'drizzle', '0001_phase3_interfaces_wan.sql', 'table', 'public.router_interfaces'),
   (12, 'drizzle', '0002_customers_router_set_null.sql', 'none', ''),
   (13, 'drizzle', '0003_bind_portal_assets_uploads_to_tenant.sql', 'none', ''),
   (14, 'drizzle', '0004_bind_portal_assets_owner.sql', 'none', ''),
   (15, 'drizzle', '0004_remove_login_throttle.sql', 'none', ''),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'function', 'public.protect_tenant_columns()'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'function', 'public.tenants_with_role(_roles app_role[])'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_interfaces.router_interfaces role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_metrics_daily.router_metrics_daily role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_metrics.router_metrics role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_uptime_events.router_uptime_events role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.settlements.settlements role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.tenants.tenants admin read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role delete'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role insert'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role read'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role update'),
-  (16, 'supabase', '20261024000000_role_based_access.sql', 'trigger', 'public.tenants.protect_tenant_columns'),
-  (17, 'supabase', '20261024120000_router_liveness_check.sql', 'function', 'public.check_router_liveness(p_stale interval)'),
-  (18, 'supabase', '20261024130000_pppoe_unique_username.sql', 'index', 'public.customers_tenant_pppoe_username_key'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.payments.tv_device_id'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.payments.payments_tv_device_id_fkey'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_mac_address_check'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_package_id_fkey'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_pkey'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_status_check'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_tenant_id_fkey'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_tenant_id_mac_address_key'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'index', 'public.tv_devices_pkey'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'index', 'public.tv_devices_tenant_id_mac_address_key'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'index', 'public.tv_devices_tenant_status_idx'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'policy', 'public.tv_devices.tv_devices tenant read'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'rls', 'public.tv_devices'),
-  (19, 'supabase', '20261024140000_tv_devices.sql', 'table', 'public.tv_devices'),
-  (20, 'supabase', '20261024150000_portal_theme.sql', 'column', 'public.captive_portals.theme'),
-  (20, 'supabase', '20261024150000_portal_theme.sql', 'constraint', 'public.captive_portals.captive_portals_theme_check'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'funcdef', 'public.admin_approve_user(p_user_id uuid, p_role app_role, p_tenant_id uuid, p_new_tenant_name text, p_new_tenant_slug text)#44ad0b37'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'function', 'public.has_tenant_role(_user_id uuid, _tenant_id uuid, _roles app_role[])'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'function', 'public.is_aal2()'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals delete by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals insert by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals update by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers delete by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers insert by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers update by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages delete by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages insert by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages update by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.payments.payments require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.payments.payments select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.platform_mpesa_config.platform_mpesa_config require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_interfaces.router_interfaces require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_metrics_daily.router_metrics_daily require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_metrics.router_metrics require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_uptime_events.router_uptime_events require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers delete by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers insert by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers update by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.sessions.sessions require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.sessions.sessions select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.settlements.settlements require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.settlements.settlements select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets delete by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets insert by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets update by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.tenants.tenants require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.tenants.tenants update by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.user_roles.user_roles delete require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.user_roles.user_roles insert require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.user_roles.user_roles update require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers delete by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers insert by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers require aal2'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers select by role'),
-  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers update by role'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'column', 'public.routers.legacy_token_auth'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'constraint', 'public.router_credentials.router_credentials_pkey'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'constraint', 'public.router_credentials.router_credentials_router_id_fkey'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'constraint', 'public.router_credentials.router_credentials_token_hash_key'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'function', 'public.guard_router_tokens()'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'function', 'public.rotate_router_token(p_router_id uuid, p_revoke_device boolean)'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'index', 'public.router_credentials_pkey'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'index', 'public.router_credentials_token_hash_key'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'rls', 'public.router_credentials'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'table', 'public.router_credentials'),
-  (22, 'supabase', '20261025010000_router_credentials.sql', 'trigger', 'public.routers.guard_router_tokens'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.routers.block_tethering'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.vouchers.bound_mac'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_mac_check'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_pkey'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_registered_kind_check'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_router_id_fkey'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_router_id_mac_key'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_tenant_id_fkey'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.vouchers.vouchers_bound_mac_check'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_pkey'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_router_id_mac_key'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_tenant_mac_idx'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_tenant_seen_idx'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.vouchers_bound_mac_idx'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'policy', 'public.router_devices.router_devices require aal2'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'policy', 'public.router_devices.router_devices staff read'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'rls', 'public.router_devices'),
-  (23, 'supabase', '20261025020000_device_management.sql', 'table', 'public.router_devices'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_ip'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_mac'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_router_id'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_seen_at'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'constraint', 'public.customers.customers_last_router_id_fkey'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'function', 'public.guard_pppoe_customer()'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'function', 'public.record_pppoe_sessions(p_router_id uuid, p_tenant_id uuid, p_sessions jsonb)'),
-  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'trigger', 'public.customers.guard_pppoe_customer'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_down_after_minutes_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_sms_numbers_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_tenant_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_device_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_item_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_kind_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_sms_status_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_tenant_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_device_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_event_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_tenant_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_category_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_customer_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_customer_not_in_stock'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_ip_address_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_item_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_latency_ms_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_loss_pct_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_mac_address_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_monitor_needs_target'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_monitor_router_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_name_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_status_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_tenant_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_category_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_name_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_quantity_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_reorder_level_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_tenant_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_unit_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_unit_cost_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_change_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_customer_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_item_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_reason_check'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_tenant_id_fkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.alert_settings_guard()'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.inventory_devices_guard()'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.inventory_items_guard()'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.stock_movements_apply()'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.alert_settings_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_alerts_pending_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_alerts_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_alerts_tenant_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_device_events_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_device_events_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_customer_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_monitor_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_serial_uniq'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_tenant_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_items_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_items_tenant_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.stock_movements_item_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.stock_movements_pkey'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.stock_movements_tenant_idx'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings insert by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings require aal2'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings select by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings update by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_alerts.inventory_alerts require aal2'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_alerts.inventory_alerts select by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_device_events.inventory_device_events require aal2'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_device_events.inventory_device_events select by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices delete by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices insert by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices require aal2'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices select by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices update by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items delete by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items insert by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items require aal2'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items select by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items update by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.stock_movements.stock_movements insert by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.stock_movements.stock_movements require aal2'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.stock_movements.stock_movements select by role'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.alert_settings'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_alerts'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_device_events'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_devices'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_items'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.stock_movements'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.alert_settings'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_alerts'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_device_events'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_devices'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_items'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.stock_movements'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.alert_settings.alert_settings_guard'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.inventory_devices.inventory_devices_guard'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.inventory_items.inventory_items_guard'),
-  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.stock_movements.stock_movements_apply'),
-  (26, 'supabase', '20261026000000_payment_provider.sql', 'column', 'public.payments.provider'),
-  (26, 'supabase', '20261026000000_payment_provider.sql', 'constraint', 'public.payments.payments_provider_check'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'function', 'public.protect_tenant_columns()'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'function', 'public.tenants_with_role(_roles app_role[])'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.captive_portals.captive_portals role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.customers.customers role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.packages.packages role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.payments.payments role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_interfaces.router_interfaces role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_metrics_daily.router_metrics_daily role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_metrics.router_metrics role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.router_uptime_events.router_uptime_events role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.routers.routers role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.sessions.sessions role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.settlements.settlements role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.support_tickets.support_tickets role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.tenants.tenants admin read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role delete'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role insert'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role read'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'policy', 'public.vouchers.vouchers role update'),
+  (16, 'supabase', '20261024000000_role_based_access.sql', 'trigger', 'public.tenants.protect_tenant_columns'),
+  (17, 'supabase', '20261024120000_router_liveness_check.sql', 'function', 'public.check_router_liveness(p_stale interval)'),
+  (18, 'supabase', '20261024130000_pppoe_unique_username.sql', 'index', 'public.customers_tenant_pppoe_username_key'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.payments.tv_device_id'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.created_at'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.expires_at'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.id'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.mac_address'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.name'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.package_id'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.phone'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.status'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.tenant_id'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'column', 'public.tv_devices.updated_at'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.payments.payments_tv_device_id_fkey'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_mac_address_check'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_package_id_fkey'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_pkey'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_status_check'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_tenant_id_fkey'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'constraint', 'public.tv_devices.tv_devices_tenant_id_mac_address_key'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'index', 'public.tv_devices_pkey'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'index', 'public.tv_devices_tenant_id_mac_address_key'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'index', 'public.tv_devices_tenant_status_idx'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'policy', 'public.tv_devices.tv_devices tenant read'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'rls', 'public.tv_devices'),
+  (19, 'supabase', '20261024140000_tv_devices.sql', 'table', 'public.tv_devices'),
+  (20, 'supabase', '20261024150000_portal_theme.sql', 'column', 'public.captive_portals.theme'),
+  (20, 'supabase', '20261024150000_portal_theme.sql', 'constraint', 'public.captive_portals.captive_portals_theme_check'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'funcdef', 'public.admin_approve_user(p_user_id uuid, p_role app_role, p_tenant_id uuid, p_new_tenant_name text, p_new_tenant_slug text)#44ad0b37'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'function', 'public.has_tenant_role(_user_id uuid, _tenant_id uuid, _roles app_role[])'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'function', 'public.is_aal2()'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals delete by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals insert by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.captive_portals.captive_portals update by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers delete by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers insert by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.customers.customers update by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages delete by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages insert by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.packages.packages update by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.payments.payments require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.payments.payments select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.platform_mpesa_config.platform_mpesa_config require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_interfaces.router_interfaces require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_metrics_daily.router_metrics_daily require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_metrics.router_metrics require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.router_uptime_events.router_uptime_events require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers delete by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers insert by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.routers.routers update by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.sessions.sessions require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.sessions.sessions select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.settlements.settlements require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.settlements.settlements select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets delete by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets insert by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.support_tickets.support_tickets update by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.tenants.tenants require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.tenants.tenants update by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.user_roles.user_roles delete require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.user_roles.user_roles insert require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.user_roles.user_roles update require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers delete by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers insert by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers require aal2'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers select by role'),
+  (21, 'supabase', '20261025000000_role_aware_rls_and_mfa.sql', 'policy', 'public.vouchers.vouchers update by role'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'column', 'public.router_credentials.created_at'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'column', 'public.router_credentials.router_id'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'column', 'public.router_credentials.token_hash'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'column', 'public.routers.legacy_token_auth'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'constraint', 'public.router_credentials.router_credentials_pkey'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'constraint', 'public.router_credentials.router_credentials_router_id_fkey'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'constraint', 'public.router_credentials.router_credentials_token_hash_key'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'function', 'public.guard_router_tokens()'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'function', 'public.rotate_router_token(p_router_id uuid, p_revoke_device boolean)'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'index', 'public.router_credentials_pkey'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'index', 'public.router_credentials_token_hash_key'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'rls', 'public.router_credentials'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'table', 'public.router_credentials'),
+  (22, 'supabase', '20261025010000_router_credentials.sql', 'trigger', 'public.routers.guard_router_tokens'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.authorized'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.blocked'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.first_seen_at'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.hostname'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.id'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.ip'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.last_seen_at'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.mac'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.registered_kind'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.router_id'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.tenant_id'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.tether_suspected'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.router_devices.voucher_code'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.routers.block_tethering'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'column', 'public.vouchers.bound_mac'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_mac_check'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_pkey'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_registered_kind_check'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_router_id_fkey'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_router_id_mac_key'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.router_devices.router_devices_tenant_id_fkey'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'constraint', 'public.vouchers.vouchers_bound_mac_check'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_pkey'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_router_id_mac_key'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_tenant_mac_idx'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.router_devices_tenant_seen_idx'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'index', 'public.vouchers_bound_mac_idx'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'policy', 'public.router_devices.router_devices require aal2'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'policy', 'public.router_devices.router_devices staff read'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'rls', 'public.router_devices'),
+  (23, 'supabase', '20261025020000_device_management.sql', 'table', 'public.router_devices'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_ip'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_mac'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_router_id'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'column', 'public.customers.last_seen_at'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'constraint', 'public.customers.customers_last_router_id_fkey'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'function', 'public.guard_pppoe_customer()'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'function', 'public.record_pppoe_sessions(p_router_id uuid, p_tenant_id uuid, p_sessions jsonb)'),
+  (24, 'supabase', '20261025030000_pppoe_router_and_sessions.sql', 'trigger', 'public.customers.guard_pppoe_customer'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.alert_settings.down_after_minutes'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.alert_settings.notify_device_down'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.alert_settings.notify_low_stock'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.alert_settings.sms_numbers'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.alert_settings.tenant_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.alert_settings.updated_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.created_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.device_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.item_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.kind'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.message'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.sms_error'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.sms_sent_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.sms_status'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_alerts.tenant_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_device_events.at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_device_events.device_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_device_events.event'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_device_events.id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_device_events.tenant_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.alerted_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.brand'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.category'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.created_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.customer_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.ip_address'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.item_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.last_checked_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.last_seen_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.latency_ms'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.location'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.loss_pct'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.mac_address'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.model'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.monitor_enabled'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.monitor_router_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.name'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.notes'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.online'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.serial_number'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.status'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.status_changed_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.tenant_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_devices.updated_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.brand'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.category'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.created_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.model'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.name'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.notes'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.quantity'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.reorder_level'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.tenant_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.unit'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.unit_cost'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.inventory_items.updated_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.change'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.created_at'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.created_by'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.customer_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.item_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.note'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.reason'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'column', 'public.stock_movements.tenant_id'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_down_after_minutes_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_sms_numbers_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.alert_settings.alert_settings_tenant_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_device_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_item_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_kind_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_sms_status_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_alerts.inventory_alerts_tenant_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_device_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_event_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_device_events.inventory_device_events_tenant_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_category_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_customer_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_customer_not_in_stock'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_ip_address_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_item_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_latency_ms_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_loss_pct_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_mac_address_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_monitor_needs_target'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_monitor_router_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_name_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_status_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_devices.inventory_devices_tenant_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_category_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_name_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_quantity_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_reorder_level_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_tenant_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_unit_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.inventory_items.inventory_items_unit_cost_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_change_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_customer_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_item_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_reason_check'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'constraint', 'public.stock_movements.stock_movements_tenant_id_fkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.alert_settings_guard()'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.inventory_devices_guard()'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.inventory_items_guard()'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'function', 'public.stock_movements_apply()'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.alert_settings_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_alerts_pending_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_alerts_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_alerts_tenant_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_device_events_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_device_events_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_customer_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_monitor_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_serial_uniq'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_devices_tenant_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_items_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.inventory_items_tenant_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.stock_movements_item_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.stock_movements_pkey'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'index', 'public.stock_movements_tenant_idx'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings insert by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings require aal2'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings select by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.alert_settings.alert_settings update by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_alerts.inventory_alerts require aal2'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_alerts.inventory_alerts select by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_device_events.inventory_device_events require aal2'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_device_events.inventory_device_events select by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices delete by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices insert by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices require aal2'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices select by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_devices.inventory_devices update by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items delete by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items insert by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items require aal2'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items select by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.inventory_items.inventory_items update by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.stock_movements.stock_movements insert by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.stock_movements.stock_movements require aal2'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'policy', 'public.stock_movements.stock_movements select by role'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.alert_settings'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_alerts'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_device_events'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_devices'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.inventory_items'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'rls', 'public.stock_movements'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.alert_settings'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_alerts'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_device_events'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_devices'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.inventory_items'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'table', 'public.stock_movements'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.alert_settings.alert_settings_guard'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.inventory_devices.inventory_devices_guard'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.inventory_items.inventory_items_guard'),
+  (25, 'supabase', '20261025100000_inventory.sql', 'trigger', 'public.stock_movements.stock_movements_apply'),
+  (26, 'supabase', '20261026000000_payment_provider.sql', 'column', 'public.payments.provider'),
+  (26, 'supabase', '20261026000000_payment_provider.sql', 'constraint', 'public.payments.payments_provider_check'),
   (27, 'supabase', '20261027000000_default_intasend.sql', 'none', ''),
   (28, 'supabase', '20261028000000_platform_gateway_secrets.sql', 'none', ''),
   (29, 'supabase', '20261029000000_gateway_secrets_publishable_key.sql', 'none', ''),
-  (30, 'supabase', '20261030000000_router_last_sync.sql', 'column', 'public.routers.last_sync_at'),
-  (31, 'supabase', '20261031000000_optional_mfa_aal2.sql', 'funcdef', 'public.is_aal2()#ae25de4c'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'constraint', 'public.audit_logs.audit_logs_actor_id_fkey'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'constraint', 'public.audit_logs.audit_logs_pkey'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'constraint', 'public.audit_logs.audit_logs_tenant_id_fkey'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_action_idx'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_created_at_idx'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_pkey'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_tenant_id_idx'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs insert'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs require aal2'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs super admin read'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs tenant read'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'rls', 'public.audit_logs'),
-  (32, 'supabase', '20261031010000_audit_logs.sql', 'table', 'public.audit_logs'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_check'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_check1'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_mpesa_receipt_key'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_pkey'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_status_check'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_tenant_id_fkey'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_tenant_id_period_start_period_end_key'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_name_check'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_pkey'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_tenant_id_fkey'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.payments_daraja_checkout_key'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_mpesa_receipt_key'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_pkey'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_tenant_id_period_start_period_end_key'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_tenant_status_idx'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.tenant_service_secrets_pkey'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'policy', 'public.platform_commissions.platform commissions super read'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'policy', 'public.platform_commissions.platform commissions super write'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'rls', 'public.platform_commissions'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'rls', 'public.tenant_service_secrets'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.platform_commissions'),
-  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.tenant_service_secrets'),
-  (34, 'supabase', '20261102000000_daraja_only.sql', 'constraintdef', 'public.payments.payments_provider_check#945f1ba9'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_amount_check'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_customer_id_fkey'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_payment_id_fkey'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_pkey'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_status_check'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_suggested_customer_id_fkey'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_tenant_id_fkey'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_transaction_id_key'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'function', 'public.approve_direct_mpesa_transaction(p_transaction_id uuid, p_tenant_id uuid, p_customer_id uuid, p_package_id uuid, p_expires_at timestamp with time zone, p_reviewed_by uuid)'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_pkey'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_tenant_status_time_idx'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_transaction_id_key'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'policy', 'public.direct_mpesa_transactions.direct M-Pesa transactions tenant read'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'rls', 'public.direct_mpesa_transactions'),
-  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'table', 'public.direct_mpesa_transactions'),
+  (30, 'supabase', '20261030000000_router_last_sync.sql', 'column', 'public.routers.last_sync_at'),
+  (31, 'supabase', '20261031000000_optional_mfa_aal2.sql', 'funcdef', 'public.is_aal2()#ae25de4c'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.action'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.actor_email'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.actor_id'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.actor_role'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.created_at'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.description'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.id'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.metadata'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.resource_id'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.resource_type'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'column', 'public.audit_logs.tenant_id'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'constraint', 'public.audit_logs.audit_logs_actor_id_fkey'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'constraint', 'public.audit_logs.audit_logs_pkey'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'constraint', 'public.audit_logs.audit_logs_tenant_id_fkey'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_action_idx'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_created_at_idx'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_pkey'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'index', 'public.audit_logs_tenant_id_idx'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs insert'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs require aal2'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs super admin read'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'policy', 'public.audit_logs.audit_logs tenant read'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'rls', 'public.audit_logs'),
+  (32, 'supabase', '20261031010000_audit_logs.sql', 'table', 'public.audit_logs'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.collected_at'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.commission_amount'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.created_at'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.gross_amount'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.id'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.mpesa_receipt'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.period_end'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.period_start'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.status'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.platform_commissions.tenant_id'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.tenant_service_secrets.ciphertext'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.tenant_service_secrets.last4'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.tenant_service_secrets.name'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.tenant_service_secrets.tenant_id'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.tenant_service_secrets.updated_at'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'column', 'public.tenant_service_secrets.updated_by'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_check'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_check1'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_mpesa_receipt_key'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_pkey'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_status_check'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_tenant_id_fkey'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.platform_commissions.platform_commissions_tenant_id_period_start_period_end_key'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_pkey'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_tenant_id_fkey'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.payments_daraja_checkout_key'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_mpesa_receipt_key'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_pkey'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_tenant_id_period_start_period_end_key'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.platform_commissions_tenant_status_idx'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'index', 'public.tenant_service_secrets_pkey'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'policy', 'public.platform_commissions.platform commissions super read'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'policy', 'public.platform_commissions.platform commissions super write'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'rls', 'public.platform_commissions'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'rls', 'public.tenant_service_secrets'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.platform_commissions'),
+  (33, 'supabase', '20261101000000_tenant_owned_services.sql', 'table', 'public.tenant_service_secrets'),
+  (34, 'supabase', '20261102000000_daraja_only.sql', 'constraintdef', 'public.payments.payments_provider_check#945f1ba9'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.amount'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.bill_ref_number'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.created_at'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.customer_id'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.first_name'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.id'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.last_name'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.middle_name'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.payment_id'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.phone'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.raw_payload'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.reviewed_at'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.reviewed_by'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.shortcode'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.status'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.suggested_customer_id'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.tenant_id'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.transaction_id'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'column', 'public.direct_mpesa_transactions.transaction_time'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_amount_check'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_customer_id_fkey'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_payment_id_fkey'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_pkey'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_status_check'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_suggested_customer_id_fkey'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_tenant_id_fkey'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'constraint', 'public.direct_mpesa_transactions.direct_mpesa_transactions_transaction_id_key'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'function', 'public.approve_direct_mpesa_transaction(p_transaction_id uuid, p_tenant_id uuid, p_customer_id uuid, p_package_id uuid, p_expires_at timestamp with time zone, p_reviewed_by uuid)'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_pkey'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_tenant_status_time_idx'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'index', 'public.direct_mpesa_transactions_transaction_id_key'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'policy', 'public.direct_mpesa_transactions.direct M-Pesa transactions tenant read'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'rls', 'public.direct_mpesa_transactions'),
+  (35, 'supabase', '20261103000000_capture_direct_c2b_transactions.sql', 'table', 'public.direct_mpesa_transactions'),
   (36, 'supabase', '20261104000000_mandatory_mfa.sql', 'none', ''),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_email_hash_check'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_ip_hash_check'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_pkey'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'function', 'public.record_auth_login_attempt(p_email_hash text, p_ip_hash text, p_succeeded boolean)'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_email_time_idx'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_ip_time_idx'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_pkey'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_time_idx'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'rls', 'public.auth_login_attempts'),
-  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'table', 'public.auth_login_attempts'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.data_used_bytes'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.usage_bytes_in'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.usage_bytes_out'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.usage_session_id'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.packages.fup_download_kbps'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.packages.fup_upload_kbps'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.customers.customers_data_used_bytes_nonnegative'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.customers.customers_usage_bytes_in_nonnegative'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.customers.customers_usage_bytes_out_nonnegative'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.packages.packages_fup_download_positive'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.packages.packages_fup_upload_positive'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'funcdef', 'public.record_pppoe_sessions(p_router_id uuid, p_tenant_id uuid, p_sessions jsonb)#2fd1381b'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'function', 'public.guard_pppoe_usage()'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'function', 'public.reset_pppoe_usage_on_renewal()'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'trigger', 'public.customers.guard_pppoe_usage'),
-  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'trigger', 'public.customers.reset_pppoe_usage_on_renewal'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.commission_rate_pct'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.due_at'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_attempted_at'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_error'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_sent_at'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_status'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.invoice_number'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.issued_at'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.tenants.billing_suspended_at'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'constraint', 'public.platform_billing_config.platform_billing_config_id_check'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'constraint', 'public.platform_billing_config.platform_billing_config_pkey'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'constraint', 'public.platform_commissions.platform_commissions_email_status_check'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'funcdef', 'public.protect_tenant_columns()#810fa7a6'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.claim_platform_invoice_emails(p_limit integer, p_now timestamp with time zone)'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.enforce_tenant_billing_service_access()'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.generate_monthly_platform_commission_invoices(p_now timestamp with time zone)'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.refresh_billing_after_commission_update()'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.refresh_overdue_tenant_billing(p_now timestamp with time zone)'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.payments_success_created_at_idx'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_billing_config_pkey'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_commissions_email_queue_idx'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_commissions_invoice_number_key'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_commissions_overdue_idx'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'policy', 'public.platform_commissions.platform commissions tenant billing read'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'rls', 'public.platform_billing_config'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'table', 'public.platform_billing_config'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.customers.customers_require_current_tenant_billing'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.platform_commissions.platform_commissions_refresh_billing'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.tv_devices.tv_devices_require_current_tenant_billing'),
-  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.vouchers.vouchers_require_current_tenant_billing'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'column', 'public.auth_login_attempts.attempted_at'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'column', 'public.auth_login_attempts.email_hash'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'column', 'public.auth_login_attempts.id'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'column', 'public.auth_login_attempts.ip_hash'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'column', 'public.auth_login_attempts.succeeded'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_email_hash_check'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_ip_hash_check'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'constraint', 'public.auth_login_attempts.auth_login_attempts_pkey'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'function', 'public.record_auth_login_attempt(p_email_hash text, p_ip_hash text, p_succeeded boolean)'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_email_time_idx'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_ip_time_idx'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_pkey'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'index', 'public.auth_login_attempts_time_idx'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'rls', 'public.auth_login_attempts'),
+  (37, 'supabase', '20261105000000_login_abuse_protection.sql', 'table', 'public.auth_login_attempts'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.data_used_bytes'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.usage_bytes_in'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.usage_bytes_out'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.customers.usage_session_id'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.packages.fup_download_kbps'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'column', 'public.packages.fup_upload_kbps'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.customers.customers_data_used_bytes_nonnegative'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.customers.customers_usage_bytes_in_nonnegative'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.customers.customers_usage_bytes_out_nonnegative'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.packages.packages_fup_download_positive'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'constraint', 'public.packages.packages_fup_upload_positive'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'function', 'public.guard_pppoe_usage()'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'function', 'public.reset_pppoe_usage_on_renewal()'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'trigger', 'public.customers.guard_pppoe_usage'),
+  (38, 'supabase', '20261107000000_pppoe_fup_usage.sql', 'trigger', 'public.customers.reset_pppoe_usage_on_renewal'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_billing_config.commission_tracking_starts_at'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_billing_config.id'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.commission_rate_pct'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.due_at'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_attempted_at'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_error'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_sent_at'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.email_status'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.invoice_number'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.platform_commissions.issued_at'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'column', 'public.tenants.billing_suspended_at'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'constraint', 'public.platform_billing_config.platform_billing_config_id_check'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'constraint', 'public.platform_billing_config.platform_billing_config_pkey'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'constraint', 'public.platform_commissions.platform_commissions_email_status_check'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'funcdef', 'public.protect_tenant_columns()#810fa7a6'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.claim_platform_invoice_emails(p_limit integer, p_now timestamp with time zone)'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.enforce_tenant_billing_service_access()'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.generate_monthly_platform_commission_invoices(p_now timestamp with time zone)'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.refresh_billing_after_commission_update()'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'function', 'public.refresh_overdue_tenant_billing(p_now timestamp with time zone)'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.payments_success_created_at_idx'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_billing_config_pkey'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_commissions_email_queue_idx'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_commissions_invoice_number_key'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'index', 'public.platform_commissions_overdue_idx'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'policy', 'public.platform_commissions.platform commissions tenant billing read'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'rls', 'public.platform_billing_config'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'table', 'public.platform_billing_config'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.customers.customers_require_current_tenant_billing'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.platform_commissions.platform_commissions_refresh_billing'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.tv_devices.tv_devices_require_current_tenant_billing'),
+  (39, 'supabase', '20261108000000_platform_commission_invoices.sql', 'trigger', 'public.vouchers.vouchers_require_current_tenant_billing'),
   (40, 'supabase', '20261109000000_tenant_mfa_toggle.sql', 'none', ''),
-  (41, 'supabase', '20261110000000_tenant_portal_redirect.sql', 'column', 'public.captive_portals.post_login_url'),
+  (41, 'supabase', '20261110000000_tenant_portal_redirect.sql', 'column', 'public.captive_portals.post_login_url'),
   (42, 'supabase', '20261111000000_lock_bootstrap_tenant.sql', 'none', ''),
-  (43, 'supabase', '20261112000000_expire_stale_stk_payments.sql', 'function', 'public.expire_stale_stk_payments()'),
-  (44, 'supabase', '20261113000000_buygoods_stk_type.sql', 'none', ''),
-  (45, 'supabase', '20261114000000_separate_stk_business_shortcode.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_business_shortcode_check'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_access_count_check'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_check'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_created_by_fkey'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_pkey'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_router_id_fkey'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_tenant_id_fkey'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_one_active_per_router_idx'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_pkey'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_router_active_idx'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'rls', 'public.router_support_sessions'),
-  (46, 'supabase', '20261115000000_router_support_sessions.sql', 'table', 'public.router_support_sessions'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.capabilities'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.controller_version'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.device_family'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.management_method'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.management_status'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.vendor'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'constraint', 'public.routers.routers_management_status_check'),
-  (47, 'supabase', '20261116000000_multi_vendor_devices.sql', 'constraint', 'public.routers.routers_vendor_check'),
-  (48, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_session_samples.connected_seconds'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_session_samples.id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_session_samples.mac'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_session_samples.observed_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_session_samples.payment_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_session_samples.router_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_session_samples.tenant_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.active'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.completed_seconds'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.connected_seconds'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.last_active_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.last_router_uptime_seconds'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.mac'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.payment_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.router_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.tenant_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_payment_sessions.updated_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.created_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.created_by'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.outage_ended_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.outage_started_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.reason'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.recovery_mode'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.router_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_batches.tenant_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.batch_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.connected_seconds'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.created_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.estimated'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.new_expires_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.payment_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.previous_expires_at'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.restored_seconds'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.hotspot_recovery_items.tenant_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'column', 'public.payments.router_id'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_session_samples.hotspot_payment_session_samples_connected_seconds_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_session_samples.hotspot_payment_session_samples_mac_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_session_samples.hotspot_payment_session_samples_payment_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_session_samples.hotspot_payment_session_samples_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_session_samples.hotspot_payment_session_samples_router_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_session_samples.hotspot_payment_session_samples_tenant_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_completed_seconds_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_connected_seconds_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_last_router_uptime_seconds_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_mac_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_payment_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_payment_id_router_id_mac_key'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_router_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_payment_sessions.hotspot_payment_sessions_tenant_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_batches.hotspot_recovery_batches_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_batches.hotspot_recovery_batches_created_by_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_batches.hotspot_recovery_batches_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_batches.hotspot_recovery_batches_recovery_mode_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_batches.hotspot_recovery_batches_router_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_batches.hotspot_recovery_batches_tenant_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_items.hotspot_recovery_items_batch_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_items.hotspot_recovery_items_batch_id_payment_id_key'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_items.hotspot_recovery_items_connected_seconds_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_items.hotspot_recovery_items_payment_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_items.hotspot_recovery_items_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_items.hotspot_recovery_items_restored_seconds_check'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.hotspot_recovery_items.hotspot_recovery_items_tenant_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'constraint', 'public.payments.payments_router_id_fkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'function', 'public.apply_hotspot_outage_recovery(p_tenant_id uuid, p_router_id uuid, p_outage_started_at timestamp with time zone, p_outage_ended_at timestamp with time zone, p_recovery_mode text, p_reason text, p_created_by uuid, p_items jsonb)'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'function', 'public.get_hotspot_outage_usage(p_tenant_id uuid, p_router_id uuid, p_payment_ids uuid[], p_outage_started_at timestamp with time zone)'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_payment_session_samples_outage_idx'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_payment_session_samples_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_payment_sessions_outage_idx'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_payment_sessions_payment_id_router_id_mac_key'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_payment_sessions_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_recovery_batches_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_recovery_items_batch_id_payment_id_key'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.hotspot_recovery_items_pkey'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'index', 'public.payments_tenant_router_idx'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'rls', 'public.hotspot_payment_session_samples'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'rls', 'public.hotspot_payment_sessions'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'rls', 'public.hotspot_recovery_batches'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'rls', 'public.hotspot_recovery_items'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'table', 'public.hotspot_payment_session_samples'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'table', 'public.hotspot_payment_sessions'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'table', 'public.hotspot_recovery_batches'),
+  (43, 'supabase', '20261111010000_hotspot_outage_recovery.sql', 'table', 'public.hotspot_recovery_items'),
+  (44, 'supabase', '20261112000000_expire_stale_stk_payments.sql', 'function', 'public.expire_stale_stk_payments()'),
+  (45, 'supabase', '20261113000000_buygoods_stk_type.sql', 'none', ''),
+  (46, 'supabase', '20261114000000_separate_stk_business_shortcode.sql', 'constraint', 'public.tenant_service_secrets.tenant_service_secrets_business_shortcode_check'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.access_count'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.created_at'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.created_by'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.expires_at'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.id'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.last_accessed_at'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.password_hash'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.revoked_at'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.router_id'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'column', 'public.router_support_sessions.tenant_id'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_access_count_check'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_check'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_created_by_fkey'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_pkey'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_router_id_fkey'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'constraint', 'public.router_support_sessions.router_support_sessions_tenant_id_fkey'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_one_active_per_router_idx'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_pkey'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'index', 'public.router_support_sessions_router_active_idx'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'rls', 'public.router_support_sessions'),
+  (47, 'supabase', '20261115000000_router_support_sessions.sql', 'table', 'public.router_support_sessions'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.capabilities'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.controller_version'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.device_family'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.management_method'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.management_status'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'column', 'public.routers.vendor'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'constraint', 'public.routers.routers_management_status_check'),
+  (48, 'supabase', '20261116000000_multi_vendor_devices.sql', 'constraint', 'public.routers.routers_vendor_check'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'column', 'public.platform_commissions.hotspot_commission_amount'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'column', 'public.platform_commissions.hotspot_commission_rate_pct'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'column', 'public.platform_commissions.hotspot_gross_amount'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'column', 'public.platform_commissions.pppoe_commission_amount'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'column', 'public.platform_commissions.pppoe_commission_rate_pct'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'column', 'public.platform_commissions.pppoe_gross_amount'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'column', 'public.platform_commissions.tenant_mpesa_receipt'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'constraint', 'public.platform_commissions.platform_commissions_tiered_amounts_check'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'function', 'public.enforce_platform_invoice_receipt_match()'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'index', 'public.platform_commissions_tenant_receipt_key'),
+  (49, 'supabase', '20261117000000_tiered_platform_commissions.sql', 'trigger', 'public.platform_commissions.platform_invoice_receipt_match'),
+  (50, 'supabase', '20261118000000_isp_self_service_onboarding.sql', 'function', 'public.provision_isp_tenant(p_business_name text, p_phone text, p_full_name text)'),
+  (50, 'supabase', '20261118000000_isp_self_service_onboarding.sql', 'function', 'public.remove_tenant_member(p_actor_id uuid, p_user_id uuid)'),
+  (50, 'supabase', '20261118000000_isp_self_service_onboarding.sql', 'function', 'public.update_tenant_member_roles(p_actor_id uuid, p_user_id uuid, p_roles app_role[])'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_commissions.payment_reference'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_config.c2b_callback_token'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_config.c2b_registered_at'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.amount'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.bill_ref_number'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.commission_id'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.created_at'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.first_name'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.id'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.last_name'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.middle_name'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.shortcode'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.status'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.transaction_id'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'column', 'public.platform_mpesa_transactions.transaction_time'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'constraint', 'public.platform_mpesa_transactions.platform_mpesa_transactions_amount_check'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'constraint', 'public.platform_mpesa_transactions.platform_mpesa_transactions_commission_id_fkey'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'constraint', 'public.platform_mpesa_transactions.platform_mpesa_transactions_pkey'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'constraint', 'public.platform_mpesa_transactions.platform_mpesa_transactions_status_check'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'constraint', 'public.platform_mpesa_transactions.platform_mpesa_transactions_transaction_id_key'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'function', 'public.record_platform_c2b_transaction(p_transaction_id text, p_shortcode text, p_bill_ref_number text, p_amount numeric, p_transaction_time timestamp with time zone, p_first_name text, p_middle_name text, p_last_name text)'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'function', 'public.reset_platform_c2b_registration_on_shortcode_change()'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'index', 'public.platform_commissions_payment_reference_key'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'index', 'public.platform_mpesa_transactions_bill_ref_idx'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'index', 'public.platform_mpesa_transactions_created_at_idx'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'index', 'public.platform_mpesa_transactions_pkey'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'index', 'public.platform_mpesa_transactions_transaction_id_key'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'policy', 'public.platform_mpesa_transactions.platform mpesa transactions super read'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'rls', 'public.platform_mpesa_transactions'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'table', 'public.platform_mpesa_transactions'),
+  (51, 'supabase', '20261119000000_platform_c2b_invoice_matching.sql', 'trigger', 'public.platform_mpesa_config.platform_c2b_shortcode_registration_reset'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'column', 'public.platform_service_secrets.ciphertext'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'column', 'public.platform_service_secrets.last4'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'column', 'public.platform_service_secrets.name'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'column', 'public.platform_service_secrets.updated_at'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'column', 'public.platform_service_secrets.updated_by'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'constraint', 'public.platform_service_secrets.platform_service_secrets_name_check'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'constraint', 'public.platform_service_secrets.platform_service_secrets_pkey'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'index', 'public.platform_service_secrets_pkey'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'rls', 'public.platform_service_secrets'),
+  (52, 'supabase', '20261120000000_platform_daraja_credentials.sql', 'table', 'public.platform_service_secrets'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_mpesa_transactions.payment_method'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.amount'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.checkout_request_id'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.created_at'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.id'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.invoice_id'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.merchant_request_id'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.phone'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.status'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'column', 'public.platform_stk_payments.updated_at'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraintdef', 'public.platform_commissions.platform_commissions_tiered_amounts_check#848a39c8'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraintdef', 'public.platform_service_secrets.platform_service_secrets_name_check#101b94bc'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraint', 'public.platform_mpesa_transactions.platform_mpesa_transactions_payment_method_check'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraint', 'public.platform_stk_payments.platform_stk_payments_amount_check'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraint', 'public.platform_stk_payments.platform_stk_payments_checkout_request_id_key'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraint', 'public.platform_stk_payments.platform_stk_payments_invoice_id_fkey'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraint', 'public.platform_stk_payments.platform_stk_payments_pkey'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'constraint', 'public.platform_stk_payments.platform_stk_payments_status_check'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'funcdef', 'public.record_platform_c2b_transaction(p_transaction_id text, p_shortcode text, p_bill_ref_number text, p_amount numeric, p_transaction_time timestamp with time zone, p_first_name text, p_middle_name text, p_last_name text)#6690e554'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'function', 'public.fail_platform_stk_payment(p_checkout_request_id text)'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'function', 'public.record_platform_stk_transaction(p_checkout_request_id text, p_transaction_id text, p_shortcode text, p_amount numeric, p_transaction_time timestamp with time zone)'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'index', 'public.platform_stk_payments_checkout_request_id_key'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'index', 'public.platform_stk_payments_checkout_request_idx'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'index', 'public.platform_stk_payments_one_pending_per_invoice'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'index', 'public.platform_stk_payments_pkey'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'rls', 'public.platform_stk_payments'),
+  (53, 'supabase', '20261121000000_platform_buygoods_stk.sql', 'table', 'public.platform_stk_payments'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcement_reads.announcement_id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcement_reads.customer_id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcement_reads.read_at'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.active'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.body'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.created_at'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.created_by'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.customer_id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.ends_at'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.starts_at'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.tenant_id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.customer_announcements.title'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.active'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.body'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.created_at'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.created_by'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.ends_at'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.mode'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.router_id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.starts_at'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.tenant_id'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'column', 'public.service_maintenance_windows.title'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcement_reads.customer_announcement_reads_announcement_id_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcement_reads.customer_announcement_reads_customer_id_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcement_reads.customer_announcement_reads_pkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_body_check'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_check'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_check1'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_created_by_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_customer_id_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_pkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_tenant_id_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.customer_announcements.customer_announcements_title_check'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_body_check'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_check'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_check1'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_created_by_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_mode_check'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_pkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_router_id_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_tenant_id_fkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'constraint', 'public.service_maintenance_windows.service_maintenance_windows_title_check'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'function', 'public.validate_communication_scope()'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.customer_announcement_reads_pkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.customer_announcements_active_window_idx'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.customer_announcements_customer_idx'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.customer_announcements_pkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.customer_announcements_tenant_idx'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.service_maintenance_active_window_idx'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.service_maintenance_scope_idx'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'index', 'public.service_maintenance_windows_pkey'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'rls', 'public.customer_announcement_reads'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'rls', 'public.customer_announcements'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'rls', 'public.service_maintenance_windows'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'table', 'public.customer_announcement_reads'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'table', 'public.customer_announcements'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'table', 'public.service_maintenance_windows'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'trigger', 'public.customer_announcements.validate_customer_announcement_scope'),
+  (54, 'supabase', '20261122000000_customer_messaging_maintenance.sql', 'trigger', 'public.service_maintenance_windows.validate_service_maintenance_scope'),
+  (55, 'supabase', '20261123000000_phone_tv_package_commissions.sql', 'funcdef', 'public.generate_monthly_platform_commission_invoices(p_now timestamp with time zone)#977b2843'),
+  (56, 'supabase', '20261124000000_team_profile_names.sql', 'column', 'public.profiles.first_name'),
+  (56, 'supabase', '20261124000000_team_profile_names.sql', 'column', 'public.profiles.last_name'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.controller_host'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.controller_id'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.controller_port'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.controller_version'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.enabled'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.operator_password_ciphertext'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.operator_username'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.router_id'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.site_name'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.tenant_id'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'column', 'public.omada_integrations.updated_at'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'constraint', 'public.omada_integrations.omada_integrations_controller_port_check'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'constraint', 'public.omada_integrations.omada_integrations_pkey'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'constraint', 'public.omada_integrations.omada_integrations_router_id_fkey'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'constraint', 'public.omada_integrations.omada_integrations_tenant_id_fkey'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'constraint', 'public.omada_integrations.omada_integrations_version_supported'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'index', 'public.omada_integrations_pkey'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'rls', 'public.omada_integrations'),
+  (57, 'supabase', '20261125000000_omada_integrations.sql', 'table', 'public.omada_integrations'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.ap_mac'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.attempts'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.authorized_at'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.client_mac'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.context_kind'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.created_at'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.gateway_mac'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.id'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.last_error'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.next_attempt_at'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.payment_id'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.radio_id'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.redirect_url'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.router_id'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.site_name'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.ssid_name'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.status'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.tenant_id'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.updated_at'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'column', 'public.omada_authorization_jobs.vlan_id'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_context_shape'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_attempts_check'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_client_mac_check'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_context_kind_check'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_payment_id_fkey'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_payment_id_key'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_pkey'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_radio_id_check'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_router_id_fkey'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_status_check'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'constraint', 'public.omada_authorization_jobs.omada_authorization_jobs_tenant_id_fkey'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'index', 'public.omada_authorization_jobs_payment_id_key'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'index', 'public.omada_authorization_jobs_pkey'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'index', 'public.omada_authorization_jobs_retry_idx'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'rls', 'public.omada_authorization_jobs'),
+  (58, 'supabase', '20261126000000_omada_authorization_jobs.sql', 'table', 'public.omada_authorization_jobs'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'column', 'public.customers.download_bps'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'column', 'public.customers.upload_bps'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'column', 'public.router_devices.download_bps'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'column', 'public.router_devices.traffic_bytes_in'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'column', 'public.router_devices.traffic_bytes_out'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'column', 'public.router_devices.upload_bps'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'funcdef', 'public.guard_pppoe_usage()#c8dc47e3'),
+  (59, 'supabase', '20261127000000_live_client_bandwidth.sql', 'funcdef', 'public.record_pppoe_sessions(p_router_id uuid, p_tenant_id uuid, p_sessions jsonb)#faa8b000'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.profiles.preferences'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.created_at'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.domain'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.id'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.purpose'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.tenant_id'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.updated_at'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.verification_token'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenant_domains.verified_at'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'column', 'public.tenants.ui_labels'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'constraint', 'public.tenant_domains.tenant_domains_domain_check'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'constraint', 'public.tenant_domains.tenant_domains_pkey'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'constraint', 'public.tenant_domains.tenant_domains_purpose_check'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'constraint', 'public.tenant_domains.tenant_domains_tenant_id_fkey'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'function', 'public.reset_tenant_domain_verification()'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'index', 'public.tenant_domains_domain_key'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'index', 'public.tenant_domains_pkey'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'index', 'public.tenant_domains_tenant_purpose_key'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'policy', 'public.tenant_domains.tenant domains admin delete'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'policy', 'public.tenant_domains.tenant domains admin insert'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'policy', 'public.tenant_domains.tenant domains admin select'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'policy', 'public.tenant_domains.tenant domains admin update'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'rls', 'public.tenant_domains'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'table', 'public.tenant_domains'),
+  (60, 'supabase', '20261128000000_tenant_customization.sql', 'trigger', 'public.tenant_domains.tenant_domains_reset_verification'),
+  (61, 'supabase', '20261129000000_payment_hotspot_device_binding.sql', 'column', 'public.payments.bound_mac'),
+  (61, 'supabase', '20261129000000_payment_hotspot_device_binding.sql', 'constraint', 'public.payments.payments_bound_mac_format_check'),
+  (61, 'supabase', '20261129000000_payment_hotspot_device_binding.sql', 'index', 'public.payments_bound_mac_idx'),
+  (62, 'supabase', '20261130000000_restrict_free_pppoe_and_role_oracles.sql', 'funcdef', 'public.has_role(_user_id uuid, _role app_role)#8b1b77b1'),
+  (62, 'supabase', '20261130000000_restrict_free_pppoe_and_role_oracles.sql', 'funcdef', 'public.has_tenant_role(_user_id uuid, _tenant_id uuid, _roles app_role[])#edafa2bd'),
+  (62, 'supabase', '20261130000000_restrict_free_pppoe_and_role_oracles.sql', 'funcdef', 'public.is_super_admin(_user_id uuid)#c5bced0d'),
+  (62, 'supabase', '20261130000000_restrict_free_pppoe_and_role_oracles.sql', 'function', 'public.prevent_unpaid_pppoe_provisioning()'),
+  (62, 'supabase', '20261130000000_restrict_free_pppoe_and_role_oracles.sql', 'trigger', 'public.customers.customers_prevent_unpaid_pppoe_provisioning'),
+  (63, 'supabase', '20261201000000_require_verified_pppoe_and_daraja_success.sql', 'funcdef', 'public.prevent_unpaid_pppoe_provisioning()#55d026b7'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.amount'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.created_at'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.customer_id'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.due_at'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.duration_unit'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.duration_value'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.id'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.invoice_number'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.issued_at'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.package_id'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.package_name'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.paid_at'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.payment_id'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.service_period_end'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.service_period_start'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.status'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.customer_invoices.tenant_id'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'column', 'public.payments.customer_invoice_id'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_amount_check'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_check'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_customer_id_fkey'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_duration_unit_check'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_duration_value_check'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_package_id_fkey'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_payment_id_fkey'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_pkey'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_status_check'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_tenant_id_fkey'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.customer_invoices.customer_invoices_tenant_id_invoice_number_key'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'constraint', 'public.payments.payments_customer_invoice_id_fkey'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'funcdef', 'public.approve_direct_mpesa_transaction(p_transaction_id uuid, p_tenant_id uuid, p_customer_id uuid, p_package_id uuid, p_expires_at timestamp with time zone, p_reviewed_by uuid)#cb691ae2'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'funcdef', 'public.expire_stale_stk_payments()#2df67534'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'function', 'public.finalize_customer_invoice_payment(p_payment_id uuid, p_receipt text, p_raw_callback jsonb)'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'function', 'public.generate_due_customer_invoices(p_now timestamp with time zone)'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.customer_invoices_customer_issued_idx'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.customer_invoices_customer_period_key'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.customer_invoices_payment_id_key'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.customer_invoices_pkey'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.customer_invoices_tenant_id_invoice_number_key'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.customer_invoices_tenant_status_due_idx'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.payments_customer_invoice_idx'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'index', 'public.payments_single_active_invoice_payment_idx'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'policy', 'public.customer_invoices.customer invoices tenant billing read'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'rls', 'public.customer_invoices'),
+  (64, 'supabase', '20261202000000_customer_invoicing.sql', 'table', 'public.customer_invoices'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.amount'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.created_at'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.created_by'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.id'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.invoice_id'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.kind'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.note'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_adjustments.tenant_id'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_allocations.allocated_at'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_allocations.amount'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_allocations.created_at'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_allocations.id'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_allocations.invoice_id'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_allocations.payment_id'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'column', 'public.customer_invoice_allocations.tenant_id'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraintdef', 'public.customer_invoices.customer_invoices_status_check#541b89ec'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_adjustments.customer_invoice_adjustments_amount_check'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_adjustments.customer_invoice_adjustments_invoice_id_fkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_adjustments.customer_invoice_adjustments_kind_check'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_adjustments.customer_invoice_adjustments_pkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_adjustments.customer_invoice_adjustments_tenant_id_fkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_allocations.customer_invoice_allocations_amount_check'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_allocations.customer_invoice_allocations_invoice_id_fkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_allocations.customer_invoice_allocations_invoice_id_payment_id_key'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_allocations.customer_invoice_allocations_payment_id_fkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_allocations.customer_invoice_allocations_pkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'constraint', 'public.customer_invoice_allocations.customer_invoice_allocations_tenant_id_fkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'function', 'public.customer_invoice_open_balance(p_invoice_id uuid)'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'index', 'public.customer_invoice_adjustments_invoice_idx'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'index', 'public.customer_invoice_adjustments_pkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'index', 'public.customer_invoice_allocations_invoice_id_payment_id_key'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'index', 'public.customer_invoice_allocations_invoice_idx'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'index', 'public.customer_invoice_allocations_pkey'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'table', 'public.customer_invoice_adjustments'),
+  (65, 'supabase', '20261203000000_customer_billing_primitives.sql', 'table', 'public.customer_invoice_allocations'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.assigned_to'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.completed_at'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.created_at'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.created_by'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.customer_id'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.description'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.id'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.priority'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.resolution_notes'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.scheduled_at'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.status'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.tenant_id'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.ticket_id'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.title'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'column', 'public.work_orders.updated_at'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_assigned_to_fkey'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_check'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_created_by_fkey'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_customer_id_fkey'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_pkey'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_priority_check'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_status_check'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_tenant_id_fkey'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_ticket_id_fkey'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'constraint', 'public.work_orders.work_orders_title_check'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'function', 'public.validate_work_order_scope()'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'index', 'public.work_orders_assignee_status_scheduled_idx'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'index', 'public.work_orders_customer_created_idx'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'index', 'public.work_orders_pkey'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'index', 'public.work_orders_tenant_status_scheduled_idx'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'index', 'public.work_orders_ticket_idx'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'policy', 'public.work_orders.work orders delete by role'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'policy', 'public.work_orders.work orders insert by role'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'policy', 'public.work_orders.work orders read by role'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'policy', 'public.work_orders.work orders require aal2'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'policy', 'public.work_orders.work orders update by role'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'rls', 'public.work_orders'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'table', 'public.work_orders'),
+  (66, 'supabase', '20261204000000_field_work_orders.sql', 'trigger', 'public.work_orders.validate_work_order_scope'),
+  (67, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.

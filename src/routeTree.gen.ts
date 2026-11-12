@@ -64,6 +64,7 @@ import { Route as TenantStaticIpsRouteImport } from './routes/tenant.static-ips'
 import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
+import { Route as TenantWorkOrdersRouteImport } from './routes/tenant.work-orders'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as ApiPublicDomainRouteImport } from './routes/api/public/domain'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
@@ -373,6 +374,11 @@ const TenantToolsRoute = TenantToolsRouteImport.update({
   path: '/tools',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantWorkOrdersRoute = TenantWorkOrdersRouteImport.update({
+  id: '/work-orders',
+  path: '/work-orders',
+  getParentRoute: () => TenantRoute,
+} as any)
 const ApiCronPlatformBillingRoute = ApiCronPlatformBillingRouteImport.update({
   id: '/api/cron/platform-billing',
   path: '/api/cron/platform-billing',
@@ -613,6 +619,7 @@ export interface FileRoutesByFullPath {
   '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/tenant/tools': typeof TenantToolsRoute
+  '/tenant/work-orders': typeof TenantWorkOrdersRoute
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
@@ -699,6 +706,7 @@ export interface FileRoutesByTo {
   '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/tenant/tools': typeof TenantToolsRoute
+  '/tenant/work-orders': typeof TenantWorkOrdersRoute
   '/portal': typeof PortalIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
@@ -789,6 +797,7 @@ export interface FileRoutesById {
   '/tenant/team': typeof TenantTeamRoute
   '/tenant/tickets': typeof TenantTicketsRoute
   '/tenant/tools': typeof TenantToolsRoute
+  '/tenant/work-orders': typeof TenantWorkOrdersRoute
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
@@ -880,6 +889,7 @@ export interface FileRouteTypes {
     | '/tenant/team'
     | '/tenant/tickets'
     | '/tenant/tools'
+    | '/tenant/work-orders'
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
@@ -966,6 +976,7 @@ export interface FileRouteTypes {
     | '/tenant/team'
     | '/tenant/tickets'
     | '/tenant/tools'
+    | '/tenant/work-orders'
     | '/portal'
     | '/super-admin'
     | '/tenant'
@@ -1055,6 +1066,7 @@ export interface FileRouteTypes {
     | '/tenant/team'
     | '/tenant/tickets'
     | '/tenant/tools'
+    | '/tenant/work-orders'
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
@@ -1522,6 +1534,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantToolsRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/work-orders': {
+      id: '/tenant/work-orders'
+      path: '/work-orders'
+      fullPath: '/tenant/work-orders'
+      preLoaderRoute: typeof TenantWorkOrdersRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/api/cron/platform-billing': {
       id: '/api/cron/platform-billing'
       path: '/api/cron/platform-billing'
@@ -1834,6 +1853,7 @@ interface TenantRouteChildren {
   TenantTeamRoute: typeof TenantTeamRoute
   TenantTicketsRoute: typeof TenantTicketsRoute
   TenantToolsRoute: typeof TenantToolsRoute
+  TenantWorkOrdersRoute: typeof TenantWorkOrdersRoute
   TenantIndexRoute: typeof TenantIndexRoute
 }
 
@@ -1861,6 +1881,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantTeamRoute: TenantTeamRoute,
   TenantTicketsRoute: TenantTicketsRoute,
   TenantToolsRoute: TenantToolsRoute,
+  TenantWorkOrdersRoute: TenantWorkOrdersRoute,
   TenantIndexRoute: TenantIndexRoute,
 }
 

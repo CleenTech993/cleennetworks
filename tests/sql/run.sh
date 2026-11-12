@@ -4,6 +4,7 @@
 #   Applies supabase/migrations + drizzle/migrations in dependency order, then runs
 #     tests/sql/rls-roles.sql       in database rls_roles_test
 #     tests/sql/router-tokens.sql   in database router_tokens_test
+#     tests/sql/work-orders.sql     in database work_orders_test
 #   (each suite gets its own database: they use the same fixture ids and helper schema).
 #   Pass --before to stop before the role/MFA migration and run only the RLS suite
 #   (shows what the test catches on the old schema).
@@ -31,6 +32,9 @@ if [[ "${1:-}" != "--before" ]]; then
   build_db pppoe_router_test
   (cd tests/sql && psql -d pppoe_router_test -v ON_ERROR_STOP=1 -q -f pppoe-router.sql)
   echo "pppoe-router: all expectations passed"
+  build_db work_orders_test
+  (cd tests/sql && psql -d work_orders_test -v ON_ERROR_STOP=1 -q -f work-orders.sql)
+  echo "work-orders: all expectations passed"
 fi
 
 if [[ "${1:-}" != "--before" ]]; then

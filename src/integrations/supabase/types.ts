@@ -2457,6 +2457,96 @@ export type Database = {
           },
         ];
       };
+      work_orders: {
+        Row: {
+          assigned_to: string | null;
+          completed_at: string | null;
+          created_at: string;
+          created_by: string | null;
+          customer_id: string | null;
+          description: string;
+          id: string;
+          priority: string;
+          resolution_notes: string | null;
+          scheduled_at: string | null;
+          status: string;
+          tenant_id: string;
+          ticket_id: string | null;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          assigned_to?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customer_id?: string | null;
+          description?: string;
+          id?: string;
+          priority?: string;
+          resolution_notes?: string | null;
+          scheduled_at?: string | null;
+          status?: string;
+          tenant_id: string;
+          ticket_id?: string | null;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          assigned_to?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          customer_id?: string | null;
+          description?: string;
+          id?: string;
+          priority?: string;
+          resolution_notes?: string | null;
+          scheduled_at?: string | null;
+          status?: string;
+          tenant_id?: string;
+          ticket_id?: string | null;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "work_orders_assigned_to_fkey";
+            columns: ["assigned_to"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_orders_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_orders_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_orders_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "work_orders_ticket_id_fkey";
+            columns: ["ticket_id"];
+            isOneToOne: false;
+            referencedRelation: "support_tickets";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenant_service_secrets: {
         Row: {
           ciphertext: string;

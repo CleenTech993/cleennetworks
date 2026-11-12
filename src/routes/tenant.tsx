@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import {
   LayoutDashboard,
+  ClipboardList,
   Radar,
   Wrench,
   Router,
@@ -44,6 +45,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant/packages", label: "Packages", icon: Package },
   { to: "/tenant/customers", label: "Customers", icon: Users },
   { to: "/tenant/sessions", label: "Sessions", icon: Activity },
+  { to: "/tenant/work-orders", label: "Work orders", icon: ClipboardList },
   { to: "/tenant/inventory", label: "Inventory", icon: Boxes },
   { to: "/tenant/customer-billing", label: "Customer billing", icon: ReceiptText },
   { to: "/tenant/payments", label: "Payments", icon: CreditCard },

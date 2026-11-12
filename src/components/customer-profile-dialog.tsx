@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   CalendarDays,
+  ClipboardList,
   CircleDollarSign,
   Mail,
   MessageSquare,
@@ -46,7 +47,7 @@ type CustomerProfile = {
 
 type ActivityItem = {
   id: string;
-  kind: "ticket" | "session" | "payment";
+  kind: "ticket" | "session" | "payment" | "work_order";
   title: string;
   detail: string;
   date: string;
@@ -63,6 +64,7 @@ const activityIcon = {
   ticket: Ticket,
   session: Wifi,
   payment: CircleDollarSign,
+  work_order: ClipboardList,
 };
 
 export function CustomerProfileDialog({
@@ -92,7 +94,7 @@ export function CustomerProfileDialog({
   } = useQuery({
     queryKey: ["customer-profile-activity", tenantId, customer.id],
     queryFn: async (): Promise<ActivityItem[]> => {
-      const [ticketsResult, sessionsResult, paymentsResult] = await Promise.all([
+      const [ticketsResult, sessionsResult, paymentsResult, workOrdersResult] = await Promise.all([
         supabase
           .from("support_tickets")
           .select("id,subject,status,created_at")
@@ -114,6 +116,13 @@ export function CustomerProfileDialog({
           .eq("customer_id", customer.id)
           .order("created_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("work_orders")
+          .select("id,title,status,created_at,scheduled_at")
+          .eq("tenant_id", tenantId)
+          .eq("customer_id", customer.id)
+          .order("created_at", { ascending: false })
+          .limit(10),
       ]);
 
       if (ticketsResult.error)
@@ -122,6 +131,8 @@ export function CustomerProfileDialog({
         throw new Error(`Could not load customer sessions: ${sessionsResult.error.message}`);
       if (paymentsResult.error)
         throw new Error(`Could not load customer payments: ${paymentsResult.error.message}`);
+      if (workOrdersResult.error)
+        throw new Error(`Could not load customer work orders: ${workOrdersResult.error.message}`);
 
       return [
         ...(ticketsResult.data ?? []).map((ticket) => ({
@@ -151,6 +162,16 @@ export function CustomerProfileDialog({
             : "Payment record",
           date: payment.created_at,
           status: payment.status,
+        })),
+        ...(workOrdersResult.data ?? []).map((workOrder) => ({
+          id: `work-order-${workOrder.id}`,
+          kind: "work_order" as const,
+          title: `Work order | ${workOrder.title}`,
+          detail: workOrder.scheduled_at
+            ? `Scheduled ${formatTenantDate(workOrder.scheduled_at)}`
+            : "Field service",
+          date: workOrder.created_at,
+          status: workOrder.status,
         })),
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
@@ -276,7 +297,7 @@ export function CustomerProfileDialog({
                 />
                 <p className="mt-2 text-sm font-medium">No recent activity</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Customer tickets, sessions and payments will appear here.
+                  Customer tickets, sessions, payments and field work will appear here.
                 </p>
               </div>
             ) : (
