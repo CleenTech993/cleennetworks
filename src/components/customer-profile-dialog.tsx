@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CustomerDocuments } from "@/components/customer-documents";
 import {
   Dialog,
   DialogContent,
@@ -73,6 +74,7 @@ export function CustomerProfileDialog({
   packageName,
   routerName,
   canSeeEquipment,
+  canSeeDocuments,
   onViewEquipment,
   onClose,
 }: {
@@ -81,6 +83,7 @@ export function CustomerProfileDialog({
   packageName: string | null;
   routerName: string | null;
   canSeeEquipment: boolean;
+  canSeeDocuments: boolean;
   onViewEquipment: () => void;
   onClose: () => void;
 }) {
@@ -210,9 +213,10 @@ export function CustomerProfileDialog({
         </DialogHeader>
 
         <Tabs defaultValue="overview" className="mt-2">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className={`grid w-full ${canSeeDocuments ? "grid-cols-3" : "grid-cols-2"}`}>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="activity">Recent activity</TabsTrigger>
+            {canSeeDocuments && <TabsTrigger value="documents">Documents</TabsTrigger>}
           </TabsList>
           <TabsContent value="overview" className="space-y-4">
             <section className="grid gap-3 sm:grid-cols-2">
@@ -325,6 +329,11 @@ export function CustomerProfileDialog({
               </ol>
             )}
           </TabsContent>
+          {canSeeDocuments && (
+            <TabsContent value="documents" className="mt-4">
+              <CustomerDocuments tenantId={tenantId} customerId={customer.id} />
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>

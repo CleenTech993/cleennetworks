@@ -404,6 +404,7 @@ function Customers() {
           packageName={packages?.find((pkg) => pkg.id === profileFor.package_id)?.name ?? null}
           routerName={routers?.find((router) => router.id === profileFor.router_id)?.name ?? null}
           canSeeEquipment={canSeeEquipment}
+          canSeeDocuments={canSeeEquipment}
           onViewEquipment={() => {
             setEquipmentFor(profileFor);
             setProfileFor(null);

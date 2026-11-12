@@ -26,6 +26,14 @@ CREATE TABLE IF NOT EXISTS storage.objects (
   owner_id text,
   created_at timestamptz DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS storage.buckets (
+  id text PRIMARY KEY,
+  name text,
+  public boolean NOT NULL DEFAULT false,
+  file_size_limit bigint,
+  allowed_mime_types text[]
+);
+GRANT USAGE ON SCHEMA storage TO anon, authenticated, service_role;
 CREATE TABLE IF NOT EXISTS auth.mfa_factors (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,

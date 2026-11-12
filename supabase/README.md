@@ -87,6 +87,14 @@ before overwriting it.
 `npm run db:verify-gen` and `npm run test:sql` need a Postgres they can create databases in (set `PGHOST` and
 `PGUSER`); they never touch your Supabase project.
 
+## Customer documents
+
+`20261206000000_customer_documents.sql` creates the private `customer-documents` Storage bucket.
+Files are stored under `<tenant_id>/<customer_id>/`, limited to 10 MB, and restricted to PDF,
+image, and Word document MIME types. Storage policies require an AAL2 session and tenant admin,
+technician, or support-staff membership for the customer’s tenant. The bucket is private; the
+customer profile creates short-lived signed download links rather than exposing public URLs.
+
 ## Tenant payment credentials
 
 From `20261101000000_tenant_owned_services.sql`, customer payments use tenant-owned Daraja STK
