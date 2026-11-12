@@ -94,6 +94,14 @@ Files are stored under `<tenant_id>/<customer_id>/`, limited to 10 MB, and restr
 image, and Word document MIME types. Storage policies require an AAL2 session and tenant admin,
 technician, or support-staff membership for the customer’s tenant. The bucket is private; the
 customer profile creates short-lived signed download links rather than exposing public URLs.
+Supabase Storage already enables RLS on `storage.objects`; the migration adds bucket-specific
+policies without attempting to alter that managed table.
+
+## Support ticket priority
+
+`20261207000000_ticket_priorities.sql` adds the `low`, `normal`, `high`, and `urgent` priority
+levels to support tickets. New tickets default to `normal`; the database constraint rejects
+unsupported priority values.
 
 ## Tenant payment credentials
 

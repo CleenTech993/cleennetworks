@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ClipboardList } from "lucide-react";
+import { AlertCircle, ClipboardList } from "lucide-react";
 import { EmptyState, PageHeader } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,12 +23,29 @@ import { hasAnyRole } from "@/lib/permissions";
 
 export const Route = createFileRoute("/tenant/tickets")({ component: Tickets });
 
+const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+type TicketPriority = (typeof PRIORITIES)[number];
+const PRIORITY_LABEL: Record<TicketPriority, string> = {
+  low: "Low",
+  normal: "Normal",
+  high: "High",
+  urgent: "Urgent",
+};
+
+function isTicketPriority(value: string): value is TicketPriority {
+  return PRIORITIES.some((priority) => priority === value);
+}
+
 function Tickets() {
   const { tenantId, user, roles } = useAuth();
   const qc = useQueryClient();
   const canCreateWorkOrders = hasAnyRole(roles, ["tenant_admin", "technician"]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ subject: "", body: "" });
+  const [form, setForm] = useState<{ subject: string; body: string; priority: TicketPriority }>({
+    subject: "",
+    body: "",
+    priority: "normal",
+  });
 
   const {
     data: tickets = [],
@@ -41,7 +58,7 @@ function Tickets() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("support_tickets")
-        .select("id,tenant_id,customer_id,subject,body,status,created_at")
+        .select("id,tenant_id,customer_id,subject,body,status,priority,created_at")
         .eq("tenant_id", tenantId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -78,7 +95,7 @@ function Tickets() {
     onSuccess: () => {
       toast.success("Ticket created");
       setOpen(false);
-      setForm({ subject: "", body: "" });
+      setForm({ subject: "", body: "", priority: "normal" });
       qc.invalidateQueries({ queryKey: ["tickets"] });
     },
     onError: (e) => toast.error((e as Error).message),
@@ -117,6 +134,16 @@ function Tickets() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tickets"] }),
   });
 
+  const setPriority = useMutation({
+    mutationFn: async ({ id, priority }: { id: string; priority: TicketPriority }) => {
+      const { error } = await supabase.from("support_tickets").update({ priority }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tickets"] }),
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Could not update ticket priority"),
+  });
+
   return (
     <div>
       <PageHeader
@@ -148,6 +175,25 @@ function Tickets() {
                     onChange={(e) => setForm({ ...form, body: e.target.value })}
                     className="mt-1"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="ticket-priority">Priority</Label>
+                  <select
+                    id="ticket-priority"
+                    value={form.priority}
+                    onChange={(e) => {
+                      if (isTicketPriority(e.target.value)) {
+                        setForm({ ...form, priority: e.target.value });
+                      }
+                    }}
+                    className="mt-1 flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  >
+                    {PRIORITIES.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {PRIORITY_LABEL[priority]}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <Button
                   onClick={() => create.mutate()}
@@ -187,7 +233,22 @@ function Tickets() {
               <div key={t.id} className="rounded-xl border bg-card p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h3 className="font-medium">{t.subject}</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-medium">{t.subject}</h3>
+                      <Badge
+                        variant={
+                          t.priority === "urgent" || t.priority === "high"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className={t.priority === "low" ? "text-muted-foreground" : undefined}
+                      >
+                        {t.priority === "urgent" && (
+                          <AlertCircle className="mr-1 h-3 w-3" aria-hidden="true" />
+                        )}
+                        {isTicketPriority(t.priority) ? PRIORITY_LABEL[t.priority] : "Normal"}
+                      </Badge>
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{t.body}</p>
                     <p className="mt-2 text-xs text-muted-foreground">
                       {formatTenantDate(t.created_at)}
@@ -202,6 +263,26 @@ function Tickets() {
                     <option value="pending">Pending</option>
                     <option value="resolved">Resolved</option>
                     <option value="closed">Closed</option>
+                  </select>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Priority</span>
+                  <select
+                    aria-label={`Set priority for ${t.subject}`}
+                    value={isTicketPriority(t.priority) ? t.priority : "normal"}
+                    disabled={setPriority.isPending}
+                    onChange={(e) => {
+                      if (isTicketPriority(e.target.value)) {
+                        setPriority.mutate({ id: t.id, priority: e.target.value });
+                      }
+                    }}
+                    className="rounded-md border bg-background px-2 py-1 text-xs"
+                  >
+                    {PRIORITIES.map((priority) => (
+                      <option key={priority} value={priority}>
+                        {PRIORITY_LABEL[priority]}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">

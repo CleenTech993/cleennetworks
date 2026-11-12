@@ -2418,6 +2418,7 @@ export type Database = {
           created_at: string;
           customer_id: string | null;
           id: string;
+          priority: string;
           status: string;
           subject: string;
           tenant_id: string;
@@ -2427,6 +2428,7 @@ export type Database = {
           created_at?: string;
           customer_id?: string | null;
           id?: string;
+          priority?: string;
           status?: string;
           subject: string;
           tenant_id: string;
@@ -2436,6 +2438,7 @@ export type Database = {
           created_at?: string;
           customer_id?: string | null;
           id?: string;
+          priority?: string;
           status?: string;
           subject?: string;
           tenant_id?: string;

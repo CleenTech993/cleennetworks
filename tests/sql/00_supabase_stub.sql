@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS storage.objects (
   owner_id text,
   created_at timestamptz DEFAULT now()
 );
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS storage.buckets (
   id text PRIMARY KEY,
   name text,

@@ -1361,7 +1361,9 @@ with expected(ord, track, migration, kind, ident) as (values
   (66, 'supabase', '20261204000000_field_work_orders.sql', 'trigger', 'public.work_orders.validate_work_order_scope'),
   (67, 'supabase', '20261205000000_unique_ticket_work_orders.sql', 'index', 'public.work_orders_ticket_id_unique_idx'),
   (68, 'supabase', '20261206000000_customer_documents.sql', 'none', ''),
-  (69, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
+  (69, 'supabase', '20261207000000_ticket_priorities.sql', 'column', 'public.support_tickets.priority'),
+  (69, 'supabase', '20261207000000_ticket_priorities.sql', 'constraint', 'public.support_tickets.support_tickets_priority_check'),
+  (70, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.

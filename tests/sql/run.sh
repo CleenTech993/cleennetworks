@@ -6,6 +6,7 @@
 #     tests/sql/router-tokens.sql   in database router_tokens_test
 #     tests/sql/work-orders.sql     in database work_orders_test
 #     tests/sql/customer-documents.sql in database customer_documents_test
+#     tests/sql/ticket-priorities.sql in database ticket_priorities_test
 #   (each suite gets its own database: they use the same fixture ids and helper schema).
 #   Pass --before to stop before the role/MFA migration and run only the RLS suite
 #   (shows what the test catches on the old schema).
@@ -39,6 +40,9 @@ if [[ "${1:-}" != "--before" ]]; then
   build_db customer_documents_test
   (cd tests/sql && psql -d customer_documents_test -v ON_ERROR_STOP=1 -q -f customer-documents.sql)
   echo "customer-documents: all expectations passed"
+  build_db ticket_priorities_test
+  (cd tests/sql && psql -d ticket_priorities_test -v ON_ERROR_STOP=1 -q -f ticket-priorities.sql)
+  echo "ticket-priorities: all expectations passed"
 fi
 
 if [[ "${1:-}" != "--before" ]]; then
