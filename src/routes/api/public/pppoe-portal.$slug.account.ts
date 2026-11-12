@@ -15,6 +15,7 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/account")({
           { data: tenant, error: tenantError },
           { data: packages, error: packagesError },
           { data: payments, error: paymentsError },
+          { data: invoices, error: invoicesError },
         ] = await Promise.all([
           supabaseAdmin
             .from("customers")
@@ -47,11 +48,20 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/account")({
             .eq("customer_id", session.customerId)
             .order("created_at", { ascending: false })
             .limit(10),
+          supabaseAdmin
+            .from("customer_invoices")
+            .select(
+              "id,invoice_number,package_id,package_name,amount,status,service_period_start,service_period_end,issued_at,due_at,paid_at",
+            )
+            .eq("tenant_id", session.tenantId)
+            .eq("customer_id", session.customerId)
+            .order("issued_at", { ascending: false })
+            .limit(12),
         ]);
-        if (customerError || tenantError || packagesError || paymentsError) {
+        if (customerError || tenantError || packagesError || paymentsError || invoicesError) {
           console.error(
             "Could not load PPPoE customer portal",
-            customerError ?? tenantError ?? packagesError ?? paymentsError,
+            customerError ?? tenantError ?? packagesError ?? paymentsError ?? invoicesError,
           );
           return Response.json({ error: "Account temporarily unavailable." }, { status: 503 });
         }
@@ -76,9 +86,12 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/account")({
         }
 
         const paymentPackageIds = [
-          ...new Set(
-            (payments ?? []).flatMap((payment) => (payment.package_id ? [payment.package_id] : [])),
-          ),
+          ...new Set([
+            ...(payments ?? []).flatMap((payment) =>
+              payment.package_id ? [payment.package_id] : [],
+            ),
+            ...(invoices ?? []).map((invoice) => invoice.package_id),
+          ]),
         ];
         const { data: paymentPackages, error: paymentPackagesError } = paymentPackageIds.length
           ? await supabaseAdmin
@@ -105,6 +118,7 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/account")({
                 ? (packageNames.get(payment.package_id) ?? null)
                 : null,
             })),
+            invoices: invoices ?? [],
           },
           { headers: { "cache-control": "no-store" } },
         );

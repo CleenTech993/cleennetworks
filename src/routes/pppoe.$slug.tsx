@@ -59,6 +59,19 @@ type PortalAccount = {
     created_at: string;
     package_name: string | null;
   }>;
+  invoices: Array<{
+    id: string;
+    invoice_number: string;
+    package_id: string;
+    package_name: string;
+    amount: number;
+    status: string;
+    service_period_start: string;
+    service_period_end: string;
+    issued_at: string;
+    due_at: string;
+    paid_at: string | null;
+  }>;
 };
 
 async function responseJson(response: Response): Promise<Record<string, unknown>> {
@@ -158,6 +171,9 @@ function PppoePortalPage() {
 
   const account = accountQuery.data;
   const payment = account?.payments.find((item) => item.id === lastPaymentId);
+  const outstandingInvoice = account?.invoices.find((invoice) =>
+    ["pending", "overdue"].includes(invoice.status),
+  );
   const usage = account
     ? Number(account.customer.usage_bytes_in ?? 0) + Number(account.customer.usage_bytes_out ?? 0)
     : 0;
@@ -335,6 +351,61 @@ function PppoePortalPage() {
           </section>
         )}
 
+        {account.invoices.length > 0 && (
+          <section className="rounded-2xl border bg-card p-5 sm:p-6">
+            <h2 className="text-lg font-semibold">Invoices</h2>
+            <div className="mt-3 divide-y">
+              {account.invoices.map((invoice) => {
+                const outstanding = ["pending", "overdue"].includes(invoice.status);
+                return (
+                  <div
+                    key={invoice.id}
+                    className="flex flex-wrap items-center justify-between gap-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {invoice.invoice_number} · {invoice.package_name}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {invoice.service_period_start
+                          ? `Service period starts ${new Date(invoice.service_period_start).toLocaleDateString()} · `
+                          : ""}
+                        {outstanding
+                          ? `Due ${new Date(invoice.due_at).toLocaleDateString()}`
+                          : invoice.paid_at
+                            ? `Paid ${new Date(invoice.paid_at).toLocaleDateString()}`
+                            : invoice.status}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant={invoice.status === "paid" ? "default" : "secondary"}>
+                        {invoice.status}
+                      </Badge>
+                      <span className="font-semibold">
+                        KES {Number(invoice.amount).toLocaleString()}
+                      </span>
+                      {outstanding && (
+                        <Button
+                          style={{ backgroundColor: brandColor }}
+                          disabled={checkout.isPending || pendingStatus}
+                          onClick={() => checkout.mutate(invoice.package_id)}
+                        >
+                          {checkout.isPending ? "Starting…" : "Pay with M-Pesa"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {outstandingInvoice && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Your current renewal invoice must be paid before another plan can be selected.
+              </p>
+            )}
+          </section>
+        )}
+
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold">Renew your broadband</h2>
@@ -366,10 +437,20 @@ function PppoePortalPage() {
                   <Button
                     className="mt-4 w-full"
                     style={{ backgroundColor: brandColor }}
-                    disabled={checkout.isPending || pendingStatus}
+                    disabled={
+                      checkout.isPending ||
+                      pendingStatus ||
+                      Boolean(outstandingInvoice && outstandingInvoice.package_id !== pkg.id)
+                    }
                     onClick={() => checkout.mutate(pkg.id)}
                   >
-                    {checkout.isPending ? "Starting payment…" : "Renew with M-Pesa"}
+                    {checkout.isPending
+                      ? "Starting payment…"
+                      : outstandingInvoice
+                        ? outstandingInvoice.package_id === pkg.id
+                          ? "Pay invoice with M-Pesa"
+                          : "Invoice due"
+                        : "Renew with M-Pesa"}
                   </Button>
                 </article>
               ))}

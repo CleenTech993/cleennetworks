@@ -58,9 +58,11 @@ async function getStatus(tenantId: string) {
   return {
     mpesaConfigured: mpesaFields.every(Boolean),
     mpesaEnvironment: (secrets.MPESA_ENV === "production" ? "production" : "sandbox") as
-      "sandbox" | "production",
+      | "sandbox"
+      | "production",
     mpesaMerchantType: (secrets.MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill") as
-      "paybill" | "buygoods",
+      | "paybill"
+      | "buygoods",
     businessShortcodeLast4: secrets.MPESA_BUSINESS_SHORTCODE?.slice(-4) ?? null,
     shortcodeLast4: secrets.MPESA_SHORTCODE?.slice(-4) ?? null,
     smsConfigured: Boolean(secrets.AT_USERNAME && secrets.AT_API_KEY),
@@ -242,6 +244,23 @@ export const reviewDirectMpesaTransaction = createServerFn({ method: "POST" })
       throw new Error("Select a PPPoE customer belonging to this tenant.");
     }
 
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
+      .from("customer_invoices")
+      .select("id,package_id,amount,duration_value,duration_unit")
+      .eq("tenant_id", tenantId)
+      .eq("customer_id", customer.id)
+      .in("status", ["pending", "overdue"])
+      .order("issued_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (invoiceError) {
+      console.error("Could not load PPPoE invoice for direct M-Pesa reconciliation", invoiceError);
+      throw new Error("Could not check the customer's outstanding invoice.");
+    }
+    if (invoice && invoice.package_id !== data.packageId) {
+      throw new Error("Select the plan on the customer's outstanding invoice.");
+    }
+
     const { data: pkg, error: packageError } = await supabaseAdmin
       .from("packages")
       .select("id,kind,active,price,duration_value,duration_unit,tenant_id")
@@ -252,17 +271,24 @@ export const reviewDirectMpesaTransaction = createServerFn({ method: "POST" })
       packageError ||
       !pkg ||
       pkg.kind !== "pppoe" ||
-      !pkg.active ||
-      !pkg.duration_value ||
-      !pkg.duration_unit
+      (!invoice && !pkg.active) ||
+      !(invoice?.duration_value ?? pkg.duration_value) ||
+      !(invoice?.duration_unit ?? pkg.duration_unit)
     ) {
       throw new Error("Choose an active PPPoE package with a valid duration.");
     }
-    if (Number(transaction.amount) !== Math.ceil(Number(pkg.price))) {
+    if (
+      Number(transaction.amount) !==
+      (invoice ? Number(invoice.amount) : Math.ceil(Number(pkg.price)))
+    ) {
       throw new Error("The selected package price does not match the M-Pesa amount.");
     }
 
-    const expiresAt = renewedExpiry(customer.expires_at, pkg.duration_value, pkg.duration_unit);
+    const expiresAt = renewedExpiry(
+      customer.expires_at,
+      invoice?.duration_value ?? pkg.duration_value!,
+      invoice?.duration_unit ?? pkg.duration_unit!,
+    );
     const { error: approveError } = await supabaseAdmin.rpc("approve_direct_mpesa_transaction", {
       p_transaction_id: transaction.id,
       p_tenant_id: tenantId,

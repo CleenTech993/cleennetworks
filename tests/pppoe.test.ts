@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildPppoeSyncLines,
+  PPPOE_BILLING_GRACE_PERIOD_MS,
   formatSpeed,
   pppoeProfileName,
   pppoeRateLimit,
@@ -140,6 +141,25 @@ describe("buildPppoeSyncLines", () => {
   });
   it("keeps clients with no expiry", () => {
     expect(build([client({ expires_at: null })])).toContain('name="john.home"');
+  });
+  it("keeps an expired client online for the configured billing grace period only", () => {
+    const expiresDuringGrace = new Date(NOW - 2 * 86_400_000).toISOString();
+    const expiresAtGraceEnd = new Date(NOW - PPPOE_BILLING_GRACE_PERIOD_MS).toISOString();
+    const outsideGrace = new Date(NOW - 4 * 86_400_000).toISOString();
+    const lines = buildPppoeSyncLines({
+      routerId: ROUTER,
+      customers: [
+        client({ pppoe_username: "grace", expires_at: expiresDuringGrace }),
+        client({ pppoe_username: "grace-end", expires_at: expiresAtGraceEnd }),
+        client({ pppoe_username: "past-grace", expires_at: outsideGrace }),
+      ],
+      packages: [{ id: PKG, download_kbps: 5000, upload_kbps: 2000 }],
+      now: NOW,
+      gracePeriodMs: PPPOE_BILLING_GRACE_PERIOD_MS,
+    }).join("\n");
+    expect(lines).toContain('name="grace"');
+    expect(lines).not.toContain('name="grace-end"');
+    expect(lines).not.toContain('name="past-grace"');
   });
   it("snapshots old secrets first and disconnects removed / re-profiled clients last", () => {
     const lines = buildPppoeSyncLines({ routerId: ROUTER, customers: [], packages: [], now: NOW });

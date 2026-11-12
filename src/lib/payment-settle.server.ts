@@ -14,6 +14,7 @@ export interface SettleInput {
     phone: string | null;
     /** Set when the payment renews a smart TV instead of buying a voucher. */
     tv_device_id: string | null;
+    customer_invoice_id?: string | null;
     /** Expiry already computed by an earlier attempt, so a retry never extends the TV twice. */
     expires_at: string | null;
   };
@@ -52,139 +53,152 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
   }
 
   try {
-    const voucherCode: string | null = null;
-    let expiresAt: string | null = null;
-    if (payment.package_id) {
-      const { data: pkg, error: packageError } = await supabaseAdmin
-        .from("packages")
-        .select("kind,duration_value,duration_unit")
-        .eq("id", payment.package_id)
-        .maybeSingle();
-      if (packageError) throw packageError;
-      if (!pkg) throw new Error("Payment package not found");
-      if (pkg?.duration_value && pkg?.duration_unit) {
-        expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
-      }
-      if (pkg.kind === "hotspot_tv") {
-        if (!payment.tv_device_id) throw new Error("Phone + TV payment has no registered TV");
-        if (!pkg.duration_value || !pkg.duration_unit)
-          throw new Error("Phone + TV package has no duration");
-
-        const { data: dev, error: deviceError } = await supabaseAdmin
-          .from("tv_devices")
-          .select("id,status")
-          .eq("id", payment.tv_device_id)
-          .eq("tenant_id", payment.tenant_id)
+    if (payment.customer_invoice_id) {
+      if (!i.receipt) throw new Error("Invoice payment is missing its M-Pesa receipt.");
+      const { error: finalizeError } = await supabaseAdmin.rpc(
+        "finalize_customer_invoice_payment",
+        {
+          p_payment_id: payment.id,
+          p_receipt: i.receipt,
+          p_raw_callback: i.raw,
+        },
+      );
+      if (finalizeError) throw finalizeError;
+    } else {
+      const voucherCode: string | null = null;
+      let expiresAt: string | null = null;
+      if (payment.package_id) {
+        const { data: pkg, error: packageError } = await supabaseAdmin
+          .from("packages")
+          .select("kind,duration_value,duration_unit")
+          .eq("id", payment.package_id)
           .maybeSingle();
-        if (deviceError) throw deviceError;
-        if (!dev) throw new Error("TV device not found");
+        if (packageError) throw packageError;
+        if (!pkg) throw new Error("Payment package not found");
+        if (pkg?.duration_value && pkg?.duration_unit) {
+          expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
+        }
+        if (pkg.kind === "hotspot_tv") {
+          if (!payment.tv_device_id) throw new Error("Phone + TV payment has no registered TV");
+          if (!pkg.duration_value || !pkg.duration_unit)
+            throw new Error("Phone + TV package has no duration");
 
-        expiresAt = payment.expires_at ?? expiryFrom(pkg.duration_value, pkg.duration_unit);
-        const { error: expiryError } = await supabaseAdmin
-          .from("payments")
-          .update({ expires_at: expiresAt })
-          .eq("id", payment.id);
-        if (expiryError) throw expiryError;
-
-        // A combined purchase uses one fixed expiry for both entitlements; it does not extend an
-        // earlier TV expiry independently of hotspot access.
-        if (dev.status !== "blocked") {
-          const { error: tvUpdateError } = await supabaseAdmin
+          const { data: dev, error: deviceError } = await supabaseAdmin
             .from("tv_devices")
-            .update({
-              status: "active",
-              expires_at: expiresAt,
-              package_id: payment.package_id,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", dev.id);
-          if (tvUpdateError) throw tvUpdateError;
-        }
-      } else if (payment.tv_device_id) {
-        // Smart TV: extend the device's access instead of minting a voucher. The new expiry is
-        // remembered on the payment first so a retried callback reuses it rather than extending twice.
-        if (!pkg?.duration_value || !pkg?.duration_unit)
-          throw new Error("TV package has no duration");
-        const { data: dev } = await supabaseAdmin
-          .from("tv_devices")
-          .select("id,status,expires_at")
-          .eq("id", payment.tv_device_id)
-          .eq("tenant_id", payment.tenant_id)
-          .maybeSingle();
-        if (!dev) throw new Error("TV device not found");
-        expiresAt =
-          payment.expires_at ??
-          renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
-        if (!payment.expires_at) {
-          const { error } = await supabaseAdmin
-            .from("payments")
-            .update({ expires_at: expiresAt })
-            .eq("id", payment.id);
-          if (error) throw error;
-        }
-        if (dev.status !== "blocked") {
-          const { error: dErr } = await supabaseAdmin
-            .from("tv_devices")
-            .update({
-              status: "active",
-              expires_at: expiresAt,
-              package_id: payment.package_id,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", dev.id);
-          if (dErr) throw dErr;
-        }
-      } else if (pkg?.kind === "pppoe") {
-        if (!payment.customer_id || !pkg.duration_value || !pkg.duration_unit) {
-          throw new Error("PPPoE payment is missing its account or package duration");
-        }
-        const { data: customer, error: customerError } = await supabaseAdmin
-          .from("customers")
-          .select("id,expires_at")
-          .eq("id", payment.customer_id)
-          .eq("tenant_id", payment.tenant_id)
-          .eq("customer_type", "pppoe")
-          .maybeSingle();
-        if (customerError) throw customerError;
-        if (!customer) throw new Error("PPPoE customer account not found");
+            .select("id,status")
+            .eq("id", payment.tv_device_id)
+            .eq("tenant_id", payment.tenant_id)
+            .maybeSingle();
+          if (deviceError) throw deviceError;
+          if (!dev) throw new Error("TV device not found");
 
-        expiresAt =
-          payment.expires_at ??
-          renewedExpiry(customer.expires_at, pkg.duration_value, pkg.duration_unit);
-        if (!payment.expires_at) {
+          expiresAt = payment.expires_at ?? expiryFrom(pkg.duration_value, pkg.duration_unit);
           const { error: expiryError } = await supabaseAdmin
             .from("payments")
             .update({ expires_at: expiresAt })
             .eq("id", payment.id);
           if (expiryError) throw expiryError;
-        }
-        const { error: customerUpdateError } = await supabaseAdmin
-          .from("customers")
-          .update({
-            package_id: payment.package_id,
-            expires_at: expiresAt,
-            status: "active",
-          })
-          .eq("id", customer.id)
-          .eq("tenant_id", payment.tenant_id);
-        if (customerUpdateError) throw customerUpdateError;
-      } else if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
-        // The verified M-Pesa receipt is the hotspot credential; no voucher is minted.
-      }
-    }
 
-    const { error: uErr } = await supabaseAdmin
-      .from("payments")
-      .update({
-        status: "success",
-        mpesa_receipt: i.receipt || null,
-        phone: payment.phone || undefined,
-        raw_callback: i.raw,
-        voucher_code: voucherCode,
-        expires_at: expiresAt,
-      })
-      .eq("id", payment.id);
-    if (uErr) throw uErr;
+          // A combined purchase uses one fixed expiry for both entitlements; it does not extend an
+          // earlier TV expiry independently of hotspot access.
+          if (dev.status !== "blocked") {
+            const { error: tvUpdateError } = await supabaseAdmin
+              .from("tv_devices")
+              .update({
+                status: "active",
+                expires_at: expiresAt,
+                package_id: payment.package_id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", dev.id);
+            if (tvUpdateError) throw tvUpdateError;
+          }
+        } else if (payment.tv_device_id) {
+          // Smart TV: extend the device's access instead of minting a voucher. The new expiry is
+          // remembered on the payment first so a retried callback reuses it rather than extending twice.
+          if (!pkg?.duration_value || !pkg?.duration_unit)
+            throw new Error("TV package has no duration");
+          const { data: dev } = await supabaseAdmin
+            .from("tv_devices")
+            .select("id,status,expires_at")
+            .eq("id", payment.tv_device_id)
+            .eq("tenant_id", payment.tenant_id)
+            .maybeSingle();
+          if (!dev) throw new Error("TV device not found");
+          expiresAt =
+            payment.expires_at ??
+            renewedExpiry(dev.expires_at, pkg.duration_value, pkg.duration_unit);
+          if (!payment.expires_at) {
+            const { error } = await supabaseAdmin
+              .from("payments")
+              .update({ expires_at: expiresAt })
+              .eq("id", payment.id);
+            if (error) throw error;
+          }
+          if (dev.status !== "blocked") {
+            const { error: dErr } = await supabaseAdmin
+              .from("tv_devices")
+              .update({
+                status: "active",
+                expires_at: expiresAt,
+                package_id: payment.package_id,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", dev.id);
+            if (dErr) throw dErr;
+          }
+        } else if (pkg?.kind === "pppoe") {
+          if (!payment.customer_id || !pkg.duration_value || !pkg.duration_unit) {
+            throw new Error("PPPoE payment is missing its account or package duration");
+          }
+          const { data: customer, error: customerError } = await supabaseAdmin
+            .from("customers")
+            .select("id,expires_at")
+            .eq("id", payment.customer_id)
+            .eq("tenant_id", payment.tenant_id)
+            .eq("customer_type", "pppoe")
+            .maybeSingle();
+          if (customerError) throw customerError;
+          if (!customer) throw new Error("PPPoE customer account not found");
+
+          expiresAt =
+            payment.expires_at ??
+            renewedExpiry(customer.expires_at, pkg.duration_value, pkg.duration_unit);
+          if (!payment.expires_at) {
+            const { error: expiryError } = await supabaseAdmin
+              .from("payments")
+              .update({ expires_at: expiresAt })
+              .eq("id", payment.id);
+            if (expiryError) throw expiryError;
+          }
+          const { error: customerUpdateError } = await supabaseAdmin
+            .from("customers")
+            .update({
+              package_id: payment.package_id,
+              expires_at: expiresAt,
+              status: "active",
+            })
+            .eq("id", customer.id)
+            .eq("tenant_id", payment.tenant_id);
+          if (customerUpdateError) throw customerUpdateError;
+        } else if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
+          // The verified M-Pesa receipt is the hotspot credential; no voucher is minted.
+        }
+      }
+
+      const { error: uErr } = await supabaseAdmin
+        .from("payments")
+        .update({
+          status: "success",
+          mpesa_receipt: i.receipt || null,
+          phone: payment.phone || undefined,
+          raw_callback: i.raw,
+          voucher_code: voucherCode,
+          expires_at: expiresAt,
+        })
+        .eq("id", payment.id);
+      if (uErr) throw uErr;
+    }
   } catch (e) {
     await supabaseAdmin.from("payments").update({ status: "pending" }).eq("id", payment.id);
     throw e;

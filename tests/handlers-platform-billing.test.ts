@@ -63,6 +63,7 @@ beforeEach(() => {
     .seed("platform_mpesa_config", [{ id: 1, shortcode: "123456" }])
     .seed("platform_commissions", [{ ...invoice }]);
   h.db.rpcs.generate_monthly_platform_commission_invoices = () => ({ data: 1 });
+  h.db.rpcs.generate_due_customer_invoices = () => ({ data: 3 });
   h.db.rpcs.refresh_overdue_tenant_billing = () => ({ data: 0 });
   h.db.rpcs.claim_platform_invoice_emails = () => ({ data: [{ ...invoice }] });
 });
@@ -85,6 +86,7 @@ describe("platform billing scheduled job", () => {
     expect(response.status).toBe(200);
     expect(await json(response)).toMatchObject({
       invoicesCreated: 1,
+      customerInvoicesCreated: 3,
       tenantsSuspended: 0,
       emailsSent: 1,
       emailsFailed: 0,

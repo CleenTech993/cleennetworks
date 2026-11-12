@@ -33,6 +33,13 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
           return Response.json({ error: "Could not generate invoices" }, { status: 500 });
         }
 
+        const { data: customerInvoicesCreated, error: customerInvoiceError } =
+          await supabaseAdmin.rpc("generate_due_customer_invoices", {});
+        if (customerInvoiceError) {
+          console.error("Could not generate customer renewal invoices", customerInvoiceError);
+          return Response.json({ error: "Could not generate customer invoices" }, { status: 500 });
+        }
+
         const { data: tenantsSuspended, error: suspensionError } = await supabaseAdmin.rpc(
           "refresh_overdue_tenant_billing",
           {},
@@ -188,6 +195,7 @@ export const Route = createFileRoute("/api/cron/platform-billing")({
 
         return Response.json({
           invoicesCreated: invoicesCreated ?? 0,
+          customerInvoicesCreated: customerInvoicesCreated ?? 0,
           tenantsSuspended: tenantsSuspended ?? 0,
           emailsSent,
           emailsFailed,

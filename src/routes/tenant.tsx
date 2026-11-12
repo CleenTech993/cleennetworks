@@ -45,6 +45,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant/customers", label: "Customers", icon: Users },
   { to: "/tenant/sessions", label: "Sessions", icon: Activity },
   { to: "/tenant/inventory", label: "Inventory", icon: Boxes },
+  { to: "/tenant/customer-billing", label: "Customer billing", icon: ReceiptText },
   { to: "/tenant/payments", label: "Payments", icon: CreditCard },
   { to: "/tenant/billing", label: "Platform invoices", icon: ReceiptText },
   { to: "/tenant/sms", label: "Notifications", icon: MessageSquare },

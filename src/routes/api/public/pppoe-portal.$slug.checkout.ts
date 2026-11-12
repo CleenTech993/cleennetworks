@@ -89,27 +89,48 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/checkout")(
           );
         }
 
-        const { data: pkg, error: packageError } = await supabaseAdmin
+        const { data: invoice, error: invoiceError } = await supabaseAdmin
+          .from("customer_invoices")
+          .select("id,package_id,amount")
+          .eq("tenant_id", tenant.id)
+          .eq("customer_id", customer.id)
+          .in("status", ["pending", "overdue"])
+          .order("issued_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (invoiceError) {
+          console.error("Could not load PPPoE renewal invoice", invoiceError);
+          return Response.json({ error: "Could not start payment." }, { status: 503 });
+        }
+        if (invoice && invoice.package_id !== parsed.data.packageId) {
+          return Response.json(
+            { error: "Pay the outstanding invoice's plan, or contact your provider to change it." },
+            { status: 409 },
+          );
+        }
+
+        const packageQuery = supabaseAdmin
           .from("packages")
           .select("id,name,price,kind,tenant_id,active")
           .eq("id", parsed.data.packageId)
-          .eq("tenant_id", tenant.id)
-          .maybeSingle();
+          .eq("tenant_id", tenant.id);
+        const { data: pkg, error: packageError } = invoice
+          ? await packageQuery.maybeSingle()
+          : await packageQuery.eq("active", true).maybeSingle();
         if (packageError) {
           console.error("Could not load PPPoE checkout package", packageError);
           return Response.json({ error: "Could not start payment." }, { status: 503 });
         }
-        if (!pkg || pkg.kind !== "pppoe" || !pkg.active) {
+        if (!pkg || pkg.kind !== "pppoe" || (!pkg.active && !invoice)) {
           return Response.json({ error: "That PPPoE package is not available." }, { status: 400 });
         }
-        const amount = Math.ceil(Number(pkg.price));
+        const amount = invoice ? Math.ceil(Number(invoice.amount)) : Math.ceil(Number(pkg.price));
         if (!Number.isSafeInteger(amount) || amount < 1) {
           return Response.json(
             { error: "This package cannot be paid for online." },
             { status: 400 },
           );
         }
-
         const staleBefore = new Date(Date.now() - PENDING_TIMEOUT_MS).toISOString();
         const { error: expireError } = await supabaseAdmin
           .from("payments")
@@ -122,12 +143,26 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/checkout")(
           console.error("Could not expire stale PPPoE payment", expireError);
           return Response.json({ error: "Could not start payment." }, { status: 503 });
         }
+        if (invoice) {
+          const { error: expireInvoiceProcessingError } = await supabaseAdmin
+            .from("payments")
+            .update({ status: "failed" })
+            .eq("tenant_id", tenant.id)
+            .eq("customer_id", customer.id)
+            .eq("customer_invoice_id", invoice.id)
+            .eq("status", "processing")
+            .lt("created_at", staleBefore);
+          if (expireInvoiceProcessingError) {
+            console.error("Could not expire stale invoice payment", expireInvoiceProcessingError);
+            return Response.json({ error: "Could not start payment." }, { status: 503 });
+          }
+        }
         const { data: activePayment, error: activePaymentError } = await supabaseAdmin
           .from("payments")
           .select("id,package_id")
           .eq("tenant_id", tenant.id)
           .eq("customer_id", customer.id)
-          .eq("status", "pending")
+          .in("status", ["pending", "processing"])
           .gte("created_at", staleBefore)
           .order("created_at", { ascending: false })
           .limit(1)
@@ -166,10 +201,19 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/checkout")(
             amount,
             status: "pending",
             provider: "daraja",
+            customer_invoice_id: invoice?.id ?? null,
           })
           .select("id")
           .single();
         if (insertError || !payment) {
+          if (insertError?.code === "23505" && invoice) {
+            return Response.json(
+              {
+                error: "A payment prompt is already active. Complete it or wait for it to expire.",
+              },
+              { status: 409 },
+            );
+          }
           console.error("Could not create PPPoE portal payment", insertError);
           return Response.json({ error: "Could not start payment." }, { status: 500 });
         }

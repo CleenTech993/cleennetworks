@@ -48,6 +48,9 @@ conventions and next steps.
   interfaces, inventory monitoring, and PPPoE session reporting.
 - **Payments and billing** — tenant payment flows and callbacks, customer communications, platform
   billing and commissions, and super-admin settlements.
+- **Customer billing** — due-time PPPoE renewal invoices with a three-day service grace period,
+  M-Pesa settlement, and a tenant ledger covering invoices and prepaid payments. Package terms are
+  snapshotted on each invoice.
 - **Platform administration** — tenant and user administration, platform health, communications,
   audit, and NOC tools.
 
@@ -70,7 +73,7 @@ M-Pesa hotspot access-code flow, legacy voucher transition, and separate RADIUS 
 | `src/lib/`                                         | Domain logic, integrations, server functions (`*.functions.ts`), and server-only modules (`*.server.ts`).                |
 | `src/integrations/supabase/`                       | Browser and server Supabase clients, generated database types, and auth middleware.                                      |
 | `apps/api/`                                        | Independently runnable Hono API Worker for migrated HTTP endpoints.                                                      |
-| `packages/api-contracts/`                          | Shared types and input validation for HTTP request/response payloads.                                                    |
+| `packages/api-contracts/`                          | Shared types and input validation for HTTP request/response payloads.                                                   |
 | `supabase/migrations/`                             | Versioned Supabase/PostgreSQL migrations.                                                                                |
 | `drizzle/`                                         | Drizzle schema and migrations used by the database migration track.                                                      |
 | `tests/`                                           | Unit, integration-style handler, permission, and SQL migration checks.                                                   |

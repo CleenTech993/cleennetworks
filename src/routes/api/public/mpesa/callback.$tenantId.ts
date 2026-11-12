@@ -25,7 +25,7 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
   const { data: payment, error: paymentError } = await supabaseAdmin
     .from("payments")
     .select(
-      "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,tv_device_id,expires_at",
+      "id,tenant_id,package_id,customer_id,status,merchant_request_id,checkout_request_id,phone,amount,tv_device_id,expires_at,customer_invoice_id",
     )
     .eq("tenant_id", tenantId)
     .eq("provider", "daraja")
@@ -131,6 +131,7 @@ async function handleDarajaCallback(tenantId: string, raw: DarajaCallback): Prom
         phone: payment.phone,
         tv_device_id: payment.tv_device_id,
         expires_at: payment.expires_at,
+        customer_invoice_id: payment.customer_invoice_id,
       },
       receipt,
       raw: rawJson,

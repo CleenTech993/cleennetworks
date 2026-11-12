@@ -821,6 +821,7 @@ export type Database = {
           checkout_request_id: string | null;
           created_at: string;
           customer_id: string | null;
+          customer_invoice_id: string | null;
           expires_at: string | null;
           id: string;
           merchant_request_id: string | null;
@@ -841,6 +842,7 @@ export type Database = {
           checkout_request_id?: string | null;
           created_at?: string;
           customer_id?: string | null;
+          customer_invoice_id?: string | null;
           expires_at?: string | null;
           id?: string;
           merchant_request_id?: string | null;
@@ -861,6 +863,7 @@ export type Database = {
           checkout_request_id?: string | null;
           created_at?: string;
           customer_id?: string | null;
+          customer_invoice_id?: string | null;
           expires_at?: string | null;
           id?: string;
           merchant_request_id?: string | null;
@@ -881,6 +884,13 @@ export type Database = {
             columns: ["customer_id"];
             isOneToOne: false;
             referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_customer_invoice_id_fkey";
+            columns: ["customer_invoice_id"];
+            isOneToOne: false;
+            referencedRelation: "customer_invoices";
             referencedColumns: ["id"];
           },
           {
@@ -909,6 +919,95 @@ export type Database = {
             columns: ["tv_device_id"];
             isOneToOne: false;
             referencedRelation: "tv_devices";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      customer_invoices: {
+        Row: {
+          amount: number;
+          created_at: string;
+          customer_id: string;
+          duration_unit: string;
+          duration_value: number;
+          due_at: string;
+          id: string;
+          invoice_number: string;
+          issued_at: string;
+          package_id: string;
+          package_name: string;
+          paid_at: string | null;
+          payment_id: string | null;
+          service_period_end: string;
+          service_period_start: string;
+          status: string;
+          tenant_id: string;
+        };
+        Insert: {
+          amount: number;
+          created_at?: string;
+          customer_id: string;
+          duration_unit: string;
+          duration_value: number;
+          due_at: string;
+          id?: string;
+          invoice_number: string;
+          issued_at?: string;
+          package_id: string;
+          package_name: string;
+          paid_at?: string | null;
+          payment_id?: string | null;
+          service_period_end: string;
+          service_period_start: string;
+          status?: string;
+          tenant_id: string;
+        };
+        Update: {
+          amount?: number;
+          created_at?: string;
+          customer_id?: string;
+          duration_unit?: string;
+          duration_value?: number;
+          due_at?: string;
+          id?: string;
+          invoice_number?: string;
+          issued_at?: string;
+          package_id?: string;
+          package_name?: string;
+          paid_at?: string | null;
+          payment_id?: string | null;
+          service_period_end?: string;
+          service_period_start?: string;
+          status?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_invoices_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_invoices_package_id_fkey";
+            columns: ["package_id"];
+            isOneToOne: false;
+            referencedRelation: "packages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_invoices_payment_id_fkey";
+            columns: ["payment_id"];
+            isOneToOne: false;
+            referencedRelation: "payments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_invoices_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
             referencedColumns: ["id"];
           },
         ];
@@ -2742,6 +2841,14 @@ export type Database = {
         }[];
       };
       expire_stale_stk_payments: { Args: never; Returns: number };
+      finalize_customer_invoice_payment: {
+        Args: {
+          p_payment_id: string;
+          p_raw_callback: Json;
+          p_receipt: string;
+        };
+        Returns: boolean;
+      };
       get_hotspot_outage_usage: {
         Args: {
           p_outage_started_at: string;
@@ -2757,6 +2864,10 @@ export type Database = {
         }[];
       };
       generate_monthly_platform_commission_invoices: {
+        Args: { p_now?: string };
+        Returns: number;
+      };
+      generate_due_customer_invoices: {
         Args: { p_now?: string };
         Returns: number;
       };

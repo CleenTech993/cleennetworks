@@ -51,8 +51,17 @@ service restrictions, reports a notice, and skips database scheduling. In that c
 external scheduler to send an HTTP `POST` to
 `https://<application-domain>/api/cron/platform-billing` every 15 minutes. Set the request header
 named `Authorization` to `Bearer` followed by the same secret configured as `CRON_SECRET`. Do not
-put the cron secret in a URL or expose it in browser code. The endpoint creates monthly invoices,
-refreshes overdue status, and delivers or retries invoice emails.
+put the cron secret in a URL or expose it in browser code. The endpoint creates monthly platform
+invoices and due PPPoE customer renewal invoices, refreshes overdue invoice and tenant status, and
+delivers or retries platform invoice emails.
+
+Customer PPPoE renewal invoices are generated when the paid-through expiry is reached. The invoice
+captures its amount, plan, duration, and service period so later package edits do not change the
+bill. Customers can review and pay invoices from their PPPoE portal; a verified M-Pesa payment
+settles the invoice and renews service atomically. Approved direct PayBill/Till transactions are
+also reconciled to a matching outstanding invoice. Router synchronization allows a three-day grace
+period after expiry, then removes the PPPoE credentials until payment renews service. Hotspot access
+remains prepaid and is recorded against successful payment receipts.
 
 To rotate a Vault value, update the existing secret row by its id using
 `vault.update_secret(<secret-id>, '<new-value>')`. External schedulers do not need Vault.

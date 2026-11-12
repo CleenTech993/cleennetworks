@@ -72,6 +72,8 @@ export function isExpired(expiresAt: string | null, now: number = Date.now()): b
   return !!expiresAt && new Date(expiresAt).getTime() <= now;
 }
 
+export const PPPOE_BILLING_GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
+
 // ---------------------------------------------------------------------------
 // RouterOS sync script
 // ---------------------------------------------------------------------------
@@ -124,8 +126,10 @@ export function buildPppoeSyncLines(opts: {
   customers: SyncCustomer[];
   packages: SyncPackage[];
   now?: number;
+  gracePeriodMs?: number;
 }): string[] {
   const now = opts.now ?? Date.now();
+  const graceCutoff = now - Math.max(0, opts.gracePeriodMs ?? 0);
   const pkgById = new Map(opts.packages.map((p) => [p.id, p]));
 
   const secrets: {
@@ -138,7 +142,7 @@ export function buildPppoeSyncLines(opts: {
 
   for (const c of opts.customers) {
     if (c.router_id && c.router_id !== opts.routerId) continue;
-    if (isExpired(c.expires_at, now)) continue;
+    if (isExpired(c.expires_at, graceCutoff)) continue;
     if (!c.pppoe_username || !c.pppoe_password) continue;
     if (!SAFE.test(c.pppoe_username) || !SAFE.test(c.pppoe_password)) continue;
 

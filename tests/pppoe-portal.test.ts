@@ -21,6 +21,7 @@ import { Route as LogoutRoute } from "@/routes/api/public/pppoe-portal.$slug.log
 const TENANT = "11111111-1111-4111-8111-111111111111";
 const CUSTOMER = "22222222-2222-4222-8222-222222222222";
 const PACKAGE = "33333333-3333-4333-8333-333333333333";
+const INVOICE = "44444444-4444-4444-8444-444444444444";
 const USERNAME = "home-123";
 const PASSWORD = "router-secret";
 const PARAMS = { slug: "acme" };
@@ -173,6 +174,78 @@ describe("PPPoE customer portal", () => {
     expect(darajaMock.start).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: TENANT, paymentId: result.paymentId, amount: 1500 }),
     );
+  });
+
+  it("uses the invoice snapshot amount when the package price has changed", async () => {
+    h.db.seed("customer_invoices", [
+      {
+        id: INVOICE,
+        tenant_id: TENANT,
+        customer_id: CUSTOMER,
+        package_id: PACKAGE,
+        amount: 1700,
+        status: "pending",
+        issued_at: "2026-10-01T00:00:00Z",
+      },
+    ]);
+    const signedIn = await login();
+    const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+    const response = await call(CheckoutRoute, "POST", {
+      body: { packageId: PACKAGE },
+      params: PARAMS,
+      headers: { cookie },
+      ip: "192.0.2.23",
+    });
+
+    expect(response.status).toBe(200);
+    expect(h.db.rows("payments")).toMatchObject([
+      {
+        customer_invoice_id: INVOICE,
+        amount: 1700,
+        package_id: PACKAGE,
+      },
+    ]);
+    expect(darajaMock.start).toHaveBeenCalledWith(expect.objectContaining({ amount: 1700 }));
+  });
+
+  it("does not start a duplicate prompt while an invoice payment is processing", async () => {
+    h.db.seed("customer_invoices", [
+      {
+        id: INVOICE,
+        tenant_id: TENANT,
+        customer_id: CUSTOMER,
+        package_id: PACKAGE,
+        amount: 1500,
+        status: "pending",
+        issued_at: "2026-10-01T00:00:00Z",
+      },
+    ]);
+    h.db.seed("payments", [
+      {
+        id: "55555555-5555-4555-8555-555555555555",
+        tenant_id: TENANT,
+        customer_id: CUSTOMER,
+        package_id: PACKAGE,
+        customer_invoice_id: INVOICE,
+        status: "processing",
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    const signedIn = await login();
+    const cookie = signedIn.headers.get("set-cookie")!.split(";")[0];
+    const response = await call(CheckoutRoute, "POST", {
+      body: { packageId: PACKAGE },
+      params: PARAMS,
+      headers: { cookie },
+      ip: "192.0.2.24",
+    });
+
+    expect(response.status).toBe(200);
+    expect(await json(response)).toMatchObject({
+      paymentId: "55555555-5555-4555-8555-555555555555",
+    });
+    expect(h.db.rows("payments")).toHaveLength(1);
+    expect(darajaMock.start).not.toHaveBeenCalled();
   });
 
   it("clears the session cookie on sign out", async () => {
