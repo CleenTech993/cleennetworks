@@ -70,6 +70,8 @@ function WorkOrders() {
   const canManage = hasAnyRole(roles, ["tenant_admin", "technician"]);
   const isAdmin = hasAnyRole(roles, ["tenant_admin"]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [completionOrder, setCompletionOrder] = useState<WorkOrder | null>(null);
+  const [completionNotes, setCompletionNotes] = useState("");
   const [statusFilter, setStatusFilter] = useState("active");
   const [form, setForm] = useState({
     title: "",
@@ -173,7 +175,11 @@ function WorkOrders() {
       values,
     }: {
       id: string;
-      values: { status?: WorkOrderStatus; assigned_to?: string | null };
+      values: {
+        status?: WorkOrderStatus;
+        assigned_to?: string | null;
+        resolution_notes?: string | null;
+      };
     }) => {
       const { error } = await supabase.from("work_orders").update(values).eq("id", id);
       if (error) throw error;
@@ -336,17 +342,28 @@ function WorkOrders() {
                     Created {formatTenantDate(workOrder.created_at)}
                   </div>
                 </div>
+                {workOrder.resolution_notes && (
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Completion notes</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm">{workOrder.resolution_notes}</p>
+                  </div>
+                )}
                 {canManage && (
                   <div className="flex flex-wrap gap-2 border-t pt-3">
                     <Select
                       value={workOrder.status}
                       disabled={update.isPending}
-                      onValueChange={(status) =>
+                      onValueChange={(status) => {
+                        if (status === "completed") {
+                          setCompletionNotes(workOrder.resolution_notes ?? "");
+                          setCompletionOrder(workOrder);
+                          return;
+                        }
                         update.mutate({
                           id: workOrder.id,
                           values: { status: status as WorkOrderStatus },
-                        })
-                      }
+                        });
+                      }}
                     >
                       <SelectTrigger className="h-9 w-full sm:w-44" aria-label="Update job status">
                         <SelectValue />
@@ -520,6 +537,60 @@ function WorkOrders() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(completionOrder)}
+        onOpenChange={(open) => {
+          if (!open) setCompletionOrder(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Complete work order</DialogTitle>
+            <DialogDescription>
+              Record the work completed for “{completionOrder?.title}”. You can leave the notes
+              blank if there is nothing to add.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="work-order-resolution-notes">Completion notes</Label>
+            <Textarea
+              id="work-order-resolution-notes"
+              rows={4}
+              maxLength={4000}
+              value={completionNotes}
+              onChange={(event) => setCompletionNotes(event.target.value)}
+              placeholder="Summarize the work, parts used, or any follow-up needed."
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCompletionOrder(null)}
+              disabled={update.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={update.isPending || !completionOrder}
+              onClick={() => {
+                if (!completionOrder) return;
+                update.mutate({
+                  id: completionOrder.id,
+                  values: {
+                    status: "completed",
+                    resolution_notes: completionNotes.trim() || null,
+                  },
+                });
+                setCompletionOrder(null);
+              }}
+            >
+              {update.isPending ? "Saving…" : "Complete work order"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
