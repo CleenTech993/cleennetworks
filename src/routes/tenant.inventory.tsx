@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Boxes, PackageX, Server, Users } from "lucide-react";
+import { Boxes, CalendarClock, PackageX, Server, Users } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { AlertsTab } from "@/components/inventory-alerts";
 import { DevicesTab } from "@/components/inventory-devices";
@@ -7,7 +7,7 @@ import { MonitoringTab } from "@/components/inventory-monitoring";
 import { useInventoryDevices, useInventoryItems } from "@/components/inventory-shared";
 import { StockTab } from "@/components/inventory-stock";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { isLowStock } from "@/lib/inventory";
+import { isLowStock, warrantyStatus } from "@/lib/inventory";
 import { deviceHealth } from "@/lib/inventory-monitor";
 import { hasAnyRole } from "@/lib/permissions";
 
@@ -24,6 +24,10 @@ function Inventory() {
   const offline = (devices ?? []).filter((d) => deviceHealth(d) === "down").length;
   const withCustomers = (devices ?? []).filter((d) => d.customer_id).length;
   const low = (items ?? []).filter(isLowStock).length;
+  const warrantyAttention = (devices ?? []).filter((d) => {
+    const status = warrantyStatus(d.warranty_expires_on);
+    return status === "expired" || status === "expiring";
+  }).length;
 
   return (
     <div>
@@ -31,7 +35,7 @@ function Inventory() {
         title="Inventory"
         description="Track your routers, ONTs, access points, switches and cable: what's in stock, what's deployed, what each customer has, and whether it's online."
       />
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           icon={Server}
           label="Devices"
@@ -55,6 +59,12 @@ function Inventory() {
           label="Offline"
           value={devices ? offline : "—"}
           hint="Monitored devices down"
+        />
+        <StatCard
+          icon={CalendarClock}
+          label="Warranty attention"
+          value={devices ? warrantyAttention : "—"}
+          hint="Expired or expiring in 30 days"
         />
       </div>
 

@@ -15,6 +15,7 @@ import {
   isValidIpv4,
   normalizeAlertNumber,
   normalizeMac,
+  warrantyStatus,
 } from "../src/lib/inventory";
 
 const A = "11111111-2222-3333-4444-555555555555";
@@ -204,6 +205,22 @@ describe("device health", () => {
   it("reports up / down", () => {
     expect(deviceHealth(base)).toBe("up");
     expect(deviceHealth({ ...base, online: false })).toBe("down");
+  });
+
+  describe("equipment warranty dates", () => {
+    const today = new Date(2026, 10, 13);
+
+    it("distinguishes expired, soon-to-expire and covered warranties", () => {
+      expect(warrantyStatus("2026-11-12", today)).toBe("expired");
+      expect(warrantyStatus("2026-12-13", today)).toBe("expiring");
+      expect(warrantyStatus("2026-12-14", today)).toBe("covered");
+    });
+
+    it("keeps the expiry day covered and ignores missing or invalid dates", () => {
+      expect(warrantyStatus("2026-11-13", today)).toBe("expiring");
+      expect(warrantyStatus(null, today)).toBeNull();
+      expect(warrantyStatus("not-a-date", today)).toBeNull();
+    });
   });
   it("is unknown before the first reading and when the readings go stale", () => {
     expect(deviceHealth({ ...base, online: null, last_checked_at: null })).toBe("unknown");

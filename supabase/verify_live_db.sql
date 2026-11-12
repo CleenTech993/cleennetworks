@@ -1367,7 +1367,8 @@ with expected(ord, track, migration, kind, ident) as (values
   (70, 'supabase', '20261208000000_ticket_assignment.sql', 'constraint', 'public.support_tickets.support_tickets_assigned_to_fkey'),
   (70, 'supabase', '20261208000000_ticket_assignment.sql', 'function', 'public.validate_support_ticket_assignee()'),
   (70, 'supabase', '20261208000000_ticket_assignment.sql', 'trigger', 'public.support_tickets.validate_support_ticket_assignee'),
-  (71, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
+  (71, 'supabase', '20261209000000_inventory_warranty_dates.sql', 'column', 'public.inventory_devices.warranty_expires_on'),
+  (72, 'drizzle', '0004_remove_login_throttle.sql', 'none', '')
 ),
 live(kind, ident) as (
 -- One row per database object in the public schema that a migration can create.

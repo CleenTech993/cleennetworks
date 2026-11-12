@@ -54,6 +54,7 @@ import {
   isValidIpv4,
   normalizeMac,
   statusLabel,
+  warrantyStatus,
 } from "@/lib/inventory";
 
 type Form = {
@@ -65,6 +66,7 @@ type Form = {
   mac_address: string;
   ip_address: string;
   status: string;
+  warranty_expires_on: string;
   customer_id: string;
   location: string;
   notes: string;
@@ -82,6 +84,7 @@ const EMPTY: Form = {
   mac_address: "",
   ip_address: "",
   status: "deployed",
+  warranty_expires_on: "",
   customer_id: NONE,
   location: "",
   notes: "",
@@ -116,6 +119,7 @@ function toPayload(f: Form) {
     mac_address: f.mac_address.trim() ? normalizeMac(f.mac_address) : null,
     ip_address: blank(f.ip_address),
     status: f.status,
+    warranty_expires_on: blank(f.warranty_expires_on),
     customer_id: f.customer_id === NONE ? null : f.customer_id,
     location: blank(f.location),
     notes: blank(f.notes),
@@ -136,6 +140,7 @@ function fromDevice(d: InventoryDevice): Form {
     mac_address: d.mac_address ?? "",
     ip_address: d.ip_address ?? "",
     status: d.status,
+    warranty_expires_on: d.warranty_expires_on ?? "",
     customer_id: d.customer_id ?? NONE,
     location: d.location ?? "",
     notes: d.notes ?? "",
@@ -276,6 +281,7 @@ export function DevicesTab({ canWrite }: { canWrite: boolean }) {
                 <th className="px-4 py-2">Serial / MAC</th>
                 <th className="px-4 py-2">IP</th>
                 <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Warranty</th>
                 <th className="px-4 py-2">Customer</th>
                 <th className="px-4 py-2">Monitoring</th>
                 {canWrite && <th className="px-4 py-2 text-right">Actions</th>}
@@ -304,6 +310,24 @@ export function DevicesTab({ canWrite }: { canWrite: boolean }) {
                       <Badge variant={d.status === "faulty" ? "destructive" : "secondary"}>
                         {statusLabel(d.status)}
                       </Badge>
+                    </td>
+                    <td className="px-4 py-2">
+                      {d.warranty_expires_on ? (
+                        <div className="space-y-1">
+                          <span>
+                            {new Date(`${d.warranty_expires_on}T00:00:00`).toLocaleDateString()}
+                          </span>
+                          {warrantyStatus(d.warranty_expires_on) === "expired" ? (
+                            <Badge variant="destructive">Expired</Badge>
+                          ) : warrantyStatus(d.warranty_expires_on) === "expiring" ? (
+                            <Badge variant="outline">Expires soon</Badge>
+                          ) : (
+                            <Badge variant="secondary">Covered</Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">Not recorded</span>
+                      )}
                     </td>
                     <td className="px-4 py-2">
                       {d.customer_id ? (
@@ -544,6 +568,18 @@ function DeviceDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div>
+            <Label htmlFor="device-warranty-expires">Warranty expiry</Label>
+            <Input
+              id="device-warranty-expires"
+              type="date"
+              value={f.warranty_expires_on}
+              onChange={(e) => set("warranty_expires_on", e.target.value)}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Optional. Devices expiring in the next 30 days are flagged for follow-up.
+            </p>
           </div>
           <div>
             <Label>Assigned to customer</Label>

@@ -107,6 +107,12 @@ unsupported priority values.
 technicians, or support staff. A database trigger validates both the actor’s permission and the
 assignee’s tenant membership.
 
+## Inventory warranties
+
+`20261209000000_inventory_warranty_dates.sql` adds an optional warranty expiry date to each tracked
+device. Staff can record it in Inventory; expired warranties and those expiring within 30 days are
+flagged for follow-up.
+
 ## Tenant payment credentials
 
 From `20261101000000_tenant_owned_services.sql`, customer payments use tenant-owned Daraja STK

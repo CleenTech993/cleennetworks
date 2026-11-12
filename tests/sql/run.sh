@@ -8,6 +8,7 @@
 #     tests/sql/customer-documents.sql in database customer_documents_test
 #     tests/sql/ticket-priorities.sql in database ticket_priorities_test
 #     tests/sql/ticket-assignment.sql in database ticket_assignment_test
+#     tests/sql/inventory-warranty.sql in database inventory_warranty_test
 #   (each suite gets its own database: they use the same fixture ids and helper schema).
 #   Pass --before to stop before the role/MFA migration and run only the RLS suite
 #   (shows what the test catches on the old schema).
@@ -47,6 +48,9 @@ if [[ "${1:-}" != "--before" ]]; then
   build_db ticket_assignment_test
   (cd tests/sql && psql -d ticket_assignment_test -v ON_ERROR_STOP=1 -q -f ticket-assignment.sql)
   echo "ticket-assignment: all expectations passed"
+  build_db inventory_warranty_test
+  (cd tests/sql && psql -d inventory_warranty_test -v ON_ERROR_STOP=1 -q -f inventory-warranty.sql)
+  echo "inventory-warranty: all expectations passed"
 fi
 
 if [[ "${1:-}" != "--before" ]]; then

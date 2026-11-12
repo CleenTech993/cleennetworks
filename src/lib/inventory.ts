@@ -48,6 +48,23 @@ export type StockLike = { quantity: number | string; reorder_level: number | str
 export const isLowStock = (i: StockLike) =>
   Number(i.reorder_level) > 0 && Number(i.quantity) <= Number(i.reorder_level);
 
+export type WarrantyStatus = "expired" | "expiring" | "covered";
+
+export function warrantyStatus(
+  warrantyExpiresOn: string | null,
+  today = new Date(),
+): WarrantyStatus | null {
+  if (!warrantyExpiresOn) return null;
+  const [year, month, day] = warrantyExpiresOn.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const expiryDay = Date.UTC(year, month - 1, day);
+  const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const daysRemaining = Math.round((expiryDay - todayDay) / 86_400_000);
+  if (daysRemaining < 0) return "expired";
+  if (daysRemaining <= 30) return "expiring";
+  return "covered";
+}
+
 export function formatQty(quantity: number | string, unit: string): string {
   const n = Number(quantity);
   const text = Number.isInteger(n)

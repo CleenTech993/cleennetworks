@@ -589,6 +589,7 @@ export type Database = {
           status_changed_at: string | null;
           tenant_id: string;
           updated_at: string;
+          warranty_expires_on: string | null;
         };
         Insert: {
           alerted_at?: string | null;
@@ -616,6 +617,7 @@ export type Database = {
           status_changed_at?: string | null;
           tenant_id: string;
           updated_at?: string;
+          warranty_expires_on?: string | null;
         };
         Update: {
           alerted_at?: string | null;
@@ -643,6 +645,7 @@ export type Database = {
           status_changed_at?: string | null;
           tenant_id?: string;
           updated_at?: string;
+          warranty_expires_on?: string | null;
         };
         Relationships: [
           {
