@@ -103,6 +103,10 @@ policies without attempting to alter that managed table.
 levels to support tickets. New tickets default to `normal`; the database constraint rejects
 unsupported priority values.
 
+`20261208000000_ticket_assignment.sql` lets tenant admins assign support tickets to tenant admins,
+technicians, or support staff. A database trigger validates both the actor’s permission and the
+assignee’s tenant membership.
+
 ## Tenant payment credentials
 
 From `20261101000000_tenant_owned_services.sql`, customer payments use tenant-owned Daraja STK

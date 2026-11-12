@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AlertCircle, ClipboardList } from "lucide-react";
+import { AlertCircle, ClipboardList, UserRound } from "lucide-react";
 import { EmptyState, PageHeader } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { formatTenantDate } from "@/lib/tenant-customization";
 import { hasAnyRole } from "@/lib/permissions";
+import { listTeam } from "@/lib/team.functions";
 
 export const Route = createFileRoute("/tenant/tickets")({ component: Tickets });
 
+const ASSIGNEE_ROLES = new Set(["tenant_admin", "technician", "support_staff"]);
 const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 type TicketPriority = (typeof PRIORITIES)[number];
 const PRIORITY_LABEL: Record<TicketPriority, string> = {
@@ -40,12 +42,38 @@ function Tickets() {
   const { tenantId, user, roles } = useAuth();
   const qc = useQueryClient();
   const canCreateWorkOrders = hasAnyRole(roles, ["tenant_admin", "technician"]);
+  const canAssignTickets = hasAnyRole(roles, ["tenant_admin"]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<{ subject: string; body: string; priority: TicketPriority }>({
     subject: "",
     body: "",
     priority: "normal",
   });
+
+  const {
+    data: assignees = [],
+    isError: assigneesError,
+    error: assigneesLoadError,
+  } = useQuery({
+    queryKey: ["ticket-assignees", tenantId],
+    enabled: Boolean(tenantId && canAssignTickets),
+    queryFn: async () => {
+      const result = await listTeam();
+      if (!result.ok) throw new Error(result.error);
+      return result.members.filter((member) =>
+        member.roles.some((role) => ASSIGNEE_ROLES.has(role)),
+      );
+    },
+  });
+  const assigneeNames = new Map(
+    assignees.map((member) => [
+      member.id,
+      [member.first_name, member.last_name].filter(Boolean).join(" ") ||
+        member.full_name ||
+        member.email ||
+        "Team member",
+    ]),
+  );
 
   const {
     data: tickets = [],
@@ -58,7 +86,7 @@ function Tickets() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("support_tickets")
-        .select("id,tenant_id,customer_id,subject,body,status,priority,created_at")
+        .select("id,tenant_id,customer_id,subject,body,status,priority,assigned_to,created_at")
         .eq("tenant_id", tenantId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -144,6 +172,18 @@ function Tickets() {
       toast.error(e instanceof Error ? e.message : "Could not update ticket priority"),
   });
 
+  const setAssignee = useMutation({
+    mutationFn: async ({ id, assignedTo }: { id: string; assignedTo: string | null }) => {
+      const { error } = await supabase
+        .from("support_tickets")
+        .update({ assigned_to: assignedTo })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tickets"] }),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not assign support ticket"),
+  });
+
   return (
     <div>
       <PageHeader
@@ -212,6 +252,14 @@ function Tickets() {
           className="mb-3 rounded-lg border border-destructive/30 p-3 text-sm text-destructive"
         >
           Could not load linked work orders: {workOrdersLoadError.message}
+        </p>
+      )}
+      {assigneesError && (
+        <p
+          role="alert"
+          className="mb-3 rounded-lg border border-destructive/30 p-3 text-sm text-destructive"
+        >
+          Could not load ticket assignees: {assigneesLoadError.message}
         </p>
       )}
       {isError ? (
@@ -284,6 +332,39 @@ function Tickets() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <UserRound className="h-3.5 w-3.5" aria-hidden="true" />
+                    Assigned to
+                  </span>
+                  {canAssignTickets ? (
+                    <select
+                      aria-label={`Assign ${t.subject}`}
+                      value={t.assigned_to ?? ""}
+                      disabled={setAssignee.isPending || assigneesError}
+                      onChange={(e) =>
+                        setAssignee.mutate({
+                          id: t.id,
+                          assignedTo: e.target.value || null,
+                        })
+                      }
+                      className="rounded-md border bg-background px-2 py-1 text-xs"
+                    >
+                      <option value="">Unassigned</option>
+                      {assignees.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {assigneeNames.get(member.id)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-xs">
+                      {t.assigned_to
+                        ? (assigneeNames.get(t.assigned_to) ?? "Support team member")
+                        : "Unassigned"}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
                   {workOrder ? (

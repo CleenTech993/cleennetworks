@@ -2414,6 +2414,7 @@ export type Database = {
       };
       support_tickets: {
         Row: {
+          assigned_to: string | null;
           body: string | null;
           created_at: string;
           customer_id: string | null;
@@ -2424,6 +2425,7 @@ export type Database = {
           tenant_id: string;
         };
         Insert: {
+          assigned_to?: string | null;
           body?: string | null;
           created_at?: string;
           customer_id?: string | null;
@@ -2434,6 +2436,7 @@ export type Database = {
           tenant_id: string;
         };
         Update: {
+          assigned_to?: string | null;
           body?: string | null;
           created_at?: string;
           customer_id?: string | null;

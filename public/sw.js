@@ -5,7 +5,3 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
-
-self.addEventListener("fetch", () => {
-  // Keep requests network-backed; NetGrid needs a live connection for console data and payments.
-});
