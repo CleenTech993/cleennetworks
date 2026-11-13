@@ -15,6 +15,9 @@ export async function requireConsole(opts: { superAdmin?: boolean } = {}): Promi
     .eq("user_id", data.user.id);
   if (rolesError) throw rolesError;
   if (!roles || roles.length === 0) throw redirect({ to: "/pending" });
+  if (roles.some((r) => r.role === "demo_viewer") && opts.superAdmin) {
+    throw redirect({ to: "/tenant" });
+  }
   if (opts.superAdmin && !roles.some((r) => r.role === "super_admin"))
     throw redirect({ to: "/tenant" });
 
@@ -23,7 +26,8 @@ export async function requireConsole(opts: { superAdmin?: boolean } = {}): Promi
   const hasVerifiedFactor = factors?.totp.some((factor) => factor.status === "verified") ?? false;
   const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aalError) throw aalError;
-  if (hasVerifiedFactor && aal?.currentLevel !== "aal2") {
+  const isDemoViewer = roles.some((r) => r.role === "demo_viewer");
+  if (!isDemoViewer && hasVerifiedFactor && aal?.currentLevel !== "aal2") {
     throw redirect({ to: "/mfa" });
   }
 

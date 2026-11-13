@@ -23,16 +23,19 @@ interface Props {
   subtitle?: string;
   nav: NavItem[];
   headerAction?: ReactNode;
+  readOnly?: boolean;
   children: ReactNode;
 }
 
 function NavList({
   nav,
   subtitle,
+  readOnly,
   onNavigate,
 }: {
   nav: NavItem[];
   subtitle?: string;
+  readOnly?: boolean;
   onNavigate?: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -130,7 +133,7 @@ function NavList({
         })}
       </nav>
       <div className="space-y-1 border-t border-sidebar-border p-3">
-        <MfaSecurityDialog />
+        {!readOnly && <MfaSecurityDialog />}
         <ConfirmSignOut
           trigger={
             <Button
@@ -150,7 +153,14 @@ function NavList({
   );
 }
 
-export function DashboardShell({ title, subtitle, nav, headerAction, children }: Props) {
+export function DashboardShell({
+  title,
+  subtitle,
+  nav,
+  headerAction,
+  readOnly = false,
+  children,
+}: Props) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { preferences } = useUserPreferences();
@@ -167,7 +177,7 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
           compact ? "w-56" : "w-64",
         )}
       >
-        <NavList nav={nav} subtitle={subtitle} />
+        <NavList nav={nav} subtitle={subtitle} readOnly={readOnly} />
       </aside>
       <div className="flex min-w-0 flex-1 flex-col bg-[radial-gradient(ellipse_at_top_right,oklch(0.94_0.025_150/0.55),transparent_35%)]">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-border/70 bg-background/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
@@ -182,7 +192,12 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
               className="w-72 max-w-[85vw] border-sidebar-border bg-sidebar p-0 md:hidden [&>button]:text-sidebar-foreground"
             >
               <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <NavList nav={nav} subtitle={subtitle} onNavigate={() => setOpen(false)} />
+              <NavList
+                nav={nav}
+                subtitle={subtitle}
+                readOnly={readOnly}
+                onNavigate={() => setOpen(false)}
+              />
             </SheetContent>
           </Sheet>
           <div className="min-w-0">
@@ -192,20 +207,24 @@ export function DashboardShell({ title, subtitle, nav, headerAction, children }:
             <h1 className="truncate text-sm font-semibold text-foreground">{title}</h1>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            {headerAction}
-            <RouterAlertsNotification isSuperAdmin={pathname.startsWith("/super-admin")} />
-            <MfaSecurityDialog
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                  <span className="hidden sm:inline">Two-Step Auth</span>
-                </Button>
-              }
-            />
+            {!readOnly && headerAction}
+            {!readOnly && (
+              <>
+                <RouterAlertsNotification isSuperAdmin={pathname.startsWith("/super-admin")} />
+                <MfaSecurityDialog
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-9 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                      <span className="hidden sm:inline">Two-Step Auth</span>
+                    </Button>
+                  }
+                />
+              </>
+            )}
             <ThemeToggle />
           </div>
         </header>

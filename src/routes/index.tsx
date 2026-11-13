@@ -125,6 +125,7 @@ const features = [
 
 function Landing() {
   const navigate = useNavigate();
+  const demoAppUrl = import.meta.env.VITE_DEMO_APP_URL?.trim();
 
   useEffect(() => {
     let active = true;
@@ -222,14 +223,43 @@ function Landing() {
               >
                 <Link to="/login">I already have an account</Link>
               </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="h-12 rounded-full border-[#cbd9d0] px-5 text-[#30433c]"
-              >
-                <a href="/signup?demo=true">Try a sample workspace</a>
-              </Button>
+              {demoAppUrl ? (
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="h-12 rounded-full border-[#cbd9d0] px-5 text-[#30433c]"
+                >
+                  <a href={demoAppUrl} target="_blank" rel="noopener noreferrer">
+                    Open the live demo
+                  </a>
+                </Button>
+              ) : (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 rounded-full border-[#cbd9d0] px-5 text-[#30433c]"
+                  disabled
+                >
+                  Live demo coming soon
+                </Button>
+              )}
+            </div>
+            <div className="mt-5 max-w-md rounded-2xl border border-[#d6e5dc] bg-white/80 p-4 shadow-sm">
+              <p className="text-sm font-semibold text-[#213b31]">Explore the read-only demo</p>
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[#52615d]">
+                <span>
+                  Username: <strong className="font-semibold text-[#213b31]">admin</strong>
+                </span>
+                <span>
+                  Password: <strong className="font-semibold text-[#213b31]">123456</strong>
+                </span>
+              </div>
+              {!demoAppUrl && (
+                <p className="mt-2 text-xs text-[#66736e]">
+                  The demo environment is being prepared. Please check back soon.
+                </p>
+              )}
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#66736e]">
               <span className="inline-flex items-center gap-2">

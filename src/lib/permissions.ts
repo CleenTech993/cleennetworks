@@ -8,12 +8,14 @@ export type AppRole =
   | "technician"
   | "billing_agent"
   | "support_staff"
-  | "end_user";
+  | "end_user"
+  | "demo_viewer";
 
 const A: AppRole = "tenant_admin";
 const T: AppRole = "technician";
 const B: AppRole = "billing_agent";
 const S: AppRole = "support_staff";
+const D: AppRole = "demo_viewer";
 
 /** Page path prefix -> roles allowed. Anything under /tenant not listed here is admin-only. */
 const PAGE_ROLES: Record<string, AppRole[]> = {
@@ -42,13 +44,34 @@ const PAGE_ROLES: Record<string, AppRole[]> = {
 };
 
 /** Roles that may see revenue figures. */
-export const REVENUE_ROLES: AppRole[] = [A, B];
+export const REVENUE_ROLES: AppRole[] = [A, B, D];
+
+const DEMO_VIEWER_PAGES = [
+  "/tenant",
+  "/tenant/noc",
+  "/tenant/routers",
+  "/tenant/hotspot",
+  "/tenant/devices",
+  "/tenant/pppoe",
+  "/tenant/portal",
+  "/tenant/packages",
+  "/tenant/customers",
+  "/tenant/sessions",
+  "/tenant/work-orders",
+  "/tenant/inventory",
+  "/tenant/payments",
+  "/tenant/tickets",
+];
 
 export function hasAnyRole(roles: readonly AppRole[], allowed: readonly AppRole[]): boolean {
   return roles.includes("super_admin") || roles.some((r) => allowed.includes(r));
 }
 
 export function canAccessPage(roles: readonly AppRole[], pathname: string): boolean {
+  if (roles.includes(D)) {
+    const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+    return DEMO_VIEWER_PAGES.some((page) => path === page || path.startsWith(page + "/"));
+  }
   if (roles.includes("super_admin")) return true;
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   if (path === "/tenant") return roles.some((r) => r !== "end_user"); // overview: any staff role

@@ -75,10 +75,11 @@ function LoginPage() {
 
       // Existing factors prompt for a code here; users without a factor are sent to the
       // console's MFA setup gate before they can access protected pages.
+      const isDemoViewer = roles.some((r) => r.role === "demo_viewer");
       const { data: aal, error: aalError } =
         await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
       if (aalError) throw aalError;
-      if (aal?.nextLevel === "aal2") {
+      if (!isDemoViewer && aal?.nextLevel === "aal2") {
         await navigate({ to: "/mfa" });
         return;
       }
@@ -107,11 +108,11 @@ function LoginPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">Email or demo username</Label>
           <Input
             id="email"
-            type="email"
-            autoComplete="email"
+            type="text"
+            autoComplete="username"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}

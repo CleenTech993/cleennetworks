@@ -76,5 +76,51 @@ BEGIN
 END
 $$;
 
+UPDATE public.user_roles
+SET role = 'demo_viewer'
+WHERE user_id = 'cccccccc-0000-4000-8000-0000000000d1'
+  AND tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = 'cccccccc-0000-4000-8000-0000000000d1');
+
+SET ROLE authenticated;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"cccccccc-0000-4000-8000-0000000000d1","role":"authenticated","aal":"aal1"}',
+  false
+);
+DO $$
+DECLARE
+  v_tenant_id uuid := public.user_tenant_id(auth.uid());
+  v_count integer;
+BEGIN
+  SELECT count(*) INTO v_count FROM public.tenants WHERE id = v_tenant_id AND is_demo;
+  IF v_count <> 1 THEN RAISE EXCEPTION 'demo viewer cannot read its tenant'; END IF;
+  SELECT count(*) INTO v_count FROM public.packages WHERE tenant_id = v_tenant_id;
+  IF v_count <> 4 THEN RAISE EXCEPTION 'demo viewer cannot read sample packages'; END IF;
+  SELECT count(*) INTO v_count FROM public.customers WHERE tenant_id = v_tenant_id;
+  IF v_count <> 3 THEN RAISE EXCEPTION 'demo viewer cannot read sample customers'; END IF;
+
+  UPDATE public.packages SET name = 'Modified demo package' WHERE tenant_id = v_tenant_id;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  IF v_count <> 0 THEN RAISE EXCEPTION 'demo viewer changed sample packages'; END IF;
+
+  DELETE FROM public.customers WHERE tenant_id = v_tenant_id;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  IF v_count <> 0 THEN RAISE EXCEPTION 'demo viewer deleted sample customers'; END IF;
+
+  BEGIN
+    INSERT INTO public.customers (tenant_id, full_name)
+    VALUES (v_tenant_id, 'Unauthorized demo customer');
+    RAISE EXCEPTION 'demo viewer inserted a customer';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  UPDATE public.tenants SET name = 'Modified demo tenant' WHERE id = v_tenant_id;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  IF v_count <> 0 THEN RAISE EXCEPTION 'demo viewer changed its tenant'; END IF;
+END
+$$;
+RESET ROLE;
+
 ROLLBACK;
 SELECT 'demo-workspaces: all expectations passed' AS result;

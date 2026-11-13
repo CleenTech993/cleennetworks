@@ -143,6 +143,7 @@ export const Route = createFileRoute("/tenant")({
 
 function TenantLayout() {
   const { roles } = Route.useRouteContext();
+  const isDemoViewer = roles.includes("demo_viewer");
   const { tenantId } = useAuth();
   const { data: isDemo } = useQuery({
     queryKey: ["tenant-demo-workspace", tenantId],
@@ -177,6 +178,7 @@ function TenantLayout() {
       title="Tenant Console"
       subtitle="ISP operations"
       nav={nav}
+      readOnly={isDemoViewer}
       headerAction={<TenantWhatsAppSupport />}
     >
       {isDemo && (
@@ -184,10 +186,13 @@ function TenantLayout() {
           role="status"
           className="mb-5 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100"
         >
-          <p className="font-semibold">Demo workspace</p>
+          <p className="font-semibold">
+            {isDemoViewer ? "Read-only demo workspace" : "Demo workspace"}
+          </p>
           <p className="mt-1">
-            These are fictional sample records. Changes stay in your workspace; no live router,
-            customer, or payment integration is set up.
+            {isDemoViewer
+              ? "Explore the sample records and workflows. This shared demo cannot be changed; no live router, customer, or payment integration is connected."
+              : "These are fictional sample records. Changes stay in your workspace; no live router, customer, or payment integration is set up."}
           </p>
         </div>
       )}

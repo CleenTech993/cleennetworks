@@ -191,8 +191,8 @@ reporting connectivity but cannot accumulate usage for FUP enforcement.
 
 ## Demo workspaces
 
-Visitors can choose **Try a sample workspace** on the landing page or opt into sample data during
-signup. Each demo belongs to its own tenant and uses fictional records; no router or payment
+Visitors can opt into sample data during signup. Each demo belongs to its own tenant and uses
+fictional records; no router or payment
 integration is configured. The `seed_demo_workspace()` RPC only seeds the signed-in tenant
 administrator's empty workspace and is idempotent. Demo payment rows are excluded from platform
 commission invoices.
@@ -200,3 +200,20 @@ commission invoices.
 `20261210000000_demo_workspaces.sql` adds the demo marker, sample-data RPC, and commission exclusion.
 Apply it through the standard migration pipeline, then regenerate `verify_live_db.sql` and run
 `npm run test:sql`.
+
+### Public read-only demo
+
+The public demo must use a separate Supabase project and app deployment. Configure
+`VITE_DEMO_APP_URL` on the landing-page deployment and `DEMO_LOGIN_EMAIL` only on the demo app
+server. The landing page displays the shared `admin` / `123456` credentials; the demo app maps
+`admin` to the configured Auth email. Do not configure this email alias on the production app.
+
+On the demo project, apply all migrations, create the Auth user with the configured email and
+password, provision its tenant, and run `seed_demo_workspace()` once while that user has the
+`tenant_admin` role. Then remove its other roles and assign only `demo_viewer` for that tenant.
+The viewer role can read demo-tenant records without MFA, but restrictive RLS policies deny tenant
+data writes. Keep the demo project isolated from live routers, payment credentials, and customer
+data. The `20261211000000_demo_viewer_role.sql` and
+`20261212000000_demo_viewer_readonly.sql` migrations add the role and read-only policies.
+
+After adding or changing migrations, regenerate `verify_live_db.sql` and run `npm run test:sql`.

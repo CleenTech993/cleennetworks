@@ -3,7 +3,13 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole =
-  "super_admin" | "tenant_admin" | "technician" | "billing_agent" | "support_staff" | "end_user";
+  | "super_admin"
+  | "tenant_admin"
+  | "technician"
+  | "billing_agent"
+  | "support_staff"
+  | "end_user"
+  | "demo_viewer";
 
 export interface AuthProfile {
   id: string;

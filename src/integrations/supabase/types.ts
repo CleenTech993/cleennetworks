@@ -3072,7 +3072,8 @@ export type Database = {
         | "technician"
         | "billing_agent"
         | "support_staff"
-        | "end_user";
+        | "end_user"
+        | "demo_viewer";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -3205,6 +3206,7 @@ export const Constants = {
         "billing_agent",
         "support_staff",
         "end_user",
+        "demo_viewer",
       ],
     },
   },

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const LoginSchema = z.object({
-  email: z.string().trim().email().max(254),
+  email: z.string().trim().min(1).max(254),
   password: z.string().min(1).max(1024),
 });
 
@@ -98,7 +98,16 @@ export const signInWithPassword = createServerFn({ method: "POST" })
     const request = getRequest();
     if (!request?.headers) throw new Error("Sign-in request headers are unavailable.");
 
-    const normalizedEmail = data.email.toLowerCase();
+    const submittedIdentifier = data.email.toLowerCase();
+    const demoEmail = process.env["DEMO_LOGIN_EMAIL"]?.trim().toLowerCase();
+    const normalizedEmail = submittedIdentifier === "admin" ? demoEmail : submittedIdentifier;
+    if (!normalizedEmail || !z.string().email().safeParse(normalizedEmail).success) {
+      return {
+        ok: false as const,
+        error: "Email or password is incorrect.",
+        retryAfterSeconds: null,
+      };
+    }
     const clientIp =
       request.headers.get("cf-connecting-ip") ?? request.headers.get("x-real-ip") ?? "unknown";
     const [emailHash, ipHash] = await Promise.all([
