@@ -2808,6 +2808,95 @@ export type Database = {
           },
         ];
       };
+      staff_internet_grants: {
+        Row: {
+          access_type: string;
+          created_at: string;
+          customer_id: string | null;
+          expires_at: string;
+          granted_by: string | null;
+          id: string;
+          note: string | null;
+          package_id: string;
+          package_name: string;
+          pppoe_username: string | null;
+          retail_value: number;
+          staff_name: string;
+          staff_phone: string | null;
+          staff_user_id: string | null;
+          tenant_id: string;
+          voucher_code: string | null;
+          voucher_id: string | null;
+        };
+        Insert: {
+          access_type: string;
+          created_at?: string;
+          customer_id?: string | null;
+          expires_at: string;
+          granted_by?: string | null;
+          id?: string;
+          note?: string | null;
+          package_id: string;
+          package_name: string;
+          pppoe_username?: string | null;
+          retail_value?: number;
+          staff_name: string;
+          staff_phone?: string | null;
+          staff_user_id?: string | null;
+          tenant_id: string;
+          voucher_code?: string | null;
+          voucher_id?: string | null;
+        };
+        Update: {
+          access_type?: string;
+          created_at?: string;
+          customer_id?: string | null;
+          expires_at?: string;
+          granted_by?: string | null;
+          id?: string;
+          note?: string | null;
+          package_id?: string;
+          package_name?: string;
+          pppoe_username?: string | null;
+          retail_value?: number;
+          staff_name?: string;
+          staff_phone?: string | null;
+          staff_user_id?: string | null;
+          tenant_id?: string;
+          voucher_code?: string | null;
+          voucher_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "staff_internet_grants_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "staff_internet_grants_package_id_fkey";
+            columns: ["package_id"];
+            isOneToOne: false;
+            referencedRelation: "packages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "staff_internet_grants_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "staff_internet_grants_voucher_id_fkey";
+            columns: ["voucher_id"];
+            isOneToOne: false;
+            referencedRelation: "vouchers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       vouchers: {
         Row: {
           bound_mac: string | null;
@@ -2972,6 +3061,21 @@ export type Database = {
       generate_due_customer_invoices: {
         Args: { p_now?: string };
         Returns: number;
+      };
+      grant_staff_internet: {
+        Args: {
+          p_access_type: string;
+          p_actor_id: string;
+          p_tenant_id: string;
+          p_hotspot_package_id?: string | null;
+          p_note?: string | null;
+          p_pppoe_package_id?: string | null;
+          p_pppoe_password?: string | null;
+          p_pppoe_username?: string | null;
+          p_router_id?: string | null;
+          p_staff_user_id: string;
+        };
+        Returns: Json;
       };
       has_role: {
         Args: {

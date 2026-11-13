@@ -217,3 +217,12 @@ data. The `20261211000000_demo_viewer_role.sql` and
 `20261212000000_demo_viewer_readonly.sql` migrations add the role and read-only policies.
 
 After adding or changing migrations, regenerate `verify_live_db.sql` and run `npm run test:sql`.
+
+### Complimentary technician internet
+
+Tenant admins can grant hotspot vouchers, PPPoE accounts, or both from **Customer billing**. The
+system records the technician, granting administrator, selected packages, retail value, and expiry
+in `staff_internet_grants`; it does not create a customer payment. PPPoE grants renew the
+technician's existing provisioned account when one exists, and those accounts are excluded from
+customer renewal invoices. Hotspot voucher package time starts when the voucher is redeemed.
+`20261213000000_staff_internet_grants.sql` adds the grant flow and billing exclusion.

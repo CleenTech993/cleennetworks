@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, PageHeader, StatCard } from "@/components/dashboard-shell";
+import { StaffInternetGrants } from "@/components/staff-internet-grants";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,7 +22,8 @@ export const Route = createFileRoute("/tenant/customer-billing")({
 function CustomerBilling() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const { tenantId } = useAuth();
+  const { tenantId, roles } = useAuth();
+  const canGrantStaffInternet = roles.includes("tenant_admin");
   const {
     data: invoices = [],
     isLoading: invoicesLoading,
@@ -175,6 +177,7 @@ function CustomerBilling() {
         title="Customer billing"
         description="PPPoE renewal invoices and the payment ledger, including prepaid hotspot M-Pesa receipts."
       />
+      {canGrantStaffInternet && tenantId && <StaffInternetGrants tenantId={tenantId} />}
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Open invoices" value={openInvoices.length} hint="Pending or overdue" />
         <StatCard
