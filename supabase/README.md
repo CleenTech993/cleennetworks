@@ -188,3 +188,15 @@ accumulates counter deltas and blocks browser edits to usage values. Usage reset
 changed or its expiry is extended. A customer switches to the package's FUP profile at the next
 router sync after reaching the allowance. If a router does not expose session counters, it continues
 reporting connectivity but cannot accumulate usage for FUP enforcement.
+
+## Demo workspaces
+
+Visitors can choose **Try a sample workspace** on the landing page or opt into sample data during
+signup. Each demo belongs to its own tenant and uses fictional records; no router or payment
+integration is configured. The `seed_demo_workspace()` RPC only seeds the signed-in tenant
+administrator's empty workspace and is idempotent. Demo payment rows are excluded from platform
+commission invoices.
+
+`20261210000000_demo_workspaces.sql` adds the demo marker, sample-data RPC, and commission exclusion.
+Apply it through the standard migration pipeline, then regenerate `verify_live_db.sql` and run
+`npm run test:sql`.

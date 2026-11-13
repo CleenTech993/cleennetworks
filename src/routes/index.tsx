@@ -222,6 +222,14 @@ function Landing() {
               >
                 <Link to="/login">I already have an account</Link>
               </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-12 rounded-full border-[#cbd9d0] px-5 text-[#30433c]"
+              >
+                <a href="/signup?demo=true">Try a sample workspace</a>
+              </Button>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#66736e]">
               <span className="inline-flex items-center gap-2">

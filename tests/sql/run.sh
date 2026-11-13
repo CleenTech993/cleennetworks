@@ -30,6 +30,9 @@ psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/rls-roles.sql
 [[ "${1:-}" != "--before" ]] && psql -d rls_roles_test -v ON_ERROR_STOP=1 -f tests/sql/tenant-services.sql
 
 if [[ "${1:-}" != "--before" ]]; then
+  build_db demo_workspaces_test
+  (cd tests/sql && psql -d demo_workspaces_test -v ON_ERROR_STOP=1 -q -f demo-workspaces.sql)
+  echo "demo-workspaces: all expectations passed"
   build_db router_tokens_test
   (cd tests/sql && psql -d router_tokens_test -v ON_ERROR_STOP=1 -q -f router-tokens.sql)
   echo "router-tokens: all expectations passed"

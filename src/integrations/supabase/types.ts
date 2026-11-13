@@ -2600,6 +2600,7 @@ export type Database = {
           billing_suspended_at: string | null;
           created_at: string;
           id: string;
+          is_demo: boolean;
           logo_url: string | null;
           mpesa_consumer_key: string | null;
           mpesa_consumer_secret: string | null;
@@ -2628,6 +2629,7 @@ export type Database = {
           billing_suspended_at?: string | null;
           created_at?: string;
           id?: string;
+          is_demo?: boolean;
           logo_url?: string | null;
           mpesa_consumer_key?: string | null;
           mpesa_consumer_secret?: string | null;
@@ -2656,6 +2658,7 @@ export type Database = {
           billing_suspended_at?: string | null;
           created_at?: string;
           id?: string;
+          is_demo?: boolean;
           logo_url?: string | null;
           mpesa_consumer_key?: string | null;
           mpesa_consumer_secret?: string | null;
@@ -2991,6 +2994,7 @@ export type Database = {
         Args: { p_business_name: string; p_full_name: string; p_phone: string };
         Returns: string;
       };
+      seed_demo_workspace: { Args: never; Returns: string };
       record_auth_login_attempt: {
         Args: { p_email_hash: string; p_ip_hash: string; p_succeeded: boolean };
         Returns: {

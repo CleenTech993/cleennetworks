@@ -23,6 +23,7 @@ function PendingPage() {
   const [fullName, setFullName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [phone, setPhone] = useState("");
+  const [demoWorkspace, setDemoWorkspace] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -47,6 +48,9 @@ function PendingPage() {
       }
 
       const metadata = user.user_metadata;
+      const wantsDemoWorkspace =
+        metadata["demo_workspace"] === true ||
+        new URLSearchParams(window.location.search).get("demo") === "true";
       const name =
         typeof metadata["full_name"] === "string"
           ? metadata["full_name"]
@@ -61,6 +65,7 @@ function PendingPage() {
         setFullName(name);
         setBusinessName(org);
         setPhone(contact);
+        setDemoWorkspace(wantsDemoWorkspace);
       }
 
       const { data: roles, error: rolesError } = await supabase
@@ -75,6 +80,16 @@ function PendingPage() {
         return;
       }
       if (roles?.length) {
+        if (wantsDemoWorkspace && roles.some((role) => role.role === "tenant_admin")) {
+          const { error: demoError } = await supabase.rpc("seed_demo_workspace");
+          if (demoError && demoError.code !== "23505") {
+            if (alive) {
+              setError(demoError.message);
+              setLoading(false);
+            }
+            return;
+          }
+        }
         const isSuperAdmin = roles.some((role) => role.role === "super_admin");
         const { data: aal, error: aalError } =
           await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -100,6 +115,16 @@ function PendingPage() {
           p_full_name: name,
         });
         if (!provisioningError) {
+          if (wantsDemoWorkspace) {
+            const { error: demoError } = await supabase.rpc("seed_demo_workspace");
+            if (demoError) {
+              if (alive) {
+                setError(demoError.message);
+                setLoading(false);
+              }
+              return;
+            }
+          }
           navigate({ to: "/tenant" });
           return;
         }
@@ -124,6 +149,7 @@ function PendingPage() {
           full_name: fullName.trim(),
           business_name: businessName.trim(),
           business_phone: phone.trim(),
+          demo_workspace: demoWorkspace,
         },
       });
       if (profileError) throw profileError;
@@ -134,6 +160,10 @@ function PendingPage() {
         p_full_name: fullName.trim(),
       });
       if (provisioningError) throw provisioningError;
+      if (demoWorkspace) {
+        const { error: demoError } = await supabase.rpc("seed_demo_workspace");
+        if (demoError) throw demoError;
+      }
       await navigate({ to: "/tenant" });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not create workspace.");
@@ -164,6 +194,20 @@ function PendingPage() {
       }
     >
       <form onSubmit={createWorkspace} className="space-y-4">
+        <label className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4 accent-primary"
+            checked={demoWorkspace}
+            onChange={(event) => setDemoWorkspace(event.target.checked)}
+          />
+          <span>
+            <span className="font-medium">Load sample demo data</span>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              Adds fictional routers, packages, customers, and activity to this workspace.
+            </span>
+          </span>
+        </label>
         <div className="space-y-1.5">
           <Label htmlFor="onboarding-name">Contact person name</Label>
           <Input

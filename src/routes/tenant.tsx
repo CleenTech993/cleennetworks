@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -31,6 +32,7 @@ import { requireConsole } from "@/lib/auth-guard";
 import { canAccessPage } from "@/lib/permissions";
 import { useTenantLabels } from "@/hooks/use-tenant-customization";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 const ALL_NAV: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
@@ -141,6 +143,20 @@ export const Route = createFileRoute("/tenant")({
 
 function TenantLayout() {
   const { roles } = Route.useRouteContext();
+  const { tenantId } = useAuth();
+  const { data: isDemo } = useQuery({
+    queryKey: ["tenant-demo-workspace", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("is_demo")
+        .eq("id", tenantId!)
+        .single();
+      if (error) throw error;
+      return data.is_demo;
+    },
+  });
   const { labels } = useTenantLabels();
   const labelKeyByPath: Record<string, keyof typeof labels> = {
     "/tenant": "overview",
@@ -163,6 +179,18 @@ function TenantLayout() {
       nav={nav}
       headerAction={<TenantWhatsAppSupport />}
     >
+      {isDemo && (
+        <div
+          role="status"
+          className="mb-5 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          <p className="font-semibold">Demo workspace</p>
+          <p className="mt-1">
+            These are fictional sample records. Changes stay in your workspace; no live router,
+            customer, or payment integration is set up.
+          </p>
+        </div>
+      )}
       <Outlet />
     </DashboardShell>
   );
