@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:web:worker": "npm run build:web:worker --workspace @cleennetworks/api",
+    "deploy:web": "npm run build && npm run deploy:web --workspace @cleennetworks/api",
     "dev:api": "npm run dev --workspace @cleennetworks/api",
     "build:api": "npm run build --workspace @cleennetworks/api",
     "deploy:api": "npm run deploy --workspace @cleennetworks/api",

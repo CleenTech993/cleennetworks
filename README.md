@@ -22,6 +22,7 @@ To run the extracted API too, configure `apps/api/.dev.vars` from
 ## Documentation
 
 - [System overview and setup](docs/system-overview.md)
+- [Cloudflare deployment](docs/cloudflare-deployment.md)
 - [Frontend/backend separation plan](docs/architecture/frontend-backend-separation.md)
 - [Device management](docs/device-management.md)
 - [Customer communications](docs/customer-communications.md)
