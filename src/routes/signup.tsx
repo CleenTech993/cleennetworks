@@ -197,7 +197,7 @@ function SignupPage() {
             autoComplete="tel"
             inputMode="tel"
             placeholder="+254 7xx xxx xxx"
-            pattern="\+?[0-9][0-9 ()-]{6,19}"
+            pattern="\+?[0-9][0-9\s\(\)\-]{6,19}"
             title="Enter a valid phone number"
             required
             value={phone}

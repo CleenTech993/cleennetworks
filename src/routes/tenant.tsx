@@ -95,7 +95,7 @@ export const Route = createFileRoute("/tenant")({
     let roles = await requireConsole();
     const hostname = window.location.hostname.toLowerCase();
     const canonicalHost = (import.meta.env.VITE_APP_CANONICAL_HOST ?? "").trim().toLowerCase();
-    if (!canonicalHost || hostname !== canonicalHost) {
+    if (!hostname.endsWith(".workers.dev") && (!canonicalHost || hostname !== canonicalHost)) {
       const domainResponse = await fetch("/api/public/domain", { cache: "no-store" });
       if (domainResponse.ok) {
         const mapping = (await domainResponse.json()) as {

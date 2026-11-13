@@ -131,7 +131,8 @@ function Landing() {
     let active = true;
     const currentHost = window.location.hostname.toLowerCase();
     const canonicalHost = (import.meta.env.VITE_APP_CANONICAL_HOST ?? "").trim().toLowerCase();
-    if (canonicalHost && currentHost === canonicalHost) return;
+    if (currentHost.endsWith(".workers.dev") || (canonicalHost && currentHost === canonicalHost))
+      return;
 
     void fetch("/api/public/domain", { cache: "no-store" })
       .then(async (response) => {
