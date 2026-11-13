@@ -1,4 +1,4 @@
-name = "cleennetworks-web"
+name = "cleennetworks"
 main = ".output/server/index.mjs"
 compatibility_date = "2026-11-13"
 compatibility_flags = ["nodejs_compat"]
