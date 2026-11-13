@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
 
         const { data: v } = await supabaseAdmin
           .from("vouchers")
-          .select("id,status,expires_at,package_id,payment_id,used_by_mac")
+          .select("id,status,expires_at,package_id,payment_id,used_by_mac,legacy_cash_access")
           .eq("tenant_id", tenant.id)
           .eq("code", parsed.data.code.trim().toUpperCase())
           .maybeSingle();
@@ -109,7 +109,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/voucher")({
         // optional "redeem by" date, so the usage clock starts now. (Vouchers bought through the
         // portal already got their expiry when the payment succeeded.)
         let expiresAt = v.expires_at;
-        if (!v.payment_id && pkg?.duration_value && pkg.duration_unit)
+        if (!v.payment_id && !v.legacy_cash_access && pkg?.duration_value && pkg.duration_unit)
           expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
 
         // Atomic redeem: only one concurrent request can flip unused -> used.

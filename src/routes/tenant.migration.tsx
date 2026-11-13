@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { CSV_TEMPLATES, parseCsv, type CsvTable, type CsvTemplateKind } from "@/lib/csv-import";
+import { randomCode } from "@/lib/codes";
 
 export const Route = createFileRoute("/tenant/migration")({
   head: () => ({
@@ -48,6 +49,13 @@ type ImportPlan = {
   packages: PackageRow[];
   customers: CustomerRow[];
   vouchers: VoucherRow[];
+  legacyAccessCodes: {
+    customerName: string;
+    phone: string;
+    code: string;
+    packageName: string;
+    expiresAt: string;
+  }[];
   errors: string[];
   warnings: string[];
   skipped: number;
@@ -135,6 +143,7 @@ function buildImportPlan(
     packages: [],
     customers: [],
     vouchers: [],
+    legacyAccessCodes: [],
     errors: [],
     warnings: [],
     skipped: 0,
@@ -297,8 +306,19 @@ function buildImportPlan(
         continue;
       }
 
-      const code = row.code?.trim();
-      if (!code) throw new Error("code is required");
+      const legacyCashAccess =
+        optionalBoolean(row.legacy_cash_access ?? "", "legacy_cash_access") ?? false;
+      let code = row.code?.trim() ?? "";
+      if (!code && !legacyCashAccess) throw new Error("code is required");
+      if (!code) {
+        do {
+          code = randomCode(10);
+        } while (
+          seen.has(normalize(code)) ||
+          catalog.vouchers.some((voucher) => normalize(voucher.code) === normalize(code))
+        );
+      }
+      code = code.toUpperCase();
       const codeKey = normalize(code);
       if (
         seen.has(codeKey) ||
@@ -316,16 +336,35 @@ function buildImportPlan(
       if (!["unused", "used", "expired"].includes(status)) {
         throw new Error("status must be unused, used, or expired");
       }
+      const expiresAt = optionalDate(row.expires_at ?? "", "expires_at");
+      if (legacyCashAccess) {
+        if (status !== "unused") {
+          throw new Error("legacy cash access must have status unused");
+        }
+        if (!expiresAt || new Date(expiresAt).getTime() <= Date.now()) {
+          throw new Error("legacy cash access requires a future paid-through expires_at date");
+        }
+      }
       plan.vouchers.push({
         tenant_id: tenantId,
         code,
         package_id: pkg.id,
         status,
-        expires_at: optionalDate(row.expires_at ?? "", "expires_at"),
+        expires_at: expiresAt,
         bound_mac: row.bound_mac?.trim() || null,
         used_at: optionalDate(row.used_at ?? "", "used_at"),
         used_by_mac: row.used_by_mac?.trim() || null,
+        legacy_cash_access: legacyCashAccess,
       });
+      if (legacyCashAccess) {
+        plan.legacyAccessCodes.push({
+          customerName: row.customer_name?.trim() || "",
+          phone: row.phone?.trim() || "",
+          code,
+          packageName: pkg.name,
+          expiresAt,
+        });
+      }
       seen.add(codeKey);
     } catch (error) {
       plan.errors.push(`Row ${line}: ${error instanceof Error ? error.message : "Invalid row"}`);
@@ -341,6 +380,7 @@ function BackupAndMigration() {
   const [csv, setCsv] = useState<CsvTable | null>(null);
   const [fileName, setFileName] = useState("");
   const [fileError, setFileError] = useState("");
+  const [legacyAccessCodes, setLegacyAccessCodes] = useState<ImportPlan["legacyAccessCodes"]>([]);
 
   const catalogQuery = useQuery({
     queryKey: ["tenant-migration-catalog", tenantId],
@@ -413,7 +453,9 @@ function BackupAndMigration() {
         fetchAll((from, to) =>
           supabase
             .from("vouchers")
-            .select("id,package_id,code,status,used_at,used_by_mac,bound_mac,expires_at,created_at")
+            .select(
+              "id,package_id,code,status,used_at,used_by_mac,bound_mac,expires_at,created_at,legacy_cash_access",
+            )
             .eq("tenant_id", tenantId)
             .range(from, to),
         ),
@@ -483,12 +525,17 @@ function BackupAndMigration() {
         if (error) throw error;
         imported = currentPlan.vouchers.length;
       }
-      return { imported, skipped: currentPlan.skipped };
+      return {
+        imported,
+        skipped: currentPlan.skipped,
+        legacyAccessCodes: importKind === "vouchers" ? currentPlan.legacyAccessCodes : [],
+      };
     },
-    onSuccess: ({ imported, skipped }) => {
+    onSuccess: ({ imported, skipped, legacyAccessCodes: importedLegacyCodes }) => {
       toast.success(
         `Imported ${imported} records${skipped ? `; skipped ${skipped} duplicates` : ""}`,
       );
+      setLegacyAccessCodes(importedLegacyCodes);
       setCsv(null);
       setFileName("");
       setFileError("");
@@ -511,10 +558,36 @@ function BackupAndMigration() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
   }
 
+  function downloadLegacyAccessCodes() {
+    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const rows = [
+      ["customer_name", "phone", "voucher_code", "package", "paid_through"],
+      ...legacyAccessCodes.map((item) => [
+        item.customerName,
+        item.phone,
+        item.code,
+        item.packageName,
+        item.expiresAt,
+      ]),
+    ];
+    const blob = new Blob([rows.map((row) => row.map(escape).join(",")).join("\r\n")], {
+      type: "text/csv;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `legacy-hotspot-access-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  }
+
   async function readCsv(file: File | undefined) {
     setCsv(null);
     setFileName("");
     setFileError("");
+    setLegacyAccessCodes([]);
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
       setFileError("CSV files must be 5 MB or smaller");
@@ -591,6 +664,7 @@ function BackupAndMigration() {
                   setCsv(null);
                   setFileName("");
                   setFileError("");
+                  setLegacyAccessCodes([]);
                 }
               }}
             >
@@ -617,7 +691,7 @@ function BackupAndMigration() {
           {importKind === "customers" &&
             "Customer type must be pppoe or hotspot. Match packages by package_name and package_kind; PPPoE customers also require a router_mac already registered to this tenant."}
           {importKind === "vouchers" &&
-            "Voucher status must be unused, used, or expired. Match package_name and package_kind to an existing tenant package."}
+            "For existing cash customers without voucher codes, leave code blank, set legacy_cash_access=true, status=unused, and expires_at to the exact paid-through date/time (include a timezone). The system generates new codes; access ends on that date and is not extended on first connection. Routers refresh voucher access every 10 seconds and disconnect expired sessions. Other voucher imports require a code."}
         </p>
 
         <div className="mt-4">
@@ -698,6 +772,18 @@ function BackupAndMigration() {
               }
             >
               {importMutation.isPending ? "Importing…" : "Import valid rows"}
+            </Button>
+          </div>
+        )}
+        {legacyAccessCodes.length > 0 && (
+          <div className="mt-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+            <h3 className="font-medium">New legacy hotspot codes are ready</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Keep this file private and send each customer their code. Their access stops on the
+              paid-through date; no cash payment entry was created.
+            </p>
+            <Button className="mt-3" variant="outline" onClick={downloadLegacyAccessCodes}>
+              <Download className="h-4 w-4" /> Download customer codes
             </Button>
           </div>
         )}

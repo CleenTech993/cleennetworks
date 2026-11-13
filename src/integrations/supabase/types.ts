@@ -2904,6 +2904,7 @@ export type Database = {
           created_at: string;
           expires_at: string | null;
           id: string;
+          legacy_cash_access: boolean;
           package_id: string | null;
           payment_id: string | null;
           status: string;
@@ -2917,6 +2918,7 @@ export type Database = {
           created_at?: string;
           expires_at?: string | null;
           id?: string;
+          legacy_cash_access?: boolean;
           package_id?: string | null;
           payment_id?: string | null;
           status?: string;
@@ -2930,6 +2932,7 @@ export type Database = {
           created_at?: string;
           expires_at?: string | null;
           id?: string;
+          legacy_cash_access?: boolean;
           package_id?: string | null;
           payment_id?: string | null;
           status?: string;

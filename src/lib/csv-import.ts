@@ -10,7 +10,8 @@ export const CSV_TEMPLATES: Record<CsvTemplateKind, string> = {
     "name,kind,price,description,duration_value,duration_unit,download_kbps,upload_kbps,burst_kbps,data_limit_mb,unlimited,fup_download_kbps,fup_upload_kbps,device_limit,simultaneous_logins,idle_timeout_sec,session_timeout_sec,mac_binding,active\r\n",
   customers:
     "full_name,phone,email,customer_type,pppoe_username,pppoe_password,package_name,package_kind,router_mac,static_ip,status,expires_at\r\n",
-  vouchers: "code,package_name,package_kind,status,expires_at,bound_mac,used_at,used_by_mac\r\n",
+  vouchers:
+    "code,customer_name,phone,package_name,package_kind,status,expires_at,bound_mac,used_at,used_by_mac,legacy_cash_access\r\n",
 };
 
 const MAX_CSV_CHARS = 5 * 1024 * 1024;

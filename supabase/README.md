@@ -226,3 +226,17 @@ in `staff_internet_grants`; it does not create a customer payment. PPPoE grants 
 technician's existing provisioned account when one exists, and those accounts are excluded from
 customer renewal invoices. Hotspot voucher package time starts when the voucher is redeemed.
 `20261213000000_staff_internet_grants.sql` adds the grant flow and billing exclusion.
+
+### Migrating cash-paid customers with time remaining
+
+Import active PPPoE customers from **Backup & Migration → Customers** with their router MAC,
+credentials, package, and exact `expires_at` paid-through date. They are provisioned by router sync
+without creating a payment.
+
+For hotspot customers who had no old voucher code, import from **Vouchers** with a blank `code`,
+`legacy_cash_access=true`, `status=unused`, and `expires_at` set to the exact paid-through date. The
+system generates a new voucher code and provides a private CSV to download and share with customers.
+The voucher retains that date when first redeemed instead of restarting the package duration.
+Router voucher sync runs every 10 seconds and disconnects sessions when their voucher expires.
+Neither import creates a payment record. The `20261214000000_legacy_cash_access.sql` migration adds
+the voucher marker that preserves legacy expiry behavior.

@@ -32,6 +32,7 @@ describe("CSV templates", () => {
   it("provides headers for each supported migration type", () => {
     expect(CSV_TEMPLATES.packages).toContain("fup_download_kbps,fup_upload_kbps");
     expect(CSV_TEMPLATES.customers.startsWith("full_name,phone,email")).toBe(true);
-    expect(CSV_TEMPLATES.vouchers.startsWith("code,package_name")).toBe(true);
+    expect(CSV_TEMPLATES.vouchers.startsWith("code,customer_name,phone")).toBe(true);
+    expect(CSV_TEMPLATES.vouchers).toContain("legacy_cash_access");
   });
 });

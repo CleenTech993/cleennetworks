@@ -65,6 +65,16 @@ beforeEach(() => {
         expires_at: new Date(Date.now() + 5 * 3_600_000).toISOString(),
       },
       {
+        id: "legacy-cash-voucher",
+        tenant_id: TENANT,
+        code: "CASH2345",
+        status: "unused",
+        package_id: PKG,
+        payment_id: null,
+        legacy_cash_access: true,
+        expires_at: new Date(Date.now() + 45 * 60_000).toISOString(),
+      },
+      {
         id: "v5",
         tenant_id: OTHER,
         code: "RIVAL234",
@@ -92,6 +102,17 @@ describe("voucher redemption", () => {
     const before = String(voucher("PAID2345").expires_at);
     const body = await json(await redeem({ code: "PAID2345" }));
     expect(body.expiresAt).toBe(before);
+  });
+
+  it("keeps the paid-through date for a legacy cash customer", async () => {
+    const paidThrough = String(voucher("CASH2345").expires_at);
+    const body = await json(await redeem({ code: "CASH2345" }));
+    expect(body.expiresAt).toBe(paidThrough);
+    expect(voucher("CASH2345")).toMatchObject({
+      status: "used",
+      legacy_cash_access: true,
+      expires_at: paidThrough,
+    });
   });
 
   it("accepts lower-case input with stray whitespace", async () => {
