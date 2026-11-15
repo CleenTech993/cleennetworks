@@ -486,16 +486,16 @@ describe("router.rsc provisioning", () => {
   const rsc = (token: string, ip = freshIp()) => call(Rsc, "GET", { params: { token }, ip });
   const credFor = (id: string) => h.db.rows("router_credentials").find((c) => c.router_id === id);
 
-  it("uses the canonical host for the captive portal, not router API endpoints", async () => {
+  it("uses the canonical host for the captive portal and router API endpoints", async () => {
     vi.stubEnv("APP_CANONICAL_HOST", "cleennetworks.ochiengclinton993.workers.dev");
 
     const script = await (await rsc(BOOT1)).text();
 
     expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
-    expect(script).toContain("https://portal.test/api/public/router/heartbeat/");
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
   });
 
-  it("prefers a verified tenant hotspot domain for its captive portal", async () => {
+  it("uses the canonical host even when a tenant has a verified hotspot domain", async () => {
     vi.stubEnv("APP_CANONICAL_HOST", "cleennetworks.ochiengclinton993.workers.dev");
     h.db.seed("tenant_domains", [
       {
@@ -508,9 +508,9 @@ describe("router.rsc provisioning", () => {
 
     const script = await (await rsc(BOOT1)).text();
 
-    expect(script).toContain("https://hotspot.ziwatti.ac.ke/p/acme");
-    expect(script).not.toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
-    expect(script).toContain("https://portal.test/api/public/router/heartbeat/");
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
+    expect(script).not.toContain("https://hotspot.ziwatti.ac.ke/p/acme");
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
   });
 
   it("refuses to return a MikroTik script for another vendor", async () => {

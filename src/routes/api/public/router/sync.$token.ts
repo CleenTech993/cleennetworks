@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { dispatchPendingAlerts } from "@/lib/alerts.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { appHost } from "@/lib/app-host.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
-import { resolvePortalHost } from "@/lib/portal-host.server";
 import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
 import { buildDoctorInstallLines } from "@/lib/router-doctor";
 import { buildPppoeSyncLines, PPPOE_BILLING_GRACE_PERIOD_MS } from "@/lib/pppoe";
@@ -312,11 +312,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             ? (customers ?? []).filter((customer) => customer.created_at < blockNewSince)
             : customers;
 
-        const host = getRequestHost();
-        const portalHost = await resolvePortalHost(
-          router.tenant_id,
-          process.env.APP_CANONICAL_HOST?.trim() || host,
-        );
+        const host = appHost(getRequestHost());
         const lines: string[] = [
           "# NetGrid sync",
           ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5m } } on-error={}',
@@ -504,12 +500,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // Self-heal the hotspot login page (captive-portal redirect): if the router's copy is
         // missing, stale or was reset, re-download it. No flash write when it is already current.
         if (tenant?.slug) {
-          const portalUrl = `https://${portalHost}/p/${encodeURIComponent(tenant.slug)}`;
+          const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
           lines.push(
             routerosHealLoginPage({
               loginUrl: `https://${host}/api/public/provision/${params.token}/login.html`,
               marker: loginPageMarker({ portalUrl, routerId: router.id }),
-              portalHost,
+              portalHost: host,
             }),
           );
         }

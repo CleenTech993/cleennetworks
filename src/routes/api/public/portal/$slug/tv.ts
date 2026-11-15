@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
+import { appHost } from "@/lib/app-host.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { normalizePhone } from "@/lib/mpesa.server";
 import { startDarajaStkPush } from "@/lib/daraja.server";
@@ -216,7 +217,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
             paymentId: pay.id,
             description: `${tenant.name || "Internet"} - ${pkg.name}`,
             accountReference: pkg.name,
-            callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
+            callbackUrl: `https://${appHost(getRequestHost())}/api/public/mpesa/callback/${tenant.id}`,
           });
           await supabaseAdmin
             .from("payments")

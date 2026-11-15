@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
+import { appHost } from "@/lib/app-host.server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { startDarajaStkPush } from "@/lib/daraja.server";
@@ -224,7 +225,7 @@ export const Route = createFileRoute("/api/public/pppoe-portal/$slug/checkout")(
             paymentId: payment.id,
             description: `${tenant.name || "Internet"} - ${pkg.name}`,
             accountReference: pkg.name,
-            callbackUrl: `https://${getRequestHost()}/api/public/mpesa/callback/${tenant.id}`,
+            callbackUrl: `https://${appHost(getRequestHost())}/api/public/mpesa/callback/${tenant.id}`,
           });
         } catch (error) {
           console.error("Could not start PPPoE portal STK push", error);

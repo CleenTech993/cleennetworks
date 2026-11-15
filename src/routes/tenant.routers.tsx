@@ -40,6 +40,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
 import { buildOmadaPortalUrl, type DeviceVendor } from "@/lib/device-management";
+import { appOrigin } from "@/lib/app-origin";
 import { logAudit } from "@/lib/audit";
 import {
   getOmadaIntegrationStatus,
@@ -195,14 +196,14 @@ function RoutersPage() {
   });
 
   function provisionCommand(token: string) {
-    const base = typeof window !== "undefined" ? window.location.origin : "";
+    const base = typeof window !== "undefined" ? appOrigin(window.location.origin) : "";
     return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; :delay 1s; :execute {/import file-name=auto-config.rsc}`;
   }
 
   function omadaPortalUrl(routerId: string) {
     if (typeof window === "undefined" || !tenant?.slug) return null;
     return buildOmadaPortalUrl({
-      origin: window.location.origin,
+      origin: appOrigin(window.location.origin),
       tenantSlug: tenant.slug,
       routerId,
     });

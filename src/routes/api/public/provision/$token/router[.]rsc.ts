@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { appHost } from "@/lib/app-host.server";
 import {
   loginPageMarker,
   routerosInstallLoginPage,
   ROUTEROS_PICK_HTML_DIR,
 } from "@/lib/hotspot-login.server";
-import { resolvePortalHost } from "@/lib/portal-host.server";
 import { authenticateBootstrap, isMissingSchema, issueDeviceToken } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
@@ -70,12 +70,8 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           token = params.token;
         }
 
-        const host = getRequestHost();
-        const portalHost = await resolvePortalHost(
-          router.tenant_id,
-          process.env.APP_CANONICAL_HOST?.trim() || host,
-        );
-        const portalUrl = `https://${portalHost}/p/${encodeURIComponent(tenant.slug)}`;
+        const host = appHost(getRequestHost());
+        const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
         const callbackUrl = `https://${host}/api/public/router/heartbeat/${token}`;
         const loginUrl = `https://${host}/api/public/provision/${token}/login.html`;
         const marker = loginPageMarker({ portalUrl, routerId: router.id });

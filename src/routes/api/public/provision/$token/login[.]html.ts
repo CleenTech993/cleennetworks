@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { appHost } from "@/lib/app-host.server";
 import { buildLoginHtml } from "@/lib/hotspot-login.server";
-import { resolvePortalHost } from "@/lib/portal-host.server";
 import { authenticateRouter } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
@@ -26,10 +26,7 @@ export const Route = createFileRoute("/api/public/provision/$token/login.html")(
           .single();
         if (!tenant?.slug) return new Response("portal not configured\n", { status: 404 });
 
-        const host = await resolvePortalHost(
-          router.tenant_id,
-          process.env.APP_CANONICAL_HOST?.trim() || getRequestHost(),
-        );
+        const host = appHost(getRequestHost());
         const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
         const html = buildLoginHtml({ portalUrl, routerId: router.id });
 

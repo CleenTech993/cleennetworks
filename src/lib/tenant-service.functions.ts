@@ -3,6 +3,7 @@ import { getRequestHost } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { renewedExpiry } from "@/lib/pppoe";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
+import { appHost } from "@/lib/app-host.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { registerDarajaC2bUrl } from "@/lib/daraja.server";
 import {
@@ -159,7 +160,7 @@ export const registerTenantC2bCallbacks = createServerFn({ method: "POST" })
       throw new Error("Enter a PayBill or Till shortcode in Receiving details first.");
     }
 
-    const host = getRequestHost();
+    const host = appHost(getRequestHost());
     if (!host) throw new Error("The public application host could not be determined.");
     const results: { shortcode: string; registered: boolean }[] = [];
     for (const shortcode of uniqueShortcodes) {

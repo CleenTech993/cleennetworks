@@ -14,6 +14,7 @@ import { MfaSecurityCard } from "@/components/mfa-security-card";
 import { TenantServiceCredentials } from "@/components/tenant-service-credentials";
 import { SessionManagementCard } from "@/components/session-management-card";
 import { TenantDomainSettings } from "@/components/tenant-domain-settings";
+import { appOrigin } from "@/lib/app-origin";
 import {
   DEFAULT_TENANT_LABELS,
   sanitizeUserPreferences,
@@ -150,13 +151,10 @@ function Settings() {
   });
 
   const slug = (tenant as { slug?: string } | undefined)?.slug;
-  const canonicalHost = (import.meta.env.VITE_APP_CANONICAL_HOST ?? "").trim();
   const portalUrl =
-    typeof window !== "undefined" && portalDomain?.verified_at
-      ? `https://${portalDomain.domain}`
-      : slug && typeof window !== "undefined"
-        ? `${window.location.protocol}//${canonicalHost || window.location.host}/p/${slug}`
-        : "";
+    slug && typeof window !== "undefined"
+      ? `${appOrigin(window.location.origin)}/p/${slug}`
+      : "";
 
   function field<K extends keyof typeof form>(k: K, label: string, placeholder?: string) {
     const id = `tenant-${k}`;

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithGoogle } from "@/lib/google-auth";
+import { appOrigin } from "@/lib/app-origin";
 import {
   isStrongPassword,
   PASSWORD_MAX_LENGTH,
@@ -52,7 +53,7 @@ function SignupPage() {
     }
     setLoading(true);
     try {
-      const redirectUrl = `${window.location.origin}/pending${demoWorkspace ? "?demo=true" : ""}`;
+      const redirectUrl = `${appOrigin(window.location.origin)}/pending${demoWorkspace ? "?demo=true" : ""}`;
       const { data: signup, error: signErr } = await supabase.auth.signUp({
         email,
         password,
@@ -114,7 +115,7 @@ function SignupPage() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle(
-        `${window.location.origin}/pending${demoWorkspace ? "?demo=true" : ""}`,
+        `${appOrigin(window.location.origin)}/pending${demoWorkspace ? "?demo=true" : ""}`,
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not continue with Google.");

@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { getRequestHost } from "@tanstack/react-start/server";
 import { requireSupabaseAal2 } from "@/lib/require-aal2";
+import { appHost } from "@/lib/app-host.server";
 import { normalizePhone } from "./mpesa.server";
 import { startDarajaStkPush } from "./daraja.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -56,7 +57,7 @@ export const initiateStkPushTenant = createServerFn({ method: "POST" })
         throw new Error("A PPPoE package requires a PPPoE customer account.");
     }
 
-    const callbackUrl = `https://${getRequestHost()}/api/public/mpesa/callback/${tenantId}`;
+    const callbackUrl = `https://${appHost(getRequestHost())}/api/public/mpesa/callback/${tenantId}`;
 
     // Insert pending payment first so the callback can find it
     const { data: pay, error: payErr } = await supabaseAdmin

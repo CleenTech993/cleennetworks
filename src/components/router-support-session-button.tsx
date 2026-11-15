@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { appOrigin } from "@/lib/app-origin";
 import {
   createRouterSupportSession,
   revokeRouterSupportSession,
@@ -39,7 +40,7 @@ export function RouterSupportSessionButton({ routerId }: { routerId: string }) {
 
   async function copyCredentials() {
     if (!session) return;
-    const url = new URL(`/support-session/${session.sessionId}`, window.location.origin).href;
+    const url = new URL(`/support-session/${session.sessionId}`, appOrigin(window.location.origin)).href;
     try {
       await navigator.clipboard.writeText(
         `Link: ${url}\nUsername: ${session.sessionId}\nPassword: ${session.password}`,
@@ -51,7 +52,7 @@ export function RouterSupportSessionButton({ routerId }: { routerId: string }) {
   }
 
   const sessionUrl = session
-    ? new URL(`/support-session/${session.sessionId}`, window.location.origin).href
+    ? new URL(`/support-session/${session.sessionId}`, appOrigin(window.location.origin)).href
     : "";
 
   return (

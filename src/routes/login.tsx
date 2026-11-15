@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { signInWithGoogle } from "@/lib/google-auth";
+import { appOrigin } from "@/lib/app-origin";
 import { signInWithPassword } from "@/lib/login.functions";
 
 export const Route = createFileRoute("/login")({
@@ -26,7 +27,7 @@ function LoginPage() {
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
     try {
-      await signInWithGoogle(`${window.location.origin}/pending`);
+      await signInWithGoogle(`${appOrigin(window.location.origin)}/pending`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not sign in with Google.");
       setGoogleLoading(false);
