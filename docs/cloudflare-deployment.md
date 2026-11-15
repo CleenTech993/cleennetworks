@@ -27,10 +27,12 @@ cutover checks.
 3. Configure the Worker variables/secrets below.
 4. Build and deploy with `npm run deploy:web`. For a bundle-only check, run `npm run build`
    followed by `npm run build:web:worker`.
-5. In Cloudflare, open **Workers & Pages → cleennetworks-web → Settings → Domains & Routes** and
-   add `hotspot.ziwatti.ac.ke` as a custom domain. Cloudflare creates the DNS record and certificate.
-6. Configure Supabase Auth's site URL and redirect allow-list for `https://hotspot.ziwatti.ac.ke`,
-   then test login, portal access, router sync, and payment callbacks.
+5. The Worker URL `https://cleennetworks.ochiengclinton993.workers.dev` is configured as the
+   canonical captive-portal host. A custom domain can be added later under **Workers & Pages →
+   cleennetworks-web → Settings → Domains & Routes**; update `APP_CANONICAL_HOST` and the matching
+   build-time `VITE_APP_CANONICAL_HOST` if you switch to one.
+6. Configure Supabase Auth's site URL and redirect allow-list for the hostname customers use, then
+   test login, portal access, router sync, and payment callbacks.
 
 The custom hostname must be in an active Cloudflare zone. If the subdomain currently points to
 another host, plan the DNS cutover and keep the old deployment available for rollback.
@@ -44,7 +46,7 @@ Set these in the Cloudflare dashboard under the Worker’s **Settings → Variab
 | `SUPABASE_URL` | Variable | URL of the destination Supabase project |
 | `SUPABASE_PUBLISHABLE_KEY` | Variable | Supabase browser/server publishable key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Secret | Server-only Supabase service-role key |
-| `APP_CANONICAL_HOST` | Variable | `hotspot.ziwatti.ac.ke` for server-side domain verification |
+| `APP_CANONICAL_HOST` | Variable | `cleennetworks.ochiengclinton993.workers.dev` for server-side domain verification and router captive-portal URLs |
 
 Set these as build environment variables in the Cloudflare build pipeline (or in the shell before
 building locally):
@@ -53,7 +55,7 @@ building locally):
 | --- | --- |
 | `VITE_SUPABASE_URL` | Public Supabase project URL embedded in the browser app |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Public publishable key embedded in the browser app |
-| `VITE_APP_CANONICAL_HOST` | `hotspot.ziwatti.ac.ke` |
+| `VITE_APP_CANONICAL_HOST` | `cleennetworks.ochiengclinton993.workers.dev` |
 | `VITE_API_BASE_URL` | URL of the separately deployed API Worker if using its static-IP endpoints |
 
 The publishable key is intended for browser use; the service-role key is not. Never use a `VITE_`

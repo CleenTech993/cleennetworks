@@ -486,6 +486,15 @@ describe("router.rsc provisioning", () => {
   const rsc = (token: string, ip = freshIp()) => call(Rsc, "GET", { params: { token }, ip });
   const credFor = (id: string) => h.db.rows("router_credentials").find((c) => c.router_id === id);
 
+  it("uses the canonical host for the captive portal, not router API endpoints", async () => {
+    vi.stubEnv("APP_CANONICAL_HOST", "cleennetworks.ochiengclinton993.workers.dev");
+
+    const script = await (await rsc(BOOT1)).text();
+
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
+    expect(script).toContain("https://portal.test/api/public/router/heartbeat/");
+  });
+
   it("refuses to return a MikroTik script for another vendor", async () => {
     router(R1).vendor = "tp_link_omada";
 

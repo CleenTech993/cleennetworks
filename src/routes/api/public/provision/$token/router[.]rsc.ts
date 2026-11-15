@@ -70,7 +70,8 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
         }
 
         const host = getRequestHost();
-        const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
+        const portalHost = process.env.APP_CANONICAL_HOST?.trim() || host;
+        const portalUrl = `https://${portalHost}/p/${encodeURIComponent(tenant.slug)}`;
         const callbackUrl = `https://${host}/api/public/router/heartbeat/${token}`;
         const loginUrl = `https://${host}/api/public/provision/${token}/login.html`;
         const marker = loginPageMarker({ portalUrl, routerId: router.id });

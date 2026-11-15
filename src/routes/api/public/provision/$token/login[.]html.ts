@@ -25,7 +25,8 @@ export const Route = createFileRoute("/api/public/provision/$token/login.html")(
           .single();
         if (!tenant?.slug) return new Response("portal not configured\n", { status: 404 });
 
-        const portalUrl = `https://${getRequestHost()}/p/${encodeURIComponent(tenant.slug)}`;
+        const host = process.env.APP_CANONICAL_HOST?.trim() || getRequestHost();
+        const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
         const html = buildLoginHtml({ portalUrl, routerId: router.id });
 
         // text/plain so CDN/edge HTML rewriting can't alter the bytes the router stores.

@@ -312,6 +312,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             : customers;
 
         const host = getRequestHost();
+        const portalHost = process.env.APP_CANONICAL_HOST?.trim() || host;
         const lines: string[] = [
           "# NetGrid sync",
           ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5m } } on-error={}',
@@ -499,12 +500,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // Self-heal the hotspot login page (captive-portal redirect): if the router's copy is
         // missing, stale or was reset, re-download it. No flash write when it is already current.
         if (tenant?.slug) {
-          const portalUrl = `https://${host}/p/${encodeURIComponent(tenant.slug)}`;
+          const portalUrl = `https://${portalHost}/p/${encodeURIComponent(tenant.slug)}`;
           lines.push(
             routerosHealLoginPage({
               loginUrl: `https://${host}/api/public/provision/${params.token}/login.html`,
               marker: loginPageMarker({ portalUrl, routerId: router.id }),
-              portalHost: host,
+              portalHost,
             }),
           );
         }
