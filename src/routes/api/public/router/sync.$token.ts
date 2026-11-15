@@ -3,6 +3,7 @@ import { getRequestHost } from "@tanstack/react-start/server";
 import { dispatchPendingAlerts } from "@/lib/alerts.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
+import { resolvePortalHost } from "@/lib/portal-host.server";
 import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
 import { buildDoctorInstallLines } from "@/lib/router-doctor";
 import { buildPppoeSyncLines, PPPOE_BILLING_GRACE_PERIOD_MS } from "@/lib/pppoe";
@@ -312,7 +313,10 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             : customers;
 
         const host = getRequestHost();
-        const portalHost = process.env.APP_CANONICAL_HOST?.trim() || host;
+        const portalHost = await resolvePortalHost(
+          router.tenant_id,
+          process.env.APP_CANONICAL_HOST?.trim() || host,
+        );
         const lines: string[] = [
           "# NetGrid sync",
           ':do { :if ([:len [/system scheduler find name=netgrid-sync]] = 0) do={ /system scheduler add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync" } else={ /system scheduler set [find name=netgrid-sync] interval=5m } } on-error={}',

@@ -495,6 +495,24 @@ describe("router.rsc provisioning", () => {
     expect(script).toContain("https://portal.test/api/public/router/heartbeat/");
   });
 
+  it("prefers a verified tenant hotspot domain for its captive portal", async () => {
+    vi.stubEnv("APP_CANONICAL_HOST", "cleennetworks.ochiengclinton993.workers.dev");
+    h.db.seed("tenant_domains", [
+      {
+        tenant_id: T,
+        purpose: "hotspot",
+        domain: "hotspot.ziwatti.ac.ke",
+        verified_at: new Date().toISOString(),
+      },
+    ]);
+
+    const script = await (await rsc(BOOT1)).text();
+
+    expect(script).toContain("https://hotspot.ziwatti.ac.ke/p/acme");
+    expect(script).not.toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
+    expect(script).toContain("https://portal.test/api/public/router/heartbeat/");
+  });
+
   it("refuses to return a MikroTik script for another vendor", async () => {
     router(R1).vendor = "tp_link_omada";
 

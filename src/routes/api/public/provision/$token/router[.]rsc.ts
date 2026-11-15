@@ -6,6 +6,7 @@ import {
   routerosInstallLoginPage,
   ROUTEROS_PICK_HTML_DIR,
 } from "@/lib/hotspot-login.server";
+import { resolvePortalHost } from "@/lib/portal-host.server";
 import { authenticateBootstrap, isMissingSchema, issueDeviceToken } from "@/lib/router-auth.server";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
@@ -70,7 +71,10 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
         }
 
         const host = getRequestHost();
-        const portalHost = process.env.APP_CANONICAL_HOST?.trim() || host;
+        const portalHost = await resolvePortalHost(
+          router.tenant_id,
+          process.env.APP_CANONICAL_HOST?.trim() || host,
+        );
         const portalUrl = `https://${portalHost}/p/${encodeURIComponent(tenant.slug)}`;
         const callbackUrl = `https://${host}/api/public/router/heartbeat/${token}`;
         const loginUrl = `https://${host}/api/public/provision/${token}/login.html`;
