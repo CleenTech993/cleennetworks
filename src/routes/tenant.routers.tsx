@@ -41,6 +41,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
 import { buildOmadaPortalUrl, type DeviceVendor } from "@/lib/device-management";
 import { appOrigin } from "@/lib/app-origin";
+import { mikrotikProvisionCommand } from "@/lib/router-provisioning";
 import { logAudit } from "@/lib/audit";
 import {
   getOmadaIntegrationStatus,
@@ -197,7 +198,7 @@ function RoutersPage() {
 
   function provisionCommand(token: string) {
     const base = typeof window !== "undefined" ? appOrigin(window.location.origin) : "";
-    return `/tool fetch url="${base}/api/public/provision/${token}/router.rsc" mode=https dst-path=auto-config.rsc; :delay 1s; :execute {/import file-name=auto-config.rsc}`;
+    return mikrotikProvisionCommand(base, token);
   }
 
   function omadaPortalUrl(routerId: string) {

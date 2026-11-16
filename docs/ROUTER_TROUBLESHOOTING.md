@@ -3,6 +3,21 @@
 Run these in a MikroTik terminal (WinBox → New Terminal, or SSH). Nothing here changes the router
 unless it says so.
 
+## 0. Run provisioning (RouterOS 6.49)
+
+Paste the setup command from the dashboard into the router terminal, not into a browser address bar.
+Opening the `.rsc` URL in a browser only downloads the file; it does not configure the router. The
+terminal command downloads `auto-config.rsc` and then imports that file. Wait for
+`NetGrid: auto-config complete` in the terminal or router log.
+
+If the file downloaded but setup did not start, run this in the router terminal:
+
+```
+/import file-name=auto-config.rsc
+```
+
+Then continue with the checks below.
+
 ## 1. Is the router configured at all?
 
 ```
