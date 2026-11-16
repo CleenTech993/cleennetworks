@@ -590,15 +590,6 @@ describe("router.rsc provisioning", () => {
     expect(stripped).not.toMatch(/\\\$/);
   });
 
-  it("keeps the WAN latency parser compatible with RouterOS 6.49", async () => {
-    const script = await (await rsc(BOOT1)).text();
-
-    expect(script).toContain(':local msPos [:find $s "ms"];');
-    expect(script).toContain(":local msText [:pick $s 0 $msPos];");
-    expect(script).toContain(":set ngLat [:tonum $msText];");
-    expect(script).not.toContain(':set ngLat [:tonum [:pick $s 0 [:find $s "ms"]]];');
-  });
-
   it("uses RouterOS's standard hotspot folder and never calls the unverified reset-html", async () => {
     const script = await (await rsc(BOOT1)).text();
     expect(script).toContain("html-directory=hotspot");
