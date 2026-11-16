@@ -207,7 +207,9 @@ add name=netgrid-wan source={
     :local res [/ping 8.8.8.8 count=1 as-value];
     :if ([:len $res] > 0) do={
       :local s [:tostr ($res->0->"time")];
-      :set ngLat [:tonum [:pick $s 0 [:find $s "ms"]]];
+      :local msPos [:find $s "ms"];
+      :local msText [:pick $s 0 $msPos];
+      :set ngLat [:tonum $msText];
       :set ngLoss 0;
       :set ngJit 0;
     } else={
