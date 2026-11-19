@@ -1,0 +1,769 @@
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { FakeDb } from "./helpers/fake-supabase";
+import { call } from "./helpers/call";
+import { freshIp, h } from "./helpers/setup";
+
+vi.mock("@/integrations/supabase/client.server", () => ({
+  get supabaseAdmin() {
+    return h.db;
+  },
+}));
+vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
+
+import { Route as Heartbeat } from "@/routes/api/public/router/heartbeat.$token";
+import { Route as Interfaces } from "@/routes/api/public/router/interfaces.$token";
+import { Route as Sync } from "@/routes/api/public/router/sync.$token";
+import { Route as LoginHtml } from "@/routes/api/public/provision/$token/login[.]html";
+import { Route as Rsc } from "@/routes/api/public/provision/$token/router[.]rsc";
+import {
+  issueDeviceToken,
+  sha256Hex,
+  mintDeviceToken,
+  TOKEN_MISS_LIMIT,
+} from "@/lib/router-auth.server";
+
+const T = "11111111-1111-1111-1111-111111111111";
+const OTHER_T = "99999999-9999-9999-9999-999999999999";
+const R1 = "r1000000-0000-0000-0000-000000000001";
+const R2 = "r2000000-0000-0000-0000-000000000002";
+const R3 = "r3000000-0000-0000-0000-000000000003";
+const BOOT1 = "bootstrap1".padEnd(32, "x");
+const LEGACY2 = "legacytoken2".padEnd(32, "y");
+
+const hb = (token: string, ip = freshIp(), qs = "") =>
+  call(Heartbeat, "GET", { url: `https://portal.test/hb${qs}`, params: { token }, ip });
+const router = (id: string) => h.db.rows("routers").find((r) => r.id === id)!;
+
+beforeEach(() => {
+  h.db = new FakeDb()
+    .seed("tenants", [
+      { id: T, slug: "acme", name: "Acme ISP" },
+      { id: OTHER_T, slug: "rival", name: "Rival" },
+    ])
+    .seed("routers", [
+      {
+        id: R1,
+        tenant_id: T,
+        name: "Tower 1",
+        status: "pending",
+        provision_token: BOOT1,
+        provision_token_expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+        legacy_token_auth: false,
+      },
+      {
+        id: R2,
+        tenant_id: T,
+        name: "Legacy box",
+        status: "online",
+        provision_token: LEGACY2,
+        provision_token_expires_at: null,
+        legacy_token_auth: true,
+      },
+      {
+        id: R3,
+        tenant_id: OTHER_T,
+        name: "Rival router",
+        status: "online",
+        provision_token: "rivaltoken".padEnd(32, "z"),
+        provision_token_expires_at: null,
+        legacy_token_auth: false,
+      },
+    ]);
+});
+afterEach(() => vi.restoreAllMocks());
+
+describe("device token generation", () => {
+  it("mints 256-bit url-safe tokens that never repeat", () => {
+    const a = mintDeviceToken();
+    expect(a).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(new Set(Array.from({ length: 200 }, mintDeviceToken)).size).toBe(200);
+  });
+
+  it("stores only a hash of the token", async () => {
+    const token = await issueDeviceToken(R1);
+    const [cred] = h.db.rows("router_credentials");
+    expect(cred.router_id).toBe(R1);
+    expect(cred.token_hash).toBe(await sha256Hex(token));
+    expect(JSON.stringify(h.db.tables)).not.toContain(token);
+  });
+
+  it("replaces the previous credential and retires legacy auth", async () => {
+    const first = await issueDeviceToken(R2);
+    const second = await issueDeviceToken(R2);
+    expect(h.db.rows("router_credentials")).toHaveLength(1);
+    expect(router(R2).legacy_token_auth).toBe(false);
+    expect((await hb(first)).status).toBe(404);
+    expect((await hb(second)).status).toBe(200);
+  });
+});
+
+describe("device endpoint authentication (heartbeat)", () => {
+  it("accepts a device token and records metrics against that router only", async () => {
+    const token = await issueDeviceToken(R1);
+    const res = await hb(
+      token,
+      freshIp(),
+      "?cpu=12&mem-free=256&mem-total=1024&version=7.15&board=hAP-ac2&arch=arm64",
+    );
+    expect(res.status).toBe(200);
+    expect(router(R1)).toMatchObject({
+      status: "online",
+      cpu_load: 12,
+      ram_usage: 75,
+      vendor: "mikrotik",
+      device_family: "hAP-ac2",
+      firmware_version: "7.15",
+      routeros_version: "7.15",
+      management_method: "routeros_agent",
+      management_status: "online",
+      capabilities: expect.arrayContaining(["health.read", "pppoe.configure"]),
+    });
+    expect(router(R2).cpu_load).toBeUndefined();
+    expect(router(R3).cpu_load).toBeUndefined();
+    expect(h.db.rows("router_metrics")).toMatchObject([
+      { router_id: R1, tenant_id: T, cpu_pct: 12 },
+    ]);
+  });
+
+  it("keeps existing routers working when routers.legacy_token_auth does not exist yet (migration not applied)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext("routers", "select", "column routers.legacy_token_auth does not exist");
+    expect((await hb(LEGACY2)).status).toBe(200);
+  });
+
+  it("does not let a database outage open the door: other errors and unknown tokens are still refused", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext("routers", "select", "connection reset");
+    expect((await hb(LEGACY2)).status).toBe(404);
+    expect((await hb("z".repeat(40))).status).toBe(404);
+  });
+
+  it("rejects unknown and malformed tokens, and malformed ones never reach the database", async () => {
+    expect((await hb("x".repeat(40))).status).toBe(404);
+    h.db.log.length = 0;
+    for (const bad of [
+      "short",
+      "has space in it........",
+      "semi;colon;colon;colon;",
+      "x".repeat(200),
+    ]) {
+      expect((await hb(bad)).status).toBe(404);
+    }
+    expect(h.db.log).toHaveLength(0);
+  });
+
+  it("does not accept a modern router's bootstrap token on a device endpoint", async () => {
+    expect((await hb(BOOT1)).status).toBe(404);
+    expect(router(R1).status).toBe("pending");
+  });
+
+  it("keeps routers that were provisioned before this change working, until they re-provision", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect((await hb(LEGACY2)).status).toBe(200);
+    await issueDeviceToken(R2);
+    expect((await hb(LEGACY2)).status).toBe(404);
+  });
+
+  it("stops a revoked router at once", async () => {
+    const token = await issueDeviceToken(R1);
+    expect((await hb(token)).status).toBe(200);
+    h.db.tables["router_credentials"] = []; // what rotate_router_token(revoke) does
+    expect((await hb(token)).status).toBe(404);
+  });
+
+  it("slows token guessing: after the miss limit an IP is told to back off, others are unaffected", async () => {
+    const token = await issueDeviceToken(R1);
+    const attacker = freshIp();
+    for (let i = 0; i < TOKEN_MISS_LIMIT; i++) await hb(`guess${i}`.padEnd(24, "g"), attacker);
+    expect((await hb(token, attacker)).status).toBe(429);
+    expect((await hb(token, freshIp())).status).toBe(200);
+  });
+});
+
+describe("interfaces endpoint", () => {
+  it("authenticates before doing any work", async () => {
+    const res = await call(Interfaces, "POST", {
+      params: { token: "x".repeat(40) },
+      rawBody: "ether1|true|false|1|2|0|0|0|0",
+      ip: freshIp(),
+    });
+    expect(res.status).toBe(404);
+    expect(h.db.rows("router_interfaces")).toHaveLength(0);
+  });
+  it("stores interface rows for the authenticated router", async () => {
+    const token = await issueDeviceToken(R1);
+    const res = await call(Interfaces, "POST", {
+      params: { token },
+      rawBody: "ether1|true|false|1000|2000|0|0|0|0",
+      ip: freshIp(),
+    });
+    expect(res.status).toBe(200);
+    expect(
+      h.db.rows("router_interfaces").every((r) => r.router_id === R1 && r.tenant_id === T),
+    ).toBe(true);
+    expect(h.db.rows("router_interfaces").length).toBeGreaterThan(0);
+  });
+});
+
+describe("sync script scoping", () => {
+  const pppoe = (
+    u: string,
+    p: string,
+    router_id: string | null,
+    extra: Record<string, unknown> = {},
+  ) => ({
+    tenant_id: T,
+    customer_type: "pppoe",
+    status: "active",
+    pppoe_username: u,
+    pppoe_password: p,
+    router_id,
+    expires_at: null,
+    package_id: null,
+    ...extra,
+  });
+  const sync = async (token: string) => {
+    const res = await call(Sync, "GET", { params: { token }, ip: freshIp() });
+    return { res, text: await res.text() };
+  };
+
+  beforeEach(() => {
+    h.db
+      .seed("customers", [
+        pppoe("alice", "alicepass1", R1),
+        pppoe("bob", "bobpass2", R2),
+        pppoe("carol", "carolpass3", null), // explicit "All routers"
+        pppoe("dave", "davepass4", R1, { expires_at: "2020-01-01T00:00:00Z" }),
+        pppoe("erin", "erinpass5", R1, { status: "suspended" }),
+        { ...pppoe("mallory", "rivalpass6", null), tenant_id: OTHER_T },
+      ])
+      .seed("vouchers", [
+        { tenant_id: T, code: "UNUSED2345", status: "unused", expires_at: null },
+        { tenant_id: T, code: "USED22345A", status: "used", expires_at: null },
+        { tenant_id: T, code: "EXPIRED234", status: "unused", expires_at: "2020-01-01T00:00:00Z" },
+        { tenant_id: OTHER_T, code: "RIVALCODE2", status: "unused", expires_at: null },
+      ]);
+  });
+
+  it("gives a router only its own clients plus the explicit all-router ones", async () => {
+    const { res, text } = await sync(await issueDeviceToken(R1));
+    expect(res.status).toBe(200);
+    expect(text).toContain("alice");
+    expect(text).toContain("carol");
+    for (const secret of ["bob", "bobpass2"]) expect(text).not.toContain(secret);
+  });
+
+  it("installs customer egress restrictions for hotspot and PPPoE on full sync", async () => {
+    const { res, text } = await sync(await issueDeviceToken(R1));
+    expect(res.status).toBe(200);
+    expect(text).toContain('comment="netgrid-egress-tcp-hotspot"');
+    expect(text).toContain('comment="netgrid-egress-tcp-pppoe"');
+    expect(text).toContain("protocol=gre action=drop");
+    expect(text).toContain("protocol=ipsec-esp action=drop");
+    expect(text).not.toContain("dst-port=443");
+  });
+
+  it("never emits expired, suspended or other tenants' clients", async () => {
+    const { text } = await sync(await issueDeviceToken(R1));
+    for (const s of ["dave", "erin", "mallory", "rivalpass6"]) expect(text).not.toContain(`"${s}"`);
+    expect(text).not.toContain("rivalpass6");
+  });
+
+  it("never even READS other routers' client rows for this request", async () => {
+    await sync(await issueDeviceToken(R1));
+    // proves the filter happens in the query, not only in post-processing
+    const q = h.db.log.filter((l) => l.table === "customers" && l.op === "select");
+    expect(q).toHaveLength(1);
+    const readable = h.db
+      .rows("customers")
+      .filter(
+        (c) =>
+          c.tenant_id === T && c.status === "active" && (c.router_id === R1 || c.router_id == null),
+      );
+    expect(readable.map((c) => c.pppoe_username).sort()).toEqual(["alice", "carol", "dave"]);
+  });
+
+  it("serves a second router its own set", async () => {
+    const { text } = await sync(await issueDeviceToken(R2));
+    expect(text).toContain("bob");
+    expect(text).toContain("carol");
+    expect(text).not.toContain("alice");
+  });
+
+  it("only includes this tenant's live vouchers", async () => {
+    const token = await issueDeviceToken(R1);
+    const { text } = await sync(token);
+    expect(text).toContain("UNUSED2345");
+    expect(text).toContain("USED22345A");
+    for (const s of ["EXPIRED234", "RIVALCODE2"]) expect(text).not.toContain(s);
+    expect(text).toContain(':local ngCurrentVouchers [:toarray "UNUSED2345,USED22345A"]');
+    expect(text).toContain(`sync/${token}?vouchers=1`);
+    expect(text).toContain('interval=10s on-event="/system script run netgrid-voucher-sync"');
+    expect(text).toContain(
+      "/ip hotspot set [find name=netgrid-hs] idle-timeout=none keepalive-timeout=none",
+    );
+    expect(text).not.toContain("idle-timeout=0s keepalive-timeout=0s");
+  });
+
+  it("syncs only verified, unexpired M-Pesa receipts as hotspot users", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db
+      .seed("packages", [
+        { id: "hotspot-1", tenant_id: T, kind: "hotspot", device_limit: 1 },
+        { id: "pppoe-1", tenant_id: T, kind: "pppoe", device_limit: 1 },
+      ])
+      .seed("payments", [
+        {
+          tenant_id: T,
+          status: "success",
+          mpesa_receipt: "PAID123456",
+          bound_mac: "AA:BB:CC:DD:EE:02",
+          package_id: "hotspot-1",
+          expires_at: "2999-01-01T00:00:00Z",
+        },
+        {
+          tenant_id: T,
+          status: "success",
+          mpesa_receipt: "EXPIRED123",
+          package_id: "hotspot-1",
+          expires_at: "2020-01-01T00:00:00Z",
+        },
+        {
+          tenant_id: OTHER_T,
+          status: "success",
+          mpesa_receipt: "RIVAL12345",
+          package_id: "hotspot-1",
+          expires_at: null,
+        },
+        {
+          tenant_id: T,
+          status: "pending",
+          mpesa_receipt: "PENDING123",
+          package_id: "hotspot-1",
+          expires_at: null,
+        },
+        {
+          tenant_id: T,
+          status: "success",
+          mpesa_receipt: "NOEXPIRY123",
+          package_id: "hotspot-1",
+          expires_at: null,
+        },
+        {
+          tenant_id: T,
+          status: "success",
+          mpesa_receipt: "PPPOE12345",
+          package_id: "pppoe-1",
+          expires_at: "2999-01-01T00:00:00Z",
+        },
+      ]);
+
+    const { text } = await sync(token);
+
+    expect(text).toContain('add name="PAID123456"');
+    expect(text).toContain("mac-address=AA:BB:CC:DD:EE:02");
+    expect(text).not.toContain("EXPIRED123");
+    expect(text).not.toContain("RIVAL12345");
+    expect(text).not.toContain("PENDING123");
+    expect(text).not.toContain("NOEXPIRY123");
+    expect(text).not.toContain("PPPOE12345");
+    expect(text).toContain("UNUSED2345");
+    expect(text).toContain("USED22345A");
+  });
+
+  it("serves new vouchers through the lightweight poll without returning full router sync data", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db.seed("tv_devices", [
+      {
+        tenant_id: T,
+        mac_address: "AA:BB:CC:DD:EE:02",
+        status: "active",
+        expires_at: "2999-01-01T00:00:00Z",
+      },
+      {
+        tenant_id: T,
+        mac_address: "AA:BB:CC:DD:EE:04",
+        status: "active",
+        expires_at: "2020-01-01T00:00:00Z",
+      },
+      {
+        tenant_id: OTHER_T,
+        mac_address: "AA:BB:CC:DD:EE:06",
+        status: "active",
+        expires_at: "2999-01-01T00:00:00Z",
+      },
+    ]);
+    const res = await call(Sync, "GET", {
+      url: `https://portal.test/api/public/router/sync/${token}?vouchers=1`,
+      params: { token },
+      ip: freshIp(),
+    });
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(text).toContain('name="UNUSED2345"');
+    expect(text).toContain('name="USED22345A"');
+    expect(text).toContain(':local ngCurrentVouchers [:toarray "UNUSED2345,USED22345A"]');
+    expect(text).not.toContain("EXPIRED234");
+    expect(text).not.toContain("RIVALCODE2");
+    expect(text).not.toContain("alicepass1");
+    expect(text).not.toContain("/ppp secret");
+    expect(text).toContain(':toarray "AA:BB:CC:DD:EE:02"');
+    expect(text).toContain('find where comment="netgrid-tv"');
+    expect(text).not.toContain("AA:BB:CC:DD:EE:04");
+    expect(text).not.toContain("AA:BB:CC:DD:EE:06");
+  });
+
+  it("serves paid M-Pesa access codes through the lightweight poll", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db
+      .seed("packages", [{ id: "hotspot-1", tenant_id: T, kind: "hotspot", device_limit: 1 }])
+      .seed("payments", [
+        {
+          tenant_id: T,
+          status: "success",
+          mpesa_receipt: "PAID123456",
+          bound_mac: "AA:BB:CC:DD:EE:02",
+          package_id: "hotspot-1",
+          expires_at: "2999-01-01T00:00:00Z",
+        },
+      ]);
+
+    const res = await call(Sync, "GET", {
+      url: `https://portal.test/api/public/router/sync/${token}?vouchers=1`,
+      params: { token },
+      ip: freshIp(),
+    });
+
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(text).toContain('add name="PAID123456"');
+    expect(text).toContain("AA:BB:CC:DD:EE:02");
+    expect(text).toContain("UNUSED2345");
+    expect(text).toContain("USED22345A");
+    expect(text).not.toContain("/ppp secret");
+  });
+
+  it("does not return an empty TV list when the fast refresh cannot read TV access", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db.failNext("tv_devices", "select", "database unavailable");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await call(Sync, "GET", {
+      url: `https://portal.test/api/public/router/sync/${token}?vouchers=1`,
+      params: { token },
+      ip: freshIp(),
+    });
+
+    expect(res.status).toBe(503);
+    expect(await res.text()).toContain("voucher sync unavailable");
+  });
+
+  it("embeds the device token (not the bootstrap token) in the login-page URL", async () => {
+    const token = await issueDeviceToken(R1);
+    const { text } = await sync(token);
+    expect(text).toContain(`/api/public/provision/${token}/login.html`);
+    expect(text).not.toContain(BOOT1);
+  });
+
+  it("refuses unknown tokens with a comment-only body", async () => {
+    const { res, text } = await sync("x".repeat(40));
+    expect(res.status).toBe(404);
+    expect(text).not.toContain("alice");
+  });
+});
+
+describe("login.html", () => {
+  it("needs a valid device token", async () => {
+    expect(
+      (await call(LoginHtml, "GET", { params: { token: "x".repeat(40) }, ip: freshIp() })).status,
+    ).toBe(404);
+    const token = await issueDeviceToken(R1);
+    expect((await call(LoginHtml, "GET", { params: { token }, ip: freshIp() })).status).toBe(200);
+  });
+});
+
+describe("router.rsc provisioning", () => {
+  const rsc = (token: string, ip = freshIp()) => call(Rsc, "GET", { params: { token }, ip });
+  const credFor = (id: string) => h.db.rows("router_credentials").find((c) => c.router_id === id);
+
+  it("uses the canonical host for the captive portal and router API endpoints", async () => {
+    vi.stubEnv("APP_CANONICAL_HOST", "cleennetworks.ochiengclinton993.workers.dev");
+
+    const script = await (await rsc(BOOT1)).text();
+
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
+  });
+
+  it("uses the canonical host even when a tenant has a verified hotspot domain", async () => {
+    vi.stubEnv("APP_CANONICAL_HOST", "cleennetworks.ochiengclinton993.workers.dev");
+    h.db.seed("tenant_domains", [
+      {
+        tenant_id: T,
+        purpose: "hotspot",
+        domain: "hotspot.ziwatti.ac.ke",
+        verified_at: new Date().toISOString(),
+      },
+    ]);
+
+    const script = await (await rsc(BOOT1)).text();
+
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
+    expect(script).not.toContain("https://hotspot.ziwatti.ac.ke/p/acme");
+    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
+  });
+
+  it("refuses to return a MikroTik script for another vendor", async () => {
+    router(R1).vendor = "tp_link_omada";
+
+    const response = await rsc(BOOT1);
+
+    expect(response.status).toBe(409);
+    expect(await response.text()).toContain("MikroTik provisioning is not supported");
+    expect(h.db.rows("router_credentials")).toHaveLength(0);
+  });
+
+  it("moves the LAN ports into the hotspot bridge last, so a dropped session cannot leave a half-configured router", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    expect(script).toContain("idle-timeout=none login-timeout=15m keepalive-timeout=none");
+    const at = (s: string) => {
+      const i = script.indexOf(s);
+      expect(i, `missing: ${s}`).toBeGreaterThan(-1);
+      return i;
+    };
+    const portMove = at("/interface bridge port add bridge=netgrid-lan");
+    // exactly one place moves ports, and everything that makes the router work comes first
+    expect(script.match(/\/interface bridge port add/g)).toHaveLength(1);
+    for (const earlier of [
+      "add name=netgrid-hs-pool",
+      "/ip hotspot profile",
+      ":do { add name=netgrid-hs interface=netgrid-lan",
+      "add name=netgrid-sync interval=5m",
+      "add name=netgrid-voucher-sync interval=10s",
+      "add name=netgrid-heartbeat",
+    ]) {
+      expect(at(earlier), earlier).toBeLessThan(portMove);
+    }
+    expect(portMove).toBeLessThan(at('NetGrid: auto-config complete"'));
+  });
+
+  it("downloads the login page last (best effort), so a slow download can never hold up the hotspot or PPPoE setup", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    const login = script.indexOf("/tool fetch url=");
+    const firstFetchOfPage = script.indexOf("login.html", login);
+    expect(firstFetchOfPage).toBeGreaterThan(
+      script.indexOf("/interface bridge port add bridge=netgrid-lan"),
+    );
+    expect(script.indexOf(":do { add name=netgrid-hs interface")).toBeLessThan(firstFetchOfPage);
+    expect(script.indexOf(":do { add service-name=netgrid interface=netgrid-lan")).toBeLessThan(
+      firstFetchOfPage,
+    );
+  });
+
+  it("guards each setup step, so one failing command cannot leave the customer ports disconnected", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    // every 'add' that creates a hotspot / PPPoE / DHCP / NAT piece sits inside its own :do { } on-error
+    const lines = script.split("\n");
+    const bare = lines.filter((l) => /^add (name|address|chain|service-name|dst-host)=/.test(l));
+    // the only unguarded adds left are the scheduler/script definitions (which already tolerate re-runs)
+    expect(
+      bare.filter((l) => !/^add name=netgrid-(wan|ifaces|sync|voucher-sync|heartbeat)/.test(l)),
+    ).toEqual([]);
+  });
+
+  it("is structurally sound: balanced quotes and brackets, and no \\$ outside quoted strings", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    const noComments = script
+      .split("\n")
+      .filter((l) => !l.trim().startsWith("#"))
+      .join("\n");
+    // quotes: an odd number of unescaped quotes means a string never closes and the import aborts there
+    expect(noComments.replace(/\\./g, "").split('"').length % 2).toBe(1);
+    const stripped = noComments.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    for (const [a, b] of [
+      ["{", "}"],
+      ["[", "]"],
+      ["(", ")"],
+    ]) {
+      expect(stripped.split(a).length, `${a}${b}`).toBe(stripped.split(b).length);
+    }
+    expect(stripped).not.toMatch(/\\\$/);
+  });
+
+  it("uses RouterOS's standard hotspot folder and never calls the unverified reset-html", async () => {
+    const script = await (await rsc(BOOT1)).text();
+    expect(script).toContain("html-directory=hotspot");
+    expect(script).not.toContain("flash/hotspot");
+    expect(script).not.toContain("reset-html");
+  });
+
+  it("exchanges the bootstrap token for a fresh device token and embeds only the device token", async () => {
+    const res = await rsc(BOOT1);
+    const script = await res.text();
+    expect(res.status).toBe(200);
+    expect(script).not.toContain(BOOT1);
+    const [, deviceToken] =
+      script.match(/api\/public\/router\/heartbeat\/([A-Za-z0-9_-]{43})/) ?? [];
+    expect(deviceToken).toBeTruthy();
+    expect(script).toContain(`/router/sync/${deviceToken}`);
+    expect(script).toContain(`/router/interfaces/${deviceToken}`);
+    expect(credFor(R1)?.token_hash).toBe(await sha256Hex(deviceToken));
+    expect((await hb(deviceToken)).status).toBe(200);
+  });
+
+  it("marks the router online and retires legacy auth", async () => {
+    await rsc(BOOT1);
+    expect(router(R1).status).toBe("online");
+    await rsc(LEGACY2);
+    expect(router(R2).legacy_token_auth).toBe(false);
+  });
+
+  it("re-running within the window issues a new device token and the old one stops working", async () => {
+    const tokenOf = async () =>
+      ((await (await rsc(BOOT1)).text()).match(/heartbeat\/([A-Za-z0-9_-]{43})/) ?? [])[1];
+    const first = await tokenOf();
+    const second = await tokenOf();
+    expect(first).not.toBe(second);
+    expect((await hb(first)).status).toBe(404);
+    expect((await hb(second)).status).toBe(200);
+  });
+
+  it("refuses an expired bootstrap token and changes nothing", async () => {
+    router(R1).provision_token_expires_at = new Date(Date.now() - 1000).toISOString();
+    const res = await rsc(BOOT1);
+    expect(res.status).toBe(410);
+    expect(await res.text()).toMatch(/expired/i);
+    expect(h.db.rows("router_credentials")).toHaveLength(0);
+  });
+
+  it("refuses unknown tokens, and a device token cannot be used as a bootstrap token", async () => {
+    expect((await rsc("x".repeat(40))).status).toBe(404);
+    const device = await issueDeviceToken(R1);
+    expect((await rsc(device)).status).toBe(404);
+  });
+
+  it("does not hand out a script if the credential cannot be stored", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext("router_credentials", "upsert", "db down");
+    const res = await rsc(BOOT1);
+    expect(res.status).toBe(500);
+    expect(await res.text()).not.toContain("/router/heartbeat/");
+  });
+
+  it("falls back to the previous token scheme when the credentials migration is not applied yet", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db.failNext(
+      "router_credentials",
+      "upsert",
+      "Could not find the table 'public.router_credentials' in the schema cache",
+    );
+    const res = await rsc(BOOT1);
+    expect(res.status).toBe(200);
+    // the router is provisioned with the token it already has instead of being refused
+    expect(await res.text()).toContain(`/router/heartbeat/${BOOT1}`);
+  });
+
+  it("leaves the existing credential alone if the tenant lookup fails", async () => {
+    const existing = await issueDeviceToken(R1);
+    h.db.failNext("tenants", "select");
+    await rsc(BOOT1);
+    expect((await hb(existing)).status).toBe(200);
+  });
+});
+
+describe("sync keeps what the router already has when a database read fails", () => {
+  const sync = async (token: string) => {
+    const res = await call(Sync, "GET", { params: { token }, ip: freshIp() });
+    return { res, text: await res.text() };
+  };
+  const client = (u: string) => ({
+    tenant_id: T,
+    customer_type: "pppoe",
+    status: "active",
+    pppoe_username: u,
+    pppoe_password: `${u}pass12`,
+    router_id: null,
+    expires_at: null,
+    package_id: null,
+  });
+
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    h.db
+      .seed("customers", [client("alice")])
+      .seed("vouchers", [{ tenant_id: T, code: "UNUSED2345", status: "unused", expires_at: null }]);
+  });
+
+  it("records when the router last synced, and never fails the sync if it cannot", async () => {
+    const token = await issueDeviceToken(R1);
+    expect(h.db.rows("routers").find((r) => r.id === R1)?.last_sync_at ?? null).toBeNull();
+    expect((await sync(token)).res.status).toBe(200);
+    const stamped = h.db.rows("routers").find((r) => r.id === R1)?.last_sync_at as string;
+    expect(Date.now() - new Date(stamped).getTime()).toBeLessThan(5_000);
+
+    // the column may not exist yet in production: the sync must still work
+    h.db.failNext("routers", "update", "column routers.last_sync_at does not exist");
+    const { res, text } = await sync(token);
+    expect(res.status).toBe(200);
+    expect(text).toContain("UNUSED2345");
+  });
+
+  it("healthy: PPPoE clients and vouchers are written", async () => {
+    const { text } = await sync(await issueDeviceToken(R1));
+    expect(text).toContain("alice");
+    expect(text).toContain("UNUSED2345");
+    expect(text).not.toContain("sync skipped");
+  });
+
+  it("PPPoE: an unreadable customer list is skipped, never treated as 'no clients'", async () => {
+    h.db.failNext("customers", "select", "column customers.router_id does not exist");
+    const { res, text } = await sync(await issueDeviceToken(R1));
+    expect(res.status).toBe(200);
+    expect(text).toContain("PPPoE sync skipped");
+    expect(text).not.toContain("alice");
+    // no PPPoE section at all, so nothing is removed from the router
+    expect(text).not.toMatch(/^\/ppp secret$/m);
+    expect(text).not.toMatch(/^\/ppp profile$/m);
+    // the rest of the sync still runs
+    expect(text).toContain("UNUSED2345");
+  });
+
+  it("PPPoE: an unreadable package list is skipped too, so speed limits are not silently dropped", async () => {
+    h.db.failNext("packages", "select", "boom");
+    const { text } = await sync(await issueDeviceToken(R1));
+    expect(text).toContain("PPPoE sync skipped");
+    expect(text).not.toMatch(/^\/ppp secret$/m);
+  });
+
+  it("smart TVs, blocked devices and device monitoring are each skipped, not wiped", async () => {
+    h.db.failNext("tv_devices", "select", "boom");
+    h.db.failNext("router_devices", "select", "boom");
+    h.db.failNext("inventory_devices", "select", "boom");
+    const { text } = await sync(await issueDeviceToken(R1));
+    expect(text).toContain("smart TV sync skipped");
+    expect(text).toContain("blocked devices sync skipped");
+    expect(text).toContain("device monitoring sync skipped");
+    expect(text).not.toContain("netgrid-tv");
+    expect(text).toContain("alice"); // unrelated sections are unaffected
+  });
+
+  it("the login-page self-heal comes last, after every user and PPPoE section", async () => {
+    const { text } = await sync(await issueDeviceToken(R1));
+    const heal = text.indexOf("hotspot login page self-heal");
+    expect(heal).toBeGreaterThan(-1);
+    for (const earlier of ["alice", "UNUSED2345", "NetGrid: users synced"]) {
+      expect(text.indexOf(earlier), earlier).toBeLessThan(
+        heal === -1 ? 0 : text.lastIndexOf("users synced") + 1,
+      );
+    }
+    expect(text.indexOf("alice")).toBeLessThan(heal);
+    expect(text.indexOf("UNUSED2345")).toBeLessThan(heal);
+  });
+
+  it("no router script contains an escaped dollar (\\$) outside a quoted string", async () => {
+    const { text } = await sync(await issueDeviceToken(R1));
+    // inside braced script bodies RouterOS needs plain $; \$ is only valid within "quoted" strings
+    const stripped = text.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    expect(stripped).not.toMatch(/\\\$/);
+  });
+});

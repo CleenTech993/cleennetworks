@@ -1,0 +1,2 @@
+ALTER TABLE public.customers DROP CONSTRAINT customers_router_id_fkey;
+ALTER TABLE public.customers ADD CONSTRAINT customers_router_id_fkey FOREIGN KEY (router_id) REFERENCES public.routers(id) ON DELETE SET NULL;

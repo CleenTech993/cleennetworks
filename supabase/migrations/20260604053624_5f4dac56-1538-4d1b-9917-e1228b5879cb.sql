@@ -1,0 +1,1 @@
+CREATE POLICY "tenants super insert" ON public.tenants FOR INSERT TO authenticated WITH CHECK (public.is_super_admin(auth.uid()));
