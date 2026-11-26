@@ -46,6 +46,8 @@ conventions and next steps.
   with their PPPoE credentials; the portal session is signed and stored in an HTTP-only cookie.
 - **Router integration** — RouterOS provisioning and sync, router heartbeat, connected devices,
   interfaces, inventory monitoring, and PPPoE session reporting.
+- **Production NOC health** — recent router heartbeats surface high CPU, memory, or temperature
+  warnings; Realtime updates keep the fleet view current while slower polling provides a fallback.
 - **Payments and billing** — tenant payment flows and callbacks, customer communications, platform
   billing and commissions, and super-admin settlements.
 - **Customer billing** — due-time PPPoE renewal invoices with a three-day service grace period,

@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
+import { fmtUptime, isRouterLive, routerHealthWarnings } from "@/lib/router-health";
 import { RouterFleetSlaCard } from "@/components/router-fleet-sla-card";
 import { CONNECTED_WINDOW_MS, isClientConnected } from "@/lib/pppoe-sessions";
 import { formatTenantDate } from "@/lib/tenant-customization";
@@ -74,7 +74,7 @@ export function TenantNocPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 3_000,
+    refetchInterval: 30_000,
   });
 
   const { data: pppoeCustomers } = useQuery({
@@ -95,7 +95,7 @@ export function TenantNocPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   const { data: hotspotDevices } = useQuery({
@@ -118,7 +118,7 @@ export function TenantNocPage() {
       if (error) throw error;
       return data ?? [];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   // Supabase Realtime channel subscription for immediate updates
@@ -139,16 +139,29 @@ export function TenantNocPage() {
     };
   }, [tenantId, refetchRouters]);
 
-  // Re-evaluate live state every 2 seconds
-  const [, setTick] = useState(0);
+  // Re-evaluate stale-heartbeat state between realtime updates.
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const i = setInterval(() => setTick((t) => t + 1), 2_000);
+    const i = setInterval(() => setNow(Date.now()), 10_000);
     return () => clearInterval(i);
   }, []);
 
   const routerList = useMemo(() => routers ?? [], [routers]);
-  const onlineRouters = useMemo(() => routerList.filter(isRouterLive), [routerList]);
-  const offlineRouters = useMemo(() => routerList.filter((r) => !isRouterLive(r)), [routerList]);
+  const onlineRouters = useMemo(
+    () => routerList.filter((router) => isRouterLive(router, now)),
+    [routerList, now],
+  );
+  const offlineRouters = useMemo(
+    () => routerList.filter((router) => !isRouterLive(router, now)),
+    [routerList, now],
+  );
+  const performanceWarnings = useMemo(
+    () =>
+      routerList.flatMap((router) =>
+        routerHealthWarnings(router, now).map((warning) => ({ router, ...warning })),
+      ),
+    [routerList, now],
+  );
 
   // Aggregated traffic
   const avgCpu = useMemo(() => {
@@ -158,7 +171,6 @@ export function TenantNocPage() {
   }, [onlineRouters]);
 
   // PPPoE active counts
-  const now = Date.now();
   const liveRouterIds = useMemo(
     () => new Set(onlineRouters.map((router) => router.id)),
     [onlineRouters],
@@ -296,6 +308,49 @@ export function TenantNocPage() {
           icon={Users}
         />
       </div>
+
+      {performanceWarnings.length > 0 && (
+        <section
+          aria-label="Router performance warnings"
+          className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4"
+        >
+          <div className="mb-3 flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div>
+              <h3 className="font-semibold text-amber-700 dark:text-amber-400">
+                Router performance warnings
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Recent live telemetry is above a hardware health threshold.
+              </p>
+            </div>
+          </div>
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {performanceWarnings.slice(0, 9).map((warning) => (
+              <li
+                key={`${warning.router.id}:${warning.metric}`}
+                className="flex items-center justify-between gap-3 rounded-lg border bg-background/70 px-3 py-2 text-sm"
+              >
+                <Link
+                  to="/tenant/routers/$id"
+                  params={{ id: warning.router.id }}
+                  className="min-w-0 truncate font-medium hover:underline"
+                >
+                  {warning.router.name}
+                </Link>
+                <span className="shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                  {warning.metric}: {warning.value}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {performanceWarnings.length > 9 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Showing 9 of {performanceWarnings.length} warnings.
+            </p>
+          )}
+        </section>
+      )}
 
       <RouterFleetSlaCard tenantId={tenantId} routers={routerList} />
 

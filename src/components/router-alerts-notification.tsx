@@ -86,7 +86,7 @@ export function RouterAlertsNotification({
       if (error) throw error;
       return (data ?? []) as RouterStatus[];
     },
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
   });
 
   const { data: chainAlerts = [] } = useQuery({
@@ -106,7 +106,7 @@ export function RouterAlertsNotification({
       if (error) throw error;
       return (data ?? []) as ChainAlertRow[];
     },
-    refetchInterval: 10_000,
+    refetchInterval: 30_000,
   });
 
   const { data: securityAlerts = [] } = useQuery({
@@ -127,10 +127,10 @@ export function RouterAlertsNotification({
     refetchInterval: 15_000,
   });
 
-  // Re-evaluate router liveness every 3 seconds
+  // Re-evaluate router liveness between realtime updates.
   const [, setTick] = useState(0);
   useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 3_000);
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
     return () => clearInterval(timer);
   }, []);
 

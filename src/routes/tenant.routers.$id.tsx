@@ -64,7 +64,7 @@ function RouterDetail() {
       if (error) throw error;
       return data as Tables<"routers"> | null;
     },
-    refetchInterval: 2_000,
+    refetchInterval: 15_000,
   });
 
   const { data: tenantRouters = [], refetch: refetchTenantRouters } = useQuery({
@@ -79,7 +79,7 @@ function RouterDetail() {
       if (error) throw error;
       return (data ?? []) as Tables<"routers">[];
     },
-    refetchInterval: 5_000,
+    refetchInterval: 30_000,
   });
 
   const { data: routerHotspotClients = [] } = useQuery({

@@ -8,6 +8,15 @@ export type CheckIn = {
   last_seen_at?: string | null;
 };
 
+export type RouterHealthSample = CheckIn & {
+  cpu_load?: number | null;
+  cpu_usage?: number | null;
+  free_memory_mb?: number | null;
+  total_memory_mb?: number | null;
+  ram_usage?: number | null;
+  temperature?: number | null;
+};
+
 /** A router counts as live if it checked in within this window (it heartbeats every minute). */
 export const LIVE_WINDOW_MS = 3 * 60 * 1000;
 
@@ -20,11 +29,30 @@ export function isRouterLive(r: CheckIn, now = Date.now()): boolean {
   return last ? now - new Date(last).getTime() < LIVE_WINDOW_MS : false;
 }
 
-export function ramPercent(r: RouterRow): number | null {
+export function ramPercent(r: RouterHealthSample): number | null {
   if (r.total_memory_mb && r.free_memory_mb != null) {
     return Math.round(((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100);
   }
   return r.ram_usage ?? null;
+}
+
+export function routerHealthWarnings(
+  r: RouterHealthSample,
+  now = Date.now(),
+): Array<{ metric: "CPU" | "Memory" | "Temperature"; value: string }> {
+  if (!isRouterLive(r, now)) return [];
+
+  const warnings: Array<{ metric: "CPU" | "Memory" | "Temperature"; value: string }> = [];
+  const cpu = r.cpu_load ?? r.cpu_usage;
+  if (cpu != null && cpu > 80) warnings.push({ metric: "CPU", value: `${cpu}%` });
+
+  const memory = ramPercent(r);
+  if (memory != null && memory > 85) warnings.push({ metric: "Memory", value: `${memory}% used` });
+
+  if (r.temperature != null && Number(r.temperature) > 70)
+    warnings.push({ metric: "Temperature", value: `${r.temperature}°C` });
+
+  return warnings;
 }
 
 /** 0-100. An unreachable router scores 0; otherwise points are taken off for CPU, RAM and heat. */

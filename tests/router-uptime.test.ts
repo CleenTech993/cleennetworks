@@ -13,7 +13,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 vi.mock("@tanstack/react-start/server", () => ({ getRequestHost: () => "portal.test" }));
 
 import { Route as Heartbeat } from "@/routes/api/public/router/heartbeat.$token";
-import { parseRouterOsDuration } from "@/lib/router-health";
+import { parseRouterOsDuration, routerHealthWarnings } from "@/lib/router-health";
 
 describe("parseRouterOsDuration", () => {
   it.each([
@@ -31,6 +31,55 @@ describe("parseRouterOsDuration", () => {
     "rejects %j",
     (input) => expect(parseRouterOsDuration(input as string | null | undefined)).toBeNull(),
   );
+});
+
+describe("routerHealthWarnings", () => {
+  const now = Date.parse("2026-11-26T13:00:00.000Z");
+  const heartbeat = new Date(now).toISOString();
+
+  it("reports high CPU, memory, and temperature from a live heartbeat", () => {
+    expect(
+      routerHealthWarnings(
+        {
+          last_heartbeat_at: heartbeat,
+          cpu_load: 100,
+          total_memory_mb: 32,
+          free_memory_mb: 4,
+          temperature: 75,
+        },
+        now,
+      ),
+    ).toEqual([
+      { metric: "CPU", value: "100%" },
+      { metric: "Memory", value: "88% used" },
+      { metric: "Temperature", value: "75°C" },
+    ]);
+  });
+
+  it("does not warn on stale telemetry or values within thresholds", () => {
+    expect(
+      routerHealthWarnings(
+        {
+          last_heartbeat_at: new Date(now - 4 * 60_000).toISOString(),
+          cpu_load: 100,
+          ram_usage: 99,
+          temperature: 90,
+        },
+        now,
+      ),
+    ).toEqual([]);
+    expect(
+      routerHealthWarnings(
+        {
+          last_heartbeat_at: heartbeat,
+          cpu_load: 80,
+          ram_usage: 85,
+          temperature: 70,
+        },
+        now,
+      ),
+    ).toEqual([]);
+  });
 });
 
 const T = "11111111-1111-1111-1111-111111111111";
