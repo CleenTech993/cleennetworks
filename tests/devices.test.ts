@@ -219,7 +219,7 @@ describe("buildHotspotUserLines", () => {
   it("keeps live voucher users in place during sync so active sessions are not restarted", () => {
     const out = joined([{ code: "LIVE000001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 }]);
     expect(out).not.toContain('remove [find where comment="netgrid-voucher"]');
-    expect(out).toContain(':if ([:len [find where name="LIVE000001"]] = 0) do={');
+    expect(out).toContain(':if ([:len [find where name="LIVE000001"]] > 0) do={');
     expect(out).toContain(
       'set [find where name="LIVE000001"] server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02 comment="netgrid-voucher"',
     );

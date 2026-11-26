@@ -204,7 +204,7 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   for (const v of valid) {
     const mac =
       v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
-    lines.push(`:if ([:len [find where name="${v.code}"]] = 0) do={`);
+    lines.push(`:if ([:len [find where name="${v.code}"]] > 0) do={`);
     lines.push(
       `:do { set [find where name="${v.code}"] server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={}`,
     );
