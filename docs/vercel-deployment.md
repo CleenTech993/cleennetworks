@@ -11,8 +11,10 @@ existing Cloudflare adapter.
 2. Use `npm install` as the install command and `npm run build` as the build command. Leave the
    output directory unset so Nitro can provide Vercel's deployment output.
 3. Add the environment variables below for each Vercel environment you will use, then redeploy.
-4. Add your production domain in Vercel and set `APP_CANONICAL_HOST` and
-   `VITE_APP_CANONICAL_HOST` to that hostname.
+4. Add your production domain in Vercel. Set `APP_CANONICAL_HOST` and
+   `VITE_APP_CANONICAL_HOST` to that hostname (for the Vercel-provided domain, use
+   `cleennetworks.vercel.app`, not the previous `workers.dev` hostname), then redeploy. The
+   `VITE_` value is embedded at build time.
 5. In Supabase Auth, set the site URL and redirect allow-list to include your Vercel domain. Test
    sign-in, MFA, customer portals, callbacks, and router integrations after deployment.
 
