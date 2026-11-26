@@ -27,6 +27,8 @@ const initialForm = {
   mpesaConsumerKey: "",
   mpesaConsumerSecret: "",
   mpesaPasskey: "",
+  mpesaInitiatorName: "",
+  mpesaSecurityCredential: "",
   smsUsername: "",
   smsApiKey: "",
   smsSenderId: "",
@@ -244,6 +246,35 @@ export function TenantServiceCredentials() {
               "Enter to replace the saved passkey",
               true,
             )}
+            <div className="rounded-md border bg-muted/30 p-3">
+              <p className="text-sm font-medium">Manual PayBill / Buy Goods verification</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {status?.mpesaTransactionStatusConfigured
+                  ? "Transaction Status verification is configured."
+                  : "To verify manual payments automatically, add your Daraja initiator name and encrypted SecurityCredential. Generate the credential with Safaricom's certificate for the selected environment; do not enter the plaintext initiator password."}
+              </p>
+              <div className="mt-3 space-y-3">
+                {field(
+                  "mpesaInitiatorName",
+                  "Daraja initiator name",
+                  "Enter to replace the saved initiator",
+                )}
+                {field(
+                  "mpesaSecurityCredential",
+                  "Encrypted SecurityCredential",
+                  "Enter to replace the saved credential",
+                  true,
+                )}
+              </div>
+              <a
+                className="mt-2 inline-block text-xs underline"
+                href="https://developer.safaricom.co.ke/apis/Security-Credentials"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Safaricom Security Credentials guide
+              </a>
+            </div>
           </div>
         </div>
 

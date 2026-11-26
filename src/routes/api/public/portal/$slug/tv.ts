@@ -234,10 +234,19 @@ export const Route = createFileRoute("/api/public/portal/$slug/tv")({
           });
         } catch (e) {
           console.error("tv checkout: STK push failed", e);
-          await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
+          const { error: failError } = await supabaseAdmin
+            .from("payments")
+            .update({ status: "failed" })
+            .eq("id", pay.id)
+            .eq("status", "pending");
+          if (failError) {
+            console.error("Could not close failed TV STK payment", failError);
+            return Response.json({ error: "Could not start the M-Pesa prompt." }, { status: 503 });
+          }
           return Response.json(
             {
               error: `We couldn't start the M-Pesa prompt. Check the phone number and try again. If it still fails, contact ${tenant.name || "the provider"} to verify the PayBill's Daraja setup.`,
+              paymentId: pay.id,
             },
             { status: 502 },
           );

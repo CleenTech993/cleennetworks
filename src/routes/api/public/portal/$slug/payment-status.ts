@@ -5,6 +5,7 @@ import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 import { rateLimit } from "@/lib/rate-limit.server";
 import { processOmadaAuthorization } from "@/lib/omada-authorization.server";
 import { isHotspotPackageKind } from "@/lib/devices";
+import { getTenantManualPaymentDetails } from "@/lib/daraja.server";
 
 const STK_RESULT_GRACE_MS = 2 * 60_000;
 const STK_PENDING_TIMEOUT_MS = 10 * 60_000;
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
         const { data: pay, error: paymentError } = await supabaseAdmin
           .from("payments")
           .select(
-            "id,status,provider,checkout_request_id,customer_id,package_id,phone,tv_device_id,expires_at,created_at,mpesa_receipt,voucher_code",
+            "id,status,provider,checkout_request_id,customer_id,package_id,phone,amount,tv_device_id,expires_at,created_at,mpesa_receipt,voucher_code,manual_mpesa_receipt,manual_verification_status,manual_verification_error",
           )
           .eq("id", id)
           .eq("tenant_id", tenant.id)
@@ -158,6 +159,30 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
           }
         }
 
+        let manualPayment: {
+          merchantType: "paybill" | "buygoods";
+          shortcode: string;
+          amount: number;
+          accountReference: string | null;
+          verificationConfigured: boolean;
+        } | null = null;
+        let manualPaymentDetailsUnavailable = false;
+        if (currentStatus === "failed" && pay.provider === "daraja" && pay.package_id) {
+          try {
+            const details = await getTenantManualPaymentDetails(tenant.id);
+            if (details) {
+              manualPayment = {
+                ...details,
+                amount: pay.amount,
+                accountReference: details.merchantType === "paybill" ? pay.phone : null,
+              };
+            }
+          } catch (error) {
+            console.error("Could not load manual payment instructions", error);
+            manualPaymentDetailsUnavailable = true;
+          }
+        }
+
         return Response.json({
           id: pay.id,
           status: currentStatus,
@@ -165,6 +190,13 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
           voucher_code: currentVoucher,
           receipt_pending: confirmedAwaitingReceipt && !currentReceipt,
           omadaAuthorization,
+          manualPayment,
+          manualPaymentDetailsUnavailable,
+          manualVerification: {
+            status: pay.manual_verification_status,
+            receipt: pay.manual_mpesa_receipt,
+            error: pay.manual_verification_error,
+          },
         });
       },
     },

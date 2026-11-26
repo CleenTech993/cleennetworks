@@ -76,7 +76,9 @@ import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api
 import { Route as ApiPublicMpesaPlatformC2bValidationTokenRouteImport } from './routes/api/public/mpesa/platform-c2b-validation.$token'
 import { Route as ApiPublicMpesaPlatformC2bTokenRouteImport } from './routes/api/public/mpesa/platform-c2b.$token'
 import { Route as ApiPublicMpesaPlatformStkTokenRouteImport } from './routes/api/public/mpesa/platform-stk.$token'
+import { Route as ApiPublicMpesaTransactionStatusTokenRouteImport } from './routes/api/public/mpesa/transaction-status.$token'
 import { Route as ApiPublicPortalSlugCheckoutRouteImport } from './routes/api/public/portal/$slug/checkout'
+import { Route as ApiPublicPortalSlugManualPaymentRouteImport } from './routes/api/public/portal/$slug/manual-payment'
 import { Route as ApiPublicPortalSlugPaymentStatusRouteImport } from './routes/api/public/portal/$slug/payment-status'
 import { Route as ApiPublicPortalSlugReconnectRouteImport } from './routes/api/public/portal/$slug/reconnect'
 import { Route as ApiPublicPortalSlugSessionRouteImport } from './routes/api/public/portal/$slug/session'
@@ -441,10 +443,22 @@ const ApiPublicMpesaPlatformStkTokenRoute =
     path: '/api/public/mpesa/platform-stk/$token',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMpesaTransactionStatusTokenRoute =
+  ApiPublicMpesaTransactionStatusTokenRouteImport.update({
+    id: '/api/public/mpesa/transaction-status/$token',
+    path: '/api/public/mpesa/transaction-status/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPortalSlugCheckoutRoute =
   ApiPublicPortalSlugCheckoutRouteImport.update({
     id: '/checkout',
     path: '/checkout',
+    getParentRoute: () => ApiPublicPortalSlugRoute,
+  } as any)
+const ApiPublicPortalSlugManualPaymentRoute =
+  ApiPublicPortalSlugManualPaymentRouteImport.update({
+    id: '/manual-payment',
+    path: '/manual-payment',
     getParentRoute: () => ApiPublicPortalSlugRoute,
   } as any)
 const ApiPublicPortalSlugPaymentStatusRoute =
@@ -641,7 +655,9 @@ export interface FileRoutesByFullPath {
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
   '/api/public/mpesa/platform-stk/$token': typeof ApiPublicMpesaPlatformStkTokenRoute
+  '/api/public/mpesa/transaction-status/$token': typeof ApiPublicMpesaTransactionStatusTokenRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
+  '/api/public/portal/$slug/manual-payment': typeof ApiPublicPortalSlugManualPaymentRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/session': typeof ApiPublicPortalSlugSessionRoute
@@ -729,7 +745,9 @@ export interface FileRoutesByTo {
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
   '/api/public/mpesa/platform-stk/$token': typeof ApiPublicMpesaPlatformStkTokenRoute
+  '/api/public/mpesa/transaction-status/$token': typeof ApiPublicMpesaTransactionStatusTokenRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
+  '/api/public/portal/$slug/manual-payment': typeof ApiPublicPortalSlugManualPaymentRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/session': typeof ApiPublicPortalSlugSessionRoute
@@ -821,7 +839,9 @@ export interface FileRoutesById {
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   '/api/public/mpesa/platform-c2b/$token': typeof ApiPublicMpesaPlatformC2bTokenRoute
   '/api/public/mpesa/platform-stk/$token': typeof ApiPublicMpesaPlatformStkTokenRoute
+  '/api/public/mpesa/transaction-status/$token': typeof ApiPublicMpesaTransactionStatusTokenRoute
   '/api/public/portal/$slug/checkout': typeof ApiPublicPortalSlugCheckoutRoute
+  '/api/public/portal/$slug/manual-payment': typeof ApiPublicPortalSlugManualPaymentRoute
   '/api/public/portal/$slug/payment-status': typeof ApiPublicPortalSlugPaymentStatusRoute
   '/api/public/portal/$slug/reconnect': typeof ApiPublicPortalSlugReconnectRoute
   '/api/public/portal/$slug/session': typeof ApiPublicPortalSlugSessionRoute
@@ -914,7 +934,9 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
     | '/api/public/mpesa/platform-stk/$token'
+    | '/api/public/mpesa/transaction-status/$token'
     | '/api/public/portal/$slug/checkout'
+    | '/api/public/portal/$slug/manual-payment'
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/session'
@@ -1002,7 +1024,9 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
     | '/api/public/mpesa/platform-stk/$token'
+    | '/api/public/mpesa/transaction-status/$token'
     | '/api/public/portal/$slug/checkout'
+    | '/api/public/portal/$slug/manual-payment'
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/session'
@@ -1093,7 +1117,9 @@ export interface FileRouteTypes {
     | '/api/public/mpesa/platform-c2b-validation/$token'
     | '/api/public/mpesa/platform-c2b/$token'
     | '/api/public/mpesa/platform-stk/$token'
+    | '/api/public/mpesa/transaction-status/$token'
     | '/api/public/portal/$slug/checkout'
+    | '/api/public/portal/$slug/manual-payment'
     | '/api/public/portal/$slug/payment-status'
     | '/api/public/portal/$slug/reconnect'
     | '/api/public/portal/$slug/session'
@@ -1144,6 +1170,7 @@ export interface RootRouteChildren {
   ApiPublicMpesaPlatformC2bValidationTokenRoute: typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
   ApiPublicMpesaPlatformC2bTokenRoute: typeof ApiPublicMpesaPlatformC2bTokenRoute
   ApiPublicMpesaPlatformStkTokenRoute: typeof ApiPublicMpesaPlatformStkTokenRoute
+  ApiPublicMpesaTransactionStatusTokenRoute: typeof ApiPublicMpesaTransactionStatusTokenRoute
   ApiPublicPppoePortalSlugAccountRoute: typeof ApiPublicPppoePortalSlugAccountRoute
   ApiPublicPppoePortalSlugCheckoutRoute: typeof ApiPublicPppoePortalSlugCheckoutRoute
   ApiPublicPppoePortalSlugLoginRoute: typeof ApiPublicPppoePortalSlugLoginRoute
@@ -1632,11 +1659,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMpesaPlatformStkTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/mpesa/transaction-status/$token': {
+      id: '/api/public/mpesa/transaction-status/$token'
+      path: '/api/public/mpesa/transaction-status/$token'
+      fullPath: '/api/public/mpesa/transaction-status/$token'
+      preLoaderRoute: typeof ApiPublicMpesaTransactionStatusTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/portal/$slug/checkout': {
       id: '/api/public/portal/$slug/checkout'
       path: '/checkout'
       fullPath: '/api/public/portal/$slug/checkout'
       preLoaderRoute: typeof ApiPublicPortalSlugCheckoutRouteImport
+      parentRoute: typeof ApiPublicPortalSlugRoute
+    }
+    '/api/public/portal/$slug/manual-payment': {
+      id: '/api/public/portal/$slug/manual-payment'
+      path: '/manual-payment'
+      fullPath: '/api/public/portal/$slug/manual-payment'
+      preLoaderRoute: typeof ApiPublicPortalSlugManualPaymentRouteImport
       parentRoute: typeof ApiPublicPortalSlugRoute
     }
     '/api/public/portal/$slug/payment-status': {
@@ -1911,6 +1952,7 @@ const TenantRouteWithChildren =
 
 interface ApiPublicPortalSlugRouteChildren {
   ApiPublicPortalSlugCheckoutRoute: typeof ApiPublicPortalSlugCheckoutRoute
+  ApiPublicPortalSlugManualPaymentRoute: typeof ApiPublicPortalSlugManualPaymentRoute
   ApiPublicPortalSlugPaymentStatusRoute: typeof ApiPublicPortalSlugPaymentStatusRoute
   ApiPublicPortalSlugReconnectRoute: typeof ApiPublicPortalSlugReconnectRoute
   ApiPublicPortalSlugSessionRoute: typeof ApiPublicPortalSlugSessionRoute
@@ -1921,6 +1963,7 @@ interface ApiPublicPortalSlugRouteChildren {
 
 const ApiPublicPortalSlugRouteChildren: ApiPublicPortalSlugRouteChildren = {
   ApiPublicPortalSlugCheckoutRoute: ApiPublicPortalSlugCheckoutRoute,
+  ApiPublicPortalSlugManualPaymentRoute: ApiPublicPortalSlugManualPaymentRoute,
   ApiPublicPortalSlugPaymentStatusRoute: ApiPublicPortalSlugPaymentStatusRoute,
   ApiPublicPortalSlugReconnectRoute: ApiPublicPortalSlugReconnectRoute,
   ApiPublicPortalSlugSessionRoute: ApiPublicPortalSlugSessionRoute,
@@ -1961,6 +2004,8 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicMpesaPlatformC2bValidationTokenRoute,
   ApiPublicMpesaPlatformC2bTokenRoute: ApiPublicMpesaPlatformC2bTokenRoute,
   ApiPublicMpesaPlatformStkTokenRoute: ApiPublicMpesaPlatformStkTokenRoute,
+  ApiPublicMpesaTransactionStatusTokenRoute:
+    ApiPublicMpesaTransactionStatusTokenRoute,
   ApiPublicPppoePortalSlugAccountRoute: ApiPublicPppoePortalSlugAccountRoute,
   ApiPublicPppoePortalSlugCheckoutRoute: ApiPublicPppoePortalSlugCheckoutRoute,
   ApiPublicPppoePortalSlugLoginRoute: ApiPublicPppoePortalSlugLoginRoute,

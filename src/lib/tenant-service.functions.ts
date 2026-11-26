@@ -59,13 +59,18 @@ async function getStatus(tenantId: string) {
   return {
     mpesaConfigured: mpesaFields.every(Boolean),
     mpesaEnvironment: (secrets.MPESA_ENV === "production" ? "production" : "sandbox") as
-      | "sandbox"
-      | "production",
+      "sandbox" | "production",
     mpesaMerchantType: (secrets.MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill") as
-      | "paybill"
-      | "buygoods",
+      "paybill" | "buygoods",
     businessShortcodeLast4: secrets.MPESA_BUSINESS_SHORTCODE?.slice(-4) ?? null,
     shortcodeLast4: secrets.MPESA_SHORTCODE?.slice(-4) ?? null,
+    mpesaTransactionStatusConfigured: Boolean(
+      secrets.MPESA_INITIATOR_NAME &&
+      secrets.MPESA_SECURITY_CREDENTIAL &&
+      secrets.MPESA_SHORTCODE &&
+      secrets.MPESA_CONSUMER_KEY &&
+      secrets.MPESA_CONSUMER_SECRET,
+    ),
     smsConfigured: Boolean(secrets.AT_USERNAME && secrets.AT_API_KEY),
     smsSenderConfigured: Boolean(secrets.AT_SENDER_ID),
     emailAddress: domain ? `${emailLocalPart(tenantResult.data.slug)}@${domain}` : null,
@@ -87,6 +92,8 @@ const SaveSchema = z
     mpesaConsumerKey: z.string().trim().max(500).optional(),
     mpesaConsumerSecret: z.string().trim().max(500).optional(),
     mpesaPasskey: z.string().trim().max(500).optional(),
+    mpesaInitiatorName: z.string().trim().max(200).optional(),
+    mpesaSecurityCredential: z.string().trim().max(4096).optional(),
     smsUsername: z.string().trim().max(200).optional(),
     smsApiKey: z.string().trim().max(500).optional(),
     smsSenderId: z.string().trim().max(50).optional(),
@@ -103,6 +110,8 @@ const FIELD_NAMES = {
   mpesaConsumerKey: "MPESA_CONSUMER_KEY",
   mpesaConsumerSecret: "MPESA_CONSUMER_SECRET",
   mpesaPasskey: "MPESA_PASSKEY",
+  mpesaInitiatorName: "MPESA_INITIATOR_NAME",
+  mpesaSecurityCredential: "MPESA_SECURITY_CREDENTIAL",
   smsUsername: "AT_USERNAME",
   smsApiKey: "AT_API_KEY",
   smsSenderId: "AT_SENDER_ID",
@@ -121,6 +130,8 @@ export const saveTenantServiceCredentials = createServerFn({ method: "POST" })
       ["mpesaConsumerKey", data.mpesaConsumerKey],
       ["mpesaConsumerSecret", data.mpesaConsumerSecret],
       ["mpesaPasskey", data.mpesaPasskey],
+      ["mpesaInitiatorName", data.mpesaInitiatorName],
+      ["mpesaSecurityCredential", data.mpesaSecurityCredential],
       ["smsUsername", data.smsUsername],
       ["smsApiKey", data.smsApiKey],
       ["smsSenderId", data.smsSenderId],

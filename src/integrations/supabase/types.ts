@@ -830,6 +830,11 @@ export type Database = {
           customer_invoice_id: string | null;
           expires_at: string | null;
           id: string;
+          manual_mpesa_receipt: string | null;
+          manual_verification_error: string | null;
+          manual_verification_requested_at: string | null;
+          manual_verification_status: string | null;
+          manual_verification_token_hash: string | null;
           merchant_request_id: string | null;
           mpesa_receipt: string | null;
           package_id: string | null;
@@ -851,6 +856,11 @@ export type Database = {
           customer_invoice_id?: string | null;
           expires_at?: string | null;
           id?: string;
+          manual_mpesa_receipt?: string | null;
+          manual_verification_error?: string | null;
+          manual_verification_requested_at?: string | null;
+          manual_verification_status?: string | null;
+          manual_verification_token_hash?: string | null;
           merchant_request_id?: string | null;
           mpesa_receipt?: string | null;
           package_id?: string | null;
@@ -872,6 +882,11 @@ export type Database = {
           customer_invoice_id?: string | null;
           expires_at?: string | null;
           id?: string;
+          manual_mpesa_receipt?: string | null;
+          manual_verification_error?: string | null;
+          manual_verification_requested_at?: string | null;
+          manual_verification_status?: string | null;
+          manual_verification_token_hash?: string | null;
           merchant_request_id?: string | null;
           mpesa_receipt?: string | null;
           package_id?: string | null;

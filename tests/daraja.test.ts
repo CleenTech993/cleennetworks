@@ -6,7 +6,13 @@ vi.mock("@/lib/tenant-service-secrets.server", () => ({
   loadTenantServiceSecrets: secretsMock.load,
 }));
 
-import { queryDarajaStkPush, registerDarajaC2bUrl, startDarajaStkPush } from "@/lib/daraja.server";
+import {
+  getTenantManualPaymentDetails,
+  queryDarajaStkPush,
+  registerDarajaC2bUrl,
+  requestTenantTransactionStatus,
+  startDarajaStkPush,
+} from "@/lib/daraja.server";
 
 const TENANT = "11111111-1111-1111-1111-111111111111";
 const PAYMENT = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -137,6 +143,7 @@ describe("tenant Daraja STK Push", () => {
       MPESA_CONSUMER_SECRET: "consumer-secret",
       MPESA_PASSKEY: "passkey",
     });
+
     const fetchSpy = stubFetch((url) =>
       url.includes("/oauth/")
         ? Response.json({ access_token: "access-token" })
@@ -179,6 +186,69 @@ describe("tenant Daraja STK Push", () => {
       CheckoutRequestID: "ws_CO_buygoods",
     });
     expect(query.Password).toBe(btoa(`654321passkey${query.Timestamp}`));
+  });
+
+  it("requests authenticated Transaction Status verification for Buy Goods receipts", async () => {
+    secretsMock.load.mockResolvedValue({
+      MPESA_ENV: "production",
+      MPESA_MERCHANT_TYPE: "buygoods",
+      MPESA_SHORTCODE: "123456",
+      MPESA_CONSUMER_KEY: "consumer-key",
+      MPESA_CONSUMER_SECRET: "consumer-secret",
+      MPESA_PASSKEY: "passkey",
+      MPESA_INITIATOR_NAME: "api-initiator",
+      MPESA_SECURITY_CREDENTIAL: "encrypted-security-credential",
+    });
+    const fetchSpy = stubFetch((url) =>
+      url.includes("/oauth/")
+        ? Response.json({ access_token: "access-token" })
+        : Response.json({ ResponseCode: "0", ResponseDescription: "Accepted" }),
+    );
+
+    await requestTenantTransactionStatus({
+      tenantId: TENANT,
+      transactionId: "QWE123ABC",
+      resultUrl: "https://portal.test/api/public/mpesa/transaction-status/result-token?kind=result",
+      queueTimeoutUrl:
+        "https://portal.test/api/public/mpesa/transaction-status/result-token?kind=timeout",
+    });
+    const request = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body));
+
+    expect(fetchSpy.mock.calls[1][0]).toBe(
+      "https://api.safaricom.co.ke/mpesa/transactionstatus/v1/query",
+    );
+    expect(request).toMatchObject({
+      Initiator: "api-initiator",
+      SecurityCredential: "encrypted-security-credential",
+      CommandID: "TransactionStatusQuery",
+      TransactionID: "QWE123ABC",
+      PartyA: "123456",
+      IdentifierType: "2",
+    });
+    expect(request.ResultURL).toContain("?kind=result");
+    expect(request.QueueTimeOutURL).toContain("?kind=timeout");
+  });
+
+  it("only exposes manual payment details in production with a numeric shortcode", async () => {
+    secretsMock.load.mockResolvedValue({
+      MPESA_ENV: "production",
+      MPESA_MERCHANT_TYPE: "paybill",
+      MPESA_SHORTCODE: "12345",
+      MPESA_CONSUMER_KEY: "consumer-key",
+      MPESA_CONSUMER_SECRET: "consumer-secret",
+      MPESA_INITIATOR_NAME: "api-initiator",
+      MPESA_SECURITY_CREDENTIAL: "encrypted-security-credential",
+    });
+    await expect(getTenantManualPaymentDetails(TENANT)).resolves.toEqual({
+      merchantType: "paybill",
+      shortcode: "12345",
+      verificationConfigured: true,
+    });
+    secretsMock.load.mockResolvedValue({
+      MPESA_ENV: "sandbox",
+      MPESA_SHORTCODE: "174379",
+    });
+    await expect(getTenantManualPaymentDetails(TENANT)).resolves.toBeNull();
   });
 
   it("reuses the tenant OAuth token until it approaches expiry", async () => {

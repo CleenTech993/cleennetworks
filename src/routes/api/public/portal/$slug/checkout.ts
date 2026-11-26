@@ -435,10 +435,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             console.error("checkout: STK push failed", e);
             // Close the attempt so it is not left "pending" for ever. It stays on record: the checkout
             // limiter counts every attempt, which stops failed prompts being used to spam a phone.
-            await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", pay.id);
+            const { error: failError } = await supabaseAdmin
+              .from("payments")
+              .update({ status: "failed" })
+              .eq("id", pay.id)
+              .eq("status", "pending");
+            if (failError) {
+              console.error("Could not close failed STK payment", failError);
+              return Response.json(
+                { error: "Could not start the M-Pesa prompt." },
+                { status: 503 },
+              );
+            }
             return Response.json(
               {
                 error: `We couldn't start the M-Pesa prompt. Check the phone number and try again. If it still fails, contact ${tenant.name || "the provider"} to verify the PayBill's Daraja setup.`,
+                paymentId: pay.id,
               },
               { status: 502 },
             );

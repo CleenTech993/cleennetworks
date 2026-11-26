@@ -262,6 +262,7 @@ describe("checkout", () => {
     expect(text).not.toContain("abc123");
     expect(text).not.toContain("INTERNAL");
     expect(text).toContain("contact Acme to verify the PayBill's Daraja setup");
+    expect(JSON.parse(text)).toHaveProperty("paymentId", h.db.rows("payments")[0].id);
     expect(h.db.rows("payments")[0].status).toBe("failed");
   });
 

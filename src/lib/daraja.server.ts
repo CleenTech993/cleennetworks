@@ -42,6 +42,30 @@ function configFrom(secrets: Awaited<ReturnType<typeof loadTenantServiceSecrets>
   };
 }
 
+function transactionStatusConfigFrom(
+  secrets: Awaited<ReturnType<typeof loadTenantServiceSecrets>>,
+): DarajaConfig {
+  const { MPESA_ENV, MPESA_MERCHANT_TYPE, MPESA_BUSINESS_SHORTCODE, MPESA_SHORTCODE } = secrets;
+  const consumerKey = secrets.MPESA_CONSUMER_KEY?.trim();
+  const consumerSecret = secrets.MPESA_CONSUMER_SECRET?.trim();
+  const shortcode = MPESA_SHORTCODE?.trim();
+  if (!shortcode || !consumerKey || !consumerSecret) {
+    throw new Error("Complete the tenant's M-Pesa credentials before verifying payments.");
+  }
+  if (MPESA_ENV !== "sandbox" && MPESA_ENV !== "production") {
+    throw new Error("The tenant's M-Pesa environment is invalid.");
+  }
+  return {
+    environment: MPESA_ENV,
+    merchantType: MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill",
+    businessShortcode: MPESA_BUSINESS_SHORTCODE?.trim() || shortcode,
+    merchantShortcode: shortcode,
+    consumerKey,
+    consumerSecret,
+    passkey: "",
+  };
+}
+
 function baseUrl(environment: DarajaConfig["environment"]): string {
   return environment === "sandbox"
     ? "https://sandbox.safaricom.co.ke"
@@ -220,6 +244,84 @@ export async function startDarajaStkPush(input: {
   accountReference?: string;
 }): Promise<{ checkoutRequestId: string; merchantRequestId: string }> {
   return startStkPush(await loadConfig(input.tenantId), input);
+}
+
+export interface TenantManualPaymentDetails {
+  merchantType: "paybill" | "buygoods";
+  shortcode: string;
+  verificationConfigured: boolean;
+}
+
+export async function getTenantManualPaymentDetails(
+  tenantId: string,
+): Promise<TenantManualPaymentDetails | null> {
+  const secrets = await loadTenantServiceSecrets(tenantId);
+  const shortcode = secrets.MPESA_SHORTCODE?.trim() ?? "";
+  if (secrets.MPESA_ENV !== "production" || !/^\d{5,20}$/.test(shortcode)) {
+    return null;
+  }
+  return {
+    merchantType: secrets.MPESA_MERCHANT_TYPE === "buygoods" ? "buygoods" : "paybill",
+    shortcode,
+    verificationConfigured: Boolean(
+      secrets.MPESA_CONSUMER_KEY &&
+      secrets.MPESA_CONSUMER_SECRET &&
+      secrets.MPESA_INITIATOR_NAME &&
+      secrets.MPESA_SECURITY_CREDENTIAL,
+    ),
+  };
+}
+
+export async function requestTenantTransactionStatus(input: {
+  tenantId: string;
+  transactionId: string;
+  resultUrl: string;
+  queueTimeoutUrl: string;
+}): Promise<void> {
+  const secrets = await loadTenantServiceSecrets(input.tenantId);
+  const config = transactionStatusConfigFrom(secrets);
+  const initiator = secrets.MPESA_INITIATOR_NAME?.trim();
+  const securityCredential = secrets.MPESA_SECURITY_CREDENTIAL?.trim();
+  if (!initiator || !securityCredential) {
+    throw new Error("Transaction Status credentials are not configured.");
+  }
+  if (
+    new URL(input.resultUrl).protocol !== "https:" ||
+    new URL(input.queueTimeoutUrl).protocol !== "https:"
+  ) {
+    throw new Error("M-Pesa callbacks require public HTTPS URLs.");
+  }
+
+  const token = await accessToken(config);
+  const response = await fetch(`${baseUrl(config.environment)}/mpesa/transactionstatus/v1/query`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      Initiator: initiator,
+      SecurityCredential: securityCredential,
+      CommandID: "TransactionStatusQuery",
+      TransactionID: input.transactionId,
+      PartyA: config.merchantShortcode,
+      IdentifierType: config.merchantType === "buygoods" ? "2" : "4",
+      Remarks: "Portal manual payment verification",
+      QueueTimeOutURL: input.queueTimeoutUrl,
+      ResultURL: input.resultUrl,
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const result = (await response.json().catch(() => null)) as {
+    ResponseCode?: string;
+    ResponseDescription?: string;
+  } | null;
+  if (!response.ok || !result || String(result.ResponseCode) !== "0") {
+    console.error("Daraja transaction status request failed", {
+      tenantId: input.tenantId,
+      httpStatus: response.status,
+      responseCode: result?.ResponseCode,
+      responseDescription: safeResponseDescription(result?.ResponseDescription),
+    });
+    throw new Error("M-Pesa could not start receipt verification.");
+  }
 }
 
 export async function startPlatformDarajaStkPush(input: {

@@ -705,6 +705,13 @@ function BuyFlow({
         }),
       });
       const json = await res.json();
+      if (!res.ok && typeof json.paymentId === "string") {
+        setPaymentId(json.paymentId);
+        setCheckoutOpen(false);
+        setOmadaPortal(Boolean(omadaContext));
+        toast.error(json.error ?? "The M-Pesa prompt did not start.");
+        return;
+      }
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setPaymentId(json.paymentId);
       setCheckoutOpen(false);
@@ -926,6 +933,19 @@ function PaymentWaiting({
   const [accessCode, setAccessCode] = useState<string | null>(null);
   const [receiptCode, setReceiptCode] = useState(false);
   const [receiptPending, setReceiptPending] = useState(false);
+  const [manualPayment, setManualPayment] = useState<{
+    merchantType: "paybill" | "buygoods";
+    shortcode: string;
+    amount: number;
+    accountReference: string | null;
+    verificationConfigured: boolean;
+  } | null>(null);
+  const [manualPaymentDetailsUnavailable, setManualPaymentDetailsUnavailable] = useState(false);
+  const [manualVerificationStatus, setManualVerificationStatus] = useState<string | null>(null);
+  const [manualVerificationError, setManualVerificationError] = useState<string | null>(null);
+  const [manualReceipt, setManualReceipt] = useState("");
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [manualLocalError, setManualLocalError] = useState<string | null>(null);
   const [autoConnecting, setAutoConnecting] = useState(false);
   const [omadaAuthorization, setOmadaAuthorization] = useState<
     "not_required" | "pending" | "processing" | "authorized" | "failed"
@@ -948,6 +968,10 @@ function PaymentWaiting({
           if (!active) return;
           setStatus(json.status);
           setReceiptPending(json.receipt_pending === true);
+          setManualPayment(json.manualPayment ?? null);
+          setManualPaymentDetailsUnavailable(json.manualPaymentDetailsUnavailable === true);
+          setManualVerificationStatus(json.manualVerification?.status ?? null);
+          setManualVerificationError(json.manualVerification?.error ?? null);
           if (json.mpesa_receipt || json.voucher_code) {
             setAccessCode(json.mpesa_receipt ?? json.voucher_code);
             setReceiptCode(Boolean(json.mpesa_receipt));
@@ -971,7 +995,8 @@ function PaymentWaiting({
             setOmadaAuthorization("failed");
           }
           if (
-            json.status === "failed" ||
+            (json.status === "failed" &&
+              !["pending", "processing"].includes(json.manualVerification?.status ?? "")) ||
             (json.status === "success" &&
               (tv ||
                 (omadaPortal &&
@@ -995,6 +1020,40 @@ function PaymentWaiting({
       controller?.abort();
     };
   }, [paymentId, slug, omadaPortal, tv]);
+
+  async function verifyManualPayment() {
+    if (!manualReceipt.trim()) return;
+    setManualSubmitting(true);
+    setManualLocalError(null);
+    try {
+      const response = await fetch(`/api/public/portal/${slug}/manual-payment`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ paymentId, receipt: manualReceipt }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Could not verify this receipt.");
+      setManualVerificationStatus(result.status ?? "pending");
+      setManualReceipt("");
+    } catch (error) {
+      setManualLocalError(
+        error instanceof Error ? error.message : "Could not verify this receipt.",
+      );
+    } finally {
+      setManualSubmitting(false);
+    }
+  }
+
+  async function copyManualShortcode() {
+    if (!manualPayment) return;
+    try {
+      await navigator.clipboard.writeText(manualPayment.shortcode);
+      toast.success("M-Pesa number copied");
+    } catch (error) {
+      console.error("Could not copy M-Pesa shortcode", error);
+      toast.error("Could not copy the M-Pesa number.");
+    }
+  }
 
   useEffect(() => {
     if (omadaPortal) {
@@ -1190,6 +1249,84 @@ function PaymentWaiting({
         <p className="mt-1 text-sm text-muted-foreground">
           The M-Pesa payment to {payeeName} was not completed. Check the phone number and try again.
         </p>
+        {manualPayment && (
+          <div className="mt-5 space-y-3 rounded-lg border bg-muted/20 p-4 text-left">
+            <h3 className="font-semibold">Pay manually instead</h3>
+            <p className="text-sm text-muted-foreground">
+              Pay the exact amount below using M-Pesa. Only submit the receipt after you receive a
+              confirmation message.
+            </p>
+            <div className="rounded-md bg-background p-3 text-sm">
+              <p className="font-medium">
+                {manualPayment.merchantType === "buygoods" ? "Buy Goods Till" : "PayBill"}:{" "}
+                <span className="font-mono">{manualPayment.shortcode}</span>
+              </p>
+              <p className="mt-1 font-medium">
+                Amount: KES {Number(manualPayment.amount).toLocaleString()}
+              </p>
+              {manualPayment.accountReference && (
+                <p className="mt-1 text-muted-foreground">
+                  Account number: {manualPayment.accountReference}
+                </p>
+              )}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-2"
+                onClick={() => void copyManualShortcode()}
+              >
+                <Copy aria-hidden="true" />
+                Copy number
+              </Button>
+            </div>
+            {manualPayment.verificationConfigured ? (
+              manualVerificationStatus === "pending" ||
+              manualVerificationStatus === "processing" ? (
+                <p role="status" className="flex items-center gap-2 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  Checking this receipt with M-Pesa. This may take a minute.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="manual-mpesa-receipt">M-Pesa receipt code</Label>
+                  <Input
+                    id="manual-mpesa-receipt"
+                    autoCapitalize="characters"
+                    placeholder="e.g. QWE123ABC"
+                    value={manualReceipt}
+                    onChange={(event) => setManualReceipt(event.target.value)}
+                    className="font-mono"
+                  />
+                  {(manualLocalError || manualVerificationError) && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {manualLocalError ?? manualVerificationError}
+                    </p>
+                  )}
+                  <Button
+                    type="button"
+                    className="pt-btn w-full"
+                    style={{ backgroundColor: primary }}
+                    disabled={manualSubmitting || manualReceipt.trim().length < 6}
+                    onClick={() => void verifyManualPayment()}
+                  >
+                    {manualSubmitting ? "Requesting verification…" : "Verify payment & connect"}
+                  </Button>
+                </div>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Automatic receipt verification is not configured by this provider yet. Contact them
+                before paying manually.
+              </p>
+            )}
+          </div>
+        )}
+        {manualPaymentDetailsUnavailable && (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            Manual payment details are temporarily unavailable. Try again or contact the provider.
+          </p>
+        )}
         {onChangePhone && (
           <Button className="mt-4 w-full" variant="outline" onClick={onChangePhone}>
             Change phone number
@@ -1294,6 +1431,12 @@ function TvFlow({
         }),
       });
       const json = await res.json();
+      if (!res.ok && typeof json.paymentId === "string") {
+        setRandomized(!!json.randomizedMac);
+        setPaymentId(json.paymentId);
+        toast.error(json.error ?? "The M-Pesa prompt did not start.");
+        return;
+      }
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setRandomized(!!json.randomizedMac);
       setPaymentId(json.paymentId);
