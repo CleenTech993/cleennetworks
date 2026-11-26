@@ -186,6 +186,9 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   const limits = [...new Set([1, ...valid.map((v) => v.limit)])].sort((a, b) => a - b);
 
   const lines = [...buildExpiredVoucherCleanupLines(valid), "/ip hotspot user profile"];
+  lines.push(
+    ':do { set [find where name=default] idle-timeout=none keepalive-timeout=none session-timeout=0s } on-error={ :log warning "NetGrid: default hotspot user profile timeout could not be disabled" }',
+  );
   for (const n of limits) {
     const p = userProfileName(n);
     lines.push(
@@ -227,6 +230,9 @@ export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
   const limits = [...new Set(valid.map((v) => v.limit))].sort((a, b) => a - b);
   const lines = [...buildExpiredVoucherCleanupLines(valid), "/ip hotspot user profile"];
+  lines.push(
+    ':do { set [find where name=default] idle-timeout=none keepalive-timeout=none session-timeout=0s } on-error={ :log warning "NetGrid: default hotspot user profile timeout could not be disabled" }',
+  );
 
   for (const limit of limits) {
     const profile = userProfileName(limit);

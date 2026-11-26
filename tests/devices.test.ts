@@ -180,6 +180,9 @@ describe("buildHotspotUserLines", () => {
     expect(out).toContain(
       "add name=netgrid-d1 shared-users=1 idle-timeout=none keepalive-timeout=none session-timeout=0s",
     );
+    expect(out).toContain(
+      ':do { set [find where name=default] idle-timeout=none keepalive-timeout=none session-timeout=0s } on-error={ :log warning "NetGrid: default hotspot user profile timeout could not be disabled" }',
+    );
   });
 
   it("adds MAC authentication only for the MAC bound to a live one-device voucher", () => {
@@ -296,6 +299,9 @@ describe("buildHotspotVoucherRefreshLines", () => {
       'set [find where name="FASTCODE01" comment="netgrid-voucher"] server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
     );
     expect(script).toContain("idle-timeout=none keepalive-timeout=none session-timeout=0s");
+    expect(script).toContain(
+      ':do { set [find where name=default] idle-timeout=none keepalive-timeout=none session-timeout=0s } on-error={ :log warning "NetGrid: default hotspot user profile timeout could not be disabled" }',
+    );
     expect(script).toContain("/ip hotspot active");
     expect(script).toContain('[:toarray "FASTCODE01"]');
     expect(script).toContain("mac-address=AA:BB:CC:DD:EE:02");
