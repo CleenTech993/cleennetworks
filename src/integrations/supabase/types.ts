@@ -1,5 +1,119 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+type MoodBoostSettingsRow = {
+  tenant_id: string;
+  enabled: boolean;
+  country_code: string;
+  primary_language: string;
+  secondary_language: string | null;
+  categories: string[];
+  content_frequency: "daily" | "manual";
+  show_trending: boolean;
+  show_isp_humour: boolean;
+  contextual_humour_enabled: boolean;
+  sound_enabled: boolean;
+  updated_at: string;
+};
+type MoodBoostTopicRow = {
+  id: string;
+  country_code: string;
+  language: string;
+  topic: string;
+  source: string;
+  source_reference: string;
+  relevance_score: number;
+  status: "pending" | "active" | "rejected";
+  safety_confirmed: boolean;
+  discovered_at: string;
+  expires_at: string | null;
+  created_by: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+};
+type MoodBoostContentRow = {
+  id: string;
+  country_code: string;
+  language: string;
+  category: string;
+  caption: string;
+  original_caption: string | null;
+  image_url: string | null;
+  source_topic_id: string | null;
+  source_topic: string | null;
+  source_reference: string | null;
+  relevance_score: number;
+  moderation_status: "pending" | "approved" | "rejected";
+  moderation_result: Json | null;
+  campaign_tag: string;
+  campaign_enabled: boolean;
+  generation_day: string | null;
+  created_by: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+  moderated_at: string | null;
+  published_at: string | null;
+  expires_at: string | null;
+};
+type MoodBoostFeedbackRow = {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  content_id: string;
+  feedback_type: "like" | "dislike" | "report" | "hide_category";
+  category: string | null;
+  created_at: string;
+};
+type MoodBoostHistoryRow = {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  content_id: string;
+  viewed_at: string;
+};
+type MoodBoostUserPreferencesRow = {
+  tenant_id: string;
+  user_id: string;
+  hidden_categories: string[];
+  updated_at: string;
+};
+type MoodBoostPlatformSettingsRow = {
+  id: boolean;
+  enabled: boolean;
+  refresh_interval_hours: number;
+  last_run_at: string | null;
+  updated_at: string;
+};
+type MoodBoostTable<Row, Insert> = {
+  Row: Row;
+  Insert: Insert;
+  Update: Partial<Insert>;
+  Relationships: [];
+};
+type MoodBoostSettingsInsert = Pick<MoodBoostSettingsRow, "tenant_id"> &
+  Partial<Omit<MoodBoostSettingsRow, "tenant_id">>;
+type MoodBoostTopicInsert = Pick<
+  MoodBoostTopicRow,
+  "country_code" | "language" | "topic" | "source" | "source_reference"
+> &
+  Partial<
+    Omit<MoodBoostTopicRow, "country_code" | "language" | "topic" | "source" | "source_reference">
+  >;
+type MoodBoostContentInsert = Pick<
+  MoodBoostContentRow,
+  "country_code" | "language" | "category" | "caption"
+> &
+  Partial<Omit<MoodBoostContentRow, "country_code" | "language" | "category" | "caption">>;
+type MoodBoostFeedbackInsert = Pick<
+  MoodBoostFeedbackRow,
+  "tenant_id" | "user_id" | "content_id" | "feedback_type"
+> &
+  Partial<Omit<MoodBoostFeedbackRow, "tenant_id" | "user_id" | "content_id" | "feedback_type">>;
+type MoodBoostHistoryInsert = Pick<MoodBoostHistoryRow, "tenant_id" | "user_id" | "content_id"> &
+  Partial<Omit<MoodBoostHistoryRow, "tenant_id" | "user_id" | "content_id">>;
+type MoodBoostUserPreferencesInsert = Pick<MoodBoostUserPreferencesRow, "tenant_id" | "user_id"> &
+  Partial<Omit<MoodBoostUserPreferencesRow, "tenant_id" | "user_id">>;
+type MoodBoostPlatformSettingsInsert = Partial<MoodBoostPlatformSettingsRow>;
+
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
@@ -1312,6 +1426,19 @@ export type Database = {
         };
         Relationships: [];
       };
+      mood_boost_settings: MoodBoostTable<MoodBoostSettingsRow, MoodBoostSettingsInsert>;
+      mood_boost_topics: MoodBoostTable<MoodBoostTopicRow, MoodBoostTopicInsert>;
+      mood_boost_content: MoodBoostTable<MoodBoostContentRow, MoodBoostContentInsert>;
+      mood_boost_feedback: MoodBoostTable<MoodBoostFeedbackRow, MoodBoostFeedbackInsert>;
+      mood_boost_history: MoodBoostTable<MoodBoostHistoryRow, MoodBoostHistoryInsert>;
+      mood_boost_user_preferences: MoodBoostTable<
+        MoodBoostUserPreferencesRow,
+        MoodBoostUserPreferencesInsert
+      >;
+      mood_boost_platform_settings: MoodBoostTable<
+        MoodBoostPlatformSettingsRow,
+        MoodBoostPlatformSettingsInsert
+      >;
       profiles: {
         Row: {
           created_at: string;

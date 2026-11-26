@@ -27,6 +27,7 @@ To run the extracted API too, configure `apps/api/.dev.vars` from
 - [Frontend/backend separation plan](docs/architecture/frontend-backend-separation.md)
 - [Device management](docs/device-management.md)
 - [Customer communications](docs/customer-communications.md)
+- [NETGRID Mood Boost](docs/mood-boost.md)
 - [Daraja / M-Pesa](docs/daraja.md)
 - [Platform billing](docs/platform-billing.md)
 - [Router troubleshooting](docs/ROUTER_TROUBLESHOOTING.md)

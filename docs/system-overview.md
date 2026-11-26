@@ -48,6 +48,8 @@ conventions and next steps.
   interfaces, inventory monitoring, and PPPoE session reporting.
 - **Production NOC health** — recent router heartbeats surface high CPU, memory, or temperature
   warnings; Realtime updates keep the fleet view current while slower polling provides a fallback.
+- **NETGRID Mood Boost** — optional country/language-aware ISP humour with source-backed topics,
+  AI moderation, platform approval, and tenant-isolated preferences; see [Mood Boost](./mood-boost.md).
 - **Payments and billing** — tenant payment flows and callbacks, customer communications, platform
   billing and commissions, and super-admin settlements.
 - **Customer billing** — due-time PPPoE renewal invoices with a three-day service grace period,

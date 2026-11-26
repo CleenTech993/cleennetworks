@@ -28,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
+import { MoodBoostWidget } from "@/components/mood-boost-widget";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -334,6 +335,12 @@ function Overview() {
         )}
       </div>
 
+      <MoodBoostWidget
+        offlineRouters={Math.max(0, (data?.routerCount ?? 0) - (data?.online ?? 0))}
+        onlineClients={(data?.onlineHotspot ?? 0) + (data?.onlinePppoe ?? 0)}
+        readOnly={roles.includes("demo_viewer")}
+      />
+
       {showRevenue && (
         <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -360,9 +367,7 @@ function Overview() {
             {data?.latestPayment && (
               <p className="truncate text-xs text-muted-foreground">
                 {data.latestPayment.phone || "Phone unavailable"}
-                {data.latestPayment.mpesa_receipt
-                  ? ` · ${data.latestPayment.mpesa_receipt}`
-                  : ""}
+                {data.latestPayment.mpesa_receipt ? ` · ${data.latestPayment.mpesa_receipt}` : ""}
               </p>
             )}
           </div>

@@ -10,6 +10,7 @@ import {
   Radar,
   History,
   Megaphone,
+  Sparkles,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { requireConsole } from "@/lib/auth-guard";
@@ -26,6 +27,12 @@ const nav: NavItem[] = [
     to: "/super-admin/communications",
     label: "Communications",
     icon: Megaphone,
+    group: "Administration",
+  },
+  {
+    to: "/super-admin/mood-boost",
+    label: "Mood Boost",
+    icon: Sparkles,
     group: "Administration",
   },
   { to: "/super-admin/users", label: "Users", icon: Users, group: "Administration" },

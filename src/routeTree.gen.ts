@@ -34,6 +34,7 @@ import { Route as SuperAdminAuditRouteImport } from './routes/super-admin.audit'
 import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
 import { Route as SuperAdminCommunicationsRouteImport } from './routes/super-admin.communications'
 import { Route as SuperAdminHealthRouteImport } from './routes/super-admin.health'
+import { Route as SuperAdminMoodBoostRouteImport } from './routes/super-admin.mood-boost'
 import { Route as SuperAdminNocRouteImport } from './routes/super-admin.noc'
 import { Route as SuperAdminPaymentsRouteImport } from './routes/super-admin.payments'
 import { Route as SuperAdminSettlementsRouteImport } from './routes/super-admin.settlements'
@@ -65,6 +66,7 @@ import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
 import { Route as TenantWorkOrdersRouteImport } from './routes/tenant.work-orders'
+import { Route as ApiCronMoodBoostRouteImport } from './routes/api/cron/mood-boost'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as ApiPublicDomainRouteImport } from './routes/api/public/domain'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
@@ -227,6 +229,11 @@ const SuperAdminHealthRoute = SuperAdminHealthRouteImport.update({
   path: '/health',
   getParentRoute: () => SuperAdminRoute,
 } as any)
+const SuperAdminMoodBoostRoute = SuperAdminMoodBoostRouteImport.update({
+  id: '/mood-boost',
+  path: '/mood-boost',
+  getParentRoute: () => SuperAdminRoute,
+} as any)
 const SuperAdminNocRoute = SuperAdminNocRouteImport.update({
   id: '/noc',
   path: '/noc',
@@ -381,6 +388,11 @@ const TenantWorkOrdersRoute = TenantWorkOrdersRouteImport.update({
   id: '/work-orders',
   path: '/work-orders',
   getParentRoute: () => TenantRoute,
+} as any)
+const ApiCronMoodBoostRoute = ApiCronMoodBoostRouteImport.update({
+  id: '/api/cron/mood-boost',
+  path: '/api/cron/mood-boost',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCronPlatformBillingRoute = ApiCronPlatformBillingRouteImport.update({
   id: '/api/cron/platform-billing',
@@ -611,6 +623,7 @@ export interface FileRoutesByFullPath {
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/mood-boost': typeof SuperAdminMoodBoostRoute
   '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
@@ -644,6 +657,7 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
@@ -701,6 +715,7 @@ export interface FileRoutesByTo {
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/mood-boost': typeof SuperAdminMoodBoostRoute
   '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
@@ -734,6 +749,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
+  '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
@@ -795,6 +811,7 @@ export interface FileRoutesById {
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
   '/super-admin/health': typeof SuperAdminHealthRoute
+  '/super-admin/mood-boost': typeof SuperAdminMoodBoostRoute
   '/super-admin/noc': typeof SuperAdminNocRoute
   '/super-admin/payments': typeof SuperAdminPaymentsRoute
   '/super-admin/settlements': typeof SuperAdminSettlementsRoute
@@ -828,6 +845,7 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
@@ -890,6 +908,7 @@ export interface FileRouteTypes {
     | '/super-admin/billing'
     | '/super-admin/communications'
     | '/super-admin/health'
+    | '/super-admin/mood-boost'
     | '/super-admin/noc'
     | '/super-admin/payments'
     | '/super-admin/settlements'
@@ -923,6 +942,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
     | '/tenant/routers/$id'
@@ -980,6 +1000,7 @@ export interface FileRouteTypes {
     | '/super-admin/billing'
     | '/super-admin/communications'
     | '/super-admin/health'
+    | '/super-admin/mood-boost'
     | '/super-admin/noc'
     | '/super-admin/payments'
     | '/super-admin/settlements'
@@ -1013,6 +1034,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/super-admin'
     | '/tenant'
+    | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
     | '/tenant/routers/$id'
@@ -1073,6 +1095,7 @@ export interface FileRouteTypes {
     | '/super-admin/billing'
     | '/super-admin/communications'
     | '/super-admin/health'
+    | '/super-admin/mood-boost'
     | '/super-admin/noc'
     | '/super-admin/payments'
     | '/super-admin/settlements'
@@ -1106,6 +1129,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
     | '/tenant/routers/$id'
@@ -1160,6 +1184,7 @@ export interface RootRouteChildren {
   PSlugRoute: typeof PSlugRoute
   PppoeSlugRoute: typeof PppoeSlugRoute
   SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
+  ApiCronMoodBoostRoute: typeof ApiCronMoodBoostRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
   ApiPublicDomainRoute: typeof ApiPublicDomainRoute
   ApiPublicCustomerMessagesRoute: typeof ApiPublicCustomerMessagesRoute
@@ -1363,6 +1388,13 @@ declare module '@tanstack/react-router' {
       path: '/health'
       fullPath: '/super-admin/health'
       preLoaderRoute: typeof SuperAdminHealthRouteImport
+      parentRoute: typeof SuperAdminRoute
+    }
+    '/super-admin/mood-boost': {
+      id: '/super-admin/mood-boost'
+      path: '/mood-boost'
+      fullPath: '/super-admin/mood-boost'
+      preLoaderRoute: typeof SuperAdminMoodBoostRouteImport
       parentRoute: typeof SuperAdminRoute
     }
     '/super-admin/noc': {
@@ -1581,6 +1613,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tenant/work-orders'
       preLoaderRoute: typeof TenantWorkOrdersRouteImport
       parentRoute: typeof TenantRoute
+    }
+    '/api/cron/mood-boost': {
+      id: '/api/cron/mood-boost'
+      path: '/api/cron/mood-boost'
+      fullPath: '/api/cron/mood-boost'
+      preLoaderRoute: typeof ApiCronMoodBoostRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/cron/platform-billing': {
       id: '/api/cron/platform-billing'
@@ -1854,6 +1893,7 @@ interface SuperAdminRouteChildren {
   SuperAdminBillingRoute: typeof SuperAdminBillingRoute
   SuperAdminCommunicationsRoute: typeof SuperAdminCommunicationsRoute
   SuperAdminHealthRoute: typeof SuperAdminHealthRoute
+  SuperAdminMoodBoostRoute: typeof SuperAdminMoodBoostRoute
   SuperAdminNocRoute: typeof SuperAdminNocRoute
   SuperAdminPaymentsRoute: typeof SuperAdminPaymentsRoute
   SuperAdminSettlementsRoute: typeof SuperAdminSettlementsRoute
@@ -1867,6 +1907,7 @@ const SuperAdminRouteChildren: SuperAdminRouteChildren = {
   SuperAdminBillingRoute: SuperAdminBillingRoute,
   SuperAdminCommunicationsRoute: SuperAdminCommunicationsRoute,
   SuperAdminHealthRoute: SuperAdminHealthRoute,
+  SuperAdminMoodBoostRoute: SuperAdminMoodBoostRoute,
   SuperAdminNocRoute: SuperAdminNocRoute,
   SuperAdminPaymentsRoute: SuperAdminPaymentsRoute,
   SuperAdminSettlementsRoute: SuperAdminSettlementsRoute,
@@ -1992,6 +2033,7 @@ const rootRouteChildren: RootRouteChildren = {
   PSlugRoute: PSlugRoute,
   PppoeSlugRoute: PppoeSlugRoute,
   SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
+  ApiCronMoodBoostRoute: ApiCronMoodBoostRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
   ApiPublicDomainRoute: ApiPublicDomainRoute,
   ApiPublicCustomerMessagesRoute: ApiPublicCustomerMessagesRoute,

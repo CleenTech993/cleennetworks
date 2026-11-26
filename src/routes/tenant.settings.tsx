@@ -14,6 +14,7 @@ import { MfaSecurityCard } from "@/components/mfa-security-card";
 import { TenantServiceCredentials } from "@/components/tenant-service-credentials";
 import { SessionManagementCard } from "@/components/session-management-card";
 import { TenantDomainSettings } from "@/components/tenant-domain-settings";
+import { MoodBoostSettingsCard } from "@/components/mood-boost-settings-card";
 import { appOrigin } from "@/lib/app-origin";
 import {
   DEFAULT_TENANT_LABELS,
@@ -152,9 +153,7 @@ function Settings() {
 
   const slug = (tenant as { slug?: string } | undefined)?.slug;
   const portalUrl =
-    slug && typeof window !== "undefined"
-      ? `${appOrigin(window.location.origin)}/p/${slug}`
-      : "";
+    slug && typeof window !== "undefined" ? `${appOrigin(window.location.origin)}/p/${slug}` : "";
 
   function field<K extends keyof typeof form>(k: K, label: string, placeholder?: string) {
     const id = `tenant-${k}`;
@@ -397,6 +396,8 @@ function Settings() {
                 : "Save my preferences"}
           </Button>
         </div>
+
+        <MoodBoostSettingsCard />
 
         <div className="rounded-xl border bg-card p-5 md:col-span-2">
           <h3 className="font-semibold mb-4">Customer support</h3>

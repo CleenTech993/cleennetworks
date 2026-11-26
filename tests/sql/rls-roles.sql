@@ -28,6 +28,21 @@ INSERT INTO public.user_roles (user_id, role, tenant_id) VALUES
   ('bbbbbbbb-0000-0000-0000-0000000000d1','technician','aaaaaaaa-0000-0000-0000-000000000001'),
   ('bbbbbbbb-0000-0000-0000-0000000000a2','tenant_admin','aaaaaaaa-0000-0000-0000-000000000002');
 
+INSERT INTO public.mood_boost_settings (tenant_id) VALUES
+  ('aaaaaaaa-0000-0000-0000-000000000001'),
+  ('aaaaaaaa-0000-0000-0000-000000000002');
+INSERT INTO public.mood_boost_topics (
+  id, country_code, language, topic, source, source_reference, status
+) VALUES (
+  'f0000000-0000-0000-0000-000000000001','KE','en','Local public technology event',
+  'Public news source','https://example.test/technology-event','pending'
+);
+INSERT INTO public.mood_boost_content (
+  id, country_code, language, category, caption, moderation_status, published_at
+) VALUES
+  ('f0000000-0000-0000-0000-000000000011','KE','en','isp_life','Approved original test caption','approved',now()),
+  ('f0000000-0000-0000-0000-000000000012','KE','en','isp_life','Pending test caption','pending',NULL);
+
 INSERT INTO public.customers (id, tenant_id, full_name) VALUES
   ('cccccccc-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','T1 customer'),
   ('cccccccc-0000-0000-0000-000000000002','aaaaaaaa-0000-0000-0000-000000000002','T2 customer');
@@ -81,6 +96,17 @@ SELECT t.allowed('admin edits payout settings',$$UPDATE public.tenants SET mpesa
 SELECT t.allowed('admin edits tenant labels',   $$UPDATE public.tenants SET ui_labels='{"pppoe":"Broadband"}' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('admin registers custom domain', $$INSERT INTO public.tenant_domains (tenant_id, purpose, domain) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','hotspot','wifi.tenant-one.example')$$);
 SELECT t.allowed('user edits own preferences',    $$UPDATE public.profiles SET preferences='{"theme":"dark"}' WHERE id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
+SELECT t.allowed('admin reads own Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('admin cannot read another tenant Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000002'$$);
+SELECT t.allowed('admin updates own Mood Boost settings', $$UPDATE public.mood_boost_settings SET country_code='TZ' WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('tenant admin cannot change Mood Boost settings for another tenant', $$UPDATE public.mood_boost_settings SET enabled=false WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000002'$$);
+SELECT t.allowed('admin reads only approved Mood Boost content', $$SELECT 1 FROM public.mood_boost_content WHERE id='f0000000-0000-0000-0000-000000000011'$$);
+SELECT t.denied('tenant admin cannot read pending Mood Boost content', $$SELECT 1 FROM public.mood_boost_content WHERE id='f0000000-0000-0000-0000-000000000012'$$);
+SELECT t.denied('tenant admin cannot manage curated Mood Boost topics', $$SELECT 1 FROM public.mood_boost_topics$$);
+SELECT t.allowed('admin records own Mood Boost feedback', $$INSERT INTO public.mood_boost_feedback (tenant_id,user_id,content_id,feedback_type) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-0000000000a1','f0000000-0000-0000-0000-000000000011','like')$$);
+SELECT t.allowed('admin records own Mood Boost history', $$INSERT INTO public.mood_boost_history (tenant_id,user_id,content_id) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-0000000000a1','f0000000-0000-0000-0000-000000000011')$$);
+SELECT t.allowed('admin saves own hidden Mood Boost categories', $$INSERT INTO public.mood_boost_user_preferences (tenant_id,user_id,hidden_categories) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-0000000000a1',ARRAY['mpesa_moments'])$$);
+SELECT t.denied('admin cannot forge another user Mood Boost feedback', $$INSERT INTO public.mood_boost_feedback (tenant_id,user_id,content_id,feedback_type) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-0000000000d1','f0000000-0000-0000-0000-000000000011','like')$$);
 SELECT t.allowed('admin inserts router',       $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R2')$$);
 SELECT t.allowed('admin inserts package',      $$INSERT INTO public.packages (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','P2')$$);
 SELECT t.allowed('admin creates active PPPoE account', $$INSERT INTO public.customers (tenant_id, customer_type, pppoe_username, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','pppoe','admin-pppoe','active')$$);
@@ -101,6 +127,9 @@ INSERT INTO t.results VALUES ('role helpers hide other platform roles', NOT publ
 INSERT INTO t.results VALUES ('super-admin helper hides another user', NOT public.is_super_admin(:super));
 INSERT INTO t.results VALUES ('tenant-role helper hides other workspace roles', NOT public.has_tenant_role(:admin2, 'aaaaaaaa-0000-0000-0000-000000000002', ARRAY['tenant_admin']::public.app_role[]));
 SELECT t.allowed('support reads customers',  $$SELECT 1 FROM public.customers$$);
+SELECT t.allowed('support reads tenant Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('support cannot read another user Mood Boost feedback', $$SELECT 1 FROM public.mood_boost_feedback WHERE user_id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
+SELECT t.denied('support cannot read another user Mood Boost preferences', $$SELECT 1 FROM public.mood_boost_user_preferences WHERE user_id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 SELECT t.allowed('support reads payments',   $$SELECT 1 FROM public.payments$$);
 SELECT t.allowed('support edits customer',   $$UPDATE public.customers SET full_name='n' WHERE id='cccccccc-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('support opens ticket',     $$INSERT INTO public.support_tickets (tenant_id, subject) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','s')$$);
@@ -119,6 +148,8 @@ SELECT t.denied ('support cannot edit packages',        $$UPDATE public.packages
 -- ---- technician --------------------------------------------------------------------------------
 SELECT t.as_user(:tech, 'aal2');
 SELECT t.allowed('tech reads routers',   $$SELECT 1 FROM public.routers$$);
+SELECT t.allowed('tech reads tenant Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('tech cannot update tenant Mood Boost settings', $$UPDATE public.mood_boost_settings SET enabled=false WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('tech adds router',     $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R3')$$);
 SELECT t.denied ('tech cannot read payments',  $$SELECT 1 FROM public.payments$$);
 SELECT t.denied ('tech cannot mint vouchers',  $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','TECH1')$$);
@@ -144,6 +175,7 @@ SELECT t.as_user(:admin1, 'aal1');
 SELECT t.denied('aal1 admin cannot read customers',  $$SELECT 1 FROM public.customers$$);
 SELECT t.denied('aal1 admin cannot read payments',   $$SELECT 1 FROM public.payments$$);
 SELECT t.denied('aal1 admin cannot read routers',    $$SELECT 1 FROM public.routers$$);
+SELECT t.denied('aal1 admin cannot read Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied('aal1 admin cannot insert voucher',  $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','NOMFA')$$);
 SELECT t.denied('aal1 admin cannot edit settings',   $$UPDATE public.tenants SET mpesa_paybill='1' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 -- ...but sign-in routing still works before the code is entered
@@ -162,6 +194,8 @@ SELECT t.denied ('aal1 super admin cannot read tenants', $$SELECT 1 FROM public.
 SELECT t.as_user(:super, 'aal2');
 SELECT t.allowed('aal2 super admin reads all tenants',   $$SELECT 1 FROM public.tenants$$);
 SELECT t.allowed('aal2 super admin reads all payments',  $$SELECT 1 FROM public.payments$$);
+SELECT t.allowed('aal2 super admin reviews all Mood Boost topics', $$SELECT 1 FROM public.mood_boost_topics$$);
+SELECT t.allowed('aal2 super admin reads pending Mood Boost content', $$SELECT 1 FROM public.mood_boost_content WHERE moderation_status='pending'$$);
 SELECT t.allowed('aal2 super admin grants a role',       $$INSERT INTO public.user_roles (user_id, role, tenant_id) VALUES ('bbbbbbbb-0000-0000-0000-0000000000d1','support_staff','aaaaaaaa-0000-0000-0000-000000000001')$$);
 
 -- admin_approve_user refuses an aal1 session, even for a super admin
