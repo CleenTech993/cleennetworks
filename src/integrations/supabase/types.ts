@@ -2894,6 +2894,53 @@ export type Database = {
           },
         ];
       };
+      tenant_operating_costs: {
+        Row: {
+          amount: number;
+          category: string;
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          effective_month: string;
+          ends_after_month: string | null;
+          id: string;
+          recurring_monthly: boolean;
+          tenant_id: string;
+        };
+        Insert: {
+          amount: number;
+          category: string;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          effective_month: string;
+          ends_after_month?: string | null;
+          id?: string;
+          recurring_monthly?: boolean;
+          tenant_id: string;
+        };
+        Update: {
+          amount?: number;
+          category?: string;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          effective_month?: string;
+          ends_after_month?: string | null;
+          id?: string;
+          recurring_monthly?: boolean;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_operating_costs_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tv_devices: {
         Row: {
           created_at: string;
@@ -3227,6 +3274,21 @@ export type Database = {
           has_usage: boolean;
           payment_id: string;
           was_active: boolean;
+        }[];
+      };
+      tenant_revenue_by_month: {
+        Args: { p_months?: number; p_tenant_id: string };
+        Returns: {
+          month: string;
+          revenue: number;
+          successful_payment_count: number;
+        }[];
+      };
+      tenant_failed_payment_counts: {
+        Args: { p_since: string; p_tenant_id: string };
+        Returns: {
+          customer_id: string;
+          unsuccessful_payment_count: number;
         }[];
       };
       generate_monthly_platform_commission_invoices: {

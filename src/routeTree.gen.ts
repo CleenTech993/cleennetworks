@@ -49,6 +49,7 @@ import { Route as TenantCustomerBillingRouteImport } from './routes/tenant.custo
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
 import { Route as TenantDevicesRouteImport } from './routes/tenant.devices'
 import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
+import { Route as TenantInsightsRouteImport } from './routes/tenant.insights'
 import { Route as TenantInventoryRouteImport } from './routes/tenant.inventory'
 import { Route as TenantMigrationRouteImport } from './routes/tenant.migration'
 import { Route as TenantNocRouteImport } from './routes/tenant.noc'
@@ -302,6 +303,11 @@ const TenantDevicesRoute = TenantDevicesRouteImport.update({
 const TenantHotspotRoute = TenantHotspotRouteImport.update({
   id: '/hotspot',
   path: '/hotspot',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantInsightsRoute = TenantInsightsRouteImport.update({
+  id: '/insights',
+  path: '/insights',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantInventoryRoute = TenantInventoryRouteImport.update({
@@ -637,6 +643,7 @@ export interface FileRoutesByFullPath {
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/insights': typeof TenantInsightsRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/noc': typeof TenantNocRoute
@@ -729,6 +736,7 @@ export interface FileRoutesByTo {
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/insights': typeof TenantInsightsRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/noc': typeof TenantNocRoute
@@ -825,6 +833,7 @@ export interface FileRoutesById {
   '/tenant/customers': typeof TenantCustomersRoute
   '/tenant/devices': typeof TenantDevicesRoute
   '/tenant/hotspot': typeof TenantHotspotRoute
+  '/tenant/insights': typeof TenantInsightsRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/noc': typeof TenantNocRoute
@@ -922,6 +931,7 @@ export interface FileRouteTypes {
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
+    | '/tenant/insights'
     | '/tenant/inventory'
     | '/tenant/migration'
     | '/tenant/noc'
@@ -1014,6 +1024,7 @@ export interface FileRouteTypes {
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
+    | '/tenant/insights'
     | '/tenant/inventory'
     | '/tenant/migration'
     | '/tenant/noc'
@@ -1109,6 +1120,7 @@ export interface FileRouteTypes {
     | '/tenant/customers'
     | '/tenant/devices'
     | '/tenant/hotspot'
+    | '/tenant/insights'
     | '/tenant/inventory'
     | '/tenant/migration'
     | '/tenant/noc'
@@ -1493,6 +1505,13 @@ declare module '@tanstack/react-router' {
       path: '/hotspot'
       fullPath: '/tenant/hotspot'
       preLoaderRoute: typeof TenantHotspotRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/insights': {
+      id: '/tenant/insights'
+      path: '/insights'
+      fullPath: '/tenant/insights'
+      preLoaderRoute: typeof TenantInsightsRouteImport
       parentRoute: typeof TenantRoute
     }
     '/tenant/inventory': {
@@ -1940,6 +1959,7 @@ interface TenantRouteChildren {
   TenantCustomersRoute: typeof TenantCustomersRoute
   TenantDevicesRoute: typeof TenantDevicesRoute
   TenantHotspotRoute: typeof TenantHotspotRoute
+  TenantInsightsRoute: typeof TenantInsightsRoute
   TenantInventoryRoute: typeof TenantInventoryRoute
   TenantMigrationRoute: typeof TenantMigrationRoute
   TenantNocRoute: typeof TenantNocRoute
@@ -1968,6 +1988,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantCustomersRoute: TenantCustomersRoute,
   TenantDevicesRoute: TenantDevicesRoute,
   TenantHotspotRoute: TenantHotspotRoute,
+  TenantInsightsRoute: TenantInsightsRoute,
   TenantInventoryRoute: TenantInventoryRoute,
   TenantMigrationRoute: TenantMigrationRoute,
   TenantNocRoute: TenantNocRoute,

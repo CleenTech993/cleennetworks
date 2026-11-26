@@ -52,6 +52,13 @@ INSERT INTO auth.mfa_factors (user_id, status) VALUES
   ('bbbbbbbb-0000-0000-0000-0000000000a1','verified'),
   ('bbbbbbbb-0000-0000-0000-00000000000a','verified');
 INSERT INTO public.payments (tenant_id, amount) VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 100);
+INSERT INTO public.payments (tenant_id, customer_id, amount, status, created_at) VALUES
+  ('aaaaaaaa-0000-0000-0000-000000000001','cccccccc-0000-0000-0000-000000000001',200,'success',now()),
+  ('aaaaaaaa-0000-0000-0000-000000000001','cccccccc-0000-0000-0000-000000000001',25,'failed',now()),
+  ('aaaaaaaa-0000-0000-0000-000000000002','cccccccc-0000-0000-0000-000000000002',300,'success',now());
+INSERT INTO public.tenant_operating_costs (tenant_id, category, amount, effective_month) VALUES
+  ('aaaaaaaa-0000-0000-0000-000000000001','Upstream bandwidth', 1000, date_trunc('month', current_date)::date),
+  ('aaaaaaaa-0000-0000-0000-000000000002','Power', 200, date_trunc('month', current_date)::date);
 INSERT INTO public.packages (id, tenant_id, name) VALUES ('dddddddd-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','Pkg');
 INSERT INTO public.routers (id, tenant_id, name) VALUES ('eeeeeeee-0000-0000-0000-000000000001','aaaaaaaa-0000-0000-0000-000000000001','R1');
 
@@ -102,6 +109,14 @@ SELECT t.allowed('admin updates own Mood Boost settings', $$UPDATE public.mood_b
 SELECT t.denied('tenant admin cannot change Mood Boost settings for another tenant', $$UPDATE public.mood_boost_settings SET enabled=false WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000002'$$);
 SELECT t.allowed('admin reads only approved Mood Boost content', $$SELECT 1 FROM public.mood_boost_content WHERE id='f0000000-0000-0000-0000-000000000011'$$);
 SELECT t.denied('tenant admin cannot read pending Mood Boost content', $$SELECT 1 FROM public.mood_boost_content WHERE id='f0000000-0000-0000-0000-000000000012'$$);
+SELECT t.allowed('admin reads own operating costs', $$SELECT 1 FROM public.tenant_operating_costs WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('admin cannot read another tenant operating costs', $$SELECT 1 FROM public.tenant_operating_costs WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000002'$$);
+SELECT t.allowed('admin can add own operating cost', $$INSERT INTO public.tenant_operating_costs (tenant_id, category, amount, effective_month) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','Staff',500,date_trunc('month',current_date)::date)$$);
+SELECT t.denied('admin cannot add operating cost for another tenant', $$INSERT INTO public.tenant_operating_costs (tenant_id, category, amount, effective_month) VALUES ('aaaaaaaa-0000-0000-0000-000000000002','Staff',500,date_trunc('month',current_date)::date)$$);
+SELECT t.allowed('admin gets own monthly revenue aggregate', $$SELECT 1 FROM public.tenant_revenue_by_month('aaaaaaaa-0000-0000-0000-000000000001',12)$$);
+SELECT t.denied('admin monthly revenue aggregate hides another tenant', $$SELECT 1 FROM public.tenant_revenue_by_month('aaaaaaaa-0000-0000-0000-000000000002',12)$$);
+SELECT t.allowed('admin gets own failed payment counts', $$SELECT 1 FROM public.tenant_failed_payment_counts('aaaaaaaa-0000-0000-0000-000000000001',now() - interval '30 days') WHERE customer_id='cccccccc-0000-0000-0000-000000000001' AND unsuccessful_payment_count=1$$);
+SELECT t.denied('admin failed payment counts hide another tenant', $$SELECT 1 FROM public.tenant_failed_payment_counts('aaaaaaaa-0000-0000-0000-000000000002',now() - interval '30 days')$$);
 SELECT t.denied('tenant admin cannot manage curated Mood Boost topics', $$SELECT 1 FROM public.mood_boost_topics$$);
 SELECT t.allowed('admin records own Mood Boost feedback', $$INSERT INTO public.mood_boost_feedback (tenant_id,user_id,content_id,feedback_type) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-0000000000a1','f0000000-0000-0000-0000-000000000011','like')$$);
 SELECT t.allowed('admin records own Mood Boost history', $$INSERT INTO public.mood_boost_history (tenant_id,user_id,content_id) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','bbbbbbbb-0000-0000-0000-0000000000a1','f0000000-0000-0000-0000-000000000011')$$);
@@ -127,6 +142,8 @@ INSERT INTO t.results VALUES ('role helpers hide other platform roles', NOT publ
 INSERT INTO t.results VALUES ('super-admin helper hides another user', NOT public.is_super_admin(:super));
 INSERT INTO t.results VALUES ('tenant-role helper hides other workspace roles', NOT public.has_tenant_role(:admin2, 'aaaaaaaa-0000-0000-0000-000000000002', ARRAY['tenant_admin']::public.app_role[]));
 SELECT t.allowed('support reads customers',  $$SELECT 1 FROM public.customers$$);
+SELECT t.denied('support cannot read operating costs', $$SELECT 1 FROM public.tenant_operating_costs$$);
+SELECT t.denied('support cannot read revenue aggregates', $$SELECT 1 FROM public.tenant_revenue_by_month('aaaaaaaa-0000-0000-0000-000000000001',12)$$);
 SELECT t.allowed('support reads tenant Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied('support cannot read another user Mood Boost feedback', $$SELECT 1 FROM public.mood_boost_feedback WHERE user_id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 SELECT t.denied('support cannot read another user Mood Boost preferences', $$SELECT 1 FROM public.mood_boost_user_preferences WHERE user_id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
@@ -148,6 +165,8 @@ SELECT t.denied ('support cannot edit packages',        $$UPDATE public.packages
 -- ---- technician --------------------------------------------------------------------------------
 SELECT t.as_user(:tech, 'aal2');
 SELECT t.allowed('tech reads routers',   $$SELECT 1 FROM public.routers$$);
+SELECT t.denied('tech cannot read operating costs', $$SELECT 1 FROM public.tenant_operating_costs$$);
+SELECT t.denied('tech cannot read revenue aggregates', $$SELECT 1 FROM public.tenant_revenue_by_month('aaaaaaaa-0000-0000-0000-000000000001',12)$$);
 SELECT t.allowed('tech reads tenant Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied('tech cannot update tenant Mood Boost settings', $$UPDATE public.mood_boost_settings SET enabled=false WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('tech adds router',     $$INSERT INTO public.routers (tenant_id, name) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','R3')$$);
@@ -161,6 +180,9 @@ SELECT t.denied ('tech cannot extend PPPoE expiry without payment', $$UPDATE pub
 -- ---- billing_agent -----------------------------------------------------------------------------
 SELECT t.as_user(:billing, 'aal2');
 SELECT t.allowed('billing reads payments',  $$SELECT 1 FROM public.payments$$);
+SELECT t.allowed('billing reads own operating costs', $$SELECT 1 FROM public.tenant_operating_costs WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.allowed('billing can add own operating cost', $$INSERT INTO public.tenant_operating_costs (tenant_id, category, amount, effective_month) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','Transport',80,date_trunc('month',current_date)::date)$$);
+SELECT t.allowed('billing reads monthly revenue aggregate', $$SELECT 1 FROM public.tenant_revenue_by_month('aaaaaaaa-0000-0000-0000-000000000001',12)$$);
 SELECT t.allowed('billing edits packages',  $$UPDATE public.packages SET name='P' WHERE id='dddddddd-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('billing mints vouchers',  $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','BIL1')$$);
 SELECT t.allowed('billing creates suspended PPPoE account', $$INSERT INTO public.customers (id, tenant_id, customer_type, pppoe_username, status) VALUES ('cccccccc-0000-0000-0000-000000000010','aaaaaaaa-0000-0000-0000-000000000001','pppoe','billing-pppoe','suspended')$$);
@@ -176,6 +198,8 @@ SELECT t.denied('aal1 admin cannot read customers',  $$SELECT 1 FROM public.cust
 SELECT t.denied('aal1 admin cannot read payments',   $$SELECT 1 FROM public.payments$$);
 SELECT t.denied('aal1 admin cannot read routers',    $$SELECT 1 FROM public.routers$$);
 SELECT t.denied('aal1 admin cannot read Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('aal1 admin cannot read operating costs', $$SELECT 1 FROM public.tenant_operating_costs$$);
+SELECT t.denied('aal1 admin cannot read revenue aggregates', $$SELECT 1 FROM public.tenant_revenue_by_month('aaaaaaaa-0000-0000-0000-000000000001',12)$$);
 SELECT t.denied('aal1 admin cannot insert voucher',  $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','NOMFA')$$);
 SELECT t.denied('aal1 admin cannot edit settings',   $$UPDATE public.tenants SET mpesa_paybill='1' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 -- ...but sign-in routing still works before the code is entered

@@ -15,6 +15,7 @@ import {
   Activity,
   Boxes,
   CreditCard,
+  TrendingUp,
   ReceiptText,
   MessageSquare,
   Megaphone,
@@ -61,6 +62,12 @@ const ALL_NAV: NavItem[] = [
   },
   { to: "/tenant/inventory", label: "Inventory", icon: Boxes, group: "Customers & Field" },
   { to: "/tenant/tickets", label: "Support", icon: LifeBuoy, group: "Customers & Field" },
+  {
+    to: "/tenant/insights",
+    label: "Business insights",
+    icon: TrendingUp,
+    group: "Billing",
+  },
   {
     to: "/tenant/customer-billing",
     label: "Customer billing",
