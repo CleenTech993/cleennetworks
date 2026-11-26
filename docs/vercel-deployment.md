@@ -14,7 +14,8 @@ existing Cloudflare adapter.
 4. Add your production domain in Vercel. Set `APP_CANONICAL_HOST` and
    `VITE_APP_CANONICAL_HOST` to that hostname (for the Vercel-provided domain, use
    `cleennetworks.vercel.app`, not the previous `workers.dev` hostname), then redeploy. The
-   `VITE_` value is embedded at build time.
+   `VITE_` value is embedded at build time. The app also prefers the current Vercel production
+   hostname if an old Cloudflare `workers.dev` value remains configured.
 5. In Supabase Auth, set the site URL and redirect allow-list to include your Vercel domain. Test
    sign-in, MFA, customer portals, callbacks, and router integrations after deployment.
 
