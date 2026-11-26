@@ -470,6 +470,7 @@ export type Database = {
           item_id: string | null;
           kind: string;
           message: string;
+          router_id: string | null;
           sms_error: string | null;
           sms_sent_at: string | null;
           sms_status: string;
@@ -482,6 +483,7 @@ export type Database = {
           item_id?: string | null;
           kind: string;
           message: string;
+          router_id?: string | null;
           sms_error?: string | null;
           sms_sent_at?: string | null;
           sms_status?: string;
@@ -494,6 +496,7 @@ export type Database = {
           item_id?: string | null;
           kind?: string;
           message?: string;
+          router_id?: string | null;
           sms_error?: string | null;
           sms_sent_at?: string | null;
           sms_status?: string;
@@ -2048,30 +2051,37 @@ export type Database = {
       routers: {
         Row: {
           architecture: string | null;
+          auto_chain_discovery: boolean;
+          auto_discovered: boolean;
           block_tethering: boolean;
           board_name: string | null;
           capabilities: Json;
+          clients_updated_at: string | null;
+          connected_clients_count: number;
           controller_version: string | null;
           cpu_load: number | null;
           cpu_usage: number | null;
           created_at: string;
           device_family: string | null;
+          discovered_by_router_id: string | null;
           firmware_version: string | null;
           free_memory_mb: number | null;
           hdd_free_mb: number | null;
+          hotspot_clients_count: number;
           id: string;
           lan_ip: string | null;
           last_heartbeat_at: string | null;
           last_seen_at: string | null;
           last_sync_at: string | null;
           legacy_token_auth: boolean;
-          management_method: string | null;
-          management_status: string;
           mac_address: string | null;
           management_method: string | null;
           management_status: string;
           model: string | null;
           name: string;
+          node_role: string;
+          parent_router_id: string | null;
+          pppoe_clients_count: number;
           provision_token: string | null;
           provision_token_expires_at: string | null;
           public_ip: string | null;
@@ -2083,6 +2093,7 @@ export type Database = {
           temperature: number | null;
           tenant_id: string;
           total_memory_mb: number | null;
+          uplink_interface: string | null;
           uptime_seconds: number | null;
           vendor: string;
           voltage: number | null;
@@ -2090,33 +2101,41 @@ export type Database = {
           wg_last_handshake_at: string | null;
           wg_public_key: string | null;
           wg_tunnel_ip: string | null;
+          wireless_clients_count: number;
         };
         Insert: {
           architecture?: string | null;
+          auto_chain_discovery?: boolean;
+          auto_discovered?: boolean;
           block_tethering?: boolean;
           board_name?: string | null;
           capabilities?: Json;
+          clients_updated_at?: string | null;
+          connected_clients_count?: number;
           controller_version?: string | null;
           cpu_load?: number | null;
           cpu_usage?: number | null;
           created_at?: string;
           device_family?: string | null;
+          discovered_by_router_id?: string | null;
           firmware_version?: string | null;
           free_memory_mb?: number | null;
           hdd_free_mb?: number | null;
+          hotspot_clients_count?: number;
           id?: string;
           lan_ip?: string | null;
           last_heartbeat_at?: string | null;
           last_seen_at?: string | null;
           last_sync_at?: string | null;
           legacy_token_auth?: boolean;
-          management_method?: string | null;
-          management_status?: string;
           mac_address?: string | null;
           management_method?: string | null;
           management_status?: string;
           model?: string | null;
           name: string;
+          node_role?: string;
+          parent_router_id?: string | null;
+          pppoe_clients_count?: number;
           provision_token?: string | null;
           provision_token_expires_at?: string | null;
           public_ip?: string | null;
@@ -2128,6 +2147,7 @@ export type Database = {
           temperature?: number | null;
           tenant_id: string;
           total_memory_mb?: number | null;
+          uplink_interface?: string | null;
           uptime_seconds?: number | null;
           vendor?: string;
           voltage?: number | null;
@@ -2135,33 +2155,41 @@ export type Database = {
           wg_last_handshake_at?: string | null;
           wg_public_key?: string | null;
           wg_tunnel_ip?: string | null;
+          wireless_clients_count?: number;
         };
         Update: {
           architecture?: string | null;
+          auto_chain_discovery?: boolean;
+          auto_discovered?: boolean;
           block_tethering?: boolean;
           board_name?: string | null;
           capabilities?: Json;
+          clients_updated_at?: string | null;
+          connected_clients_count?: number;
           controller_version?: string | null;
           cpu_load?: number | null;
           cpu_usage?: number | null;
           created_at?: string;
           device_family?: string | null;
+          discovered_by_router_id?: string | null;
           firmware_version?: string | null;
           free_memory_mb?: number | null;
           hdd_free_mb?: number | null;
+          hotspot_clients_count?: number;
           id?: string;
           lan_ip?: string | null;
           last_heartbeat_at?: string | null;
           last_seen_at?: string | null;
           last_sync_at?: string | null;
           legacy_token_auth?: boolean;
-          management_method?: string | null;
-          management_status?: string;
           mac_address?: string | null;
           management_method?: string | null;
           management_status?: string;
           model?: string | null;
           name?: string;
+          node_role?: string;
+          parent_router_id?: string | null;
+          pppoe_clients_count?: number;
           provision_token?: string | null;
           provision_token_expires_at?: string | null;
           public_ip?: string | null;
@@ -2173,6 +2201,7 @@ export type Database = {
           temperature?: number | null;
           tenant_id?: string;
           total_memory_mb?: number | null;
+          uplink_interface?: string | null;
           uptime_seconds?: number | null;
           vendor?: string;
           voltage?: number | null;
@@ -2180,6 +2209,7 @@ export type Database = {
           wg_last_handshake_at?: string | null;
           wg_public_key?: string | null;
           wg_tunnel_ip?: string | null;
+          wireless_clients_count?: number;
         };
         Relationships: [
           {
@@ -3196,12 +3226,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -3221,13 +3251,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -3246,13 +3275,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -3271,13 +3299,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -3288,13 +3315,12 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }

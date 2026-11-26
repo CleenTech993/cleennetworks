@@ -19,6 +19,8 @@ import {
   RefreshCw,
   Gauge,
   Thermometer,
+  GitBranch,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +32,7 @@ import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-h
 import { RouterFleetSlaCard } from "@/components/router-fleet-sla-card";
 import { CONNECTED_WINDOW_MS, isClientConnected } from "@/lib/pppoe-sessions";
 import { formatTenantDate } from "@/lib/tenant-customization";
+import { buildChainTree, type ChainTreeNode } from "@/lib/router-chain";
 
 function formatRate(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0 bps";
@@ -215,6 +218,8 @@ export function TenantNocPage() {
   const totalUploadBps = onlineClientRows.reduce((sum, client) => sum + client.uploadBps, 0);
   const activePppoeCount = onlinePppoeCustomers.length;
   const activeHotspotCount = onlineHotspotDevices.length;
+  const routerById = useMemo(() => new Map(routerList.map((r) => [r.id, r])), [routerList]);
+  const chainForest = useMemo(() => buildChainTree(routerList, now), [routerList, now]);
 
   return (
     <div className="space-y-6">
@@ -381,91 +386,68 @@ export function TenantNocPage() {
           <div>
             <h3 className="font-semibold text-base flex items-center gap-2">
               <Radio className="h-4 w-4 text-primary animate-pulse" />
-              Live ISP Network Topology
+              Live Router &amp; Access Point Chain Topology
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Live link map connecting the Cloud Gateway, Edge Routers, and Subscribed Clients.
+              Real-time chain hierarchy from Cloud Hub through gateway routers to downstream routers
+              and access points, with live connected client counts and auto-detected MACs.
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className="w-fit text-xs gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
-          >
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Realtime Synced
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className="w-fit text-xs gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Realtime Synced
+            </Badge>
+            <Link to="/tenant/routers">
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                <GitBranch className="h-3 w-3" /> Edit Chains
+              </Button>
+            </Link>
+          </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-8 py-4 px-2">
-          {/* Node 1: Cloud Gateway */}
-          <div className="flex flex-col items-center text-center p-5 rounded-xl border bg-muted/30 w-full lg:w-60 shadow-xs">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
-              <Server className="h-6 w-6" />
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6 py-2 px-2 mb-6 rounded-xl bg-muted/20 border p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <Server className="h-5 w-5" />
             </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Platform Core
-            </p>
-            <p className="font-bold text-sm mt-0.5">NetGrid Cloud Hub</p>
-            <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              100% Operational
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Platform Core
+              </p>
+              <p className="font-bold text-sm">NetGrid Cloud Hub</p>
             </div>
           </div>
-
-          {/* Flow Connector Arrow */}
-          <div className="hidden lg:flex flex-col items-center text-muted-foreground">
-            <div className="w-16 border-t-2 border-dashed border-primary/40 relative">
-              <span className="absolute -top-1.5 right-0 h-3 w-3 border-t-2 border-r-2 border-primary/60 rotate-45" />
-            </div>
-            <span className="text-[10px] font-mono mt-1 text-muted-foreground">HTTPS Sync</span>
-          </div>
-
-          {/* Node 2: MikroTik Routers Fleet */}
-          <div className="flex flex-col items-center text-center p-5 rounded-xl border bg-card w-full lg:w-72 shadow-xs relative">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
-              <RouterIcon className="h-6 w-6" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              MikroTik Fleet
-            </p>
-            <p className="font-bold text-sm mt-0.5">
-              {onlineRouters.length} of {routerList.length} Connected
-            </p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">
-                Avg CPU: <span className="font-semibold text-foreground">{avgCpu}%</span>
-              </span>
-              <span>·</span>
-              <span className="text-xs text-muted-foreground">
-                Telemetry: <span className="font-semibold text-emerald-500">2s Interval</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Flow Connector Arrow */}
-          <div className="hidden lg:flex flex-col items-center text-muted-foreground">
-            <div className="w-16 border-t-2 border-dashed border-primary/40 relative">
-              <span className="absolute -top-1.5 right-0 h-3 w-3 border-t-2 border-r-2 border-primary/60 rotate-45" />
-            </div>
-            <span className="text-[10px] font-mono mt-1 text-muted-foreground">
-              PPPoE / Hotspot
+          <div className="flex flex-wrap items-center gap-4 text-xs">
+            <span>
+              <strong>{onlineRouters.length}</strong> / {routerList.length} nodes online
+            </span>
+            <span>·</span>
+            <span>
+              <strong>{onlineClientRows.length}</strong> active subscribers
+            </span>
+            <span>·</span>
+            <span>
+              ↓ {formatRate(totalDownloadBps)} · ↑ {formatRate(totalUploadBps)}
             </span>
           </div>
-
-          {/* Node 3: Connected Clients & Devices */}
-          <div className="flex flex-col items-center text-center p-5 rounded-xl border bg-muted/30 w-full lg:w-60 shadow-xs">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-3">
-              <Wifi className="h-6 w-6" />
-            </div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Subscribers
-            </p>
-            <p className="font-bold text-sm mt-0.5">{onlineClientRows.length} Active Endpoints</p>
-            <div className="mt-2 text-[11px] text-muted-foreground">
-              ↓ {formatRate(totalDownloadBps)} · ↑ {formatRate(totalUploadBps)}
-            </div>
-          </div>
         </div>
+
+        {chainForest.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No routers or access points registered yet. Add a root router to start building your
+            chain.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {chainForest.map((node) => (
+              <ChainTopologyBranch key={node.router.id} node={node} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Routers Live NOC Status Matrix */}
@@ -493,8 +475,10 @@ export function TenantNocPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3">Router Name</th>
+                  <th className="px-4 py-3">Router / AP</th>
+                  <th className="px-4 py-3">Chain &amp; MAC</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Clients</th>
                   <th className="px-4 py-3">IP Addresses</th>
                   <th className="px-4 py-3">CPU Load</th>
                   <th className="px-4 py-3">Memory / Uptime</th>
@@ -510,14 +494,20 @@ export function TenantNocPage() {
                   const freeMb = r.free_memory_mb ?? 0;
                   const usedMemPct =
                     memoryMb > 0 ? Math.round(((memoryMb - freeMb) / memoryMb) * 100) : 0;
-                  const score = healthScore(r);
-                  const tone = healthTone(score);
+                  const parent = r.parent_router_id
+                    ? routerById.get(r.parent_router_id)
+                    : undefined;
+                  const isAp = r.node_role === "access_point";
 
                   return (
                     <tr key={r.id} className="hover:bg-muted/20 transition-colors align-top">
                       <td className="px-4 py-3">
                         <div className="font-semibold text-foreground flex items-center gap-1.5">
-                          <RouterIcon className="h-4 w-4 text-muted-foreground" />
+                          {isAp ? (
+                            <Wifi className="h-4 w-4 text-primary" />
+                          ) : (
+                            <RouterIcon className="h-4 w-4 text-muted-foreground" />
+                          )}
                           <Link
                             to="/tenant/routers/$id"
                             params={{ id: r.id }}
@@ -526,18 +516,42 @@ export function TenantNocPage() {
                             {r.name}
                           </Link>
                         </div>
-                        {r.tags && r.tags.length > 0 && (
-                          <div className="flex gap-1 mt-1">
-                            {r.tags.map((t) => (
-                              <span
-                                key={t}
-                                className="text-[10px] bg-muted px-1.5 py-0.2 rounded text-muted-foreground"
-                              >
-                                {t}
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <Badge variant="outline" className="text-[10px]">
+                            {isAp ? "Access Point" : "Router"}
+                          </Badge>
+                          {r.auto_discovered && (
+                            <Badge variant="outline" className="text-[10px]">
+                              Auto-detected
+                            </Badge>
+                          )}
+                          {r.tags?.map((t) => (
+                            <span
+                              key={t}
+                              className="text-[10px] bg-muted px-1.5 py-0.2 rounded text-muted-foreground"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        {parent ? (
+                          <div className="flex items-center gap-1 text-foreground">
+                            <GitBranch className="h-3 w-3 text-primary shrink-0" />
+                            <span>{parent.name}</span>
+                            {r.uplink_interface && (
+                              <span className="font-mono text-[11px] text-muted-foreground">
+                                ({r.uplink_interface})
                               </span>
-                            ))}
+                            )}
                           </div>
+                        ) : (
+                          <span className="text-muted-foreground">Root gateway</span>
                         )}
+                        <div className="font-mono text-[11px] text-muted-foreground mt-0.5">
+                          {r.mac_address ?? "MAC pending"}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         {live ? (
@@ -555,6 +569,15 @@ export function TenantNocPage() {
                           {r.last_heartbeat_at
                             ? `Heartbeat ${formatTenantDate(r.last_heartbeat_at)}`
                             : "No heartbeats yet"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        <div className="font-semibold tabular-nums flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5 text-primary" />
+                          {r.connected_clients_count ?? 0}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground font-mono">
+                          {r.hotspot_clients_count ?? 0} HS · {r.pppoe_clients_count ?? 0} PPP
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs font-mono">
@@ -620,6 +643,89 @@ export function TenantNocPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ChainTopologyBranch({ node }: { node: ChainTreeNode }) {
+  const r = node.router;
+  const isAp = r.node_role === "access_point";
+  const primaryIp = r.wan_ip ?? r.lan_ip ?? r.public_ip ?? null;
+
+  return (
+    <div className={node.depth > 0 ? "pl-6 border-l-2 border-dashed border-border ml-4" : ""}>
+      <div
+        className={`rounded-xl border p-3.5 transition-colors ${
+          node.live ? "bg-card border-border" : "bg-rose-500/5 border-rose-500/40"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg border ${
+                node.live
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
+              }`}
+            >
+              {isAp ? <Wifi className="h-4 w-4" /> : <RouterIcon className="h-4 w-4" />}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  to="/tenant/routers/$id"
+                  params={{ id: r.id }}
+                  className="font-semibold text-sm hover:underline truncate"
+                >
+                  {r.name}
+                </Link>
+                <Badge variant={node.live ? "default" : "destructive"} className="text-[10px]">
+                  {node.live ? "online" : "offline"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {isAp ? "Access Point" : "Router"}
+                </Badge>
+                {r.auto_discovered && (
+                  <Badge variant="outline" className="text-[10px] gap-1">
+                    <Sparkles className="h-2.5 w-2.5" /> Auto-added
+                  </Badge>
+                )}
+                {node.offlineAncestorName && (
+                  <Badge variant="destructive" className="text-[10px]">
+                    Upstream {node.offlineAncestorName} offline
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
+                MAC: {r.mac_address ?? "Pending"}
+                {primaryIp ? ` · ${primaryIp}` : ""}
+                {r.uplink_interface ? ` · Uplink ${r.uplink_interface}` : ""}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-mono text-xs gap-1">
+              <Users className="h-3 w-3 text-primary" />
+              {node.directClients} {node.directClients === 1 ? "client" : "clients"}
+            </Badge>
+            {node.children.length > 0 && (
+              <Badge variant="secondary" className="font-mono text-xs gap-1">
+                <GitBranch className="h-3 w-3" />
+                {node.children.length} chained · {node.branchClients} total
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {node.children.length > 0 && (
+        <div className="mt-2.5 space-y-2.5">
+          {node.children.map((child) => (
+            <ChainTopologyBranch key={child.router.id} node={child} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { authenticateRouter } from "@/lib/router-auth.server";
+import { computeConnectedClientsCount } from "@/lib/router-chain";
 import { deviceLimitOf, isHotspotPackageKind, parseDeviceReport } from "@/lib/devices";
 import { expiryFrom } from "@/lib/duration";
 
@@ -363,6 +364,29 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
           .delete()
           .eq("router_id", router.id)
           .lt("last_seen_at", cutoff);
+
+        // Keep live connected hotspot client count updated on the router row.
+        const activeHotspotCount = records.filter((r) => r.authorized).length;
+        const { data: routerMeta } = await supabaseAdmin
+          .from("routers")
+          .select("node_role,pppoe_clients_count,wireless_clients_count")
+          .eq("id", router.id)
+          .maybeSingle();
+        if (routerMeta) {
+          await supabaseAdmin
+            .from("routers")
+            .update({
+              hotspot_clients_count: activeHotspotCount,
+              connected_clients_count: computeConnectedClientsCount({
+                nodeRole: routerMeta.node_role,
+                hotspotClients: activeHotspotCount,
+                pppoeClients: routerMeta.pppoe_clients_count,
+                wirelessClients: routerMeta.wireless_clients_count,
+              }),
+              clients_updated_at: now,
+            })
+            .eq("id", router.id);
+        }
 
         return new Response("ok");
       },

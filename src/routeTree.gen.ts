@@ -89,6 +89,7 @@ import { Route as ApiPublicPppoePortalSlugLoginRouteImport } from './routes/api/
 import { Route as ApiPublicPppoePortalSlugLogoutRouteImport } from './routes/api/public/pppoe-portal.$slug.logout'
 import { Route as ApiPublicProvisionTokenLoginDothtmlRouteImport } from './routes/api/public/provision/$token/login[.]html'
 import { Route as ApiPublicProvisionTokenRouterDotrscRouteImport } from './routes/api/public/provision/$token/router[.]rsc'
+import { Route as ApiPublicRouterChainTokenRouteImport } from './routes/api/public/router/chain.$token'
 import { Route as ApiPublicRouterDevicesTokenRouteImport } from './routes/api/public/router/devices.$token'
 import { Route as ApiPublicRouterHeartbeatTokenRouteImport } from './routes/api/public/router/heartbeat.$token'
 import { Route as ApiPublicRouterInterfacesTokenRouteImport } from './routes/api/public/router/interfaces.$token'
@@ -517,6 +518,12 @@ const ApiPublicProvisionTokenRouterDotrscRoute =
     path: '/api/public/provision/$token/router.rsc',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicRouterChainTokenRoute =
+  ApiPublicRouterChainTokenRouteImport.update({
+    id: '/api/public/router/chain/$token',
+    path: '/api/public/router/chain/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicRouterDevicesTokenRoute =
   ApiPublicRouterDevicesTokenRouteImport.update({
     id: '/api/public/router/devices/$token',
@@ -647,6 +654,7 @@ export interface FileRoutesByFullPath {
   '/api/public/pppoe-portal/$slug/logout': typeof ApiPublicPppoePortalSlugLogoutRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/chain/$token': typeof ApiPublicRouterChainTokenRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
@@ -734,6 +742,7 @@ export interface FileRoutesByTo {
   '/api/public/pppoe-portal/$slug/logout': typeof ApiPublicPppoePortalSlugLogoutRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/chain/$token': typeof ApiPublicRouterChainTokenRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
@@ -825,6 +834,7 @@ export interface FileRoutesById {
   '/api/public/pppoe-portal/$slug/logout': typeof ApiPublicPppoePortalSlugLogoutRoute
   '/api/public/provision/$token/login.html': typeof ApiPublicProvisionTokenLoginDothtmlRoute
   '/api/public/provision/$token/router.rsc': typeof ApiPublicProvisionTokenRouterDotrscRoute
+  '/api/public/router/chain/$token': typeof ApiPublicRouterChainTokenRoute
   '/api/public/router/devices/$token': typeof ApiPublicRouterDevicesTokenRoute
   '/api/public/router/heartbeat/$token': typeof ApiPublicRouterHeartbeatTokenRoute
   '/api/public/router/interfaces/$token': typeof ApiPublicRouterInterfacesTokenRoute
@@ -917,6 +927,7 @@ export interface FileRouteTypes {
     | '/api/public/pppoe-portal/$slug/logout'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/chain/$token'
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
@@ -1004,6 +1015,7 @@ export interface FileRouteTypes {
     | '/api/public/pppoe-portal/$slug/logout'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/chain/$token'
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
@@ -1094,6 +1106,7 @@ export interface FileRouteTypes {
     | '/api/public/pppoe-portal/$slug/logout'
     | '/api/public/provision/$token/login.html'
     | '/api/public/provision/$token/router.rsc'
+    | '/api/public/router/chain/$token'
     | '/api/public/router/devices/$token'
     | '/api/public/router/heartbeat/$token'
     | '/api/public/router/interfaces/$token'
@@ -1137,6 +1150,7 @@ export interface RootRouteChildren {
   ApiPublicPppoePortalSlugLogoutRoute: typeof ApiPublicPppoePortalSlugLogoutRoute
   ApiPublicProvisionTokenLoginDothtmlRoute: typeof ApiPublicProvisionTokenLoginDothtmlRoute
   ApiPublicProvisionTokenRouterDotrscRoute: typeof ApiPublicProvisionTokenRouterDotrscRoute
+  ApiPublicRouterChainTokenRoute: typeof ApiPublicRouterChainTokenRoute
   ApiPublicRouterDevicesTokenRoute: typeof ApiPublicRouterDevicesTokenRoute
   ApiPublicRouterHeartbeatTokenRoute: typeof ApiPublicRouterHeartbeatTokenRoute
   ApiPublicRouterInterfacesTokenRoute: typeof ApiPublicRouterInterfacesTokenRoute
@@ -1709,6 +1723,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicProvisionTokenRouterDotrscRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/router/chain/$token': {
+      id: '/api/public/router/chain/$token'
+      path: '/api/public/router/chain/$token'
+      fullPath: '/api/public/router/chain/$token'
+      preLoaderRoute: typeof ApiPublicRouterChainTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/router/devices/$token': {
       id: '/api/public/router/devices/$token'
       path: '/api/public/router/devices/$token'
@@ -1948,6 +1969,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicProvisionTokenLoginDothtmlRoute,
   ApiPublicProvisionTokenRouterDotrscRoute:
     ApiPublicProvisionTokenRouterDotrscRoute,
+  ApiPublicRouterChainTokenRoute: ApiPublicRouterChainTokenRoute,
   ApiPublicRouterDevicesTokenRoute: ApiPublicRouterDevicesTokenRoute,
   ApiPublicRouterHeartbeatTokenRoute: ApiPublicRouterHeartbeatTokenRoute,
   ApiPublicRouterInterfacesTokenRoute: ApiPublicRouterInterfacesTokenRoute,

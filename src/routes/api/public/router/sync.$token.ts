@@ -9,6 +9,7 @@ import { buildDoctorInstallLines } from "@/lib/router-doctor";
 import { buildPppoeSyncLines, PPPOE_BILLING_GRACE_PERIOD_MS } from "@/lib/pppoe";
 import { buildTvSyncLines } from "@/lib/tv";
 import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
+import { buildChainAgentLines } from "@/lib/router-chain";
 import {
   buildBlockLines,
   buildCustomerEgressFilterLines,
@@ -304,9 +305,11 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           blocksAllConnections(maintenance);
         const blockNewSince = maintenance
           .filter((notice) => notice.mode === "block_new")
-          .reduce<
-            string | null
-          >((earliest, notice) => (!earliest || notice.starts_at < earliest ? notice.starts_at : earliest), null);
+          .reduce<string | null>(
+            (earliest, notice) =>
+              !earliest || notice.starts_at < earliest ? notice.starts_at : earliest,
+            null,
+          );
         const pppoeCustomers =
           !serviceRestricted && blockNewSince
             ? (customers ?? []).filter((customer) => customer.created_at < blockNewSince)
@@ -344,7 +347,14 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
   :local lan ""; :do { :set lan [/ip address get [find interface=netgrid-lan] address] } on-error={};
   :local volt 0; :do { :set volt [/system health get voltage] } on-error={};
   :local temp 0; :do { :set temp [/system health get temperature] } on-error={};
-  :local d ("cpu=" . $cpu . "&mem-free=" . $mf . "&mem-total=" . $mt . "&hdd-free=" . $hf . "&uptime=" . $up . "&temp=" . $temp . "&voltage=" . $volt . "&version=" . $ver . "&board=" . $board . "&arch=" . $arch . "&wan-ip=" . $wan . "&lan-ip=" . $lan . "&latency=" . $ngLat . "&loss=" . $ngLoss . "&jitter=" . $ngJit . "&dns=" . $ngDns);
+  :local mac ""; :do { :set mac [/interface ethernet get ether1 mac-address] } on-error={};
+  :if ($mac = "") do={ :do { :set mac [/interface bridge get [find name=netgrid-lan] mac-address] } on-error={} };
+  :local umac ""; :do { :local gw [/ip route get [find dst-address="0.0.0.0/0" active=yes] gateway]; :if ($gw != "") do={ :set umac [/ip arp get [find address=$gw] mac-address] } } on-error={};
+  :local hc 0; :do { :set hc [:len [/ip hotspot active find]] } on-error={};
+  :local pc 0; :do { :set pc [:len [/ppp active find where service=pppoe]] } on-error={};
+  :local wc 0; :do { :set wc [:len [/interface wireless registration-table find]] } on-error={};
+  :if ($wc = 0) do={ :do { :set wc [:len [/interface wifi registration-table find]] } on-error={} };
+  :local d ("cpu=" . $cpu . "&mem-free=" . $mf . "&mem-total=" . $mt . "&hdd-free=" . $hf . "&uptime=" . $up . "&temp=" . $temp . "&voltage=" . $volt . "&version=" . $ver . "&board=" . $board . "&arch=" . $arch . "&wan-ip=" . $wan . "&lan-ip=" . $lan . "&mac=" . $mac . "&uplink-mac=" . $umac . "&hotspot-clients=" . $hc . "&pppoe-clients=" . $pc . "&wireless-clients=" . $wc . "&latency=" . $ngLat . "&loss=" . $ngLoss . "&jitter=" . $ngJit . "&dns=" . $ngDns);
   :do {
     /tool fetch url="https://${host}/api/public/router/heartbeat/${params.token}" http-method=post http-data=$d mode=https keep-result=no
   } on-error={ :log warning "NetGrid: heartbeat failed" }
@@ -484,6 +494,9 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         );
         lines.push(
           ...buildPppoeAgentLines(`https://${host}/api/public/router/pppoe/${params.token}`),
+        );
+        lines.push(
+          ...buildChainAgentLines(`https://${host}/api/public/router/chain/${params.token}`),
         );
         lines.push(
           ...(monitoredError || !monitored

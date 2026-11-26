@@ -14,22 +14,35 @@ import {
   Wifi,
   Activity,
   Check,
+  GitBranch,
+  Users,
+  Router as RouterIcon,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { RouterHistory } from "@/components/router-history";
-import { fmtUptime, healthScore, healthTone } from "@/lib/router-health";
+import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
 import { buildDoctorPaste } from "@/lib/router-doctor";
 import { syncStatus } from "@/lib/sync-status";
 import { InterfacesTab, QualityTab, TrafficTab } from "@/components/router-network";
 import { RouterSupportSessionButton } from "@/components/router-support-session-button";
 import { formatTenantDate } from "@/lib/tenant-customization";
+import { CONNECTED_WINDOW_MS, isClientConnected } from "@/lib/pppoe-sessions";
+import { wouldCreateChainCycle } from "@/lib/router-chain";
 
 export const Route = createFileRoute("/tenant/routers/$id")({
   head: () => ({
@@ -52,6 +65,54 @@ function RouterDetail() {
       return data as Tables<"routers"> | null;
     },
     refetchInterval: 2_000,
+  });
+
+  const { data: tenantRouters = [], refetch: refetchTenantRouters } = useQuery({
+    queryKey: ["router-chain-peers", r?.tenant_id],
+    enabled: !!r?.tenant_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("routers")
+        .select("*")
+        .eq("tenant_id", r!.tenant_id)
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as Tables<"routers">[];
+    },
+    refetchInterval: 5_000,
+  });
+
+  const { data: routerHotspotClients = [] } = useQuery({
+    queryKey: ["router-live-hotspot", id],
+    queryFn: async () => {
+      const since = new Date(Date.now() - CONNECTED_WINDOW_MS).toISOString();
+      const { data, error } = await supabase
+        .from("router_devices")
+        .select("id,mac,ip,hostname,voucher_code,authorized,blocked,last_seen_at")
+        .eq("router_id", id)
+        .eq("authorized", true)
+        .eq("blocked", false)
+        .gte("last_seen_at", since)
+        .order("last_seen_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    refetchInterval: 10_000,
+  });
+
+  const { data: routerPppoeClients = [] } = useQuery({
+    queryKey: ["router-live-pppoe", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("customers")
+        .select("id,full_name,pppoe_username,last_ip,last_seen_at,status,router_id,last_router_id")
+        .eq("customer_type", "pppoe")
+        .eq("status", "active")
+        .or(`last_router_id.eq.${id},router_id.eq.${id}`);
+      if (error) throw error;
+      return (data ?? []).filter((c) => isClientConnected(c.last_seen_at));
+    },
+    refetchInterval: 10_000,
   });
 
   // Re-fetch the moment the router pushes a heartbeat or sync update
@@ -131,7 +192,7 @@ function RouterDetail() {
       />
 
       {/* Enterprise Network Status & IP Command Center Banner */}
-      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {/* WAN IP Card */}
         <div className="rounded-xl border bg-card p-4 flex flex-col justify-between shadow-xs">
           <div className="flex items-center justify-between text-muted-foreground mb-1">
@@ -255,15 +316,57 @@ function RouterDetail() {
           </div>
           <p className="text-[11px] text-muted-foreground mt-1">Realtime 2-second streaming sync</p>
         </div>
+
+        {/* Connected Clients Card */}
+        <div className="rounded-xl border bg-card p-4 flex flex-col justify-between shadow-xs">
+          <div className="flex items-center justify-between text-muted-foreground mb-1">
+            <span className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-primary" /> Connected Clients
+            </span>
+            <Badge variant="outline" className="text-[10px] h-4 py-0">
+              {r.node_role === "access_point" ? "AP" : "Router"}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-2xl font-bold tabular-nums text-foreground">
+              {Math.max(
+                r.connected_clients_count ?? 0,
+                routerHotspotClients.length + routerPppoeClients.length,
+              )}
+            </span>
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {r.hotspot_clients_count ?? routerHotspotClients.length} HS ·{" "}
+              {r.pppoe_clients_count ?? routerPppoeClients.length} PPP
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1 truncate">
+            {r.wireless_clients_count
+              ? `${r.wireless_clients_count} wireless stations`
+              : "Live active sessions"}
+          </p>
+        </div>
       </div>
 
       <Tabs defaultValue="overview">
         <TabsList className="mb-4">
           <TabsTrigger value="overview">Health</TabsTrigger>
+          <TabsTrigger value="chain">Chain &amp; Clients</TabsTrigger>
           <TabsTrigger value="interfaces">Interfaces</TabsTrigger>
           <TabsTrigger value="quality">Internet quality</TabsTrigger>
           <TabsTrigger value="traffic">Traffic</TabsTrigger>
         </TabsList>
+        <TabsContent value="chain">
+          <RouterChainTab
+            router={r}
+            allRouters={tenantRouters}
+            hotspotClients={routerHotspotClients}
+            pppoeClients={routerPppoeClients}
+            onChanged={() => {
+              void refetch();
+              void refetchTenantRouters();
+            }}
+          />
+        </TabsContent>
         <TabsContent value="interfaces">
           <InterfacesTab routerId={r.id} />
         </TabsContent>
@@ -411,6 +514,328 @@ function RouterDetail() {
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function RouterChainTab({
+  router,
+  allRouters,
+  hotspotClients,
+  pppoeClients,
+  onChanged,
+}: {
+  router: Tables<"routers">;
+  allRouters: Tables<"routers">[];
+  hotspotClients: {
+    id: string;
+    mac: string;
+    ip: string | null;
+    hostname: string | null;
+    voucher_code: string | null;
+    last_seen_at: string;
+  }[];
+  pppoeClients: {
+    id: string;
+    full_name: string | null;
+    pppoe_username: string | null;
+    last_ip: string | null;
+    last_seen_at: string | null;
+  }[];
+  onChanged: () => void;
+}) {
+  const [linkChildId, setLinkChildId] = useState<string>("");
+  const parent = router.parent_router_id
+    ? allRouters.find((item) => item.id === router.parent_router_id)
+    : undefined;
+  const children = allRouters.filter((item) => item.parent_router_id === router.id);
+  const linkable = allRouters.filter(
+    (item) =>
+      item.id !== router.id &&
+      item.parent_router_id !== router.id &&
+      !wouldCreateChainCycle(allRouters, item.id, router.id),
+  );
+
+  async function attachChild() {
+    if (!linkChildId) return;
+    const { error } = await supabase
+      .from("routers")
+      .update({ parent_router_id: router.id })
+      .eq("id", linkChildId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Device chained under this router");
+    setLinkChildId("");
+    onChanged();
+  }
+
+  async function unlinkChild(childId: string) {
+    const { error } = await supabase
+      .from("routers")
+      .update({ parent_router_id: null })
+      .eq("id", childId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Device unlinked from this chain");
+    onChanged();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <GitBranch className="h-4 w-4 text-primary" /> Chain Position
+            </h3>
+            {router.auto_discovered && (
+              <Badge variant="outline" className="text-xs gap-1">
+                <Sparkles className="h-3 w-3" /> Auto-detected
+              </Badge>
+            )}
+          </div>
+          <dl className="space-y-2 text-sm">
+            <Row
+              label="Device Role"
+              value={router.node_role === "access_point" ? "Access Point" : "Router"}
+            />
+            <Row label="Detected MAC" value={router.mac_address ?? "Pending"} mono copyable />
+            <Row label="Uplink Port" value={router.uplink_interface ?? "—"} mono />
+            <div className="flex items-center justify-between gap-3 py-0.5">
+              <dt className="text-muted-foreground">Upstream Parent</dt>
+              <dd>
+                {parent ? (
+                  <Link
+                    to="/tenant/routers/$id"
+                    params={{ id: parent.id }}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {parent.name}
+                  </Link>
+                ) : (
+                  <span className="text-muted-foreground">Root gateway</span>
+                )}
+              </dd>
+            </div>
+          </dl>
+          <div className="flex items-center justify-between gap-3 border-t pt-3">
+            <div>
+              <p className="text-sm font-medium">Auto-detect downstream devices</p>
+              <p className="text-xs text-muted-foreground">
+                Automatically add routers &amp; APs plugged into this router by MAC address.
+              </p>
+            </div>
+            <Switch
+              checked={router.auto_chain_discovery !== false}
+              onCheckedChange={async (on) => {
+                const { error } = await supabase
+                  .from("routers")
+                  .update({ auto_chain_discovery: on })
+                  .eq("id", router.id);
+                if (error) toast.error("Could not update auto-discovery setting");
+                else {
+                  toast.success(on ? "Auto-discovery enabled" : "Auto-discovery paused");
+                  onChanged();
+                }
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-card p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" /> Client Breakdown
+            </h3>
+            <Badge variant="outline" className="font-mono text-xs">
+              Total: {router.connected_clients_count ?? 0}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Hotspot</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">
+                {Math.max(router.hotspot_clients_count ?? 0, hotspotClients.length)}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">PPPoE</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">
+                {Math.max(router.pppoe_clients_count ?? 0, pppoeClients.length)}
+              </p>
+            </div>
+            <div className="rounded-lg border bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Wireless</p>
+              <p className="mt-1 text-xl font-bold tabular-nums">
+                {router.wireless_clients_count ?? 0}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {router.clients_updated_at
+              ? `Last client sample: ${formatTenantDate(router.clients_updated_at)}`
+              : "Counts refresh automatically every minute from router telemetry."}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-card p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold">Downstream Chained Routers &amp; Access Points</h3>
+            <p className="text-xs text-muted-foreground">
+              Devices connected below {router.name} in the network chain.
+            </p>
+          </div>
+          {linkable.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Select value={linkChildId} onValueChange={setLinkChildId}>
+                <SelectTrigger className="h-8 w-52 text-xs">
+                  <SelectValue placeholder="Chain existing device…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {linkable.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name} ({item.node_role === "access_point" ? "AP" : "Router"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={attachChild}
+                disabled={!linkChildId}
+              >
+                Chain
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {children.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4">
+            No downstream devices chained yet. Plug a router or access point into {router.name} to
+            detect its MAC and add it automatically, or select one above.
+          </p>
+        ) : (
+          <div className="divide-y rounded-lg border">
+            {children.map((child) => {
+              const childLive = isRouterLive(child);
+              return (
+                <div
+                  key={child.id}
+                  className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`grid h-8 w-8 place-items-center rounded-md border ${
+                        childLive
+                          ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                          : "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                      }`}
+                    >
+                      {child.node_role === "access_point" ? (
+                        <Wifi className="h-4 w-4" />
+                      ) : (
+                        <RouterIcon className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to="/tenant/routers/$id"
+                          params={{ id: child.id }}
+                          className="font-medium hover:underline truncate"
+                        >
+                          {child.name}
+                        </Link>
+                        <Badge
+                          variant={childLive ? "default" : "destructive"}
+                          className="text-[10px]"
+                        >
+                          {childLive ? "online" : "offline"}
+                        </Badge>
+                        {child.auto_discovered && (
+                          <Badge variant="outline" className="text-[10px]">
+                            auto-added
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {child.mac_address ?? "No MAC"}
+                        {child.uplink_interface ? ` · via ${child.uplink_interface}` : ""}
+                        {child.wan_ip ? ` · ${child.wan_ip}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className="font-mono text-xs gap-1">
+                      <Users className="h-3 w-3" />
+                      {child.connected_clients_count ?? 0} clients
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-xs text-muted-foreground"
+                      onClick={() => void unlinkChild(child.id)}
+                    >
+                      Unlink
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border bg-card p-5 space-y-3">
+        <h3 className="font-semibold">Live Connected Clients on {router.name}</h3>
+        {hotspotClients.length === 0 && pppoeClients.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No active hotspot or PPPoE client sessions reported in the last 3 minutes.
+          </p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2">Client / Hostname</th>
+                  <th className="px-4 py-2">Service</th>
+                  <th className="px-4 py-2">IP</th>
+                  <th className="px-4 py-2">Identifier / MAC</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {pppoeClients.map((c) => (
+                  <tr key={`pppoe-${c.id}`}>
+                    <td className="px-4 py-2 font-medium">{c.full_name || c.pppoe_username}</td>
+                    <td className="px-4 py-2">PPPoE</td>
+                    <td className="px-4 py-2 font-mono text-xs">{c.last_ip ?? "—"}</td>
+                    <td className="px-4 py-2 font-mono text-xs">{c.pppoe_username ?? "—"}</td>
+                  </tr>
+                ))}
+                {hotspotClients.map((d) => (
+                  <tr key={`hs-${d.id}`}>
+                    <td className="px-4 py-2 font-medium">
+                      {d.hostname || d.voucher_code || "Hotspot client"}
+                    </td>
+                    <td className="px-4 py-2">Hotspot</td>
+                    <td className="px-4 py-2 font-mono text-xs">{d.ip ?? "—"}</td>
+                    <td className="px-4 py-2 font-mono text-xs">{d.mac}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Plus,
@@ -14,11 +14,16 @@ import {
   Thermometer,
   Activity,
   Check,
+  GitBranch,
+  Users,
+  Pencil,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -37,9 +42,12 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/use-auth";
 import { fmtUptime, healthScore, healthTone, isRouterLive } from "@/lib/router-health";
 import { buildOmadaPortalUrl, type DeviceVendor } from "@/lib/device-management";
+import { type ChainNodeRole, type ChainVendor, wouldCreateChainCycle } from "@/lib/router-chain";
+import { normalizeMac } from "@/lib/tv";
 import { appOrigin } from "@/lib/app-origin";
 import { mikrotikProvisionCommand } from "@/lib/router-provisioning";
 import { logAudit } from "@/lib/audit";
@@ -51,6 +59,9 @@ import {
 import { useTenantLabels } from "@/hooks/use-tenant-customization";
 import { formatTenantDate } from "@/lib/tenant-customization";
 
+const NONE = "__none__";
+type RouterRow = Tables<"routers">;
+
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
 
 function RoutersPage() {
@@ -59,7 +70,15 @@ function RoutersPage() {
   const { tenantId } = useAuth();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [vendor, setVendor] = useState<DeviceVendor>("mikrotik");
+  const [vendor, setVendor] = useState<ChainVendor>("mikrotik");
+  const [nodeRole, setNodeRole] = useState<ChainNodeRole>("router");
+  const [parentRouterId, setParentRouterId] = useState<string>(NONE);
+  const [uplinkInterface, setUplinkInterface] = useState("");
+  const [macAddress, setMacAddress] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "router" | "access_point" | "offline">(
+    "all",
+  );
+  const [editing, setEditing] = useState<RouterRow | null>(null);
   const [showOmadaPortal, setShowOmadaPortal] = useState<Record<string, boolean>>({});
   const [showOmadaController, setShowOmadaController] = useState<Record<string, boolean>>({});
 
@@ -117,12 +136,21 @@ function RoutersPage() {
   const addRouter = useMutation({
     mutationFn: async () => {
       if (!tenantId) throw new Error("No tenant");
+      const trimmedMac = macAddress.trim();
+      const normalizedMac = trimmedMac ? normalizeMac(trimmedMac) : null;
+      if (trimmedMac && !normalizedMac) {
+        throw new Error("MAC address must look like AA:BB:CC:DD:EE:FF");
+      }
       const { data, error } = await supabase
         .from("routers")
         .insert({
           tenant_id: tenantId,
-          name,
+          name: name.trim(),
           vendor,
+          node_role: nodeRole,
+          parent_router_id: parentRouterId === NONE ? null : parentRouterId,
+          uplink_interface: uplinkInterface.trim() || null,
+          mac_address: normalizedMac,
         })
         .select()
         .single();
@@ -132,18 +160,27 @@ function RoutersPage() {
     onSuccess: (data) => {
       toast.success(
         data.vendor === "mikrotik"
-          ? "MikroTik added — copy the provisioning command below"
-          : "Device added — check its management status before provisioning",
+          ? "Device added — copy the provisioning command below or connect it on the chain"
+          : "Device added — check its management status or chain link",
       );
       qc.invalidateQueries({ queryKey: ["routers"] });
       setOpen(false);
       setName("");
       setVendor("mikrotik");
+      setNodeRole("router");
+      setParentRouterId(NONE);
+      setUplinkInterface("");
+      setMacAddress("");
       void logAudit({
         action: "create",
         resource: "router",
         resourceId: data?.id,
-        details: { name, vendor },
+        details: {
+          name,
+          vendor,
+          nodeRole,
+          parentRouterId: parentRouterId === NONE ? null : parentRouterId,
+        },
         tenantId,
       });
     },
@@ -224,8 +261,30 @@ function RoutersPage() {
     if (value === "ruijie_reyee") return "Ruijie / Reyee";
     if (value === "tp_link_omada") return "TP-Link Omada";
     if (value === "mikrotik") return "MikroTik";
+    if (value === "ubiquiti") return "Ubiquiti";
+    if (value === "generic") return "Generic AP / Router";
     return value;
   }
+
+  const routerById = useMemo(() => new Map((routers ?? []).map((r) => [r.id, r])), [routers]);
+  const childCountById = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of routers ?? []) {
+      if (r.parent_router_id) {
+        counts.set(r.parent_router_id, (counts.get(r.parent_router_id) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [routers]);
+
+  const filteredRouters = useMemo(() => {
+    return (routers ?? []).filter((r) => {
+      if (roleFilter === "router") return (r.node_role ?? "router") === "router";
+      if (roleFilter === "access_point") return r.node_role === "access_point";
+      if (roleFilter === "offline") return r.status !== "pending" && !isRouterLive(r);
+      return true;
+    });
+  }, [routers, roleFilter]);
 
   function managementLabel(router: {
     management_status: string;
@@ -252,33 +311,96 @@ function RoutersPage() {
               <DialogHeader>
                 <DialogTitle>Add network device</DialogTitle>
                 <DialogDescription>
-                  Select the vendor. A setup command is generated only when a supported official
-                  adapter is available.
+                  Add a router or access point manually, or connect it downstream on a MikroTik
+                  chain to detect its MAC and register it automatically.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
-                <Label htmlFor="rname">Name</Label>
-                <Input
-                  id="rname"
-                  placeholder="Site A — Tower 1"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                <Label>Vendor</Label>
-                <Select value={vendor} onValueChange={(value: DeviceVendor) => setVendor(value)}>
-                  <SelectTrigger aria-label="Device vendor">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mikrotik">MikroTik RouterOS</SelectItem>
-                    <SelectItem value="ruijie_reyee">Ruijie / Reyee</SelectItem>
-                    <SelectItem value="tp_link_omada">TP-Link Omada</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div>
+                  <Label htmlFor="rname">Name</Label>
+                  <Input
+                    id="rname"
+                    placeholder="Site A — Tower 1"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Device role</Label>
+                    <Select
+                      value={nodeRole}
+                      onValueChange={(value: ChainNodeRole) => setNodeRole(value)}
+                    >
+                      <SelectTrigger aria-label="Device role">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="router">Router</SelectItem>
+                        <SelectItem value="access_point">Access Point (AP)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Vendor</Label>
+                    <Select value={vendor} onValueChange={(value: ChainVendor) => setVendor(value)}>
+                      <SelectTrigger aria-label="Device vendor">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mikrotik">MikroTik RouterOS</SelectItem>
+                        <SelectItem value="tp_link_omada">TP-Link Omada</SelectItem>
+                        <SelectItem value="ruijie_reyee">Ruijie / Reyee</SelectItem>
+                        <SelectItem value="ubiquiti">Ubiquiti / UniFi</SelectItem>
+                        <SelectItem value="generic">Generic AP / Router</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Upstream parent (chain)</Label>
+                    <Select value={parentRouterId} onValueChange={setParentRouterId}>
+                      <SelectTrigger aria-label="Upstream parent router">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>None (Root gateway)</SelectItem>
+                        {(routers ?? []).map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="ruplink">Uplink port (optional)</Label>
+                    <Input
+                      id="ruplink"
+                      placeholder="ether2"
+                      value={uplinkInterface}
+                      onChange={(e) => setUplinkInterface(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="rmac">MAC address (optional — auto-detected on chain)</Label>
+                  <Input
+                    id="rmac"
+                    placeholder="AA:BB:CC:DD:EE:FF"
+                    value={macAddress}
+                    onChange={(e) => setMacAddress(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
               </div>
               <DialogFooter>
-                <Button onClick={() => addRouter.mutate()} disabled={!name || addRouter.isPending}>
-                  {addRouter.isPending ? "Creating…" : "Create router"}
+                <Button
+                  onClick={() => addRouter.mutate()}
+                  disabled={!name.trim() || addRouter.isPending}
+                >
+                  {addRouter.isPending ? "Creating…" : "Create device"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -291,429 +413,678 @@ function RoutersPage() {
       ) : !routers?.length ? (
         <EmptyState
           title="No routers yet"
-          description="Add a device from a supported vendor. Setup options appear only when its official management interface is available."
+          description="Add a root MikroTik router and run its setup command. Downstream routers and access points connected on its chain are detected by MAC and added automatically."
         />
       ) : (
-        <div className="space-y-3">
-          {routers.map((r) => {
-            const live = isRouterLive(r);
-            const score = healthScore(r);
-            const tone = healthTone(score);
-            const primaryIp = r.wan_ip ?? r.public_ip ?? null;
-            const ramPct =
-              r.total_memory_mb && r.free_memory_mb != null
-                ? Math.round(((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100)
-                : (r.ram_usage ?? null);
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { id: "all", label: `All (${routers.length})` },
+                  {
+                    id: "router",
+                    label: `Routers (${routers.filter((r) => (r.node_role ?? "router") === "router").length})`,
+                  },
+                  {
+                    id: "access_point",
+                    label: `Access Points (${routers.filter((r) => r.node_role === "access_point").length})`,
+                  },
+                  {
+                    id: "offline",
+                    label: `Offline (${routers.filter((r) => r.status !== "pending" && !isRouterLive(r)).length})`,
+                  },
+                ] as const
+              ).map((tab) => (
+                <Button
+                  key={tab.id}
+                  size="sm"
+                  variant={roleFilter === tab.id ? "default" : "outline"}
+                  className="h-8 text-xs"
+                  onClick={() => setRoleFilter(tab.id)}
+                >
+                  {tab.label}
+                </Button>
+              ))}
+            </div>
+            <Link
+              to="/tenant/noc"
+              className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+            >
+              <GitBranch className="h-3.5 w-3.5" /> View chain topology in NOC
+            </Link>
+          </div>
 
-            return (
-              <div
-                key={r.id}
-                className="group rounded-xl border bg-card p-4 transition-all hover:border-border/80 hover:shadow-xs"
-              >
-                {/* Header row: Status, Identity & Quick Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/40">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-lg border ${
-                        live
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                          : "bg-muted text-muted-foreground border-border/50"
-                      }`}
-                    >
-                      <RouterIcon className="h-5 w-5" />
-                      <span
-                        className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${
-                          live ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"
+          <div className="space-y-3">
+            {filteredRouters.map((r) => {
+              const live = isRouterLive(r);
+              const score = healthScore(r);
+              const tone = healthTone(score);
+              const primaryIp = r.wan_ip ?? r.public_ip ?? null;
+              const parent = r.parent_router_id ? routerById.get(r.parent_router_id) : undefined;
+              const childCount = childCountById.get(r.id) ?? 0;
+              const clientCount = r.connected_clients_count ?? 0;
+              const isAp = r.node_role === "access_point";
+              const ramPct =
+                r.total_memory_mb && r.free_memory_mb != null
+                  ? Math.round(((r.total_memory_mb - r.free_memory_mb) / r.total_memory_mb) * 100)
+                  : (r.ram_usage ?? null);
+
+              return (
+                <div
+                  key={r.id}
+                  className="group rounded-xl border bg-card p-4 transition-all hover:border-border/80 hover:shadow-xs"
+                >
+                  {/* Header row: Status, Identity & Quick Actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/40">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-lg border ${
+                          live
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                            : "bg-muted text-muted-foreground border-border/50"
                         }`}
-                      />
-                    </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          to="/tenant/routers/$id"
-                          params={{ id: r.id }}
-                          className="font-semibold text-base hover:text-primary transition-colors flex items-center gap-1.5"
-                        >
-                          {r.name}
-                        </Link>
-                        <Badge
-                          variant={live ? "default" : "secondary"}
-                          className={
-                            live
-                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                              : ""
-                          }
-                        >
-                          {r.status === "pending" ? "pending setup" : live ? "online" : "offline"}
-                        </Badge>
-                        {live && (
+                      >
+                        {isAp ? <Wifi className="h-5 w-5" /> : <RouterIcon className="h-5 w-5" />}
+                        <span
+                          className={`absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${
+                            live ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            to="/tenant/routers/$id"
+                            params={{ id: r.id }}
+                            className="font-semibold text-base hover:text-primary transition-colors flex items-center gap-1.5"
+                          >
+                            {r.name}
+                          </Link>
                           <Badge
-                            variant={
-                              tone === "good"
-                                ? "success"
-                                : tone === "warn"
-                                  ? "warning"
-                                  : "destructive"
+                            variant={live ? "default" : "secondary"}
+                            className={
+                              live
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                                : ""
                             }
                           >
-                            Health {score}%
+                            {r.status === "pending" ? "pending setup" : live ? "online" : "offline"}
                           </Badge>
-                        )}
-                        <Badge variant="outline" className="capitalize">
-                          {managementLabel(r)}
-                        </Badge>
+                          <Badge variant="outline" className="text-[11px]">
+                            {isAp ? "Access Point" : "Router"}
+                          </Badge>
+                          {r.auto_discovered && (
+                            <Badge
+                              variant="outline"
+                              className="text-[11px] gap-1 border-sky-500/30 text-sky-600 dark:text-sky-400"
+                            >
+                              <Sparkles className="h-2.5 w-2.5" /> Auto-detected
+                            </Badge>
+                          )}
+                          <Badge
+                            variant="outline"
+                            className="text-[11px] gap-1 font-mono"
+                            title={`Hotspot: ${r.hotspot_clients_count ?? 0} · PPPoE: ${r.pppoe_clients_count ?? 0} · Wireless: ${r.wireless_clients_count ?? 0}`}
+                          >
+                            <Users className="h-3 w-3 text-primary" />
+                            {clientCount} {clientCount === 1 ? "client" : "clients"}
+                          </Badge>
+                          {live && r.management_method !== "chain_neighbor" && (
+                            <Badge
+                              variant={
+                                tone === "good"
+                                  ? "success"
+                                  : tone === "warn"
+                                    ? "warning"
+                                    : "destructive"
+                              }
+                            >
+                              Health {score}%
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="capitalize">
+                            {managementLabel(r)}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1.5">
+                          <span>
+                            {vendorLabel(r.vendor)} ·{" "}
+                            {r.device_family ?? r.board_name ?? r.model ?? "model pending"}
+                            {r.firmware_version && ` · ${r.firmware_version}`}
+                            {r.architecture && ` · ${r.architecture}`}
+                          </span>
+                          {parent && (
+                            <span className="inline-flex items-center gap-1 text-foreground/80">
+                              · <GitBranch className="h-3 w-3 text-primary" />
+                              Chained to <strong>{parent.name}</strong>
+                              {r.uplink_interface ? ` (${r.uplink_interface})` : ""}
+                            </span>
+                          )}
+                          {!parent && childCount > 0 && (
+                            <span className="inline-flex items-center gap-1 text-foreground/80">
+                              · <GitBranch className="h-3 w-3 text-primary" />
+                              Root ({childCount} chained)
+                            </span>
+                          )}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {vendorLabel(r.vendor)} ·{" "}
-                        {r.device_family ?? r.board_name ?? r.model ?? "model pending"}
-                        {r.firmware_version && <span> · {r.firmware_version}</span>}
-                        {r.architecture && <span> · {r.architecture}</span>}
-                      </p>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
-                      <Link to="/tenant/routers/$id" params={{ id: r.id }}>
-                        <Activity className="h-3.5 w-3.5 text-primary" /> View Details
-                      </Link>
-                    </Button>
-                    {r.vendor === "mikrotik" ? (
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 gap-1 text-xs"
+                        onClick={() => setEditing(r)}
+                      >
+                        <Pencil className="h-3 w-3" /> Chain / Edit
+                      </Button>
+                      <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+                        <Link to="/tenant/routers/$id" params={{ id: r.id }}>
+                          <Activity className="h-3.5 w-3.5 text-primary" /> View Details
+                        </Link>
+                      </Button>
+                      {r.vendor === "mikrotik" ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}
+                        >
+                          Setup
+                        </Button>
+                      ) : r.vendor === "tp_link_omada" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs"
+                            onClick={() =>
+                              setShowOmadaPortal((current) => ({
+                                ...current,
+                                [r.id]: !current[r.id],
+                              }))
+                            }
+                          >
+                            Portal URL
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs"
+                            onClick={() =>
+                              setShowOmadaController((current) => ({
+                                ...current,
+                                [r.id]: !current[r.id],
+                              }))
+                            }
+                          >
+                            Controller API
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          No supported setup adapter
+                        </span>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-8 text-xs"
-                        onClick={() => setShowCmd((s) => ({ ...s, [r.id]: !s[r.id] }))}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        aria-label="Delete router"
+                        onClick={() => {
+                          if (confirm(`Delete router "${r.name}"? Its history will be removed.`))
+                            delRouter.mutate(r.id);
+                        }}
                       >
-                        Setup
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    ) : r.vendor === "tp_link_omada" ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 text-xs"
-                          onClick={() =>
-                            setShowOmadaPortal((current) => ({
-                              ...current,
-                              [r.id]: !current[r.id],
-                            }))
-                          }
-                        >
-                          Portal URL
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 text-xs"
-                          onClick={() =>
-                            setShowOmadaController((current) => ({
-                              ...current,
-                              [r.id]: !current[r.id],
-                            }))
-                          }
-                        >
-                          Controller API
-                        </Button>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">
-                        No supported setup adapter
-                      </span>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      aria-label="Delete router"
-                      onClick={() => {
-                        if (confirm(`Delete router "${r.name}"? Its history will be removed.`))
-                          delRouter.mutate(r.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </div>
                   </div>
-                </div>
 
-                {r.vendor === "tp_link_omada" && showOmadaPortal[r.id] && (
-                  <div className="mb-3 space-y-3 rounded-lg border bg-muted/30 p-4">
-                    <div>
-                      <h3 className="text-sm font-semibold">Omada captive portal setup</h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Copy this tenant and site-specific URL into the Omada guest network’s
-                        external portal setting. Do not enter or share the AP admin password here.
+                  {r.vendor === "tp_link_omada" && showOmadaPortal[r.id] && (
+                    <div className="mb-3 space-y-3 rounded-lg border bg-muted/30 p-4">
+                      <div>
+                        <h3 className="text-sm font-semibold">Omada captive portal setup</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Copy this tenant and site-specific URL into the Omada guest network’s
+                          external portal setting. Do not enter or share the AP admin password here.
+                        </p>
+                      </div>
+                      {omadaPortalUrl(r.id) ? (
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Input
+                            aria-label="Omada captive portal URL"
+                            readOnly
+                            value={omadaPortalUrl(r.id) ?? ""}
+                            className="font-mono text-xs"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const url = omadaPortalUrl(r.id);
+                              if (url) void copyPortalUrl(url);
+                            }}
+                          >
+                            <Copy className="h-4 w-4" /> Copy URL
+                          </Button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          The portal URL is not available until the tenant portal is loaded.
+                        </p>
+                      )}
+                      <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+                        <li>In Omada, configure the guest SSID and enable its captive portal.</li>
+                        <li>
+                          Choose the external portal/server option and paste the URL above as its
+                          portal address.
+                        </li>
+                        <li>
+                          Save the Omada settings and test with a device that is not already
+                          authorized.
+                        </li>
+                      </ol>
+                      <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+                        <strong>Important:</strong> this URL opens the billing portal, but automatic
+                        Omada authorization after payment or voucher redemption is not yet enabled.
+                        Configure and test the Controller API separately below.
                       </p>
                     </div>
-                    {omadaPortalUrl(r.id) ? (
-                      <div className="flex flex-col gap-2 sm:flex-row">
-                        <Input
-                          aria-label="Omada captive portal URL"
-                          readOnly
-                          value={omadaPortalUrl(r.id) ?? ""}
-                          className="font-mono text-xs"
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
+                  )}
+                  {r.vendor === "tp_link_omada" && showOmadaController[r.id] && (
+                    <OmadaControllerSetup routerId={r.id} />
+                  )}
+
+                  {/* Professional Network & IP Address Ribbon */}
+                  <div className="my-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                    {/* WAN IP Card */}
+                    <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Globe className="h-4 w-4 text-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                            WAN IP
+                          </p>
+                          <p className="font-mono font-medium text-foreground truncate">
+                            {primaryIp ?? "Pending IP"}
+                          </p>
+                        </div>
+                      </div>
+                      {primaryIp && (
+                        <button
+                          type="button"
                           onClick={() => {
-                            const url = omadaPortalUrl(r.id);
-                            if (url) void copyPortalUrl(url);
+                            navigator.clipboard.writeText(primaryIp);
+                            toast.success("WAN IP copied");
                           }}
+                          className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted transition-colors"
+                          title="Copy WAN IP"
                         >
-                          <Copy className="h-4 w-4" /> Copy URL
-                        </Button>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        The portal URL is not available until the tenant portal is loaded.
-                      </p>
-                    )}
-                    <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-                      <li>In Omada, configure the guest SSID and enable its captive portal.</li>
-                      <li>
-                        Choose the external portal/server option and paste the URL above as its
-                        portal address.
-                      </li>
-                      <li>
-                        Save the Omada settings and test with a device that is not already
-                        authorized.
-                      </li>
-                    </ol>
-                    <p className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
-                      <strong>Important:</strong> this URL opens the billing portal, but automatic
-                      Omada authorization after payment or voucher redemption is not yet enabled.
-                      Configure and test the Controller API separately below.
-                    </p>
-                  </div>
-                )}
-                {r.vendor === "tp_link_omada" && showOmadaController[r.id] && (
-                  <OmadaControllerSetup routerId={r.id} />
-                )}
-
-                {/* Professional Network & IP Address Ribbon */}
-                <div className="my-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-                  {/* WAN IP Card */}
-                  <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Globe className="h-4 w-4 text-primary shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                          WAN IP
-                        </p>
-                        <p className="font-mono font-medium text-foreground truncate">
-                          {primaryIp ?? "Pending IP"}
-                        </p>
-                      </div>
+                          <Copy className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
-                    {primaryIp && (
+
+                    {/* LAN Gateway IP Card */}
+                    <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Wifi className="h-4 w-4 text-emerald-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                            LAN Gateway
+                          </p>
+                          <p className="font-mono font-medium text-foreground truncate">
+                            {r.lan_ip ?? "10.5.50.1"}
+                          </p>
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(primaryIp);
-                          toast.success("WAN IP copied");
+                          navigator.clipboard.writeText(r.lan_ip ?? "10.5.50.1");
+                          toast.success("LAN Gateway IP copied");
                         }}
                         className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted transition-colors"
-                        title="Copy WAN IP"
+                        title="Copy LAN IP"
                       >
                         <Copy className="h-3 w-3" />
                       </button>
-                    )}
-                  </div>
-
-                  {/* LAN Gateway IP Card */}
-                  <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Wifi className="h-4 w-4 text-emerald-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                          LAN Gateway
-                        </p>
-                        <p className="font-mono font-medium text-foreground truncate">
-                          {r.lan_ip ?? "10.5.50.1"}
-                        </p>
-                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(r.lan_ip ?? "10.5.50.1");
-                        toast.success("LAN Gateway IP copied");
-                      }}
-                      className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted transition-colors"
-                      title="Copy LAN IP"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </button>
-                  </div>
 
-                  {/* CPU Load Metric */}
-                  <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
-                    <Cpu className="h-4 w-4 text-amber-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                          CPU Load
-                        </p>
-                        <span className="font-medium font-mono text-[11px]">
-                          {r.cpu_load ?? r.cpu_usage ?? "—"}%
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-muted mt-1 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            (r.cpu_load ?? r.cpu_usage ?? 0) > 80
-                              ? "bg-rose-500"
-                              : (r.cpu_load ?? r.cpu_usage ?? 0) > 50
-                                ? "bg-amber-500"
-                                : "bg-emerald-500"
-                          }`}
-                          style={{ width: `${Math.min(100, r.cpu_load ?? r.cpu_usage ?? 0)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* RAM Usage Metric */}
-                  <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
-                    <HardDrive className="h-4 w-4 text-sky-500 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                          RAM Usage
-                        </p>
-                        <span className="font-medium font-mono text-[11px]">
-                          {ramPct != null ? `${ramPct}%` : "—"}
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-muted mt-1 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            (ramPct ?? 0) > 85
-                              ? "bg-rose-500"
-                              : (ramPct ?? 0) > 70
-                                ? "bg-amber-500"
-                                : "bg-sky-500"
-                          }`}
-                          style={{ width: `${Math.min(100, ramPct ?? 0)}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom telemetry strip */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-[11px] text-muted-foreground border-t border-border/30">
-                  <div className="flex items-center gap-3">
-                    <span>
-                      Uptime:{" "}
-                      <strong className="text-foreground font-mono">
-                        {fmtUptime(r.uptime_seconds)}
-                      </strong>
-                    </span>
-                    {r.temperature != null && (
-                      <span className="flex items-center gap-1">
-                        <Thermometer className="h-3 w-3 text-rose-500" />
-                        {r.temperature}°C
-                      </span>
-                    )}
-                    {r.mac_address && (
-                      <span className="hidden md:inline font-mono">MAC: {r.mac_address}</span>
-                    )}
-                  </div>
-                  <div>
-                    Last heartbeat:{" "}
-                    <span className="text-foreground font-medium">
-                      {(r.last_heartbeat_at ?? r.last_seen_at)
-                        ? `${Math.max(
-                            0,
-                            Math.round(
-                              (Date.now() -
-                                new Date((r.last_heartbeat_at ?? r.last_seen_at)!).getTime()) /
-                                1000,
-                            ),
-                          )}s ago`
-                        : "never"}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Provisioning command drawer */}
-                {r.vendor === "mikrotik" &&
-                  r.provision_token &&
-                  (r.status === "pending" || showCmd[r.id]) &&
-                  (() => {
-                    const expired =
-                      !!r.provision_token_expires_at &&
-                      new Date(r.provision_token_expires_at).getTime() <= Date.now();
-                    return (
-                      <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
-                        {expired ? (
-                          <p className="font-sans text-xs text-muted-foreground">
-                            This provisioning command has expired. Generate a new one to set the
-                            router up again.
+                    {/* CPU Load Metric */}
+                    <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
+                      <Cpu className="h-4 w-4 text-amber-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                            CPU Load
                           </p>
-                        ) : (
-                          <div className="flex items-start justify-between gap-3">
-                            <code className="break-all">{provisionCommand(r.provision_token)}</code>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                navigator.clipboard.writeText(provisionCommand(r.provision_token!));
-                                toast.success("Copied");
-                              }}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                        <p className="mt-2 font-sans text-[10px] text-muted-foreground">
-                          {expired
-                            ? "Commands are valid for 24 hours. A router that is already set up keeps working."
-                            : `Paste this into the MikroTik terminal. The router will auto-configure and report back. Valid until ${r.provision_token_expires_at ? formatTenantDate(r.provision_token_expires_at) : "revoked"}.`}
-                        </p>
-                        {r.legacy_token_auth && (
-                          <p className="mt-1 font-sans text-[10px] text-amber-600">
-                            This router still uses an old-style key. Run a new command on it to
-                            upgrade.
-                          </p>
-                        )}
-                        <div className="mt-2 flex gap-2 font-sans">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={rotate.isPending}
-                            onClick={() => rotate.mutate({ id: r.id, revoke: false })}
-                          >
-                            New command
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={rotate.isPending}
-                            onClick={() => {
-                              if (
-                                confirm(
-                                  `Revoke access for "${r.name}"? It will stop reporting until you run the new command on it.`,
-                                )
-                              ) {
-                                rotate.mutate({ id: r.id, revoke: true });
-                              }
-                            }}
-                          >
-                            Revoke access
-                          </Button>
+                          <span className="font-medium font-mono text-[11px]">
+                            {r.cpu_load ?? r.cpu_usage ?? "—"}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted mt-1 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              (r.cpu_load ?? r.cpu_usage ?? 0) > 80
+                                ? "bg-rose-500"
+                                : (r.cpu_load ?? r.cpu_usage ?? 0) > 50
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500"
+                            }`}
+                            style={{ width: `${Math.min(100, r.cpu_load ?? r.cpu_usage ?? 0)}%` }}
+                          />
                         </div>
                       </div>
-                    );
-                  })()}
-              </div>
-            );
-          })}
+                    </div>
+
+                    {/* RAM Usage Metric */}
+                    <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border/60 px-3 py-2">
+                      <HardDrive className="h-4 w-4 text-sky-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                            RAM Usage
+                          </p>
+                          <span className="font-medium font-mono text-[11px]">
+                            {ramPct != null ? `${ramPct}%` : "—"}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted mt-1 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              (ramPct ?? 0) > 85
+                                ? "bg-rose-500"
+                                : (ramPct ?? 0) > 70
+                                  ? "bg-amber-500"
+                                  : "bg-sky-500"
+                            }`}
+                            style={{ width: `${Math.min(100, ramPct ?? 0)}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom telemetry strip */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-[11px] text-muted-foreground border-t border-border/30">
+                    <div className="flex items-center gap-3">
+                      <span>
+                        Uptime:{" "}
+                        <strong className="text-foreground font-mono">
+                          {fmtUptime(r.uptime_seconds)}
+                        </strong>
+                      </span>
+                      {r.temperature != null && (
+                        <span className="flex items-center gap-1">
+                          <Thermometer className="h-3 w-3 text-rose-500" />
+                          {r.temperature}°C
+                        </span>
+                      )}
+                      {r.mac_address && (
+                        <span className="hidden md:inline font-mono">MAC: {r.mac_address}</span>
+                      )}
+                    </div>
+                    <div>
+                      Last heartbeat:{" "}
+                      <span className="text-foreground font-medium">
+                        {(r.last_heartbeat_at ?? r.last_seen_at)
+                          ? `${Math.max(
+                              0,
+                              Math.round(
+                                (Date.now() -
+                                  new Date((r.last_heartbeat_at ?? r.last_seen_at)!).getTime()) /
+                                  1000,
+                              ),
+                            )}s ago`
+                          : "never"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Provisioning command drawer */}
+                  {r.vendor === "mikrotik" &&
+                    r.provision_token &&
+                    (r.status === "pending" || showCmd[r.id]) &&
+                    (() => {
+                      const expired =
+                        !!r.provision_token_expires_at &&
+                        new Date(r.provision_token_expires_at).getTime() <= Date.now();
+                      return (
+                        <div className="mt-3 rounded-md bg-muted p-3 font-mono text-xs">
+                          {expired ? (
+                            <p className="font-sans text-xs text-muted-foreground">
+                              This provisioning command has expired. Generate a new one to set the
+                              router up again.
+                            </p>
+                          ) : (
+                            <div className="flex items-start justify-between gap-3">
+                              <code className="break-all">
+                                {provisionCommand(r.provision_token)}
+                              </code>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    provisionCommand(r.provision_token!),
+                                  );
+                                  toast.success("Copied");
+                                }}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          <p className="mt-2 font-sans text-[10px] text-muted-foreground">
+                            {expired
+                              ? "Commands are valid for 24 hours. A router that is already set up keeps working."
+                              : `Paste this into the MikroTik terminal. The router will auto-configure and report back. Valid until ${r.provision_token_expires_at ? formatTenantDate(r.provision_token_expires_at) : "revoked"}.`}
+                          </p>
+                          {r.legacy_token_auth && (
+                            <p className="mt-1 font-sans text-[10px] text-amber-600">
+                              This router still uses an old-style key. Run a new command on it to
+                              upgrade.
+                            </p>
+                          )}
+                          <div className="mt-2 flex gap-2 font-sans">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={rotate.isPending}
+                              onClick={() => rotate.mutate({ id: r.id, revoke: false })}
+                            >
+                              New command
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={rotate.isPending}
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    `Revoke access for "${r.name}"? It will stop reporting until you run the new command on it.`,
+                                  )
+                                ) {
+                                  rotate.mutate({ id: r.id, revoke: true });
+                                }
+                              }}
+                            >
+                              Revoke access
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                </div>
+              );
+            })}
+          </div>
+          {editing && (
+            <EditRouterChainDialog
+              router={editing}
+              allRouters={routers ?? []}
+              onClose={() => setEditing(null)}
+              onSaved={() => {
+                setEditing(null);
+                void qc.invalidateQueries({ queryKey: ["routers"] });
+              }}
+            />
+          )}
         </div>
       )}
     </div>
+  );
+}
+
+function EditRouterChainDialog({
+  router,
+  allRouters,
+  onClose,
+  onSaved,
+}: {
+  router: RouterRow;
+  allRouters: RouterRow[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(router.name);
+  const [nodeRole, setNodeRole] = useState<ChainNodeRole>(
+    router.node_role === "access_point" ? "access_point" : "router",
+  );
+  const [parentId, setParentId] = useState<string>(router.parent_router_id ?? NONE);
+  const [uplink, setUplink] = useState(router.uplink_interface ?? "");
+  const [mac, setMac] = useState(router.mac_address ?? "");
+  const [autoDiscovery, setAutoDiscovery] = useState(router.auto_chain_discovery !== false);
+
+  const validParents = useMemo(
+    () =>
+      allRouters.filter(
+        (candidate) =>
+          candidate.id !== router.id && !wouldCreateChainCycle(allRouters, router.id, candidate.id),
+      ),
+    [allRouters, router.id],
+  );
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!name.trim()) throw new Error("Enter a device name.");
+      const trimmedMac = mac.trim();
+      const normalizedMac = trimmedMac ? normalizeMac(trimmedMac) : null;
+      if (trimmedMac && !normalizedMac) {
+        throw new Error("MAC address must look like AA:BB:CC:DD:EE:FF");
+      }
+      const nextParent = parentId === NONE ? null : parentId;
+      if (wouldCreateChainCycle(allRouters, router.id, nextParent)) {
+        throw new Error("This chain selection would create a loop.");
+      }
+      const { error } = await supabase
+        .from("routers")
+        .update({
+          name: name.trim(),
+          node_role: nodeRole,
+          parent_router_id: nextParent,
+          uplink_interface: uplink.trim() || null,
+          mac_address: normalizedMac,
+          auto_chain_discovery: autoDiscovery,
+        })
+        .eq("id", router.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Chain settings updated");
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit &amp; Chain: {router.name}</DialogTitle>
+          <DialogDescription>
+            Configure this device&apos;s role, upstream parent on the chain, MAC address, and
+            automatic neighbor discovery.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="edit-rname">Name</Label>
+            <Input id="edit-rname" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Role</Label>
+              <Select value={nodeRole} onValueChange={(v: ChainNodeRole) => setNodeRole(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="router">Router</SelectItem>
+                  <SelectItem value="access_point">Access Point (AP)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-uplink">Uplink port</Label>
+              <Input
+                id="edit-uplink"
+                placeholder="ether2"
+                value={uplink}
+                onChange={(e) => setUplink(e.target.value)}
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Upstream parent on chain</Label>
+            <Select value={parentId} onValueChange={setParentId}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>None (Root gateway)</SelectItem>
+                {validParents.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} ({p.node_role === "access_point" ? "AP" : "Router"})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="edit-mac">MAC address</Label>
+            <Input
+              id="edit-mac"
+              placeholder="AA:BB:CC:DD:EE:FF"
+              value={mac}
+              onChange={(e) => setMac(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div>
+              <p className="text-sm font-medium">Auto-detect downstream devices</p>
+              <p className="text-xs text-muted-foreground">
+                Automatically add routers &amp; APs connected downstream by MAC address.
+              </p>
+            </div>
+            <Switch checked={autoDiscovery} onCheckedChange={setAutoDiscovery} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

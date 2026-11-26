@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { authenticateRouter } from "@/lib/router-auth.server";
+import { computeConnectedClientsCount } from "@/lib/router-chain";
 import { parsePppoeReport } from "@/lib/pppoe-sessions";
 
 // PPPoE session report pushed by the router every minute (see buildPppoeAgentLines).
@@ -40,6 +41,27 @@ export const Route = createFileRoute("/api/public/router/pppoe/$token")({
         if (error) {
           console.error("pppoe report failed", error);
           return new Response("error", { status: 500 });
+        }
+
+        const { data: routerMeta } = await supabaseAdmin
+          .from("routers")
+          .select("node_role,hotspot_clients_count,wireless_clients_count")
+          .eq("id", router.id)
+          .maybeSingle();
+        if (routerMeta) {
+          await supabaseAdmin
+            .from("routers")
+            .update({
+              pppoe_clients_count: sessions.length,
+              connected_clients_count: computeConnectedClientsCount({
+                nodeRole: routerMeta.node_role,
+                hotspotClients: routerMeta.hotspot_clients_count,
+                pppoeClients: sessions.length,
+                wirelessClients: routerMeta.wireless_clients_count,
+              }),
+              clients_updated_at: new Date().toISOString(),
+            })
+            .eq("id", router.id);
         }
         return new Response("ok");
       },

@@ -8,6 +8,7 @@ import {
   ROUTEROS_PICK_HTML_DIR,
 } from "@/lib/hotspot-login.server";
 import { authenticateBootstrap, isMissingSchema, issueDeviceToken } from "@/lib/router-auth.server";
+import { buildChainAgentLines } from "@/lib/router-chain";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/public/provision/$token/router.rsc")({
@@ -93,6 +94,7 @@ export const Route = createFileRoute("/api/public/provision/$token/router.rsc")(
           interfacesUrl: `https://${host}/api/public/router/interfaces/${token}`,
           syncUrl: `https://${host}/api/public/router/sync/${token}`,
           voucherSyncUrl: `https://${host}/api/public/router/sync/${token}?vouchers=1`,
+          chainUrl: `https://${host}/api/public/router/chain/${token}`,
           loginUrl,
           marker,
         });
@@ -116,6 +118,7 @@ function buildRsc(p: {
   interfacesUrl: string;
   syncUrl: string;
   voucherSyncUrl: string;
+  chainUrl: string;
   loginUrl: string;
   marker: string;
 }) {
@@ -271,7 +274,14 @@ add name=netgrid-heartbeat source={
   :local lan ""; :do { :set lan [/ip address get [find interface=netgrid-lan] address] } on-error={};
   :local volt 0; :do { :set volt [/system health get voltage] } on-error={};
   :local temp 0; :do { :set temp [/system health get temperature] } on-error={};
-  :local d ("cpu=" . \$cpu . "&mem-free=" . \$mf . "&mem-total=" . \$mt . "&hdd-free=" . \$hf . "&uptime=" . \$up . "&temp=" . \$temp . "&voltage=" . \$volt . "&version=" . \$ver . "&board=" . \$board . "&arch=" . \$arch . "&wan-ip=" . \$wan . "&lan-ip=" . \$lan . "&latency=" . \$ngLat . "&loss=" . \$ngLoss . "&jitter=" . \$ngJit . "&dns=" . \$ngDns);
+  :local mac ""; :do { :set mac [/interface ethernet get ether1 mac-address] } on-error={};
+  :if ($mac = "") do={ :do { :set mac [/interface bridge get [find name=netgrid-lan] mac-address] } on-error={} };
+  :local umac ""; :do { :local gw [/ip route get [find dst-address="0.0.0.0/0" active=yes] gateway]; :if ($gw != "") do={ :set umac [/ip arp get [find address=$gw] mac-address] } } on-error={};
+  :local hc 0; :do { :set hc [:len [/ip hotspot active find]] } on-error={};
+  :local pc 0; :do { :set pc [:len [/ppp active find where service=pppoe]] } on-error={};
+  :local wc 0; :do { :set wc [:len [/interface wireless registration-table find]] } on-error={};
+  :if ($wc = 0) do={ :do { :set wc [:len [/interface wifi registration-table find]] } on-error={} };
+  :local d ("cpu=" . $cpu . "&mem-free=" . $mf . "&mem-total=" . $mt . "&hdd-free=" . $hf . "&uptime=" . $up . "&temp=" . $temp . "&voltage=" . $volt . "&version=" . $ver . "&board=" . $board . "&arch=" . $arch . "&wan-ip=" . $wan . "&lan-ip=" . $lan . "&mac=" . $mac . "&uplink-mac=" . $umac . "&hotspot-clients=" . $hc . "&pppoe-clients=" . $pc . "&wireless-clients=" . $wc . "&latency=" . $ngLat . "&loss=" . $ngLoss . "&jitter=" . $ngJit . "&dns=" . $ngDns);
   :do {
     /tool fetch url=\$hbUrl http-method=post http-data=\$d mode=https keep-result=no
   } on-error={ :log warning "NetGrid: heartbeat failed" }
@@ -284,6 +294,8 @@ add name=netgrid-ifaces interval=5m on-event="/system script run netgrid-ifaces"
 add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync"
 add name=netgrid-voucher-sync interval=10s on-event="/system script run netgrid-voucher-sync"
 add name=netgrid-heartbeat interval=1m on-event="/system script run netgrid-heartbeat"
+
+${buildChainAgentLines(p.chainUrl).join("\n")}
 
 # --- LAN ports join the hotspot bridge LAST ---
 # Moving the port you are connected through (cable, Wi-Fi or MAC-Winbox) into a new bridge can cut
