@@ -177,8 +177,41 @@ describe("router-chain pure helpers", () => {
     const script = lines.join("\n");
     expect(script).toContain("netgrid-chain");
     expect(script).toContain('($iface != "ether1")');
-    expect(script).toContain('($n < 4) && ($ip != "")');
+    expect(script).toContain("($n < 128)");
+    expect(script).toContain('($p < 4) && ($ip != "")');
     expect(script).not.toMatch(/\\\$/);
+  });
+
+  it("polls manually registered non-MikroTik chain nodes by MAC and estimates bridge clients", () => {
+    const script = buildChainAgentLines(
+      "https://portal.test/api/public/router/chain/TOK123456789012345",
+      [
+        {
+          name: 'Tenda "Tower"',
+          vendor: "generic",
+          node_role: "access_point",
+          mac_address: "aa-bb-cc-dd-ee-05",
+          lan_ip: "192.168.1.5",
+          uplink_interface: "ether2",
+        },
+        {
+          name: "duplicate",
+          vendor: "generic",
+          node_role: "router",
+          mac_address: "AA:BB:CC:DD:EE:05",
+          lan_ip: null,
+          uplink_interface: null,
+        },
+      ],
+    ).join("\n");
+
+    expect(script).toContain(':local kMac "AA:BB:CC:DD:EE:05"');
+    expect(script).toContain("mac-address=$kMac and local=no");
+    expect(script).toContain("mac-address!=$kMac");
+    expect(script).toContain("192.168.1.5");
+    expect(script).toContain("|Tenda Tower|generic|");
+    expect(script.match(/:local kMac "AA:BB:CC:DD:EE:05"/g)).toHaveLength(1);
+    expect(script).not.toContain('Tenda "Tower"');
   });
 });
 
@@ -345,6 +378,20 @@ describe("chain discovery, auto-MAC registration, offline updates, and client co
   });
 
   it("sync script installs netgrid-chain and sends MAC + client metrics in heartbeat", async () => {
+    h.db.seed("routers", [
+      {
+        id: "r4000000-0000-0000-0000-000000000004",
+        tenant_id: T,
+        name: "Tenda Yard AP",
+        vendor: "generic",
+        node_role: "access_point",
+        mac_address: "AA:BB:CC:00:00:04",
+        parent_router_id: R_ROOT,
+        management_method: "chain_neighbor",
+        lan_ip: "192.168.10.4",
+        uplink_interface: "ether3",
+      },
+    ]);
     const token = await issueDeviceToken(R_ROOT);
     const res = await call(SyncRoute, "GET", { params: { token }, ip: freshIp() });
     const text = await res.text();
@@ -353,5 +400,8 @@ describe("chain discovery, auto-MAC registration, offline updates, and client co
     expect(text).toContain("add name=netgrid-chain");
     expect(text).toContain("hotspot-clients=");
     expect(text).toContain("uplink-mac=");
+    expect(text).toContain(':local kMac "AA:BB:CC:00:00:04"');
+    expect(text).toContain("192.168.10.4");
+    expect(text).toContain("|Tenda Yard AP|generic|");
   });
 });

@@ -24,6 +24,15 @@ export interface ChainNeighborRecord {
   clientCount: number | null;
 }
 
+export interface KnownChainNode {
+  name: string;
+  vendor: string | null;
+  node_role: string | null;
+  mac_address: string | null;
+  lan_ip: string | null;
+  uplink_interface: string | null;
+}
+
 function cleanText(raw: string | undefined, maxLen = 64): string | null {
   const v = (raw ?? "")
     .replace(/[^\w .:/()-]/g, "")
@@ -36,6 +45,11 @@ function cleanIp(raw: string | undefined): string | null {
   const v = (raw ?? "").trim().split("/")[0]?.trim() ?? "";
   if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(v)) return null;
   return v.split(".").every((o) => Number(o) <= 255) ? v : null;
+}
+
+function cleanInterface(raw: string | null): string | null {
+  const iface = (raw ?? "").trim();
+  return /^[A-Za-z0-9_. -]{1,48}$/.test(iface) ? iface : null;
 }
 
 /**
@@ -274,6 +288,8 @@ export function wouldCreateChainCycle(
 const CHAIN_AGENT_SCRIPT = `
 :local d ""
 :local n 0
+:local p 0
+__KNOWN_NODES__
 :foreach nb in=[/ip neighbor find] do={
   :if ($n < ${MAX_CHAIN_NEIGHBORS_PER_REPORT}) do={
     :do {
@@ -289,7 +305,8 @@ const CHAIN_AGENT_SCRIPT = `
         :local usedIf $iname
         :if ($usedIf = "") do={ :set usedIf $iface }
         :local reach 1
-        :if (($n < ${MAX_CHAIN_PINGS_PER_REPORT}) && ($ip != "")) do={
+        :if (($p < ${MAX_CHAIN_PINGS_PER_REPORT}) && ($ip != "")) do={
+          :set p ($p + 1)
           :do {
             :local pr [/ping $ip count=1 interval=300ms as-value]
             :if ([:len $pr] = 0) do={ :set reach 0 }
@@ -322,9 +339,58 @@ const CHAIN_PUSH_URL =
 /**
  * Installs the chain neighbor discovery & reachability script (`netgrid-chain`) and 1-minute scheduler.
  */
-export function buildChainAgentLines(pushUrl: string): string[] {
+export function buildChainAgentLines(
+  pushUrl: string,
+  knownNodes: readonly KnownChainNode[] = [],
+): string[] {
   if (!CHAIN_PUSH_URL.test(pushUrl)) return [];
-  const code = CHAIN_AGENT_SCRIPT.split("\n")
+  const seenMacs = new Set<string>();
+  const knownNodeLines = knownNodes.slice(0, MAX_CHAIN_NEIGHBORS_PER_REPORT).flatMap((node) => {
+    const mac = node.mac_address ? normalizeMac(node.mac_address) : null;
+    if (!mac || seenMacs.has(mac)) return [];
+    seenMacs.add(mac);
+
+    const name = cleanText(node.name) ?? "Chain device";
+    const vendor = cleanText(node.vendor ?? undefined) ?? "generic";
+    const ip = cleanIp(node.lan_ip ?? undefined) ?? "";
+    const iface = cleanInterface(node.uplink_interface) ?? "";
+
+    return [
+      `:do {
+  :local kMac "${mac}"
+  :if ([:len [/ip neighbor find where mac-address=$kMac]] = 0) do={
+    :local kIp "${ip}"
+    :local kIface "${iface}"
+    :local kArp [/ip arp find where dynamic=yes and mac-address=$kMac]
+    :if (([:len $kArp] > 0) && ($kIp = "")) do={ :set kIp [:tostr [/ip arp get [:pick $kArp 0] address]] }
+    :if (([:len $kArp] > 0) && ($kIface = "")) do={ :set kIface [:tostr [/ip arp get [:pick $kArp 0] interface]] }
+    :local kBridge [/interface bridge host find where mac-address=$kMac and local=no]
+    :if (([:len $kBridge] > 0) && ($kIface = "")) do={ :set kIface [:tostr [/interface bridge host get [:pick $kBridge 0] on-interface]] }
+    :local kReach 0
+    :if (([:len $kArp] > 0) || ([:len $kBridge] > 0)) do={ :set kReach 1 }
+    :if (($kReach = 0) && ($kIp != "") && ($p < ${MAX_CHAIN_PINGS_PER_REPORT})) do={
+      :set p ($p + 1)
+      :do {
+        :local kPing [/ping $kIp count=1 interval=300ms as-value]
+        :if ([:len $kPing] > 0) do={ :set kReach 1 }
+      } on-error={}
+    }
+    :local kClients ""
+    :if (($kReach = 1) && ($kIface != "")) do={
+      :set kClients [:tostr [:len [/interface bridge host find where on-interface=$kIface and local=no and mac-address!=$kMac]]]
+    }
+    :set d ($d . "${mac}|" . $kIp . "|${name}|${vendor}| | |" . $kIface . "|" . $kReach . "|" . $kClients . ";")
+    :set n ($n + 1)
+    :if ([:len $d] > 3000) do={
+      :do { /tool fetch url="__URL__" http-method=post http-data=$d mode=https keep-result=no } on-error={ :log warning "NetGrid: chain report failed" }
+      :set d ""
+    }
+  }
+} on-error={}`,
+    ];
+  });
+  const code = CHAIN_AGENT_SCRIPT.replace("__KNOWN_NODES__", knownNodeLines.join("\n"))
+    .split("\n")
     .filter((l) => !l.trim().startsWith("#"))
     .join("\n");
   const source = code.replaceAll("__URL__", pushUrl);

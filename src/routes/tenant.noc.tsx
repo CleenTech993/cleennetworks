@@ -390,7 +390,9 @@ export function TenantNocPage() {
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               Real-time chain hierarchy from Cloud Hub through gateway routers to downstream routers
-              and access points, with live connected client counts and auto-detected MACs.
+              and access points, including manually registered Tenda and TP-Link devices. Client
+              counts on non-MikroTik devices are approximate bridge-visible MACs; clients behind
+              router/NAT mode are not visible to the upstream MikroTik.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -520,6 +522,9 @@ export function TenantNocPage() {
                           <Badge variant="outline" className="text-[10px]">
                             {isAp ? "Access Point" : "Router"}
                           </Badge>
+                          <Badge variant="outline" className="text-[10px]">
+                            {chainVendorLabel(r.vendor)}
+                          </Badge>
                           {r.auto_discovered && (
                             <Badge variant="outline" className="text-[10px]">
                               Auto-detected
@@ -577,7 +582,9 @@ export function TenantNocPage() {
                           {r.connected_clients_count ?? 0}
                         </div>
                         <div className="text-[11px] text-muted-foreground font-mono">
-                          {r.hotspot_clients_count ?? 0} HS · {r.pppoe_clients_count ?? 0} PPP
+                          {r.management_method === "chain_neighbor"
+                            ? "Approx. bridge-visible clients"
+                            : `${r.hotspot_clients_count ?? 0} HS · ${r.pppoe_clients_count ?? 0} PPP`}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs font-mono">
@@ -685,6 +692,9 @@ function ChainTopologyBranch({ node }: { node: ChainTreeNode }) {
                 <Badge variant="outline" className="text-[10px]">
                   {isAp ? "Access Point" : "Router"}
                 </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {chainVendorLabel(r.vendor)}
+                </Badge>
                 {r.auto_discovered && (
                   <Badge variant="outline" className="text-[10px] gap-1">
                     <Sparkles className="h-2.5 w-2.5" /> Auto-added
@@ -707,7 +717,9 @@ function ChainTopologyBranch({ node }: { node: ChainTreeNode }) {
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="font-mono text-xs gap-1">
               <Users className="h-3 w-3 text-primary" />
-              {node.directClients} {node.directClients === 1 ? "client" : "clients"}
+              {r.management_method === "chain_neighbor"
+                ? `≈ ${node.directClients} visible clients`
+                : `${node.directClients} ${node.directClients === 1 ? "client" : "clients"}`}
             </Badge>
             {node.children.length > 0 && (
               <Badge variant="secondary" className="font-mono text-xs gap-1">
@@ -728,4 +740,21 @@ function ChainTopologyBranch({ node }: { node: ChainTreeNode }) {
       )}
     </div>
   );
+}
+
+function chainVendorLabel(vendor: string | null | undefined): string {
+  switch (vendor) {
+    case "mikrotik":
+      return "MikroTik";
+    case "tp_link_omada":
+      return "TP-Link";
+    case "ruijie_reyee":
+      return "Ruijie / Reyee";
+    case "ubiquiti":
+      return "Ubiquiti";
+    case "generic":
+      return "Tenda / Other";
+    default:
+      return vendor || "Unknown vendor";
+  }
 }

@@ -221,6 +221,7 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           { data: blocked, error: blockedError },
           { data: routerRow, error: routerRowError },
           { data: monitored, error: monitoredError },
+          { data: chainNodes, error: chainNodesError },
         ] = await Promise.all([
           supabaseAdmin
             .from("tenants")
@@ -290,6 +291,12 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .eq("monitor_router_id", router.id)
             .eq("monitor_enabled", true)
             .not("ip_address", "is", null),
+          supabaseAdmin
+            .from("routers")
+            .select("name,vendor,node_role,mac_address,lan_ip,uplink_interface,management_method")
+            .eq("tenant_id", router.tenant_id)
+            .eq("parent_router_id", router.id)
+            .not("mac_address", "is", null),
         ]);
 
         if (tenantError || !tenant) {
@@ -495,9 +502,20 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         lines.push(
           ...buildPppoeAgentLines(`https://${host}/api/public/router/pppoe/${params.token}`),
         );
-        lines.push(
-          ...buildChainAgentLines(`https://${host}/api/public/router/chain/${params.token}`),
-        );
+        if (chainNodesError || !chainNodes) {
+          console.error("sync: chained devices could not be read", chainNodesError);
+          lines.push(
+            ':log warning "NetGrid: chain device list unavailable; only neighbor discovery is active"',
+            ...buildChainAgentLines(`https://${host}/api/public/router/chain/${params.token}`),
+          );
+        } else {
+          lines.push(
+            ...buildChainAgentLines(
+              `https://${host}/api/public/router/chain/${params.token}`,
+              chainNodes.filter((node) => node.management_method === "chain_neighbor"),
+            ),
+          );
+        }
         lines.push(
           ...(monitoredError || !monitored
             ? skipped("device monitoring", monitoredError)

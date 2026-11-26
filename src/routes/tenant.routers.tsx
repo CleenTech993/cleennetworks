@@ -62,6 +62,13 @@ import { formatTenantDate } from "@/lib/tenant-customization";
 const NONE = "__none__";
 type RouterRow = Tables<"routers">;
 
+function isIpv4Address(value: string): boolean {
+  const octets = value.split(".");
+  return (
+    octets.length === 4 && octets.every((octet) => /^\d{1,3}$/.test(octet) && Number(octet) <= 255)
+  );
+}
+
 export const Route = createFileRoute("/tenant/routers")({ component: RoutersPage });
 
 function RoutersPage() {
@@ -75,6 +82,7 @@ function RoutersPage() {
   const [parentRouterId, setParentRouterId] = useState<string>(NONE);
   const [uplinkInterface, setUplinkInterface] = useState("");
   const [macAddress, setMacAddress] = useState("");
+  const [managementIp, setManagementIp] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "router" | "access_point" | "offline">(
     "all",
   );
@@ -141,6 +149,10 @@ function RoutersPage() {
       if (trimmedMac && !normalizedMac) {
         throw new Error("MAC address must look like AA:BB:CC:DD:EE:FF");
       }
+      const trimmedManagementIp = managementIp.trim();
+      if (trimmedManagementIp && !isIpv4Address(trimmedManagementIp)) {
+        throw new Error("Management IP must be a valid IPv4 address");
+      }
       const { data, error } = await supabase
         .from("routers")
         .insert({
@@ -151,6 +163,11 @@ function RoutersPage() {
           parent_router_id: parentRouterId === NONE ? null : parentRouterId,
           uplink_interface: uplinkInterface.trim() || null,
           mac_address: normalizedMac,
+          lan_ip: trimmedManagementIp || null,
+          management_method:
+            vendor !== "mikrotik" && parentRouterId !== NONE && normalizedMac
+              ? "chain_neighbor"
+              : null,
         })
         .select()
         .single();
@@ -171,6 +188,7 @@ function RoutersPage() {
       setParentRouterId(NONE);
       setUplinkInterface("");
       setMacAddress("");
+      setManagementIp("");
       void logAudit({
         action: "create",
         resource: "router",
@@ -259,10 +277,10 @@ function RoutersPage() {
 
   function vendorLabel(value: string) {
     if (value === "ruijie_reyee") return "Ruijie / Reyee";
-    if (value === "tp_link_omada") return "TP-Link Omada";
+    if (value === "tp_link_omada") return "TP-Link";
     if (value === "mikrotik") return "MikroTik";
     if (value === "ubiquiti") return "Ubiquiti";
-    if (value === "generic") return "Generic AP / Router";
+    if (value === "generic") return "Tenda / Generic";
     return value;
   }
 
@@ -311,8 +329,9 @@ function RoutersPage() {
               <DialogHeader>
                 <DialogTitle>Add network device</DialogTitle>
                 <DialogDescription>
-                  Add a router or access point manually, or connect it downstream on a MikroTik
-                  chain to detect its MAC and register it automatically.
+                  Add a router or access point manually, or let a MikroTik discover it on the chain.
+                  For devices not visible in neighbor discovery, enter their MAC address, upstream
+                  port, and management IP so the MikroTik can monitor them.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
@@ -349,10 +368,10 @@ function RoutersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="mikrotik">MikroTik RouterOS</SelectItem>
-                        <SelectItem value="tp_link_omada">TP-Link Omada</SelectItem>
+                        <SelectItem value="tp_link_omada">TP-Link (Omada or standalone)</SelectItem>
                         <SelectItem value="ruijie_reyee">Ruijie / Reyee</SelectItem>
                         <SelectItem value="ubiquiti">Ubiquiti / UniFi</SelectItem>
-                        <SelectItem value="generic">Generic AP / Router</SelectItem>
+                        <SelectItem value="generic">Tenda / other vendor</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -385,7 +404,7 @@ function RoutersPage() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="rmac">MAC address (optional — auto-detected on chain)</Label>
+                  <Label htmlFor="rmac">MAC address</Label>
                   <Input
                     id="rmac"
                     placeholder="AA:BB:CC:DD:EE:FF"
@@ -394,6 +413,21 @@ function RoutersPage() {
                     className="font-mono text-xs"
                   />
                 </div>
+                <div>
+                  <Label htmlFor="rip">Management IP (optional)</Label>
+                  <Input
+                    id="rip"
+                    placeholder="192.168.1.2"
+                    value={managementIp}
+                    onChange={(e) => setManagementIp(e.target.value)}
+                    className="font-mono text-xs"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Online status is checked from the upstream MikroTik. Approximate client counts are
+                  visible only when the device is in AP/bridge mode; clients behind router/NAT mode
+                  are hidden from the MikroTik.
+                </p>
               </div>
               <DialogFooter>
                 <Button
@@ -525,9 +559,14 @@ function RoutersPage() {
                           <Badge
                             variant="outline"
                             className="text-[11px] gap-1 font-mono"
-                            title={`Hotspot: ${r.hotspot_clients_count ?? 0} · PPPoE: ${r.pppoe_clients_count ?? 0} · Wireless: ${r.wireless_clients_count ?? 0}`}
+                            title={
+                              r.management_method === "chain_neighbor"
+                                ? "Approximate client MACs visible on the upstream bridge; clients behind NAT are not visible."
+                                : `Hotspot: ${r.hotspot_clients_count ?? 0} · PPPoE: ${r.pppoe_clients_count ?? 0} · Wireless: ${r.wireless_clients_count ?? 0}`
+                            }
                           >
                             <Users className="h-3 w-3 text-primary" />
+                            {r.management_method === "chain_neighbor" ? "≈ " : ""}
                             {clientCount} {clientCount === 1 ? "client" : "clients"}
                           </Badge>
                           {live && r.management_method !== "chain_neighbor" && (
@@ -958,6 +997,7 @@ function EditRouterChainDialog({
   const [parentId, setParentId] = useState<string>(router.parent_router_id ?? NONE);
   const [uplink, setUplink] = useState(router.uplink_interface ?? "");
   const [mac, setMac] = useState(router.mac_address ?? "");
+  const [managementIp, setManagementIp] = useState(router.lan_ip ?? "");
   const [autoDiscovery, setAutoDiscovery] = useState(router.auto_chain_discovery !== false);
 
   const validParents = useMemo(
@@ -981,6 +1021,10 @@ function EditRouterChainDialog({
       if (wouldCreateChainCycle(allRouters, router.id, nextParent)) {
         throw new Error("This chain selection would create a loop.");
       }
+      const trimmedManagementIp = managementIp.trim();
+      if (trimmedManagementIp && !isIpv4Address(trimmedManagementIp)) {
+        throw new Error("Management IP must be a valid IPv4 address");
+      }
       const { error } = await supabase
         .from("routers")
         .update({
@@ -989,6 +1033,13 @@ function EditRouterChainDialog({
           parent_router_id: nextParent,
           uplink_interface: uplink.trim() || null,
           mac_address: normalizedMac,
+          lan_ip: trimmedManagementIp || null,
+          management_method:
+            router.vendor === "mikrotik"
+              ? router.management_method
+              : nextParent && normalizedMac
+                ? "chain_neighbor"
+                : null,
           auto_chain_discovery: autoDiscovery,
         })
         .eq("id", router.id);
@@ -1008,7 +1059,8 @@ function EditRouterChainDialog({
           <DialogTitle>Edit &amp; Chain: {router.name}</DialogTitle>
           <DialogDescription>
             Configure this device&apos;s role, upstream parent on the chain, MAC address, and
-            automatic neighbor discovery.
+            management IP. Non-MikroTik devices linked under a parent are monitored through the
+            upstream router.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -1062,6 +1114,16 @@ function EditRouterChainDialog({
               placeholder="AA:BB:CC:DD:EE:FF"
               value={mac}
               onChange={(e) => setMac(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-management-ip">Management IP</Label>
+            <Input
+              id="edit-management-ip"
+              placeholder="192.168.1.2"
+              value={managementIp}
+              onChange={(e) => setManagementIp(e.target.value)}
               className="font-mono text-xs"
             />
           </div>
