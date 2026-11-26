@@ -177,6 +177,7 @@ describe("router-chain pure helpers", () => {
     const script = lines.join("\n");
     expect(script).toContain("netgrid-chain");
     expect(script).toContain('($iface != "ether1")');
+    expect(script).toContain('($n < 4) && ($ip != "")');
     expect(script).not.toMatch(/\\\$/);
   });
 });

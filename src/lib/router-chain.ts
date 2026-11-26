@@ -9,6 +9,8 @@ export type ChainNodeRole = "router" | "access_point";
 export type ChainVendor = DeviceVendor | "ubiquiti" | "generic";
 
 export const MAX_CHAIN_NEIGHBORS_PER_REPORT = 128;
+// Keep serial probes bounded on low-powered routers; neighbor discovery still reports all entries.
+const MAX_CHAIN_PINGS_PER_REPORT = 4;
 
 export interface ChainNeighborRecord {
   mac: string;
@@ -287,7 +289,7 @@ const CHAIN_AGENT_SCRIPT = `
         :local usedIf $iname
         :if ($usedIf = "") do={ :set usedIf $iface }
         :local reach 1
-        :if ($ip != "") do={
+        :if (($n < ${MAX_CHAIN_PINGS_PER_REPORT}) && ($ip != "")) do={
           :do {
             :local pr [/ping $ip count=1 interval=300ms as-value]
             :if ([:len $pr] = 0) do={ :set reach 0 }
