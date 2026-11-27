@@ -7,7 +7,6 @@ type InventorySetting = {
   id: string;
   tenant_id: string;
   router_id: string;
-  package_id: string;
   minimum_stock: number;
   target_stock: number;
   maximum_stock: number;
@@ -35,7 +34,7 @@ async function replenishStock(setting: InventorySetting): Promise<ReplenishmentR
       .select("id")
       .eq("tenant_id", setting.tenant_id)
       .eq("router_id", setting.router_id)
-      .eq("package_id", setting.package_id)
+      .is("package_id", null)
       .eq("status", "unused")
       .eq("sync_status", "available")
       .is("payment_id", null)
@@ -46,7 +45,7 @@ async function replenishStock(setting: InventorySetting): Promise<ReplenishmentR
       .select("id")
       .eq("tenant_id", setting.tenant_id)
       .eq("router_id", setting.router_id)
-      .eq("package_id", setting.package_id)
+      .is("package_id", null)
       .eq("status", "unused")
       .eq("sync_status", "pending")
       .is("payment_id", null)
@@ -131,8 +130,9 @@ export async function replenishVoucherInventory(
 ): Promise<ReplenishmentResult[]> {
   let query = supabaseAdmin
     .from("voucher_inventory_settings")
-    .select("id,tenant_id,router_id,package_id,minimum_stock,target_stock,maximum_stock,batch_size")
+    .select("id,tenant_id,router_id,minimum_stock,target_stock,maximum_stock,batch_size")
     .eq("enabled", true)
+    .is("package_id", null)
     .order("updated_at", { ascending: true })
     .limit(100);
   if (settingId) query = query.eq("id", settingId);

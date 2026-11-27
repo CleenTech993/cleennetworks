@@ -3129,7 +3129,7 @@ export type Database = {
           id: string;
           maximum_stock: number;
           minimum_stock: number;
-          package_id: string;
+          package_id: string | null;
           replenishment_lock_until: string | null;
           router_id: string;
           target_stock: number;
@@ -3142,7 +3142,7 @@ export type Database = {
           id?: string;
           maximum_stock?: number;
           minimum_stock?: number;
-          package_id: string;
+          package_id: string | null;
           replenishment_lock_until?: string | null;
           router_id: string;
           target_stock?: number;
@@ -3155,7 +3155,7 @@ export type Database = {
           id?: string;
           maximum_stock?: number;
           minimum_stock?: number;
-          package_id?: string;
+          package_id?: string | null;
           replenishment_lock_until?: string | null;
           router_id?: string;
           target_stock?: number;
@@ -3254,7 +3254,7 @@ export type Database = {
           p_enabled: boolean;
           p_maximum_stock: number;
           p_minimum_stock: number;
-          p_package_id: string;
+          p_package_id: string | null;
           p_router_id: string;
           p_target_stock: number;
           p_tenant_id: string;

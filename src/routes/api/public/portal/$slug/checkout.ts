@@ -55,6 +55,7 @@ const OmadaContextSchema = z.discriminatedUnion("kind", [
 const Schema = z.object({
   packageId: z.string().uuid(),
   phone: z.string().min(7).max(20),
+  mac: MacSchema.optional(),
   tvMac: z.string().min(11).max(40).optional(),
   routerId: z.string().uuid().optional(),
   omadaContext: OmadaContextSchema.optional(),
@@ -85,6 +86,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
             { status: 400 },
           );
         }
+        const boundMac = parsed.data.mac ?? parsed.data.omadaContext?.clientMac ?? null;
 
         try {
           const tenant = await loadTenantBySlugAdmin(params.slug).catch(() => null);
@@ -212,7 +214,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
 
           const { data: activePayment, error: activePaymentError } = await supabaseAdmin
             .from("payments")
-            .select("id,package_id,tv_device_id,customer_id")
+            .select("id,package_id,tv_device_id,customer_id,bound_mac")
             .eq("tenant_id", tenant.id)
             .eq("phone", phone)
             .eq("status", "pending")
@@ -238,6 +240,15 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
               {
                 error:
                   "A payment prompt is already active for this number. Complete it or wait for it to expire.",
+              },
+              { status: 409 },
+            );
+          }
+          if (activePayment && (activePayment.bound_mac ?? null) !== boundMac) {
+            return Response.json(
+              {
+                error:
+                  "A payment prompt is already active for this device or phone. Complete it or wait for it to expire.",
               },
               { status: 409 },
             );
@@ -367,6 +378,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/checkout")({
                 ? { router_id: parsed.data.routerId }
                 : {}),
               phone,
+              bound_mac: boundMac,
               amount,
               status: "pending",
               provider: "daraja",

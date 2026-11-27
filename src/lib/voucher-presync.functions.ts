@@ -26,7 +26,6 @@ async function adminTenantOf(userId: string): Promise<string | null> {
 const InventorySchema = z
   .object({
     routerId: z.string().uuid(),
-    packageId: z.string().uuid(),
     enabled: z.boolean(),
     minimumStock: z.number().int().min(0).max(500),
     targetStock: z.number().int().min(1).max(500),
@@ -48,42 +47,24 @@ export const saveVoucherInventorySettings = createServerFn({ method: "POST" })
     if (!tenantId)
       return { ok: false, error: "Only tenant admins can configure voucher pre-sync." };
 
-    const [routerResult, packageResult] = await Promise.all([
-      supabaseAdmin
-        .from("routers")
-        .select("id,vendor")
-        .eq("id", data.routerId)
-        .eq("tenant_id", tenantId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("packages")
-        .select("id,kind,active")
-        .eq("id", data.packageId)
-        .eq("tenant_id", tenantId)
-        .maybeSingle(),
-    ]);
-    if (routerResult.error || packageResult.error) {
-      console.error(
-        "Could not validate voucher inventory configuration",
-        routerResult.error ?? packageResult.error,
-      );
-      return { ok: false, error: "Could not validate this router and package." };
+    const { data: router, error: routerError } = await supabaseAdmin
+      .from("routers")
+      .select("id,vendor")
+      .eq("id", data.routerId)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (routerError) {
+      console.error("Could not validate voucher inventory router", routerError);
+      return { ok: false, error: "Could not validate this router." };
     }
-    if (routerResult.data?.vendor !== "mikrotik") {
+    if (router?.vendor !== "mikrotik") {
       return { ok: false, error: "Pre-sync currently supports MikroTik routers only." };
-    }
-    if (
-      !packageResult.data ||
-      !packageResult.data.active ||
-      !["hotspot", "voucher"].includes(packageResult.data.kind)
-    ) {
-      return { ok: false, error: "Choose an active hotspot or voucher package." };
     }
 
     const { data: settingId, error } = await supabaseAdmin.rpc("save_voucher_inventory_settings", {
       p_tenant_id: tenantId,
       p_router_id: data.routerId,
-      p_package_id: data.packageId,
+      p_package_id: null,
       p_enabled: data.enabled,
       p_minimum_stock: data.minimumStock,
       p_target_stock: data.targetStock,
@@ -122,8 +103,7 @@ export const generateVoucherInventory = createServerFn({ method: "POST" })
         console.error("Could not load voucher inventory settings", settingError);
         return { ok: false, error: "Could not load voucher inventory settings." };
       }
-      if (!setting)
-        return { ok: false, error: "Enable pre-sync for this router and package first." };
+      if (!setting) return { ok: false, error: "Enable pre-sync for this router first." };
 
       try {
         const [result] = await replenishVoucherInventory(setting.id);

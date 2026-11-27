@@ -86,25 +86,28 @@ beforeEach(() => {
         (row) =>
           row.tenant_id === pay.tenant_id &&
           row.router_id === pay.router_id &&
-          row.package_id === pay.package_id &&
+          row.package_id == null &&
           row.enabled === true,
       );
-    let voucher = setting
-      ? h.db
-          .rows("vouchers")
-          .find(
-            (row) =>
-              row.tenant_id === pay.tenant_id &&
-              row.router_id === pay.router_id &&
-              row.package_id === pay.package_id &&
-              row.status === "unused" &&
-              row.sync_status === "available" &&
-              row.payment_id == null,
-          )
-      : undefined;
+    let voucher =
+      setting && pay.bound_mac
+        ? h.db
+            .rows("vouchers")
+            .find(
+              (row) =>
+                row.tenant_id === pay.tenant_id &&
+                row.router_id === pay.router_id &&
+                row.package_id == null &&
+                row.status === "unused" &&
+                row.sync_status === "available" &&
+                row.payment_id == null,
+            )
+        : undefined;
     const assigned = Boolean(voucher);
     if (voucher) {
       voucher.payment_id = pay.id;
+      voucher.package_id = pay.package_id;
+      voucher.bound_mac = pay.bound_mac ?? null;
       voucher.expires_at = null;
       voucher.activation_started_at = null;
     } else {
@@ -113,6 +116,7 @@ beforeEach(() => {
         tenant_id: pay.tenant_id,
         router_id: pay.router_id ?? null,
         package_id: pay.package_id,
+        bound_mac: pay.bound_mac ?? null,
         code: "PAYVOUCHER234567",
         status: "unused",
         sync_status: "legacy",
@@ -173,13 +177,14 @@ describe("tenant Daraja callback", () => {
     expect(hours).toBeLessThan(2.1);
   });
 
-  it("assigns an acknowledged voucher for the payment's exact router and package", async () => {
+  it("assigns unbound router stock to the paid package and customer MAC", async () => {
     payment().router_id = "router-one";
+    payment().bound_mac = "02:00:00:00:00:01";
     h.db.seed("voucher_inventory_settings", [
       {
         tenant_id: TENANT,
         router_id: "router-one",
-        package_id: HOTSPOT_PKG,
+        package_id: null,
         enabled: true,
       },
     ]);
@@ -188,7 +193,7 @@ describe("tenant Daraja callback", () => {
         id: "ready-one",
         tenant_id: TENANT,
         router_id: "router-one",
-        package_id: HOTSPOT_PKG,
+        package_id: null,
         code: "READYCODE123",
         status: "unused",
         sync_status: "available",
@@ -199,7 +204,7 @@ describe("tenant Daraja callback", () => {
         id: "ready-other-router",
         tenant_id: TENANT,
         router_id: "router-two",
-        package_id: HOTSPOT_PKG,
+        package_id: null,
         code: "OTHERROUTER1",
         status: "unused",
         sync_status: "available",
@@ -217,7 +222,12 @@ describe("tenant Daraja callback", () => {
       fulfillment_status: "assigned",
       expires_at: null,
     });
-    expect(h.db.rows("vouchers")[0]).toMatchObject({ payment_id: PAY, expires_at: null });
+    expect(h.db.rows("vouchers")[0]).toMatchObject({
+      payment_id: PAY,
+      package_id: HOTSPOT_PKG,
+      bound_mac: "02:00:00:00:00:01",
+      expires_at: null,
+    });
     expect(h.db.rows("vouchers")[1].payment_id).toBeNull();
   });
 
@@ -402,6 +412,43 @@ describe("tenant Daraja callback", () => {
       status: "active",
     });
     expect(h.db.rows("customers")[0].expires_at).toBe(payment().expires_at);
+  });
+});
+
+it("does not assign pre-synced stock when checkout did not capture a client MAC", async () => {
+  payment().router_id = "router-one";
+  h.db
+    .seed("voucher_inventory_settings", [
+      {
+        tenant_id: TENANT,
+        router_id: "router-one",
+        package_id: null,
+        enabled: true,
+      },
+    ])
+    .seed("vouchers", [
+      {
+        id: "ready-without-client",
+        tenant_id: TENANT,
+        router_id: "router-one",
+        package_id: null,
+        code: "NOMACSTOCK01",
+        status: "unused",
+        sync_status: "available",
+        payment_id: null,
+        expires_at: null,
+      },
+    ]);
+
+  const response = await send();
+
+  expect(response.status).toBe(200);
+  expect(payment()).toMatchObject({ fulfillment_status: "generated" });
+  expect(h.db.rows("vouchers")[0]).toMatchObject({
+    code: "NOMACSTOCK01",
+    package_id: null,
+    payment_id: null,
+    sync_status: "available",
   });
 });
 

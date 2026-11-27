@@ -22,13 +22,14 @@ VALUES (
   'hours'
 );
 INSERT INTO public.payments (
-  id, tenant_id, package_id, router_id, amount, status, provider
+  id, tenant_id, package_id, router_id, bound_mac, amount, status, provider
 )
 VALUES (
   '74444444-4444-4444-4444-444444444444',
   '71111111-1111-1111-1111-111111111111',
   '73333333-3333-3333-3333-333333333333',
   '72222222-2222-2222-2222-222222222222',
+  '02:00:00:00:00:01',
   10,
   'processing',
   'daraja'
@@ -37,7 +38,7 @@ VALUES (
 SELECT public.save_voucher_inventory_settings(
   '71111111-1111-1111-1111-111111111111',
   '72222222-2222-2222-2222-222222222222',
-  '73333333-3333-3333-3333-333333333333',
+  NULL,
   true,
   1,
   1,
@@ -53,6 +54,21 @@ SELECT public.insert_presynced_vouchers(
   :'setting_id',
   ARRAY['PRESYNCED001']
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vouchers
+    WHERE code = 'PRESYNCED001'
+      AND package_id IS NULL
+      AND payment_id IS NULL
+      AND bound_mac IS NULL
+      AND sync_status = 'pending'
+  ) THEN
+    RAISE EXCEPTION 'Pre-generated voucher was already assigned before purchase';
+  END IF;
+END;
+$$;
 
 UPDATE public.vouchers
 SET sync_status = 'available', sync_acknowledged_at = now()
@@ -82,10 +98,12 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.vouchers
     WHERE code = 'PRESYNCED001'
+      AND package_id = '73333333-3333-3333-3333-333333333333'
       AND payment_id = '74444444-4444-4444-4444-444444444444'
+      AND bound_mac = '02:00:00:00:00:01'
       AND sync_status = 'available'
   ) THEN
-    RAISE EXCEPTION 'Voucher assignment was not attached to the payment';
+    RAISE EXCEPTION 'Voucher was not bound to the purchased package, MAC, and payment';
   END IF;
 END;
 $$;
@@ -179,6 +197,56 @@ BEGIN
       AND fulfillment_status = 'generated'
   ) THEN
     RAISE EXCEPTION 'An enabled but empty pre-sync pool did not generate a voucher';
+  END IF;
+END;
+$$;
+
+INSERT INTO public.payments (
+  id, tenant_id, package_id, router_id, amount, status, provider
+)
+VALUES (
+  '77777777-7777-4777-8777-777777777777',
+  '71111111-1111-1111-1111-111111111111',
+  '73333333-3333-3333-3333-333333333333',
+  '72222222-2222-2222-2222-222222222222',
+  10,
+  'processing',
+  'daraja'
+);
+
+INSERT INTO public.vouchers (
+  tenant_id, router_id, code, status, sync_status
+)
+VALUES (
+  '71111111-1111-1111-1111-111111111111',
+  '72222222-2222-2222-2222-222222222222',
+  'NOMACSTOCK01',
+  'unused',
+  'available'
+);
+
+SELECT *
+FROM public.settle_presynced_hotspot_payment(
+  '77777777-7777-4777-8777-777777777777',
+  'TESTRECEIPT4',
+  '{"source":"sql-test"}'::jsonb,
+  now() + interval '3 hours'
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.payments
+    WHERE id = '77777777-7777-4777-8777-777777777777'
+      AND fulfillment_status = 'generated'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.vouchers
+    WHERE code = 'NOMACSTOCK01'
+      AND package_id IS NULL
+      AND payment_id IS NULL
+      AND sync_status = 'available'
+  ) THEN
+    RAISE EXCEPTION 'Pre-synced stock was assigned without a client MAC';
   END IF;
 END;
 $$;

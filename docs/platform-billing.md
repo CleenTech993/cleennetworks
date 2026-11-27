@@ -75,16 +75,17 @@ Run `npm run db:verify-gen` and `npm run test:sql` after changing the migration.
 
 ## Pre-synchronized hotspot voucher inventory
 
-The `/api/cron/voucher-inventory` endpoint replenishes enabled router/package pools. Configure an
+The `/api/cron/voucher-inventory` endpoint replenishes enabled router pools. Configure an
 external scheduler to send it a `POST` every minute with `Authorization: Bearer <CRON_SECRET>`.
 It uses the same server-side `CRON_SECRET` described above. The endpoint is safe to retry: a
 database lock prevents duplicate replenishment for the same pool, and pre-generated inventory
 remains unavailable until the router's existing voucher-poll script confirms the user, password,
 and profile.
 
-Pre-synchronization is disabled by default. A tenant admin can enable it independently for a
-MikroTik router and hotspot package in **Tenant Console → Hotspot**. Verified hotspot purchases
-always get a voucher: when an enabled pool has router-confirmed stock, a voucher is assigned from
-it; otherwise a voucher is generated after payment. Router-assigned voucher validity starts when
-the router reports an authorized login, not when stock is generated or assigned. The M-Pesa receipt
-remains available as the payment reference.
+Pre-synchronization is disabled by default. A tenant admin can enable it per MikroTik router in
+**Tenant Console → Hotspot**. Generated vouchers have no package or customer MAC before purchase.
+After a successful hotspot payment, when router-confirmed stock and the portal client's MAC are
+available, the system attaches the selected package, MAC, and payment to that voucher; otherwise it
+generates a voucher after payment.
+Router-assigned voucher validity starts when the router reports an authorized login, not when stock
+is generated or assigned. The M-Pesa receipt remains available as the payment reference.

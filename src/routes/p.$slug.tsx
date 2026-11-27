@@ -558,6 +558,7 @@ function PortalPage() {
                 <TabsContent value="buy" className="mt-5">
                   <BuyFlow
                     slug={slug}
+                    deviceMac={deviceMac}
                     packages={data.packages.filter((plan) => plan.kind !== "pppoe")}
                     primary={primary}
                     theme={theme}
@@ -665,6 +666,7 @@ function PortalSupport({ phone, email }: { phone: string | null; email: string |
 
 function BuyFlow({
   slug,
+  deviceMac,
   packages,
   primary,
   theme,
@@ -672,6 +674,7 @@ function BuyFlow({
   postLoginUrl,
 }: {
   slug: string;
+  deviceMac: string | null;
   packages: PortalData["packages"];
   primary: string;
   theme: PortalThemeDef;
@@ -698,6 +701,7 @@ function BuyFlow({
         body: JSON.stringify({
           packageId: picked,
           phone,
+          mac: deviceMac ?? omadaContext?.clientMac,
           ...(selectedPlan?.kind === "hotspot_tv" ? { tvMac } : {}),
           routerId:
             routerParams(window.location.search, sessionStore(), slug).routerId ?? undefined,

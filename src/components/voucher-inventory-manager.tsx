@@ -25,7 +25,6 @@ export function VoucherInventoryManager() {
   const { tenantId } = useAuth();
   const queryClient = useQueryClient();
   const [routerId, setRouterId] = useState(NONE);
-  const [packageId, setPackageId] = useState(NONE);
   const [enabled, setEnabled] = useState(false);
   const [minimum, setMinimum] = useState("20");
   const [target, setTarget] = useState("100");
@@ -44,19 +43,6 @@ export function VoucherInventoryManager() {
       return data ?? [];
     },
   });
-  const { data: packages = [] } = useQuery({
-    queryKey: ["voucher-inventory-packages"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("packages")
-        .select("id,name,kind")
-        .in("kind", ["hotspot", "voucher"])
-        .eq("active", true)
-        .order("name");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
   const { data: settings = [] } = useQuery({
     queryKey: ["voucher-inventory-settings"],
     queryFn: async () => {
@@ -65,6 +51,7 @@ export function VoucherInventoryManager() {
         .select(
           "id,router_id,package_id,enabled,minimum_stock,target_stock,maximum_stock,batch_size",
         )
+        .is("package_id", null)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -72,8 +59,8 @@ export function VoucherInventoryManager() {
   });
 
   const setting = useMemo(
-    () => settings.find((row) => row.router_id === routerId && row.package_id === packageId),
-    [settings, routerId, packageId],
+    () => settings.find((row) => row.router_id === routerId),
+    [settings, routerId],
   );
 
   useEffect(() => {
@@ -85,14 +72,14 @@ export function VoucherInventoryManager() {
   }, [setting]);
 
   const { data: inventory } = useQuery({
-    queryKey: ["voucher-inventory-counts", routerId, packageId],
-    enabled: routerId !== NONE && packageId !== NONE,
+    queryKey: ["voucher-inventory-counts", routerId],
+    enabled: routerId !== NONE,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vouchers")
         .select("sync_status")
         .eq("router_id", routerId)
-        .eq("package_id", packageId)
+        .is("package_id", null)
         .eq("status", "unused")
         .is("payment_id", null)
         .in("sync_status", ["pending", "available"]);
@@ -107,11 +94,10 @@ export function VoucherInventoryManager() {
 
   const save = useMutation({
     mutationFn: async () => {
-      if (routerId === NONE || packageId === NONE) throw new Error("Choose a router and package.");
+      if (routerId === NONE) throw new Error("Choose a router.");
       const result = await saveVoucherInventorySettings({
         data: {
           routerId,
-          packageId,
           enabled,
           minimumStock: Number(minimum),
           targetStock: Number(target),
@@ -124,9 +110,7 @@ export function VoucherInventoryManager() {
     },
     onSuccess: () => {
       toast.success(
-        enabled
-          ? "Voucher pre-sync enabled for this router and package."
-          : "Voucher pre-sync disabled.",
+        enabled ? "Voucher pre-sync enabled for this router." : "Voucher pre-sync disabled.",
       );
       void queryClient.invalidateQueries({ queryKey: ["voucher-inventory-settings"] });
       void queryClient.invalidateQueries({ queryKey: ["voucher-inventory-counts"] });
@@ -154,7 +138,7 @@ export function VoucherInventoryManager() {
       toast.error(error instanceof Error ? error.message : "Could not generate vouchers."),
   });
 
-  const hasSelection = routerId !== NONE && packageId !== NONE;
+  const hasSelection = routerId !== NONE;
   const validLevels =
     Number.isInteger(Number(minimum)) &&
     Number.isInteger(Number(target)) &&
@@ -168,8 +152,8 @@ export function VoucherInventoryManager() {
       <div className="mb-4">
         <h2 className="font-semibold">Voucher pre-synchronization</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Generate vouchers ahead of purchase. They become assignable only after the selected
-          MikroTik router confirms the user, password, and profile.
+          Generate vouchers ahead of purchase without assigning a package. After successful payment,
+          the selected package and customer device are attached to a router-confirmed voucher.
         </p>
       </div>
 
@@ -184,21 +168,6 @@ export function VoucherInventoryManager() {
               {routers.map((router) => (
                 <SelectItem key={router.id} value={router.id}>
                   {router.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Hotspot package</Label>
-          <Select value={packageId} onValueChange={setPackageId}>
-            <SelectTrigger className="mt-1">
-              <SelectValue placeholder="Choose a package" />
-            </SelectTrigger>
-            <SelectContent>
-              {packages.map((pkg) => (
-                <SelectItem key={pkg.id} value={pkg.id}>
-                  {pkg.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -260,7 +229,7 @@ export function VoucherInventoryManager() {
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <label className="flex items-center gap-3 text-sm">
           <Switch checked={enabled} onCheckedChange={setEnabled} />
-          Enable pre-sync for this router and package
+          Enable unassigned voucher pre-sync for this router
         </label>
         <div className="flex gap-2">
           <Button

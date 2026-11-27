@@ -117,6 +117,19 @@ describe("checkout", () => {
     expect(pay.merchant_request_id).toBe("merchant-1");
   });
 
+  it("stores the normalized captive-portal client MAC on the pending payment", async () => {
+    const response = await checkout({
+      packageId: PKG,
+      phone: "0712345678",
+      mac: "aa-bb-cc-dd-ee-02",
+    });
+
+    expect(response.status).toBe(200);
+    expect(h.db.rows("payments")[0]).toMatchObject({
+      bound_mac: "AA:BB:CC:DD:EE:02",
+    });
+  });
+
   it("queues validated Omada client context for authorization after confirmed payment", async () => {
     const routerId = "66666666-6666-4666-8666-666666666666";
     h.db
