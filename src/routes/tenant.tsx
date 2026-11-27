@@ -26,6 +26,7 @@ import {
   Smartphone,
   Archive,
   Power,
+  Stethoscope,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { TenantWhatsAppSupport } from "@/components/tenant-whatsapp-support";
@@ -38,6 +39,7 @@ import { useAuth } from "@/hooks/use-auth";
 const ALL_NAV: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
   { to: "/tenant/noc", label: "NOC Monitor", icon: Radar, group: "Network" },
+  { to: "/tenant/network-doctor", label: "AI Network Doctor", icon: Stethoscope, group: "Network" },
   { to: "/tenant/routers", label: "Routers", icon: Router, group: "Network" },
   { to: "/tenant/recovery", label: "Outage Recovery", icon: Power, group: "Network" },
   {

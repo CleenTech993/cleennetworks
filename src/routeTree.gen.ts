@@ -53,6 +53,7 @@ import { Route as TenantHotspotRouteImport } from './routes/tenant.hotspot'
 import { Route as TenantInsightsRouteImport } from './routes/tenant.insights'
 import { Route as TenantInventoryRouteImport } from './routes/tenant.inventory'
 import { Route as TenantMigrationRouteImport } from './routes/tenant.migration'
+import { Route as TenantNetworkDoctorRouteImport } from './routes/tenant.network-doctor'
 import { Route as TenantNocRouteImport } from './routes/tenant.noc'
 import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
 import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
@@ -71,6 +72,7 @@ import { Route as TenantWorkOrdersRouteImport } from './routes/tenant.work-order
 import { Route as ApiCronMoodBoostRouteImport } from './routes/api/cron/mood-boost'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as ApiPublicDomainRouteImport } from './routes/api/public/domain'
+import { Route as ApiTenantNetworkDoctorRouteImport } from './routes/api/tenant/network-doctor'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicCustomerMessagesRouteImport } from './routes/api/public/customer/messages'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
@@ -327,6 +329,11 @@ const TenantMigrationRoute = TenantMigrationRouteImport.update({
   path: '/migration',
   getParentRoute: () => TenantRoute,
 } as any)
+const TenantNetworkDoctorRoute = TenantNetworkDoctorRouteImport.update({
+  id: '/network-doctor',
+  path: '/network-doctor',
+  getParentRoute: () => TenantRoute,
+} as any)
 const TenantNocRoute = TenantNocRouteImport.update({
   id: '/noc',
   path: '/noc',
@@ -415,6 +422,11 @@ const ApiCronPlatformBillingRoute = ApiCronPlatformBillingRouteImport.update({
 const ApiPublicDomainRoute = ApiPublicDomainRouteImport.update({
   id: '/api/public/domain',
   path: '/api/public/domain',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTenantNetworkDoctorRoute = ApiTenantNetworkDoctorRouteImport.update({
+  id: '/api/tenant/network-doctor',
+  path: '/api/tenant/network-doctor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TenantRoutersIdRoute = TenantRoutersIdRouteImport.update({
@@ -659,6 +671,7 @@ export interface FileRoutesByFullPath {
   '/tenant/insights': typeof TenantInsightsRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
+  '/tenant/network-doctor': typeof TenantNetworkDoctorRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -680,6 +693,7 @@ export interface FileRoutesByFullPath {
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
+  '/api/tenant/network-doctor': typeof ApiTenantNetworkDoctorRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
@@ -754,6 +768,7 @@ export interface FileRoutesByTo {
   '/tenant/insights': typeof TenantInsightsRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
+  '/tenant/network-doctor': typeof TenantNetworkDoctorRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -775,6 +790,7 @@ export interface FileRoutesByTo {
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
+  '/api/tenant/network-doctor': typeof ApiTenantNetworkDoctorRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
@@ -853,6 +869,7 @@ export interface FileRoutesById {
   '/tenant/insights': typeof TenantInsightsRoute
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
+  '/tenant/network-doctor': typeof TenantNetworkDoctorRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -874,6 +891,7 @@ export interface FileRoutesById {
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
+  '/api/tenant/network-doctor': typeof ApiTenantNetworkDoctorRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
@@ -953,6 +971,7 @@ export interface FileRouteTypes {
     | '/tenant/insights'
     | '/tenant/inventory'
     | '/tenant/migration'
+    | '/tenant/network-doctor'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -974,6 +993,7 @@ export interface FileRouteTypes {
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
+    | '/api/tenant/network-doctor'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
@@ -1048,6 +1068,7 @@ export interface FileRouteTypes {
     | '/tenant/insights'
     | '/tenant/inventory'
     | '/tenant/migration'
+    | '/tenant/network-doctor'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -1069,6 +1090,7 @@ export interface FileRouteTypes {
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
+    | '/api/tenant/network-doctor'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
@@ -1146,6 +1168,7 @@ export interface FileRouteTypes {
     | '/tenant/insights'
     | '/tenant/inventory'
     | '/tenant/migration'
+    | '/tenant/network-doctor'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -1167,6 +1190,7 @@ export interface FileRouteTypes {
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
+    | '/api/tenant/network-doctor'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
@@ -1224,6 +1248,7 @@ export interface RootRouteChildren {
   ApiCronMoodBoostRoute: typeof ApiCronMoodBoostRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
   ApiPublicDomainRoute: typeof ApiPublicDomainRoute
+  ApiTenantNetworkDoctorRoute: typeof ApiTenantNetworkDoctorRoute
   ApiPublicCustomerMessagesRoute: typeof ApiPublicCustomerMessagesRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicRouterSupportSessionsSessionIdRoute: typeof ApiPublicRouterSupportSessionsSessionIdRoute
@@ -1561,6 +1586,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantMigrationRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/tenant/network-doctor': {
+      id: '/tenant/network-doctor'
+      path: '/network-doctor'
+      fullPath: '/tenant/network-doctor'
+      preLoaderRoute: typeof TenantNetworkDoctorRouteImport
+      parentRoute: typeof TenantRoute
+    }
     '/tenant/noc': {
       id: '/tenant/noc'
       path: '/noc'
@@ -1685,6 +1717,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/domain'
       fullPath: '/api/public/domain'
       preLoaderRoute: typeof ApiPublicDomainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tenant/network-doctor': {
+      id: '/api/tenant/network-doctor'
+      path: '/api/tenant/network-doctor'
+      fullPath: '/api/tenant/network-doctor'
+      preLoaderRoute: typeof ApiTenantNetworkDoctorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tenant/routers/$id': {
@@ -2002,6 +2041,7 @@ interface TenantRouteChildren {
   TenantInsightsRoute: typeof TenantInsightsRoute
   TenantInventoryRoute: typeof TenantInventoryRoute
   TenantMigrationRoute: typeof TenantMigrationRoute
+  TenantNetworkDoctorRoute: typeof TenantNetworkDoctorRoute
   TenantNocRoute: typeof TenantNocRoute
   TenantPackagesRoute: typeof TenantPackagesRoute
   TenantPaymentsRoute: typeof TenantPaymentsRoute
@@ -2031,6 +2071,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantInsightsRoute: TenantInsightsRoute,
   TenantInventoryRoute: TenantInventoryRoute,
   TenantMigrationRoute: TenantMigrationRoute,
+  TenantNetworkDoctorRoute: TenantNetworkDoctorRoute,
   TenantNocRoute: TenantNocRoute,
   TenantPackagesRoute: TenantPackagesRoute,
   TenantPaymentsRoute: TenantPaymentsRoute,
@@ -2098,6 +2139,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronMoodBoostRoute: ApiCronMoodBoostRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
   ApiPublicDomainRoute: ApiPublicDomainRoute,
+  ApiTenantNetworkDoctorRoute: ApiTenantNetworkDoctorRoute,
   ApiPublicCustomerMessagesRoute: ApiPublicCustomerMessagesRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicRouterSupportSessionsSessionIdRoute:
