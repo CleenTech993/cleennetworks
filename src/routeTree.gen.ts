@@ -55,6 +55,7 @@ import { Route as TenantInsightsRouteImport } from './routes/tenant.insights'
 import { Route as TenantInventoryRouteImport } from './routes/tenant.inventory'
 import { Route as TenantMigrationRouteImport } from './routes/tenant.migration'
 import { Route as TenantNetworkDoctorRouteImport } from './routes/tenant.network-doctor'
+import { Route as TenantNetworkPlannerRouteImport } from './routes/tenant.network-planner'
 import { Route as TenantNocRouteImport } from './routes/tenant.noc'
 import { Route as TenantPackagesRouteImport } from './routes/tenant.packages'
 import { Route as TenantPaymentsRouteImport } from './routes/tenant.payments'
@@ -338,6 +339,11 @@ const TenantMigrationRoute = TenantMigrationRouteImport.update({
 const TenantNetworkDoctorRoute = TenantNetworkDoctorRouteImport.update({
   id: '/network-doctor',
   path: '/network-doctor',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantNetworkPlannerRoute = TenantNetworkPlannerRouteImport.update({
+  id: '/network-planner',
+  path: '/network-planner',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantNocRoute = TenantNocRouteImport.update({
@@ -679,6 +685,7 @@ export interface FileRoutesByFullPath {
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/network-doctor': typeof TenantNetworkDoctorRoute
+  '/tenant/network-planner': typeof TenantNetworkPlannerRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -777,6 +784,7 @@ export interface FileRoutesByTo {
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/network-doctor': typeof TenantNetworkDoctorRoute
+  '/tenant/network-planner': typeof TenantNetworkPlannerRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -879,6 +887,7 @@ export interface FileRoutesById {
   '/tenant/inventory': typeof TenantInventoryRoute
   '/tenant/migration': typeof TenantMigrationRoute
   '/tenant/network-doctor': typeof TenantNetworkDoctorRoute
+  '/tenant/network-planner': typeof TenantNetworkPlannerRoute
   '/tenant/noc': typeof TenantNocRoute
   '/tenant/packages': typeof TenantPackagesRoute
   '/tenant/payments': typeof TenantPaymentsRoute
@@ -982,6 +991,7 @@ export interface FileRouteTypes {
     | '/tenant/inventory'
     | '/tenant/migration'
     | '/tenant/network-doctor'
+    | '/tenant/network-planner'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -1080,6 +1090,7 @@ export interface FileRouteTypes {
     | '/tenant/inventory'
     | '/tenant/migration'
     | '/tenant/network-doctor'
+    | '/tenant/network-planner'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -1181,6 +1192,7 @@ export interface FileRouteTypes {
     | '/tenant/inventory'
     | '/tenant/migration'
     | '/tenant/network-doctor'
+    | '/tenant/network-planner'
     | '/tenant/noc'
     | '/tenant/packages'
     | '/tenant/payments'
@@ -1610,6 +1622,13 @@ declare module '@tanstack/react-router' {
       path: '/network-doctor'
       fullPath: '/tenant/network-doctor'
       preLoaderRoute: typeof TenantNetworkDoctorRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/network-planner': {
+      id: '/tenant/network-planner'
+      path: '/network-planner'
+      fullPath: '/tenant/network-planner'
+      preLoaderRoute: typeof TenantNetworkPlannerRouteImport
       parentRoute: typeof TenantRoute
     }
     '/tenant/noc': {
@@ -2062,6 +2081,7 @@ interface TenantRouteChildren {
   TenantInventoryRoute: typeof TenantInventoryRoute
   TenantMigrationRoute: typeof TenantMigrationRoute
   TenantNetworkDoctorRoute: typeof TenantNetworkDoctorRoute
+  TenantNetworkPlannerRoute: typeof TenantNetworkPlannerRoute
   TenantNocRoute: typeof TenantNocRoute
   TenantPackagesRoute: typeof TenantPackagesRoute
   TenantPaymentsRoute: typeof TenantPaymentsRoute
@@ -2093,6 +2113,7 @@ const TenantRouteChildren: TenantRouteChildren = {
   TenantInventoryRoute: TenantInventoryRoute,
   TenantMigrationRoute: TenantMigrationRoute,
   TenantNetworkDoctorRoute: TenantNetworkDoctorRoute,
+  TenantNetworkPlannerRoute: TenantNetworkPlannerRoute,
   TenantNocRoute: TenantNocRoute,
   TenantPackagesRoute: TenantPackagesRoute,
   TenantPaymentsRoute: TenantPaymentsRoute,
