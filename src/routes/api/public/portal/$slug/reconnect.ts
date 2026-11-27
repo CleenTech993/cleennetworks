@@ -66,7 +66,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
         let q = supabaseAdmin
           .from("payments")
           .select(
-            "id,status,expires_at,phone,mpesa_receipt,bound_mac,package_id,router_id,created_at",
+            "id,status,expires_at,phone,mpesa_receipt,voucher_code,bound_mac,package_id,router_id,created_at",
           )
           .eq("tenant_id", tenant.id)
           .eq("status", "success")
@@ -82,12 +82,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
           return Response.json({ error: "Could not verify the M-Pesa receipt." }, { status: 500 });
         }
         if (!pay) return Response.json({ active: false, reason: "No purchase found" });
-
-        const now = Date.now();
-        const exp = pay.expires_at ? new Date(pay.expires_at).getTime() : 0;
-        if (!exp || exp <= now) {
-          return Response.json({ active: false, reason: "Package expired" });
-        }
 
         const { data: pkg, error: packageError } = pay.package_id
           ? await supabaseAdmin
@@ -105,7 +99,55 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
           return Response.json({ active: false, reason: "No hotspot purchase found" });
         }
 
-        const accessCode = pay.mpesa_receipt;
+        const { data: voucher, error: voucherError } = pay.voucher_code
+          ? await supabaseAdmin
+              .from("vouchers")
+              .select(
+                "id,code,status,expires_at,bound_mac,router_id,payment_id,sync_status,activation_started_at",
+              )
+              .eq("tenant_id", tenant.id)
+              .eq("payment_id", pay.id)
+              .eq("code", pay.voucher_code)
+              .maybeSingle()
+          : { data: null, error: null };
+        if (voucherError) {
+          console.error("Could not load paid voucher for reconnect", voucherError);
+          return Response.json({ error: "Could not verify the paid voucher." }, { status: 500 });
+        }
+        if (pay.voucher_code && !voucher) {
+          return Response.json({ active: false, reason: "Paid voucher is unavailable" });
+        }
+        if (
+          voucher &&
+          (!["unused", "used", "active"].includes(voucher.status) ||
+            voucher.sync_status === "quarantined")
+        ) {
+          return Response.json({ active: false, reason: "Paid voucher is unavailable" });
+        }
+        if (
+          voucher?.router_id &&
+          parsed.data.routerId &&
+          voucher.router_id !== parsed.data.routerId
+        ) {
+          return Response.json({
+            active: false,
+            reason: "Reconnect through the hotspot where this access code was purchased.",
+          });
+        }
+
+        const now = Date.now();
+        const expiresAt = voucher?.expires_at ?? pay.expires_at;
+        const exp = expiresAt ? Date.parse(expiresAt) : 0;
+        const waitingForRouterLogin =
+          voucher?.sync_status === "available" &&
+          voucher.payment_id === pay.id &&
+          !voucher.activation_started_at &&
+          !voucher.expires_at;
+        if (!waitingForRouterLogin && (!Number.isFinite(exp) || exp <= now)) {
+          return Response.json({ active: false, reason: "Package expired" });
+        }
+
+        const accessCode = voucher?.code ?? pay.mpesa_receipt;
         if (!accessCode || !SAFE_CODE.test(accessCode)) {
           return Response.json({
             active: false,
@@ -118,6 +160,12 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
             return Response.json({
               active: false,
               reason: "Reconnect from the hotspot network so this device can be secured.",
+            });
+          }
+          if (voucher?.bound_mac && voucher.bound_mac !== mac) {
+            return Response.json({
+              active: false,
+              reason: "This access code is already assigned to another device.",
             });
           }
           if (pay.bound_mac && pay.bound_mac !== mac) {
@@ -238,10 +286,10 @@ export const Route = createFileRoute("/api/public/portal/$slug/reconnect")({
         return Response.json({
           active: true,
           package: pkg,
-          expires_at: pay.expires_at,
-          remaining_minutes: Math.max(0, Math.floor((exp - now) / 60000)),
+          expires_at: expiresAt,
+          remaining_minutes: exp ? Math.max(0, Math.floor((exp - now) / 60000)) : undefined,
           access_code: accessCode,
-          mpesa_receipt: accessCode,
+          mpesa_receipt: pay.mpesa_receipt,
         });
       },
     },

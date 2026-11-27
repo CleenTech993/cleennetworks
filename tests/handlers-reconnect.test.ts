@@ -78,6 +78,58 @@ describe("portal reconnect by M-Pesa confirmation", () => {
     expect(h.db.rows("payments")[0].bound_mac).toBe(MAC);
   });
 
+  it("reconnects with the generated voucher while an acknowledged pre-sync timer is not started", async () => {
+    const payment = h.db.rows("payments")[0];
+    payment.voucher_code = "PAIDVOUCHER1";
+    payment.expires_at = null;
+    payment.router_id = ROUTER;
+    h.db.seed("vouchers", [
+      {
+        id: "paid-presync-voucher",
+        tenant_id: TENANT,
+        payment_id: payment.id,
+        router_id: ROUTER,
+        code: "PAIDVOUCHER1",
+        status: "used",
+        sync_status: "available",
+        activation_started_at: null,
+        expires_at: null,
+        bound_mac: MAC,
+      },
+    ]);
+
+    const response = await reconnect(RECEIPT, "0712345678", MAC, ROUTER);
+
+    expect(await json(response)).toMatchObject({
+      active: true,
+      access_code: "PAIDVOUCHER1",
+      expires_at: null,
+    });
+  });
+
+  it("uses the paid voucher expiry and rejects it after it expires", async () => {
+    const payment = h.db.rows("payments")[0];
+    payment.voucher_code = "EXPIREDVOUCHER1";
+    payment.expires_at = null;
+    h.db.seed("vouchers", [
+      {
+        id: "expired-paid-voucher",
+        tenant_id: TENANT,
+        payment_id: payment.id,
+        code: "EXPIREDVOUCHER1",
+        status: "used",
+        sync_status: "available",
+        activation_started_at: new Date(Date.now() - 3_600_000).toISOString(),
+        expires_at: new Date(Date.now() - 1_000).toISOString(),
+      },
+    ]);
+
+    expect(await json(await reconnect(RECEIPT, "0712345678", MAC))).toMatchObject({
+      active: false,
+      reason: "Package expired",
+    });
+  });
+
   it("requires and permanently binds a one-device code to the requesting MAC", async () => {
     expect(await json(await reconnect(RECEIPT, undefined, undefined))).toMatchObject({
       active: false,

@@ -1612,7 +1612,7 @@ interface ReconnectResult {
   active: boolean;
   reason?: string;
   package?: { name: string; duration_value: number | null; duration_unit: string | null } | null;
-  expires_at?: string;
+  expires_at?: string | null;
   remaining_minutes?: number;
   access_code?: string | null;
   mpesa_receipt?: string | null;
@@ -1675,7 +1675,7 @@ function ReconnectFlow({ slug, primary }: { slug: string; primary: string }) {
         </p>
         {!routerParams(window.location.search, sessionStore(), slug).login && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Connect to the hotspot and enter this transaction code on its sign-in page.
+            Connect to the hotspot and enter this access code on its sign-in page.
           </p>
         )}
         {result.access_code && (
