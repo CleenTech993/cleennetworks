@@ -2785,6 +2785,7 @@ export type Database = {
           payment_instructions: string | null;
           platform_commission_pct: number;
           primary_color: string | null;
+          public_status_enabled: boolean;
           slug: string;
           status: string;
           subdomain: string | null;
@@ -2814,6 +2815,7 @@ export type Database = {
           payment_instructions?: string | null;
           platform_commission_pct?: number;
           primary_color?: string | null;
+          public_status_enabled?: boolean;
           slug: string;
           status?: string;
           subdomain?: string | null;
@@ -2843,6 +2845,7 @@ export type Database = {
           payment_instructions?: string | null;
           platform_commission_pct?: number;
           primary_color?: string | null;
+          public_status_enabled?: boolean;
           slug?: string;
           status?: string;
           subdomain?: string | null;

@@ -2,10 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { Activity, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenantLabels } from "@/hooks/use-tenant-customization";
@@ -16,6 +18,7 @@ import { SessionManagementCard } from "@/components/session-management-card";
 import { TenantDomainSettings } from "@/components/tenant-domain-settings";
 import { MoodBoostSettingsCard } from "@/components/mood-boost-settings-card";
 import { appOrigin } from "@/lib/app-origin";
+import { logAudit } from "@/lib/audit";
 import {
   DEFAULT_TENANT_LABELS,
   sanitizeUserPreferences,
@@ -139,6 +142,33 @@ function Settings() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const savePublicStatus = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      if (!tenantId) throw new Error("Tenant account is not available.");
+      const { data, error } = await supabase
+        .from("tenants")
+        .update({ public_status_enabled: enabled })
+        .eq("id", tenantId)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("The public status setting could not be saved.");
+      return enabled;
+    },
+    onSuccess: async (enabled) => {
+      await logAudit({
+        tenantId,
+        action: "update",
+        resource: "public_status_page",
+        description: `${enabled ? "Enabled" : "Disabled"} the public network status page`,
+        details: { enabled },
+      });
+      toast.success(`Public status page ${enabled ? "enabled" : "disabled"}`);
+      void qc.invalidateQueries({ queryKey: ["tenant", tenantId] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const savePreferencesMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Sign in to save preferences.");
@@ -154,6 +184,10 @@ function Settings() {
   const slug = (tenant as { slug?: string } | undefined)?.slug;
   const portalUrl =
     slug && typeof window !== "undefined" ? `${appOrigin(window.location.origin)}/p/${slug}` : "";
+  const publicStatusUrl =
+    slug && typeof window !== "undefined"
+      ? `${appOrigin(window.location.origin)}/status/${slug}`
+      : "";
 
   function field<K extends keyof typeof form>(k: K, label: string, placeholder?: string) {
     const id = `tenant-${k}`;
@@ -267,6 +301,50 @@ function Settings() {
                 </a>
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-card p-5">
+          <div className="flex items-start gap-3">
+            <Activity className="mt-0.5 h-5 w-5 text-primary" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold">Public network status page</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Let customers check whether your enrolled network equipment is reporting normally.
+                The public page shows aggregate status only, never router names, addresses, or
+                customer information.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <Switch
+                  id="public-status-enabled"
+                  checked={tenant?.public_status_enabled ?? false}
+                  onCheckedChange={(enabled) => savePublicStatus.mutate(enabled)}
+                  disabled={
+                    !tenant ||
+                    tenantQuery.isPending ||
+                    tenantQuery.isError ||
+                    savePublicStatus.isPending
+                  }
+                  aria-label="Enable public network status page"
+                />
+                <Label htmlFor="public-status-enabled">
+                  {tenant?.public_status_enabled ? "Enabled" : "Disabled"}
+                </Label>
+                {savePublicStatus.isPending && (
+                  <span className="text-sm text-muted-foreground" role="status">
+                    Saving…
+                  </span>
+                )}
+              </div>
+              {publicStatusUrl && tenant?.public_status_enabled && (
+                <Button asChild type="button" className="mt-4" variant="outline" size="sm">
+                  <a href={publicStatusUrl} target="_blank" rel="noopener noreferrer">
+                    Open public status page
+                    <ExternalLink aria-hidden="true" />
+                  </a>
+                </Button>
+              )}
+            </div>
           </div>
         </div>
 

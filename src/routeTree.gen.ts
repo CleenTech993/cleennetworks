@@ -29,6 +29,7 @@ import { Route as PortalMessagesRouteImport } from './routes/portal.messages'
 import { Route as PortalPackagesRouteImport } from './routes/portal.packages'
 import { Route as PortalUsageRouteImport } from './routes/portal.usage'
 import { Route as PppoeSlugRouteImport } from './routes/pppoe.$slug'
+import { Route as StatusSlugRouteImport } from './routes/status.$slug'
 import { Route as SuperAdminIndexRouteImport } from './routes/super-admin.index'
 import { Route as SuperAdminAuditRouteImport } from './routes/super-admin.audit'
 import { Route as SuperAdminBillingRouteImport } from './routes/super-admin.billing'
@@ -74,6 +75,7 @@ import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id
 import { Route as ApiPublicCustomerMessagesRouteImport } from './routes/api/public/customer/messages'
 import { Route as ApiPublicPortalSlugRouteImport } from './routes/api/public/portal.$slug'
 import { Route as ApiPublicRouterSupportSessionsSessionIdRouteImport } from './routes/api/public/router-support-sessions.$sessionId'
+import { Route as ApiPublicStatusSlugRouteImport } from './routes/api/public/status.$slug'
 import { Route as ApiTenantDomainsVerifyRouteImport } from './routes/api/tenant/domains/verify'
 import { Route as ApiPublicMpesaCallbackTenantIdRouteImport } from './routes/api/public/mpesa/callback.$tenantId'
 import { Route as ApiPublicMpesaPlatformC2bValidationTokenRouteImport } from './routes/api/public/mpesa/platform-c2b-validation.$token'
@@ -202,6 +204,11 @@ const PortalUsageRoute = PortalUsageRouteImport.update({
 const PppoeSlugRoute = PppoeSlugRouteImport.update({
   id: '/pppoe/$slug',
   path: '/pppoe/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StatusSlugRoute = StatusSlugRouteImport.update({
+  id: '/status/$slug',
+  path: '/status/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SuperAdminIndexRoute = SuperAdminIndexRouteImport.update({
@@ -432,6 +439,11 @@ const ApiPublicRouterSupportSessionsSessionIdRoute =
     path: '/api/public/router-support-sessions/$sessionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicStatusSlugRoute = ApiPublicStatusSlugRouteImport.update({
+  id: '/api/public/status/$slug',
+  path: '/api/public/status/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTenantDomainsVerifyRoute = ApiTenantDomainsVerifyRouteImport.update({
   id: '/api/tenant/domains/verify',
   path: '/api/tenant/domains/verify',
@@ -625,6 +637,7 @@ export interface FileRoutesByFullPath {
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
   '/pppoe/$slug': typeof PppoeSlugRoute
+  '/status/$slug': typeof StatusSlugRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
@@ -671,6 +684,7 @@ export interface FileRoutesByFullPath {
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  '/api/public/status/$slug': typeof ApiPublicStatusSlugRoute
   '/api/tenant/domains/verify': typeof ApiTenantDomainsVerifyRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
@@ -718,6 +732,7 @@ export interface FileRoutesByTo {
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
   '/pppoe/$slug': typeof PppoeSlugRoute
+  '/status/$slug': typeof StatusSlugRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
@@ -764,6 +779,7 @@ export interface FileRoutesByTo {
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  '/api/public/status/$slug': typeof ApiPublicStatusSlugRoute
   '/api/tenant/domains/verify': typeof ApiTenantDomainsVerifyRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
@@ -815,6 +831,7 @@ export interface FileRoutesById {
   '/portal/packages': typeof PortalPackagesRoute
   '/portal/usage': typeof PortalUsageRoute
   '/pppoe/$slug': typeof PppoeSlugRoute
+  '/status/$slug': typeof StatusSlugRoute
   '/super-admin/audit': typeof SuperAdminAuditRoute
   '/super-admin/billing': typeof SuperAdminBillingRoute
   '/super-admin/communications': typeof SuperAdminCommunicationsRoute
@@ -861,6 +878,7 @@ export interface FileRoutesById {
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
   '/api/public/portal/$slug': typeof ApiPublicPortalSlugRouteWithChildren
   '/api/public/router-support-sessions/$sessionId': typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  '/api/public/status/$slug': typeof ApiPublicStatusSlugRoute
   '/api/tenant/domains/verify': typeof ApiTenantDomainsVerifyRoute
   '/api/public/mpesa/callback/$tenantId': typeof ApiPublicMpesaCallbackTenantIdRoute
   '/api/public/mpesa/platform-c2b-validation/$token': typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
@@ -913,6 +931,7 @@ export interface FileRouteTypes {
     | '/portal/packages'
     | '/portal/usage'
     | '/pppoe/$slug'
+    | '/status/$slug'
     | '/super-admin/audit'
     | '/super-admin/billing'
     | '/super-admin/communications'
@@ -959,6 +978,7 @@ export interface FileRouteTypes {
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
+    | '/api/public/status/$slug'
     | '/api/tenant/domains/verify'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
@@ -1006,6 +1026,7 @@ export interface FileRouteTypes {
     | '/portal/packages'
     | '/portal/usage'
     | '/pppoe/$slug'
+    | '/status/$slug'
     | '/super-admin/audit'
     | '/super-admin/billing'
     | '/super-admin/communications'
@@ -1052,6 +1073,7 @@ export interface FileRouteTypes {
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
+    | '/api/public/status/$slug'
     | '/api/tenant/domains/verify'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
@@ -1102,6 +1124,7 @@ export interface FileRouteTypes {
     | '/portal/packages'
     | '/portal/usage'
     | '/pppoe/$slug'
+    | '/status/$slug'
     | '/super-admin/audit'
     | '/super-admin/billing'
     | '/super-admin/communications'
@@ -1148,6 +1171,7 @@ export interface FileRouteTypes {
     | '/api/public/customer/messages'
     | '/api/public/portal/$slug'
     | '/api/public/router-support-sessions/$sessionId'
+    | '/api/public/status/$slug'
     | '/api/tenant/domains/verify'
     | '/api/public/mpesa/callback/$tenantId'
     | '/api/public/mpesa/platform-c2b-validation/$token'
@@ -1195,6 +1219,7 @@ export interface RootRouteChildren {
   TenantRoute: typeof TenantRouteWithChildren
   PSlugRoute: typeof PSlugRoute
   PppoeSlugRoute: typeof PppoeSlugRoute
+  StatusSlugRoute: typeof StatusSlugRoute
   SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
   ApiCronMoodBoostRoute: typeof ApiCronMoodBoostRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
@@ -1202,6 +1227,7 @@ export interface RootRouteChildren {
   ApiPublicCustomerMessagesRoute: typeof ApiPublicCustomerMessagesRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
   ApiPublicRouterSupportSessionsSessionIdRoute: typeof ApiPublicRouterSupportSessionsSessionIdRoute
+  ApiPublicStatusSlugRoute: typeof ApiPublicStatusSlugRoute
   ApiTenantDomainsVerifyRoute: typeof ApiTenantDomainsVerifyRoute
   ApiPublicMpesaCallbackTenantIdRoute: typeof ApiPublicMpesaCallbackTenantIdRoute
   ApiPublicMpesaPlatformC2bValidationTokenRoute: typeof ApiPublicMpesaPlatformC2bValidationTokenRoute
@@ -1365,6 +1391,13 @@ declare module '@tanstack/react-router' {
       path: '/pppoe/$slug'
       fullPath: '/pppoe/$slug'
       preLoaderRoute: typeof PppoeSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/status/$slug': {
+      id: '/status/$slug'
+      path: '/status/$slug'
+      fullPath: '/status/$slug'
+      preLoaderRoute: typeof StatusSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/super-admin/': {
@@ -1680,6 +1713,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/router-support-sessions/$sessionId'
       fullPath: '/api/public/router-support-sessions/$sessionId'
       preLoaderRoute: typeof ApiPublicRouterSupportSessionsSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/status/$slug': {
+      id: '/api/public/status/$slug'
+      path: '/api/public/status/$slug'
+      fullPath: '/api/public/status/$slug'
+      preLoaderRoute: typeof ApiPublicStatusSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/tenant/domains/verify': {
@@ -2053,6 +2093,7 @@ const rootRouteChildren: RootRouteChildren = {
   TenantRoute: TenantRouteWithChildren,
   PSlugRoute: PSlugRoute,
   PppoeSlugRoute: PppoeSlugRoute,
+  StatusSlugRoute: StatusSlugRoute,
   SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
   ApiCronMoodBoostRoute: ApiCronMoodBoostRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
@@ -2061,6 +2102,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,
   ApiPublicRouterSupportSessionsSessionIdRoute:
     ApiPublicRouterSupportSessionsSessionIdRoute,
+  ApiPublicStatusSlugRoute: ApiPublicStatusSlugRoute,
   ApiTenantDomainsVerifyRoute: ApiTenantDomainsVerifyRoute,
   ApiPublicMpesaCallbackTenantIdRoute: ApiPublicMpesaCallbackTenantIdRoute,
   ApiPublicMpesaPlatformC2bValidationTokenRoute:

@@ -101,6 +101,9 @@ SELECT t.allowed('admin reads own customers',  $$SELECT 1 FROM public.customers$
 SELECT t.allowed('admin inserts voucher',      $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','ADM1')$$);
 SELECT t.allowed('admin edits payout settings',$$UPDATE public.tenants SET mpesa_paybill='123456', bank_name='B' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.allowed('admin edits tenant labels',   $$UPDATE public.tenants SET ui_labels='{"pppoe":"Broadband"}' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.allowed('public status page defaults disabled', $$SELECT 1 FROM public.tenants WHERE id='aaaaaaaa-0000-0000-0000-000000000001' AND public_status_enabled=false$$);
+SELECT t.allowed('tenant admin enables own public status page', $$UPDATE public.tenants SET public_status_enabled=true WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('tenant admin cannot change another tenant public status page', $$UPDATE public.tenants SET public_status_enabled=true WHERE id='aaaaaaaa-0000-0000-0000-000000000002'$$);
 SELECT t.allowed('admin registers custom domain', $$INSERT INTO public.tenant_domains (tenant_id, purpose, domain) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','hotspot','wifi.tenant-one.example')$$);
 SELECT t.allowed('user edits own preferences',    $$UPDATE public.profiles SET preferences='{"theme":"dark"}' WHERE id='bbbbbbbb-0000-0000-0000-0000000000a1'$$);
 SELECT t.allowed('admin reads own Mood Boost settings', $$SELECT 1 FROM public.mood_boost_settings WHERE tenant_id='aaaaaaaa-0000-0000-0000-000000000001'$$);
@@ -153,6 +156,7 @@ SELECT t.allowed('support opens ticket',     $$INSERT INTO public.support_ticket
 SELECT t.allowed('support issues reconnect voucher', $$INSERT INTO public.vouchers (tenant_id, code) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','SUP1')$$);
 SELECT t.denied('support cannot create active PPPoE account', $$INSERT INTO public.customers (tenant_id, customer_type, pppoe_username, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','pppoe','support-pppoe','active')$$);
 SELECT t.denied ('support cannot edit tenant settings', $$UPDATE public.tenants SET mpesa_paybill='999999' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
+SELECT t.denied('support cannot change public status page setting', $$UPDATE public.tenants SET public_status_enabled=false WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('support cannot edit tenant labels',   $$UPDATE public.tenants SET ui_labels='{"pppoe":"Other"}' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 SELECT t.denied ('support cannot register custom domain', $$INSERT INTO public.tenant_domains (tenant_id, purpose, domain) VALUES ('aaaaaaaa-0000-0000-0000-000000000001','console','console.tenant-one.example')$$);
 SELECT t.denied ('support cannot forge a payment',      $$INSERT INTO public.payments (tenant_id, amount, status) VALUES ('aaaaaaaa-0000-0000-0000-000000000001', 1, 'success')$$);
