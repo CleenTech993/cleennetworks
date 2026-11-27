@@ -27,6 +27,7 @@ import {
   Archive,
   Power,
   Stethoscope,
+  Command,
 } from "lucide-react";
 import { DashboardShell, type NavItem } from "@/components/dashboard-shell";
 import { TenantWhatsAppSupport } from "@/components/tenant-whatsapp-support";
@@ -40,6 +41,7 @@ const ALL_NAV: NavItem[] = [
   { to: "/tenant", label: "Overview", icon: LayoutDashboard },
   { to: "/tenant/noc", label: "NOC Monitor", icon: Radar, group: "Network" },
   { to: "/tenant/network-doctor", label: "AI Network Doctor", icon: Stethoscope, group: "Network" },
+  { to: "/tenant/command-centre", label: "Command Centre", icon: Command, group: "Network" },
   { to: "/tenant/routers", label: "Routers", icon: Router, group: "Network" },
   { to: "/tenant/recovery", label: "Outage Recovery", icon: Power, group: "Network" },
   {

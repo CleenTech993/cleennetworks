@@ -45,6 +45,7 @@ import { Route as SupportSessionSessionIdRouteImport } from './routes/support-se
 import { Route as TenantIndexRouteImport } from './routes/tenant.index'
 import { Route as TenantAuditRouteImport } from './routes/tenant.audit'
 import { Route as TenantBillingRouteImport } from './routes/tenant.billing'
+import { Route as TenantCommandCentreRouteImport } from './routes/tenant.command-centre'
 import { Route as TenantCommunicationsRouteImport } from './routes/tenant.communications'
 import { Route as TenantCustomerBillingRouteImport } from './routes/tenant.customer-billing'
 import { Route as TenantCustomersRouteImport } from './routes/tenant.customers'
@@ -287,6 +288,11 @@ const TenantAuditRoute = TenantAuditRouteImport.update({
 const TenantBillingRoute = TenantBillingRouteImport.update({
   id: '/billing',
   path: '/billing',
+  getParentRoute: () => TenantRoute,
+} as any)
+const TenantCommandCentreRoute = TenantCommandCentreRouteImport.update({
+  id: '/command-centre',
+  path: '/command-centre',
   getParentRoute: () => TenantRoute,
 } as any)
 const TenantCommunicationsRoute = TenantCommunicationsRouteImport.update({
@@ -663,6 +669,7 @@ export interface FileRoutesByFullPath {
   '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
+  '/tenant/command-centre': typeof TenantCommandCentreRoute
   '/tenant/communications': typeof TenantCommunicationsRoute
   '/tenant/customer-billing': typeof TenantCustomerBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -760,6 +767,7 @@ export interface FileRoutesByTo {
   '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
+  '/tenant/command-centre': typeof TenantCommandCentreRoute
   '/tenant/communications': typeof TenantCommunicationsRoute
   '/tenant/customer-billing': typeof TenantCustomerBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -861,6 +869,7 @@ export interface FileRoutesById {
   '/support-session/$sessionId': typeof SupportSessionSessionIdRoute
   '/tenant/audit': typeof TenantAuditRoute
   '/tenant/billing': typeof TenantBillingRoute
+  '/tenant/command-centre': typeof TenantCommandCentreRoute
   '/tenant/communications': typeof TenantCommunicationsRoute
   '/tenant/customer-billing': typeof TenantCustomerBillingRoute
   '/tenant/customers': typeof TenantCustomersRoute
@@ -963,6 +972,7 @@ export interface FileRouteTypes {
     | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
+    | '/tenant/command-centre'
     | '/tenant/communications'
     | '/tenant/customer-billing'
     | '/tenant/customers'
@@ -1060,6 +1070,7 @@ export interface FileRouteTypes {
     | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
+    | '/tenant/command-centre'
     | '/tenant/communications'
     | '/tenant/customer-billing'
     | '/tenant/customers'
@@ -1160,6 +1171,7 @@ export interface FileRouteTypes {
     | '/support-session/$sessionId'
     | '/tenant/audit'
     | '/tenant/billing'
+    | '/tenant/command-centre'
     | '/tenant/communications'
     | '/tenant/customer-billing'
     | '/tenant/customers'
@@ -1528,6 +1540,13 @@ declare module '@tanstack/react-router' {
       path: '/billing'
       fullPath: '/tenant/billing'
       preLoaderRoute: typeof TenantBillingRouteImport
+      parentRoute: typeof TenantRoute
+    }
+    '/tenant/command-centre': {
+      id: '/tenant/command-centre'
+      path: '/command-centre'
+      fullPath: '/tenant/command-centre'
+      preLoaderRoute: typeof TenantCommandCentreRouteImport
       parentRoute: typeof TenantRoute
     }
     '/tenant/communications': {
@@ -2033,6 +2052,7 @@ const TenantRoutersRouteWithChildren = TenantRoutersRoute._addFileChildren(
 interface TenantRouteChildren {
   TenantAuditRoute: typeof TenantAuditRoute
   TenantBillingRoute: typeof TenantBillingRoute
+  TenantCommandCentreRoute: typeof TenantCommandCentreRoute
   TenantCommunicationsRoute: typeof TenantCommunicationsRoute
   TenantCustomerBillingRoute: typeof TenantCustomerBillingRoute
   TenantCustomersRoute: typeof TenantCustomersRoute
@@ -2063,6 +2083,7 @@ interface TenantRouteChildren {
 const TenantRouteChildren: TenantRouteChildren = {
   TenantAuditRoute: TenantAuditRoute,
   TenantBillingRoute: TenantBillingRoute,
+  TenantCommandCentreRoute: TenantCommandCentreRoute,
   TenantCommunicationsRoute: TenantCommunicationsRoute,
   TenantCustomerBillingRoute: TenantCustomerBillingRoute,
   TenantCustomersRoute: TenantCustomersRoute,

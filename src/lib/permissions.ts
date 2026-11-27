@@ -21,6 +21,7 @@ const D: AppRole = "demo_viewer";
 const PAGE_ROLES: Record<string, AppRole[]> = {
   "/tenant/routers": [A, T],
   "/tenant/recovery": [A, T],
+  "/tenant/command-centre": [A, T, B, S],
   "/tenant/network-doctor": [A, T],
   "/tenant/hotspot": [A, T],
   "/tenant/devices": [A, T, S],
