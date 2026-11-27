@@ -5,6 +5,7 @@ type OnlineRouter = {
   id: string;
   last_heartbeat_at: string | null;
   last_seen_at: string | null;
+  hotspot_clients_count?: number | null;
 };
 
 type OnlineCustomer = {
@@ -63,5 +64,14 @@ export function countOnlineClients({
       .map((device) => device.mac),
   );
 
-  return { onlineHotspot: onlineHotspotMacs.size, onlinePppoe };
+  const onlineHotspot =
+    onlineHotspotMacs.size ||
+    routers
+      .filter((router) => liveRouters.has(router.id))
+      .reduce(
+        (sum, router) => sum + Math.max(0, Number(router.hotspot_clients_count ?? 0) || 0),
+        0,
+      );
+
+  return { onlineHotspot, onlinePppoe };
 }

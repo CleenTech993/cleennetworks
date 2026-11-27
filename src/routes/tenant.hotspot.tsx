@@ -24,17 +24,20 @@ function Hotspot() {
     queryKey: ["hotspot-overview"],
     queryFn: async () => {
       const now = Date.now();
-      const [cust, devices, routers] = await Promise.all([
-        supabase.from("customers").select("id,status").eq("customer_type", "hotspot"),
+      const [vouchers, devices, routers] = await Promise.all([
+        supabase
+          .from("vouchers")
+          .select("id", { count: "exact", head: true })
+          .or("payment_id.not.is.null,status.eq.used,bound_mac.not.is.null"),
         supabase
           .from("router_devices")
           .select("mac,router_id,authorized,blocked,last_seen_at,download_bps,upload_bps")
           .eq("authorized", true)
           .eq("blocked", false)
           .gte("last_seen_at", new Date(now - CONNECTED_WINDOW_MS).toISOString()),
-        supabase.from("routers").select("id,last_heartbeat_at,last_seen_at"),
+        supabase.from("routers").select("id,last_heartbeat_at,last_seen_at,hotspot_clients_count"),
       ]);
-      if (cust.error) throw cust.error;
+      if (vouchers.error) throw vouchers.error;
       if (devices.error) throw devices.error;
       if (routers.error) throw routers.error;
 
@@ -50,20 +53,54 @@ function Hotspot() {
       const onlineDevices = (devices.data ?? []).filter((device) =>
         liveRouterIds.has(device.router_id),
       );
-      const totalDownloadBps = onlineDevices.reduce(
+      const hotspotDownloadBps = onlineDevices.reduce(
         (sum, device) => sum + Number(device.download_bps ?? 0),
         0,
       );
-      const totalUploadBps = onlineDevices.reduce(
+      const hotspotUploadBps = onlineDevices.reduce(
         (sum, device) => sum + Number(device.upload_bps ?? 0),
+        0,
+      );
+      const metrics =
+        liveRouterIds.size > 0
+          ? await supabase
+              .from("router_metrics")
+              .select("router_id,rx_bps,tx_bps,ts")
+              .in("router_id", [...liveRouterIds])
+              .gte("ts", new Date(now - 15 * 60_000).toISOString())
+              .not("rx_bps", "is", null)
+              .not("tx_bps", "is", null)
+              .order("ts", { ascending: false })
+          : { data: [], error: null };
+      if (metrics.error) throw metrics.error;
+
+      const latestMetricByRouter = new Map<
+        string,
+        { rx_bps: number | null; tx_bps: number | null }
+      >();
+      for (const metric of metrics.data ?? []) {
+        if (!latestMetricByRouter.has(metric.router_id)) {
+          latestMetricByRouter.set(metric.router_id, {
+            rx_bps: metric.rx_bps,
+            tx_bps: metric.tx_bps,
+          });
+        }
+      }
+      const wanDownloadBps = [...latestMetricByRouter.values()].reduce(
+        (sum, metric) => sum + Number(metric.rx_bps ?? 0),
+        0,
+      );
+      const wanUploadBps = [...latestMetricByRouter.values()].reduce(
+        (sum, metric) => sum + Number(metric.tx_bps ?? 0),
         0,
       );
       return {
         online,
-        hotspotCustomers: cust.data?.length ?? 0,
-        activeCustomers: (cust.data ?? []).filter((c) => c.status === "active").length,
-        totalDownloadBps,
-        totalUploadBps,
+        issuedVouchers: vouchers.count ?? 0,
+        totalDownloadBps: hotspotDownloadBps || wanDownloadBps,
+        totalUploadBps: hotspotUploadBps || wanUploadBps,
+        downloadSource: hotspotDownloadBps > 0 ? "hotspot" : "wan",
+        uploadSource: hotspotUploadBps > 0 ? "hotspot" : "wan",
       };
     },
     refetchInterval: 10_000,
@@ -78,19 +115,27 @@ function Hotspot() {
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard label="Online now" value={data?.online ?? "—"} />
         <StatCard
-          label="Hotspot customers"
-          value={data?.hotspotCustomers ?? "—"}
-          hint={`${data?.activeCustomers ?? 0} active`}
+          label="Issued vouchers"
+          value={data?.issuedVouchers ?? "—"}
+          hint="Paid or used; unassigned stock excluded"
         />
         <StatCard
           label="Download (live)"
           value={data ? formatRate(data.totalDownloadBps) : "—"}
-          hint="Router-sampled throughput"
+          hint={
+            data?.downloadSource === "hotspot"
+              ? "Per-client hotspot traffic"
+              : "Router WAN fallback (not hotspot-only)"
+          }
         />
         <StatCard
           label="Upload (live)"
           value={data ? formatRate(data.totalUploadBps) : "—"}
-          hint="Router-sampled throughput"
+          hint={
+            data?.uploadSource === "hotspot"
+              ? "Per-client hotspot traffic"
+              : "Router WAN fallback (not hotspot-only)"
+          }
         />
       </div>
       <div className="mt-6">

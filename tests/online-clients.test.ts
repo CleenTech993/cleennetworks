@@ -13,7 +13,7 @@ const liveRouter = {
 describe("countOnlineClients", () => {
   it("counts recent authorized hotspot devices and connected PPPoE subscriptions", () => {
     const counts = countOnlineClients({
-      routers: [liveRouter],
+      routers: [{ ...liveRouter, hotspot_clients_count: 9 }],
       customers: [
         {
           customer_type: "pppoe",
@@ -123,5 +123,33 @@ describe("countOnlineClients", () => {
     });
 
     expect(counts.onlineHotspot).toBe(1);
+  });
+
+  it("uses the live router's hotspot heartbeat count when device reports are missing", () => {
+    const counts = countOnlineClients({
+      routers: [{ ...liveRouter, hotspot_clients_count: 7 }],
+      customers: [],
+      hotspotDevices: [],
+      now,
+    });
+
+    expect(counts.onlineHotspot).toBe(7);
+  });
+
+  it("does not use hotspot heartbeat counts from offline routers", () => {
+    const counts = countOnlineClients({
+      routers: [
+        {
+          ...liveRouter,
+          last_heartbeat_at: new Date(now - 4 * 60_000).toISOString(),
+          hotspot_clients_count: 7,
+        },
+      ],
+      customers: [],
+      hotspotDevices: [],
+      now,
+    });
+
+    expect(counts.onlineHotspot).toBe(0);
   });
 });
