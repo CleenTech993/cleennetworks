@@ -67,6 +67,32 @@ beforeEach(() => {
         voucher_code: null,
       },
     ]);
+  h.db.rpcs.settle_presynced_hotspot_payment = (args) => {
+    const payment = h.db.rows("payments").find((row) => row.id === args.p_payment_id);
+    if (!payment || payment.status !== "processing")
+      return { error: { message: "payment is not claimed" } };
+    const code = "PAYSTATUS234567";
+    payment.status = "success";
+    payment.mpesa_receipt = args.p_receipt;
+    payment.voucher_code = code;
+    payment.fulfillment_status = "generated";
+    payment.expires_at = args.p_legacy_expires_at;
+    h.db.seed("vouchers", [
+      {
+        id: `generated-${payment.id}`,
+        tenant_id: payment.tenant_id,
+        package_id: payment.package_id,
+        code,
+        status: "unused",
+        sync_status: "legacy",
+        payment_id: payment.id,
+        expires_at: args.p_legacy_expires_at,
+      },
+    ]);
+    return {
+      data: [{ assigned_voucher_code: code, fulfillment_status: "generated" }],
+    };
+  };
 });
 
 afterEach(() => {
@@ -74,19 +100,23 @@ afterEach(() => {
 });
 
 describe("captive portal payment status recovery", () => {
-  it("waits for the callback receipt after Daraja confirms payment", async () => {
+  it("generates voucher access after Daraja confirms payment, without waiting for the callback receipt", async () => {
     const response = await send();
 
     expect(response.status).toBe(200);
     expect(await json(response)).toMatchObject({
       id: PAYMENT,
-      status: "pending",
+      status: "success",
       mpesa_receipt: null,
-      receipt_pending: true,
+      voucher_code: "PAYSTATUS234567",
+      receipt_pending: false,
     });
     expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
-    expect(h.db.rows("vouchers")).toHaveLength(0);
-    expect(h.db.rows("payments")[0].status).toBe("pending");
+    expect(h.db.log).toContainEqual(
+      expect.objectContaining({ table: "rpc", op: "settle_presynced_hotspot_payment" }),
+    );
+    expect(h.db.rows("vouchers")).toHaveLength(1);
+    expect(h.db.rows("payments")[0].status).toBe("success");
   });
 
   it("reports the Omada authorization result after confirmed payment", async () => {

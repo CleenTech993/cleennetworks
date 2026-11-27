@@ -38,6 +38,9 @@ if [[ "${1:-}" != "--before" ]]; then
   build_db router_tokens_test
   (cd tests/sql && psql -d router_tokens_test -v ON_ERROR_STOP=1 -q -f router-tokens.sql)
   echo "router-tokens: all expectations passed"
+  build_db router_chaining_test
+  (cd tests/sql && psql -d router_chaining_test -v ON_ERROR_STOP=1 -q -f router-chaining.sql)
+  echo "router-chaining: all expectations passed"
   build_db pppoe_router_test
   (cd tests/sql && psql -d pppoe_router_test -v ON_ERROR_STOP=1 -q -f pppoe-router.sql)
   echo "pppoe-router: all expectations passed"
@@ -46,6 +49,9 @@ if [[ "${1:-}" != "--before" ]]; then
   build_db staff_internet_test
   (cd tests/sql && psql -d staff_internet_test -v ON_ERROR_STOP=1 -q -f staff-internet.sql)
   echo "staff-internet: all expectations passed"
+  build_db voucher_presync_test
+  (cd tests/sql && psql -d voucher_presync_test -v ON_ERROR_STOP=1 -q -f voucher-presynchronization.sql)
+  echo "voucher-presynchronization: all expectations passed"
   build_db work_orders_test
   (cd tests/sql && psql -d work_orders_test -v ON_ERROR_STOP=1 -q -f work-orders.sql)
   echo "work-orders: all expectations passed"

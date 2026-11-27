@@ -943,6 +943,8 @@ export type Database = {
           customer_id: string | null;
           customer_invoice_id: string | null;
           expires_at: string | null;
+          fulfillment_status: string;
+          fulfilled_at: string | null;
           id: string;
           manual_mpesa_receipt: string | null;
           manual_verification_error: string | null;
@@ -969,6 +971,8 @@ export type Database = {
           customer_id?: string | null;
           customer_invoice_id?: string | null;
           expires_at?: string | null;
+          fulfillment_status?: string;
+          fulfilled_at?: string | null;
           id?: string;
           manual_mpesa_receipt?: string | null;
           manual_verification_error?: string | null;
@@ -995,6 +999,8 @@ export type Database = {
           customer_id?: string | null;
           customer_invoice_id?: string | null;
           expires_at?: string | null;
+          fulfillment_status?: string;
+          fulfilled_at?: string | null;
           id?: string;
           manual_mpesa_receipt?: string | null;
           manual_verification_error?: string | null;
@@ -3116,8 +3122,73 @@ export type Database = {
           },
         ];
       };
+      voucher_inventory_settings: {
+        Row: {
+          batch_size: number;
+          enabled: boolean;
+          id: string;
+          maximum_stock: number;
+          minimum_stock: number;
+          package_id: string;
+          replenishment_lock_until: string | null;
+          router_id: string;
+          target_stock: number;
+          tenant_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          batch_size?: number;
+          enabled?: boolean;
+          id?: string;
+          maximum_stock?: number;
+          minimum_stock?: number;
+          package_id: string;
+          replenishment_lock_until?: string | null;
+          router_id: string;
+          target_stock?: number;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          batch_size?: number;
+          enabled?: boolean;
+          id?: string;
+          maximum_stock?: number;
+          minimum_stock?: number;
+          package_id?: string;
+          replenishment_lock_until?: string | null;
+          router_id?: string;
+          target_stock?: number;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "voucher_inventory_settings_package_id_fkey";
+            columns: ["package_id"];
+            isOneToOne: false;
+            referencedRelation: "packages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "voucher_inventory_settings_router_id_fkey";
+            columns: ["router_id"];
+            isOneToOne: false;
+            referencedRelation: "routers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "voucher_inventory_settings_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       vouchers: {
         Row: {
+          activation_started_at: string | null;
           bound_mac: string | null;
           code: string;
           created_at: string;
@@ -3126,12 +3197,16 @@ export type Database = {
           legacy_cash_access: boolean;
           package_id: string | null;
           payment_id: string | null;
+          router_id: string | null;
+          sync_acknowledged_at: string | null;
+          sync_status: string;
           status: string;
           tenant_id: string;
           used_at: string | null;
           used_by_mac: string | null;
         };
         Insert: {
+          activation_started_at?: string | null;
           bound_mac?: string | null;
           code: string;
           created_at?: string;
@@ -3140,12 +3215,16 @@ export type Database = {
           legacy_cash_access?: boolean;
           package_id?: string | null;
           payment_id?: string | null;
+          router_id?: string | null;
+          sync_acknowledged_at?: string | null;
+          sync_status?: string;
           status?: string;
           tenant_id: string;
           used_at?: string | null;
           used_by_mac?: string | null;
         };
         Update: {
+          activation_started_at?: string | null;
           bound_mac?: string | null;
           code?: string;
           created_at?: string;
@@ -3154,6 +3233,9 @@ export type Database = {
           legacy_cash_access?: boolean;
           package_id?: string | null;
           payment_id?: string | null;
+          router_id?: string | null;
+          sync_acknowledged_at?: string | null;
+          sync_status?: string;
           status?: string;
           tenant_id?: string;
           used_at?: string | null;
@@ -3166,6 +3248,38 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      save_voucher_inventory_settings: {
+        Args: {
+          p_batch_size: number;
+          p_enabled: boolean;
+          p_maximum_stock: number;
+          p_minimum_stock: number;
+          p_package_id: string;
+          p_router_id: string;
+          p_target_stock: number;
+          p_tenant_id: string;
+        };
+        Returns: string;
+      };
+      insert_presynced_vouchers: {
+        Args: {
+          p_codes: string[];
+          p_setting_id: string;
+        };
+        Returns: number;
+      };
+      settle_presynced_hotspot_payment: {
+        Args: {
+          p_legacy_expires_at: string | null;
+          p_payment_id: string;
+          p_raw_callback: Json;
+          p_receipt: string | null;
+        };
+        Returns: {
+          assigned_voucher_code: string | null;
+          fulfillment_status: string;
+        }[];
+      };
       admin_approve_user: {
         Args: {
           p_new_tenant_name?: string;

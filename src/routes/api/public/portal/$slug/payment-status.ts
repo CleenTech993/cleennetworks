@@ -3,8 +3,10 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { queryDarajaStkPush } from "@/lib/daraja.server";
 import { markPaymentFailed, settlePayment } from "@/lib/payment-settle.server";
 import { rateLimit } from "@/lib/rate-limit.server";
-import { processOmadaAuthorization } from "@/lib/omada-authorization.server";
-import { isHotspotPackageKind } from "@/lib/devices";
+import {
+  processOmadaAuthorization,
+  type OmadaAuthorizationStatus,
+} from "@/lib/omada-authorization.server";
 import { getTenantManualPaymentDetails } from "@/lib/daraja.server";
 
 const STK_RESULT_GRACE_MS = 2 * 60_000;
@@ -46,7 +48,6 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
         let currentStatus = pay.status;
         let currentReceipt = pay.mpesa_receipt;
         let currentVoucher = pay.voucher_code;
-        let confirmedAwaitingReceipt = false;
         if (pay.status === "pending" && pay.provider === "daraja" && pay.checkout_request_id) {
           const canReconcile = rateLimit(`payment-reconcile:${tenant.id}:${pay.id}`, 1, 15_000);
           let reconcileFailed = false;
@@ -54,50 +55,22 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
             try {
               const verification = await queryDarajaStkPush(tenant.id, pay.checkout_request_id);
               if (verification.resultCode === "0") {
-                const { data: pkg, error: packageError } = await supabaseAdmin
-                  .from("packages")
-                  .select("kind")
-                  .eq("id", pay.package_id)
-                  .eq("tenant_id", tenant.id)
-                  .maybeSingle();
-                if (packageError || !pkg) {
-                  if (packageError)
-                    console.error("Could not check the paid package kind", packageError);
-                  throw new Error(
-                    "Could not determine whether the payment needs an M-Pesa receipt.",
-                  );
-                }
-                const { data: omadaJob, error: omadaJobError } = await supabaseAdmin
-                  .from("omada_authorization_jobs")
-                  .select("id")
-                  .eq("payment_id", pay.id)
-                  .eq("tenant_id", tenant.id)
-                  .maybeSingle();
-                if (omadaJobError) {
-                  console.error("Could not check the Omada payment context", omadaJobError);
-                  throw new Error("Could not determine the payment access method.");
-                }
-                const needsHotspotReceipt = isHotspotPackageKind(pkg.kind) && !omadaJob;
-                if (needsHotspotReceipt) {
-                  confirmedAwaitingReceipt = true;
-                } else {
-                  await settlePayment({
-                    payment: {
-                      id: pay.id,
-                      tenant_id: tenant.id,
-                      customer_id: pay.customer_id,
-                      package_id: pay.package_id,
-                      phone: pay.phone,
-                      tv_device_id: pay.tv_device_id,
-                      expires_at: pay.expires_at,
-                    },
-                    receipt: null,
-                    raw: {
-                      source: "daraja_stk_query",
-                      resultDescription: verification.resultDescription,
-                    },
-                  });
-                }
+                await settlePayment({
+                  payment: {
+                    id: pay.id,
+                    tenant_id: tenant.id,
+                    customer_id: pay.customer_id,
+                    package_id: pay.package_id,
+                    phone: pay.phone,
+                    tv_device_id: pay.tv_device_id,
+                    expires_at: pay.expires_at,
+                  },
+                  receipt: null,
+                  raw: {
+                    source: "daraja_stk_query",
+                    resultDescription: verification.resultDescription,
+                  },
+                });
               } else if (
                 verification.resultCode !== null &&
                 Date.now() - Date.parse(pay.created_at) >= STK_RESULT_GRACE_MS
@@ -115,7 +88,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
           }
 
           const isStale = Date.now() - Date.parse(pay.created_at) >= STK_PENDING_TIMEOUT_MS;
-          if (isStale && canReconcile && !confirmedAwaitingReceipt && !reconcileFailed) {
+          if (isStale && canReconcile && !reconcileFailed) {
             try {
               await markPaymentFailed(pay.id, { source: "stk_pending_timeout" });
             } catch (error) {
@@ -146,7 +119,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
           }
         }
 
-        let omadaAuthorization = { status: "not_required" as const };
+        let omadaAuthorization: OmadaAuthorizationStatus = { status: "not_required" };
         if (currentStatus === "success") {
           try {
             omadaAuthorization = await processOmadaAuthorization(pay.id, tenant.id);
@@ -188,7 +161,7 @@ export const Route = createFileRoute("/api/public/portal/$slug/payment-status")(
           status: currentStatus,
           mpesa_receipt: currentReceipt,
           voucher_code: currentVoucher,
-          receipt_pending: confirmedAwaitingReceipt && !currentReceipt,
+          receipt_pending: false,
           omadaAuthorization,
           manualPayment,
           manualPaymentDetailsUnavailable,

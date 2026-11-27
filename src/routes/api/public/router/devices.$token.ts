@@ -49,15 +49,19 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
           users.length
             ? supabaseAdmin
                 .from("vouchers")
-                .select("id,code,status,bound_mac,expires_at,package_id,payment_id")
+                .select(
+                  "id,code,status,bound_mac,expires_at,package_id,payment_id,sync_status,activation_started_at,legacy_cash_access,router_id",
+                )
                 .eq("tenant_id", tenantId)
+                .or(`router_id.is.null,router_id.eq.${router.id}`)
                 .in("code", users)
             : Promise.resolve({ data: [], error: null }),
           users.length
             ? supabaseAdmin
                 .from("payments")
-                .select("id,mpesa_receipt,package_id,router_id")
+                .select("id,mpesa_receipt,package_id,router_id,voucher_code")
                 .eq("tenant_id", tenantId)
+                .or(`router_id.is.null,router_id.eq.${router.id}`)
                 .eq("status", "success")
                 .in("mpesa_receipt", users)
             : Promise.resolve({ data: [], error: null }),
@@ -79,11 +83,30 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
         }
         const sessionVouchers = voucherResult.data ?? [];
         const receiptPayments = paymentResult.data ?? [];
-        const paymentByReceipt = new Map(
+        const paymentByAccessCode = new Map<
+          string,
+          { id: string; package_id: string | null; router_id: string | null }
+        >(
           receiptPayments
-            .filter((payment) => payment.mpesa_receipt)
-            .map((payment) => [payment.mpesa_receipt!, payment]),
+            .filter((payment) => payment.mpesa_receipt && !payment.voucher_code)
+            .map((payment) => [
+              payment.mpesa_receipt!,
+              {
+                id: payment.id,
+                package_id: payment.package_id,
+                router_id: payment.router_id,
+              },
+            ]),
         );
+        for (const voucher of sessionVouchers) {
+          if (voucher.payment_id) {
+            paymentByAccessCode.set(voucher.code, {
+              id: voucher.payment_id,
+              package_id: voucher.package_id,
+              router_id: voucher.router_id,
+            });
+          }
+        }
         const usageRows = usageResult.data ?? [];
         const usageByMac = new Map<string, (typeof usageRows)[number][]>();
         for (const row of usageRows) {
@@ -118,30 +141,43 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
           const pkg = v.package_id ? pkgById.get(v.package_id) : undefined;
           const oneDevice = deviceLimitOf(pkg) === 1;
 
-          if (v.status === "unused") {
+          const waitingForFirstLogin =
+            v.sync_status === "available" && Boolean(v.payment_id) && !v.activation_started_at;
+          if (v.status === "unused" || (v.status === "used" && waitingForFirstLogin)) {
             let expiresAt = v.expires_at;
-            if (!v.payment_id && pkg?.duration_value && pkg.duration_unit) {
+            if (
+              !v.legacy_cash_access &&
+              (waitingForFirstLogin || !v.payment_id) &&
+              pkg?.duration_value &&
+              pkg.duration_unit
+            ) {
               expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
             }
             const patch: {
               status: string;
-              used_at: string;
-              used_by_mac: string;
+              used_at?: string;
+              used_by_mac?: string;
+              activation_started_at: string;
               expires_at: string | null;
               bound_mac?: string;
             } = {
-              status: "used",
-              used_at: now,
-              used_by_mac: r.mac,
+              status: v.status,
+              activation_started_at: now,
               expires_at: expiresAt,
             };
+            if (v.status === "unused") {
+              patch.status = "used";
+              patch.used_at = now;
+              patch.used_by_mac = r.mac;
+            }
             if (oneDevice && !v.bound_mac) patch.bound_mac = r.mac;
             const { data: claimed } = await supabaseAdmin
               .from("vouchers")
               .update(patch)
               .eq("id", v.id)
               .eq("tenant_id", tenantId)
-              .eq("status", "unused")
+              .eq("status", v.status)
+              .is("activation_started_at", null)
               .select("id")
               .maybeSingle();
             if (claimed && patch.bound_mac) pinned.set(r.mac, v.code);
@@ -162,7 +198,7 @@ export const Route = createFileRoute("/api/public/router/devices/$token")({
           records.flatMap((record) => {
             const payment =
               record.authorized && record.activeUptimeSeconds != null && record.user
-                ? paymentByReceipt.get(record.user)
+                ? paymentByAccessCode.get(record.user)
                 : undefined;
             const pkg = payment?.package_id ? pkgById.get(payment.package_id) : undefined;
             return payment && pkg && isHotspotPackageKind(pkg.kind)

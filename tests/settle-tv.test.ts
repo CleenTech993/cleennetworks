@@ -1,5 +1,5 @@
 // Smart-TV payments are settled by the shared settlePayment() so PayHero and IntaSend both support them.
-// A TV payment extends the device's access (never mints a voucher) and must be safe to retry.
+// TV-only payments extend device access; combined phone + TV purchases also issue a hotspot voucher.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeDb, type Row } from "./helpers/fake-db";
 
@@ -7,7 +7,33 @@ const h = vi.hoisted(() => ({
   db: null as unknown as { from: (t: string) => unknown; tables: Record<string, Row[]> },
 }));
 vi.mock("@/integrations/supabase/client.server", () => ({
-  supabaseAdmin: { from: (t: string) => h.db.from(t) },
+  supabaseAdmin: {
+    from: (t: string) => h.db.from(t),
+    rpc: async (_name: string, args: Record<string, unknown>) => {
+      const payment = h.db.tables.payments.find((row) => row.id === args.p_payment_id);
+      if (!payment) return { error: { message: "payment missing" } };
+      let voucher = h.db.tables.vouchers.find((row) => row.payment_id === payment.id);
+      if (!voucher) {
+        voucher = {
+          id: `voucher-${payment.id}`,
+          tenant_id: payment.tenant_id,
+          package_id: payment.package_id,
+          payment_id: payment.id,
+          code: "COMBOVOUCHER1",
+          status: "unused",
+          sync_status: "legacy",
+          expires_at: args.p_legacy_expires_at,
+        };
+        h.db.tables.vouchers.push(voucher);
+      }
+      payment.status = "success";
+      payment.mpesa_receipt = args.p_receipt;
+      payment.voucher_code = voucher.code;
+      payment.fulfillment_status = "generated";
+      payment.expires_at = args.p_legacy_expires_at;
+      return { error: null };
+    },
+  },
 }));
 
 import { settlePayment } from "../src/lib/payment-settle.server";
@@ -36,7 +62,7 @@ function seed(
         voucher_code: null,
       },
     ],
-    packages: [{ id: PKG, kind, duration_value: 7, duration_unit: "days" }],
+    packages: [{ id: PKG, tenant_id: TENANT, kind, duration_value: 7, duration_unit: "days" }],
     tv_devices: [
       { id: TV, tenant_id: TENANT, status: tvStatus, expires_at: tvExpires, package_id: null },
     ],
@@ -110,13 +136,17 @@ describe("settlePayment for a smart TV", () => {
     expect(h.db.tables.payments[0].status).toBe("pending");
   });
 
-  it("uses the payment receipt for hotspot access and activates the TV with the same expiry", async () => {
+  it("generates phone voucher access and activates the TV with the same expiry", async () => {
     seed("expired", null, null, "hotspot_tv");
     await settle();
 
     const payment = h.db.tables.payments[0];
-    expect(h.db.tables.vouchers).toHaveLength(0);
-    expect(payment).toMatchObject({ mpesa_receipt: "RCP123", voucher_code: null });
+    expect(h.db.tables.vouchers).toHaveLength(1);
+    expect(payment).toMatchObject({
+      mpesa_receipt: "RCP123",
+      voucher_code: "COMBOVOUCHER1",
+      fulfillment_status: "generated",
+    });
     expect(h.db.tables.tv_devices[0]).toMatchObject({
       status: "active",
       package_id: PKG,
@@ -133,7 +163,8 @@ describe("settlePayment for a smart TV", () => {
 
     await settle(firstExpiry as string);
 
-    expect(h.db.tables.vouchers).toHaveLength(0);
+    expect(h.db.tables.vouchers).toHaveLength(1);
+    expect(h.db.tables.payments[0].voucher_code).toBe("COMBOVOUCHER1");
     expect(h.db.tables.payments[0].expires_at).toBe(firstExpiry);
     expect(h.db.tables.tv_devices[0].expires_at).toBe(firstExpiry);
   });

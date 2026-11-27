@@ -5,6 +5,7 @@ import {
   canResumeVoucher,
   buildDeviceAgentLines,
   buildHotspotSuspendLines,
+  buildHotspotVoucherAckLines,
   buildHotspotVoucherRefreshLines,
   buildHotspotUserLines,
   buildTetherLines,
@@ -314,6 +315,40 @@ describe("buildHotspotVoucherRefreshLines", () => {
     expect(script).toContain('find where comment="netgrid-mac-voucher"');
     expect(script).not.toContain('bad"code');
     expect(balanced(script)).toBe(true);
+  });
+});
+
+describe("buildHotspotVoucherAckLines", () => {
+  const endpoint =
+    "https://portal.example.com/api/public/router/sync/abcdefghijklmnop?voucher-ack=1";
+
+  it("only acknowledges pre-sync users after checking password and expected profile", () => {
+    const lines = buildHotspotVoucherAckLines(
+      [
+        { code: "PRE_SYNC01", bound_mac: null, limit: 3, sync_status: "pending" },
+        { code: "LEGACY0001", bound_mac: null, limit: 1, sync_status: "legacy" },
+      ],
+      endpoint,
+    );
+    const script = lines.join("\n");
+
+    expect(script).toContain(
+      'find where name="PRE_SYNC01" server=netgrid-hs comment="netgrid-voucher"',
+    );
+    expect(script).toContain('get $ngVoucher0 password] = "PRE_SYNC01"');
+    expect(script).toContain('get $ngVoucher0 profile] = "netgrid-d3"');
+    expect(script).toContain("http-method=post http-data=$ngAck");
+    expect(script).not.toContain("LEGACY0001");
+    expect(balanced(script)).toBe(true);
+  });
+
+  it("does not generate an acknowledgement call for an untrusted URL", () => {
+    expect(
+      buildHotspotVoucherAckLines(
+        [{ code: "PRE_SYNC01", bound_mac: null, limit: 1, sync_status: "pending" }],
+        "http://attacker.example/api/public/router/sync/abcdefghijklmnop?voucher-ack=1",
+      ),
+    ).toEqual([]);
   });
 });
 

@@ -115,6 +115,52 @@ describe("voucher redemption", () => {
     });
   });
 
+  it("keeps a paid pre-synced voucher's validity stopped until RouterOS confirms login", async () => {
+    h.db.seed("vouchers", [
+      {
+        id: "presynced-paid",
+        tenant_id: TENANT,
+        code: "PRESYNC123",
+        status: "unused",
+        sync_status: "available",
+        package_id: PKG,
+        payment_id: "paid-payment",
+        activation_started_at: null,
+        expires_at: null,
+      },
+    ]);
+
+    const body = await json(await redeem({ code: "PRESYNC123" }));
+
+    expect(body).toMatchObject({ ok: true, code: "PRESYNC123" });
+    expect(body.expiresAt).toBeNull();
+    expect(voucher("PRESYNC123")).toMatchObject({
+      status: "used",
+      sync_status: "available",
+      activation_started_at: null,
+    });
+  });
+
+  it("refuses to redeem a pre-synced voucher before router acknowledgement", async () => {
+    h.db.seed("vouchers", [
+      {
+        id: "presync-pending",
+        tenant_id: TENANT,
+        code: "PENDING123",
+        status: "unused",
+        sync_status: "pending",
+        package_id: PKG,
+        payment_id: null,
+        expires_at: null,
+      },
+    ]);
+
+    const response = await redeem({ code: "PENDING123" });
+
+    expect(response.status).toBe(409);
+    expect(voucher("PENDING123").status).toBe("unused");
+  });
+
   it("accepts lower-case input with stray whitespace", async () => {
     expect((await redeem({ code: "  abcd2345 " })).status).toBe(200);
   });

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader, StatCard } from "@/components/dashboard-shell";
 import { VoucherManager } from "@/components/voucher-manager";
+import { VoucherInventoryManager } from "@/components/voucher-inventory-manager";
 import { supabase } from "@/integrations/supabase/client";
 import { countOnlineClients } from "@/lib/online-clients";
 import { CONNECTED_WINDOW_MS } from "@/lib/pppoe-sessions";
@@ -93,6 +94,7 @@ function Hotspot() {
         />
       </div>
       <div className="mt-6">
+        <VoucherInventoryManager />
         <VoucherManager />
       </div>
     </div>

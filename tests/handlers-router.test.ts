@@ -238,10 +238,34 @@ describe("sync script scoping", () => {
         { ...pppoe("mallory", "rivalpass6", null), tenant_id: OTHER_T },
       ])
       .seed("vouchers", [
-        { tenant_id: T, code: "UNUSED2345", status: "unused", expires_at: null },
-        { tenant_id: T, code: "USED22345A", status: "used", expires_at: null },
-        { tenant_id: T, code: "EXPIRED234", status: "unused", expires_at: "2020-01-01T00:00:00Z" },
-        { tenant_id: OTHER_T, code: "RIVALCODE2", status: "unused", expires_at: null },
+        {
+          tenant_id: T,
+          code: "UNUSED2345",
+          status: "unused",
+          sync_status: "legacy",
+          expires_at: null,
+        },
+        {
+          tenant_id: T,
+          code: "USED22345A",
+          status: "used",
+          sync_status: "legacy",
+          expires_at: null,
+        },
+        {
+          tenant_id: T,
+          code: "EXPIRED234",
+          status: "unused",
+          sync_status: "legacy",
+          expires_at: "2020-01-01T00:00:00Z",
+        },
+        {
+          tenant_id: OTHER_T,
+          code: "RIVALCODE2",
+          status: "unused",
+          sync_status: "legacy",
+          expires_at: null,
+        },
       ]);
   });
 
@@ -413,6 +437,46 @@ describe("sync script scoping", () => {
     expect(text).not.toContain("AA:BB:CC:DD:EE:06");
   });
 
+  it("acknowledges only pending vouchers belonging to the authenticated router", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db.seed("vouchers", [
+      {
+        id: "pending-r1",
+        tenant_id: T,
+        router_id: R1,
+        package_id: "hotspot-1",
+        code: "PENDINGROUTER1",
+        status: "unused",
+        sync_status: "pending",
+      },
+      {
+        id: "pending-r2",
+        tenant_id: T,
+        router_id: R2,
+        package_id: "hotspot-1",
+        code: "PENDINGROUTER2",
+        status: "unused",
+        sync_status: "pending",
+      },
+    ]);
+
+    const res = await call(Sync, "POST", {
+      url: `https://portal.test/api/public/router/sync/${token}?voucher-ack=1`,
+      params: { token },
+      rawBody: "PENDINGROUTER1,PENDINGROUTER2,",
+      ip: freshIp(),
+    });
+
+    expect(res.status).toBe(200);
+    expect(h.db.rows("vouchers").find((row) => row.id === "pending-r1")).toMatchObject({
+      sync_status: "available",
+      sync_acknowledged_at: expect.any(String),
+    });
+    expect(h.db.rows("vouchers").find((row) => row.id === "pending-r2")?.sync_status).toBe(
+      "pending",
+    );
+  });
+
   it("serves paid M-Pesa access codes through the lightweight poll", async () => {
     const token = await issueDeviceToken(R1);
     h.db
@@ -492,7 +556,9 @@ describe("router.rsc provisioning", () => {
     const script = await (await rsc(BOOT1)).text();
 
     expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
-    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
+    expect(script).toContain(
+      "https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/",
+    );
   });
 
   it("uses the canonical host even when a tenant has a verified hotspot domain", async () => {
@@ -510,7 +576,9 @@ describe("router.rsc provisioning", () => {
 
     expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
     expect(script).not.toContain("https://hotspot.ziwatti.ac.ke/p/acme");
-    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
+    expect(script).toContain(
+      "https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/",
+    );
   });
 
   it("refuses to return a MikroTik script for another vendor", async () => {
@@ -689,9 +757,15 @@ describe("sync keeps what the router already has when a database read fails", ()
 
   beforeEach(() => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    h.db
-      .seed("customers", [client("alice")])
-      .seed("vouchers", [{ tenant_id: T, code: "UNUSED2345", status: "unused", expires_at: null }]);
+    h.db.seed("customers", [client("alice")]).seed("vouchers", [
+      {
+        tenant_id: T,
+        code: "UNUSED2345",
+        status: "unused",
+        sync_status: "legacy",
+        expires_at: null,
+      },
+    ]);
   });
 
   it("records when the router last synced, and never fails the sync if it cannot", async () => {

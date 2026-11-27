@@ -77,6 +77,67 @@ beforeEach(() => {
         expires_at: null,
       },
     ]);
+  h.db.rpcs.settle_presynced_hotspot_payment = (args) => {
+    const pay = h.db.rows("payments").find((row) => row.id === args.p_payment_id);
+    if (!pay) return { error: { message: "payment missing" } };
+    const setting = h.db
+      .rows("voucher_inventory_settings")
+      .find(
+        (row) =>
+          row.tenant_id === pay.tenant_id &&
+          row.router_id === pay.router_id &&
+          row.package_id === pay.package_id &&
+          row.enabled === true,
+      );
+    let voucher = setting
+      ? h.db
+          .rows("vouchers")
+          .find(
+            (row) =>
+              row.tenant_id === pay.tenant_id &&
+              row.router_id === pay.router_id &&
+              row.package_id === pay.package_id &&
+              row.status === "unused" &&
+              row.sync_status === "available" &&
+              row.payment_id == null,
+          )
+      : undefined;
+    const assigned = Boolean(voucher);
+    if (voucher) {
+      voucher.payment_id = pay.id;
+      voucher.expires_at = null;
+      voucher.activation_started_at = null;
+    } else {
+      voucher = {
+        id: `generated-${pay.id}`,
+        tenant_id: pay.tenant_id,
+        router_id: pay.router_id ?? null,
+        package_id: pay.package_id,
+        code: "PAYVOUCHER234567",
+        status: "unused",
+        sync_status: "legacy",
+        payment_id: pay.id,
+        activation_started_at: new Date().toISOString(),
+        expires_at: args.p_legacy_expires_at,
+      };
+      h.db.seed("vouchers", [voucher]);
+    }
+    pay.status = "success";
+    pay.mpesa_receipt = args.p_receipt;
+    pay.raw_callback = args.p_raw_callback;
+    pay.voucher_code = voucher.code;
+    pay.fulfillment_status = assigned ? "assigned" : "generated";
+    pay.fulfilled_at = new Date().toISOString();
+    pay.expires_at = pay.fulfillment_status === "assigned" ? null : args.p_legacy_expires_at;
+    return {
+      data: [
+        {
+          assigned_voucher_code: voucher.code,
+          fulfillment_status: pay.fulfillment_status,
+        },
+      ],
+    };
+  };
 });
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -86,20 +147,78 @@ afterEach(() => {
 const payment = () => h.db.rows("payments").find((row) => row.id === PAY)!;
 
 describe("tenant Daraja callback", () => {
-  it("settles a validated callback and uses its M-Pesa receipt instead of creating a voucher", async () => {
+  it("generates a voucher after successful payment when pre-sync is not enabled", async () => {
     const response = await send();
     expect(response.status).toBe(200);
     expect(darajaMock.query).toHaveBeenCalledWith(TENANT, "ws_CO_1");
+    expect(h.db.log).toContainEqual(
+      expect.objectContaining({ table: "rpc", op: "settle_presynced_hotspot_payment" }),
+    );
 
-    expect(h.db.rows("vouchers")).toHaveLength(0);
+    expect(h.db.rows("vouchers")).toHaveLength(1);
+    expect(h.db.rows("vouchers")[0]).toMatchObject({
+      package_id: HOTSPOT_PKG,
+      payment_id: PAY,
+      sync_status: "legacy",
+      status: "unused",
+    });
     expect(payment()).toMatchObject({
       status: "success",
       mpesa_receipt: "DAR1234567",
-      voucher_code: null,
+      voucher_code: "PAYVOUCHER234567",
+      fulfillment_status: "generated",
     });
     const hours = (new Date(String(payment().expires_at)).getTime() - Date.now()) / 3_600_000;
     expect(hours).toBeGreaterThan(1.9);
     expect(hours).toBeLessThan(2.1);
+  });
+
+  it("assigns an acknowledged voucher for the payment's exact router and package", async () => {
+    payment().router_id = "router-one";
+    h.db.seed("voucher_inventory_settings", [
+      {
+        tenant_id: TENANT,
+        router_id: "router-one",
+        package_id: HOTSPOT_PKG,
+        enabled: true,
+      },
+    ]);
+    h.db.seed("vouchers", [
+      {
+        id: "ready-one",
+        tenant_id: TENANT,
+        router_id: "router-one",
+        package_id: HOTSPOT_PKG,
+        code: "READYCODE123",
+        status: "unused",
+        sync_status: "available",
+        payment_id: null,
+        expires_at: null,
+      },
+      {
+        id: "ready-other-router",
+        tenant_id: TENANT,
+        router_id: "router-two",
+        package_id: HOTSPOT_PKG,
+        code: "OTHERROUTER1",
+        status: "unused",
+        sync_status: "available",
+        payment_id: null,
+        expires_at: null,
+      },
+    ]);
+
+    const response = await send();
+
+    expect(response.status).toBe(200);
+    expect(payment()).toMatchObject({
+      status: "success",
+      voucher_code: "READYCODE123",
+      fulfillment_status: "assigned",
+      expires_at: null,
+    });
+    expect(h.db.rows("vouchers")[0]).toMatchObject({ payment_id: PAY, expires_at: null });
+    expect(h.db.rows("vouchers")[1].payment_id).toBeNull();
   });
 
   it("records M-Pesa failure and issues nothing", async () => {
@@ -207,13 +326,13 @@ describe("tenant Daraja callback", () => {
     await send();
     const response = await send();
     expect(await json(response)).toMatchObject({ note: "Already processed" });
-    expect(h.db.rows("vouchers")).toHaveLength(0);
+    expect(h.db.rows("vouchers")).toHaveLength(1);
   });
 
-  it("settles concurrent duplicate callbacks once without creating vouchers", async () => {
+  it("settles concurrent duplicate callbacks once and generates one voucher", async () => {
     const responses = await Promise.all([send(), send(), send(), send()]);
     expect(responses.every((response) => response.status === 200)).toBe(true);
-    expect(h.db.rows("vouchers")).toHaveLength(0);
+    expect(h.db.rows("vouchers")).toHaveLength(1);
     expect(payment().status).toBe("success");
   });
 
@@ -221,7 +340,7 @@ describe("tenant Daraja callback", () => {
     payment().status = "failed";
     await send();
     expect(payment().status).toBe("success");
-    expect(h.db.rows("vouchers")).toHaveLength(0);
+    expect(h.db.rows("vouchers")).toHaveLength(1);
   });
 
   it("backfills the receipt from a late callback without issuing another voucher", async () => {
@@ -258,7 +377,7 @@ describe("tenant Daraja callback", () => {
 
     expect((await send()).status).toBe(200);
     expect(payment().status).toBe("success");
-    expect(h.db.rows("vouchers")).toHaveLength(0);
+    expect(h.db.rows("vouchers")).toHaveLength(1);
   });
 
   it("renews a PPPoE account without issuing a voucher", async () => {

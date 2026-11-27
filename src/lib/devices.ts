@@ -138,6 +138,7 @@ export interface SyncVoucher {
   bound_mac: string | null;
   /** From the voucher's package (packages.device_limit). */
   limit: number;
+  sync_status?: string;
 }
 
 function buildHotspotMacAuthLines(vouchers: SyncVoucher[]): string[] {
@@ -254,6 +255,46 @@ export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string
     );
   }
   lines.push(...buildHotspotMacAuthLines(valid));
+  return lines;
+}
+
+/** Reports pre-generated users only after RouterOS confirms username, password and profile. */
+export function buildHotspotVoucherAckLines(vouchers: SyncVoucher[], endpoint: string): string[] {
+  let url: URL;
+  try {
+    url = new URL(endpoint);
+  } catch {
+    return [];
+  }
+  if (
+    url.protocol !== "https:" ||
+    !/^\/api\/public\/router\/sync\/[A-Za-z0-9_-]{16,128}$/.test(url.pathname) ||
+    url.searchParams.get("voucher-ack") !== "1"
+  ) {
+    return [];
+  }
+
+  const pending = [
+    ...new Map(
+      vouchers
+        .filter((voucher) => voucher.sync_status === "pending" && SAFE_CODE.test(voucher.code))
+        .map((voucher) => [voucher.code, voucher]),
+    ).values(),
+  ];
+  if (!pending.length) return [];
+
+  const lines = [':local ngAck "";'];
+  pending.forEach((voucher, index) => {
+    const code = voucher.code;
+    const user = `ngVoucher${index}`;
+    lines.push(
+      `:local ${user} [/ip hotspot user find where name="${code}" server=netgrid-hs comment="netgrid-voucher"];`,
+      `:if ([:len $${user}] > 0) do={ :if ([/ip hotspot user get $${user} password] = "${code}") do={ :if ([/ip hotspot user get $${user} profile] = "${userProfileName(voucher.limit)}") do={ :set ngAck ($ngAck . "${code},") } } }`,
+    );
+  });
+  lines.push(
+    `:if ([:len $ngAck] > 0) do={ :do { /tool fetch url="${endpoint}" http-method=post http-data=$ngAck keep-result=no } on-error={ :log warning "NetGrid: voucher sync acknowledgement failed" } }`,
+  );
   return lines;
 }
 

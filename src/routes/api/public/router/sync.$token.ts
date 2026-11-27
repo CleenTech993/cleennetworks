@@ -15,6 +15,7 @@ import {
   buildCustomerEgressFilterLines,
   buildDeviceAgentLines,
   buildHotspotSuspendLines,
+  buildHotspotVoucherAckLines,
   buildHotspotVoucherRefreshLines,
   buildHotspotUserLines,
   buildTetherLines,
@@ -45,10 +46,13 @@ function skipped(section: string, error: { message: string } | null | undefined)
   ];
 }
 
-async function voucherRefreshResponse(router: {
-  id: string;
-  tenant_id: string;
-}): Promise<Response> {
+async function voucherRefreshResponse(
+  router: {
+    id: string;
+    tenant_id: string;
+  },
+  ackEndpoint: string,
+): Promise<Response> {
   const now = new Date().toISOString();
   const { data: tenant, error: tenantError } = await supabaseAdmin
     .from("tenants")
@@ -83,9 +87,15 @@ async function voucherRefreshResponse(router: {
   const queryVouchers = (includeMac: boolean) =>
     supabaseAdmin
       .from("vouchers")
-      .select(includeMac ? "code,expires_at,bound_mac,package_id" : "code,expires_at,package_id")
+      .select(
+        includeMac
+          ? "code,expires_at,bound_mac,package_id,router_id,sync_status"
+          : "code,expires_at,package_id,router_id,sync_status",
+      )
       .eq("tenant_id", router.tenant_id)
+      .or(`router_id.is.null,router_id.eq.${router.id}`)
       .in("status", allowedStatuses)
+      .in("sync_status", ["legacy", "pending", "available"])
       .or(`expires_at.is.null,expires_at.gt.${now}`);
 
   let voucherQuery = await queryVouchers(true);
@@ -103,12 +113,14 @@ async function voucherRefreshResponse(router: {
     expires_at: string | null;
     bound_mac?: string | null;
     package_id: string | null;
+    sync_status: string;
   };
   const voucherRows = voucherQuery.data as unknown as RefreshVoucherRow[];
   const { data: receiptPayments, error: receiptPaymentsError } = await supabaseAdmin
     .from("payments")
-    .select("mpesa_receipt,bound_mac,package_id")
+    .select("mpesa_receipt,bound_mac,package_id,router_id,voucher_code")
     .eq("tenant_id", router.tenant_id)
+    .or(`router_id.is.null,router_id.eq.${router.id}`)
     .eq("status", "success")
     .not("mpesa_receipt", "is", null)
     .gt("expires_at", now);
@@ -140,10 +152,12 @@ async function voucherRefreshResponse(router: {
     ...voucherRows.map((voucher) => ({
       code: voucher.code,
       bound_mac: "bound_mac" in voucher ? (voucher.bound_mac ?? null) : null,
-      limit: voucher.package_id ? (limitByPackage.get(voucher.package_id) ?? 1) : 1,
+      limit: voucher.package_id ? deviceLimitOf(packageById.get(voucher.package_id)) : 1,
+      sync_status: voucher.sync_status,
     })),
     ...receiptPayments.flatMap((payment) =>
       payment.mpesa_receipt &&
+      !payment.voucher_code &&
       payment.package_id &&
       isHotspotPackageKind(packageById.get(payment.package_id)?.kind ?? "")
         ? [
@@ -168,11 +182,48 @@ async function voucherRefreshResponse(router: {
   }
 
   return new Response(
-    [...buildHotspotVoucherRefreshLines(vouchers), ...buildTvSyncLines(tvs)].join("\n"),
+    [
+      ...buildHotspotVoucherRefreshLines(vouchers),
+      ...buildHotspotVoucherAckLines(vouchers, ackEndpoint),
+      ...buildTvSyncLines(tvs),
+    ].join("\n"),
     {
       headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
     },
   );
+}
+
+async function acknowledgePreSyncedVouchers(
+  request: Request,
+  router: { id: string; tenant_id: string },
+): Promise<Response> {
+  const body = await request.text();
+  if (body.length > 32_000) {
+    return Response.json({ error: "Acknowledgement is too large" }, { status: 413 });
+  }
+  const codes = [...new Set(body.split(",").filter(Boolean))];
+  if (
+    codes.length === 0 ||
+    codes.length > 500 ||
+    codes.some((code) => !/^[A-Za-z0-9._@-]{1,64}$/.test(code))
+  ) {
+    return Response.json({ error: "Invalid voucher acknowledgement" }, { status: 400 });
+  }
+
+  const { data: updated, error } = await supabaseAdmin
+    .from("vouchers")
+    .update({ sync_status: "available", sync_acknowledged_at: new Date().toISOString() })
+    .eq("tenant_id", router.tenant_id)
+    .eq("router_id", router.id)
+    .eq("status", "unused")
+    .eq("sync_status", "pending")
+    .in("code", codes)
+    .select("id");
+  if (error) {
+    console.error("Could not save RouterOS voucher acknowledgement", error);
+    return Response.json({ error: "Could not save voucher acknowledgement" }, { status: 500 });
+  }
+  return Response.json({ acknowledged: updated?.length ?? 0 });
 }
 
 // RouterOS script that syncs PPPoE secrets and voucher hotspot users from the platform.
@@ -181,6 +232,23 @@ async function voucherRefreshResponse(router: {
 export const Route = createFileRoute("/api/public/router/sync/$token")({
   server: {
     handlers: {
+      POST: async ({ params, request }) => {
+        if (new URL(request.url).searchParams.get("voucher-ack") !== "1") {
+          return new Response("# unknown endpoint\n", { status: 404 });
+        }
+        const contentLength = Number(request.headers.get("content-length") ?? 0);
+        if (contentLength > 32_000) {
+          return Response.json({ error: "Acknowledgement is too large" }, { status: 413 });
+        }
+        const auth = await authenticateRouter(request, params.token);
+        if (!auth.ok) {
+          return auth.blocked
+            ? tooManyRequests()
+            : new Response("# unknown token\n", { status: 404 });
+        }
+        if (!rateLimit(`voucher-ack:${auth.router.id}`, 30, 60_000)) return tooManyRequests();
+        return acknowledgePreSyncedVouchers(request, auth.router);
+      },
       GET: async ({ params, request }) => {
         const auth = await authenticateRouter(request, params.token);
         if (!auth.ok) {
@@ -196,7 +264,11 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         // New vouchers are polled independently so the full configuration can stay on its slower cadence.
         if (new URL(request.url).searchParams.get("vouchers") === "1") {
           if (!rateLimit(`voucher-sync:${router.id}`, 20, 60_000)) return tooManyRequests();
-          return voucherRefreshResponse(router);
+          const host = appHost(getRequestHost());
+          return voucherRefreshResponse(
+            router,
+            `https://${host}/api/public/router/sync/${params.token}?voucher-ack=1`,
+          );
         }
 
         const now = new Date().toISOString();
@@ -241,19 +313,22 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .or(`router_id.eq.${router.id},router_id.is.null`),
           supabaseAdmin
             .from("vouchers")
-            .select("code,status,expires_at,bound_mac,package_id")
+            .select("code,status,expires_at,bound_mac,package_id,router_id,sync_status")
             .eq("tenant_id", router.tenant_id)
+            .or(`router_id.is.null,router_id.eq.${router.id}`)
             .in(
               "status",
               maintenance.some((notice) => notice.mode === "block_new")
                 ? ["used", "active"]
                 : ["unused", "used", "active"],
             )
+            .in("sync_status", ["legacy", "pending", "available"])
             .or(`expires_at.is.null,expires_at.gt.${now}`),
           supabaseAdmin
             .from("payments")
-            .select("mpesa_receipt,bound_mac,package_id")
+            .select("mpesa_receipt,bound_mac,package_id,router_id,voucher_code")
             .eq("tenant_id", router.tenant_id)
+            .or(`router_id.is.null,router_id.eq.${router.id}`)
             .eq("status", "success")
             .not("mpesa_receipt", "is", null)
             .gt("expires_at", now),
@@ -402,6 +477,8 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           status: string;
           bound_mac?: string | null;
           package_id: string | null;
+          router_id: string | null;
+          sync_status: string;
         };
         let voucherRows: VoucherRow[] | null = vouchers;
         if (!serviceRestricted && vouchersError) {
@@ -411,14 +488,16 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           );
           const retry = await supabaseAdmin
             .from("vouchers")
-            .select("code,status,expires_at,package_id")
+            .select("code,status,expires_at,package_id,router_id,sync_status")
             .eq("tenant_id", router.tenant_id)
+            .or(`router_id.is.null,router_id.eq.${router.id}`)
             .in(
               "status",
               maintenance.some((notice) => notice.mode === "block_new")
                 ? ["used", "active"]
                 : ["unused", "used", "active"],
             )
+            .in("sync_status", ["legacy", "pending", "available"])
             .or(`expires_at.is.null,expires_at.gt.${now}`);
           if (retry.error) console.error("sync: voucher query failed:", retry.error.message);
           voucherRows = retry.error ? null : retry.data;
@@ -443,9 +522,11 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
               code: v.code,
               bound_mac: v.bound_mac ?? null,
               limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
+              sync_status: v.sync_status,
             })),
             ...receiptPayments.flatMap((payment) =>
               payment.mpesa_receipt &&
+              !payment.voucher_code &&
               payment.package_id &&
               hotspotPackageIds.has(payment.package_id)
                 ? [

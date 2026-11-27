@@ -932,6 +932,7 @@ function PaymentWaiting({
   const [status, setStatus] = useState<string>("pending");
   const [accessCode, setAccessCode] = useState<string | null>(null);
   const [receiptCode, setReceiptCode] = useState(false);
+  const [purchasedVoucher, setPurchasedVoucher] = useState(false);
   const [receiptPending, setReceiptPending] = useState(false);
   const [manualPayment, setManualPayment] = useState<{
     merchantType: "paybill" | "buygoods";
@@ -973,8 +974,9 @@ function PaymentWaiting({
           setManualVerificationStatus(json.manualVerification?.status ?? null);
           setManualVerificationError(json.manualVerification?.error ?? null);
           if (json.mpesa_receipt || json.voucher_code) {
-            setAccessCode(json.mpesa_receipt ?? json.voucher_code);
-            setReceiptCode(Boolean(json.mpesa_receipt));
+            setAccessCode(json.voucher_code ?? json.mpesa_receipt);
+            setPurchasedVoucher(Boolean(json.voucher_code));
+            setReceiptCode(!json.voucher_code && Boolean(json.mpesa_receipt));
           }
           const authorization = json.omadaAuthorization;
           if (
@@ -1076,7 +1078,21 @@ function PaymentWaiting({
     void (async () => {
       try {
         let code = accessCode;
-        if (receiptCode) {
+        if (purchasedVoucher) {
+          const response = await fetch(`/api/public/portal/${slug}/voucher`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              code: accessCode,
+              mac: params.mac ?? undefined,
+              routerId: params.routerId ?? undefined,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error ?? "Could not activate this voucher.");
+          if (typeof result.code === "string") code = result.code;
+          else throw new Error("The voucher activation response was incomplete.");
+        } else if (receiptCode) {
           const response = await fetch(`/api/public/portal/${slug}/reconnect`, {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -1109,6 +1125,7 @@ function PaymentWaiting({
     tv,
     accessCode,
     receiptCode,
+    purchasedVoucher,
     postLoginUrl,
     slug,
     omadaPortal,
@@ -1155,7 +1172,7 @@ function PaymentWaiting({
     );
   }
 
-  if (status === "success" && tv) {
+  if (status === "success" && tv && !accessCode) {
     return (
       <div className="pt-surface rounded-xl border bg-card p-6 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10" style={{ color: primary }} />
@@ -1176,8 +1193,10 @@ function PaymentWaiting({
           {autoConnecting
             ? "Connecting you to Wi-Fi…"
             : accessCode
-              ? "Your M-Pesa transaction code is your Wi-Fi access code."
-              : "Payment confirmed. Waiting for the M-Pesa receipt code…"}
+              ? purchasedVoucher
+                ? "Your voucher is ready. Connecting you to Wi-Fi…"
+                : "Your M-Pesa transaction code is your Wi-Fi access code."
+              : "Payment confirmed. Waiting for your Wi-Fi access code…"}
         </p>
         {tvIncluded && (
           <p className="mt-2 text-sm text-muted-foreground">
@@ -1201,7 +1220,22 @@ function PaymentWaiting({
                 void (async () => {
                   try {
                     let code = accessCode;
-                    if (receiptCode) {
+                    if (purchasedVoucher) {
+                      const response = await fetch(`/api/public/portal/${slug}/voucher`, {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({
+                          code: accessCode,
+                          mac: params.mac ?? undefined,
+                          routerId: params.routerId ?? undefined,
+                        }),
+                      });
+                      const result = await response.json();
+                      if (!response.ok)
+                        throw new Error(result.error ?? "Could not activate this voucher.");
+                      if (typeof result.code === "string") code = result.code;
+                      else throw new Error("The voucher activation response was incomplete.");
+                    } else if (receiptCode) {
                       const response = await fetch(`/api/public/portal/${slug}/reconnect`, {
                         method: "POST",
                         headers: { "content-type": "application/json" },

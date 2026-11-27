@@ -93,6 +93,8 @@ beforeEach(() => {
         package_id: P1,
         code: "ONEDEV0001",
         status: "unused",
+        router_id: null,
+        sync_status: "legacy",
         payment_id: null,
         expires_at: null,
         bound_mac: null,
@@ -103,6 +105,8 @@ beforeEach(() => {
         package_id: P1,
         code: "USEDFREE01",
         status: "used",
+        router_id: null,
+        sync_status: "legacy",
         payment_id: null,
         expires_at: null,
         bound_mac: null,
@@ -113,6 +117,8 @@ beforeEach(() => {
         package_id: P3,
         code: "FAMILY0003",
         status: "unused",
+        router_id: null,
+        sync_status: "legacy",
         payment_id: null,
         expires_at: null,
         bound_mac: null,
@@ -123,6 +129,8 @@ beforeEach(() => {
         package_id: P1,
         code: "PINNED0001",
         status: "used",
+        router_id: null,
+        sync_status: "legacy",
         payment_id: null,
         expires_at: null,
         bound_mac: MAC_B,
@@ -133,6 +141,8 @@ beforeEach(() => {
         package_id: null,
         code: "RIVALCODE2",
         status: "unused",
+        router_id: null,
+        sync_status: "legacy",
         payment_id: null,
         expires_at: null,
         bound_mac: null,
@@ -209,6 +219,37 @@ describe("device report endpoint", () => {
     });
   });
 
+  it("tracks paid connected time when the customer logs in with a generated voucher", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db.rows("payments")[0]!.voucher_code = "PAIDVOUCHER1";
+    h.db.seed("vouchers", [
+      {
+        id: "paid-voucher",
+        tenant_id: T,
+        router_id: R1,
+        package_id: P1,
+        payment_id: "44444444-4444-4444-8444-444444444444",
+        code: "PAIDVOUCHER1",
+        status: "unused",
+        sync_status: "legacy",
+        activation_started_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+      },
+    ]);
+
+    await send(token, `${MAC_A}|10.5.50.20|phone|PAIDVOUCHER1|true|0|1000|2000|00:02:00`);
+
+    expect(h.db.rows("hotspot_payment_sessions")).toMatchObject([
+      {
+        payment_id: "44444444-4444-4444-8444-444444444444",
+        router_id: R1,
+        mac: MAC_A,
+        connected_seconds: 120,
+        active: true,
+      },
+    ]);
+  });
+
   it("redeems and pins a one-device voucher that was logged in directly on the router", async () => {
     const token = await issueDeviceToken(R1);
     await send(token, rec(MAC_A, "10.5.50.20", "phone", "ONEDEV0001", true));
@@ -223,6 +264,34 @@ describe("device report endpoint", () => {
     const d = devices()[0]!;
     expect(d.registered_kind).toBe("voucher");
     expect(d.voucher_code).toBe("ONEDEV0001");
+  });
+
+  it("starts a paid pre-synced voucher's expiry only after RouterOS reports an authorized login", async () => {
+    h.db.seed("vouchers", [
+      {
+        id: "presynced-voucher",
+        tenant_id: T,
+        router_id: R1,
+        package_id: P1,
+        code: "PRESYNCED01",
+        status: "used",
+        payment_id: "paid-payment",
+        sync_status: "available",
+        activation_started_at: null,
+        expires_at: null,
+        bound_mac: null,
+      },
+    ]);
+    const token = await issueDeviceToken(R1);
+
+    await send(token, rec(MAC_A, "10.5.50.20", "phone", "PRESYNCED01", true));
+
+    expect(voucher("PRESYNCED01").activation_started_at).toBeTruthy();
+    expect(
+      Math.abs(
+        new Date(voucher("PRESYNCED01").expires_at as string).getTime() - Date.now() - 3_600_000,
+      ),
+    ).toBeLessThan(5_000);
   });
 
   it("does not pin a voucher whose package allows several devices", async () => {
@@ -372,6 +441,6 @@ describe("sync script: device features", () => {
     const text = await sync(await issueDeviceToken(R1));
     expect(text).not.toContain('remove [find comment="netgrid-voucher"]');
     expect(text).not.toContain('add name="ONEDEV0001"');
-    expect(text).toContain("keeping current vouchers");
+    expect(text).toContain("keeping current users");
   });
 });

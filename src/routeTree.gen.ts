@@ -69,6 +69,7 @@ import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
 import { Route as TenantWorkOrdersRouteImport } from './routes/tenant.work-orders'
 import { Route as ApiCronMoodBoostRouteImport } from './routes/api/cron/mood-boost'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
+import { Route as ApiCronVoucherInventoryRouteImport } from './routes/api/cron/voucher-inventory'
 import { Route as ApiPublicDomainRouteImport } from './routes/api/public/domain'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
 import { Route as ApiPublicCustomerMessagesRouteImport } from './routes/api/public/customer/messages'
@@ -405,6 +406,11 @@ const ApiCronPlatformBillingRoute = ApiCronPlatformBillingRouteImport.update({
   path: '/api/cron/platform-billing',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronVoucherInventoryRoute = ApiCronVoucherInventoryRouteImport.update({
+  id: '/api/cron/voucher-inventory',
+  path: '/api/cron/voucher-inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicDomainRoute = ApiPublicDomainRouteImport.update({
   id: '/api/public/domain',
   path: '/api/public/domain',
@@ -666,6 +672,7 @@ export interface FileRoutesByFullPath {
   '/tenant/': typeof TenantIndexRoute
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
+  '/api/cron/voucher-inventory': typeof ApiCronVoucherInventoryRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
@@ -759,6 +766,7 @@ export interface FileRoutesByTo {
   '/tenant': typeof TenantIndexRoute
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
+  '/api/cron/voucher-inventory': typeof ApiCronVoucherInventoryRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
@@ -856,6 +864,7 @@ export interface FileRoutesById {
   '/tenant/': typeof TenantIndexRoute
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
+  '/api/cron/voucher-inventory': typeof ApiCronVoucherInventoryRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
   '/api/public/customer/messages': typeof ApiPublicCustomerMessagesRoute
@@ -954,6 +963,7 @@ export interface FileRouteTypes {
     | '/tenant/'
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
+    | '/api/cron/voucher-inventory'
     | '/api/public/domain'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
@@ -1047,6 +1057,7 @@ export interface FileRouteTypes {
     | '/tenant'
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
+    | '/api/cron/voucher-inventory'
     | '/api/public/domain'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
@@ -1143,6 +1154,7 @@ export interface FileRouteTypes {
     | '/tenant/'
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
+    | '/api/cron/voucher-inventory'
     | '/api/public/domain'
     | '/tenant/routers/$id'
     | '/api/public/customer/messages'
@@ -1198,6 +1210,7 @@ export interface RootRouteChildren {
   SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
   ApiCronMoodBoostRoute: typeof ApiCronMoodBoostRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
+  ApiCronVoucherInventoryRoute: typeof ApiCronVoucherInventoryRoute
   ApiPublicDomainRoute: typeof ApiPublicDomainRoute
   ApiPublicCustomerMessagesRoute: typeof ApiPublicCustomerMessagesRoute
   ApiPublicPortalSlugRoute: typeof ApiPublicPortalSlugRouteWithChildren
@@ -1647,6 +1660,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronPlatformBillingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/voucher-inventory': {
+      id: '/api/cron/voucher-inventory'
+      path: '/api/cron/voucher-inventory'
+      fullPath: '/api/cron/voucher-inventory'
+      preLoaderRoute: typeof ApiCronVoucherInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/domain': {
       id: '/api/public/domain'
       path: '/api/public/domain'
@@ -2056,6 +2076,7 @@ const rootRouteChildren: RootRouteChildren = {
   SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
   ApiCronMoodBoostRoute: ApiCronMoodBoostRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
+  ApiCronVoucherInventoryRoute: ApiCronVoucherInventoryRoute,
   ApiPublicDomainRoute: ApiPublicDomainRoute,
   ApiPublicCustomerMessagesRoute: ApiPublicCustomerMessagesRoute,
   ApiPublicPortalSlugRoute: ApiPublicPortalSlugRouteWithChildren,

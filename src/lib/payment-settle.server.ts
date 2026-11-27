@@ -67,17 +67,32 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
     } else {
       const voucherCode: string | null = null;
       let expiresAt: string | null = null;
+      let settledByPresync = false;
       if (payment.package_id) {
         const { data: pkg, error: packageError } = await supabaseAdmin
           .from("packages")
           .select("kind,duration_value,duration_unit")
           .eq("id", payment.package_id)
+          .eq("tenant_id", payment.tenant_id)
           .maybeSingle();
         if (packageError) throw packageError;
         if (!pkg) throw new Error("Payment package not found");
         if (pkg?.duration_value && pkg?.duration_unit) {
           expiresAt = expiryFrom(pkg.duration_value, pkg.duration_unit);
         }
+        const settleHotspotVoucher = async () => {
+          const { error: voucherError } = await supabaseAdmin.rpc(
+            "settle_presynced_hotspot_payment",
+            {
+              p_payment_id: payment.id,
+              p_receipt: i.receipt,
+              p_raw_callback: i.raw,
+              p_legacy_expires_at: expiresAt,
+            },
+          );
+          if (voucherError) throw voucherError;
+          settledByPresync = true;
+        };
         if (pkg.kind === "hotspot_tv") {
           if (!payment.tv_device_id) throw new Error("Phone + TV payment has no registered TV");
           if (!pkg.duration_value || !pkg.duration_unit)
@@ -181,26 +196,36 @@ export async function settlePayment(i: SettleInput): Promise<"settled" | "alread
             .eq("id", customer.id)
             .eq("tenant_id", payment.tenant_id);
           if (customerUpdateError) throw customerUpdateError;
-        } else if (pkg?.kind === "hotspot" || pkg?.kind === "voucher") {
-          // The verified M-Pesa receipt is the hotspot credential; no voucher is minted.
+        } else if ((pkg.kind === "hotspot" || pkg.kind === "voucher") && !payment.tv_device_id) {
+          await settleHotspotVoucher();
+        }
+        if (pkg.kind === "hotspot_tv") {
+          await settleHotspotVoucher();
         }
       }
 
-      const { error: uErr } = await supabaseAdmin
-        .from("payments")
-        .update({
-          status: "success",
-          mpesa_receipt: i.receipt || null,
-          phone: payment.phone || undefined,
-          raw_callback: i.raw,
-          voucher_code: voucherCode,
-          expires_at: expiresAt,
-        })
-        .eq("id", payment.id);
-      if (uErr) throw uErr;
+      if (!settledByPresync) {
+        const { error: uErr } = await supabaseAdmin
+          .from("payments")
+          .update({
+            status: "success",
+            mpesa_receipt: i.receipt || null,
+            phone: payment.phone || undefined,
+            raw_callback: i.raw,
+            voucher_code: voucherCode,
+            expires_at: expiresAt,
+          })
+          .eq("id", payment.id);
+        if (uErr) throw uErr;
+      }
     }
   } catch (e) {
-    await supabaseAdmin.from("payments").update({ status: "pending" }).eq("id", payment.id);
+    const { error: releaseError } = await supabaseAdmin
+      .from("payments")
+      .update({ status: "pending" })
+      .eq("id", payment.id)
+      .eq("status", "processing");
+    if (releaseError) console.error("Could not release payment settlement claim", releaseError);
     throw e;
   }
   return "settled";
