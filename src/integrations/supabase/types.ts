@@ -2897,6 +2897,243 @@ export type Database = {
           },
         ];
       };
+      tenant_marketplace_listings: {
+        Row: {
+          active: boolean;
+          category: string;
+          created_at: string;
+          created_by: string | null;
+          currency: string;
+          description: string;
+          id: string;
+          price: number | null;
+          tenant_id: string;
+          title: string;
+          updated_at: string;
+        };
+        Insert: {
+          active?: boolean;
+          category: string;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          description: string;
+          id?: string;
+          price?: number | null;
+          tenant_id: string;
+          title: string;
+          updated_at?: string;
+        };
+        Update: {
+          active?: boolean;
+          category?: string;
+          created_at?: string;
+          created_by?: string | null;
+          currency?: string;
+          description?: string;
+          id?: string;
+          price?: number | null;
+          tenant_id?: string;
+          title?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      tenant_marketplace_requests: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          listing_id: string;
+          note: string | null;
+          provider_tenant_id: string;
+          requester_tenant_id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          listing_id: string;
+          note?: string | null;
+          provider_tenant_id: string;
+          requester_tenant_id: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          listing_id?: string;
+          note?: string | null;
+          provider_tenant_id?: string;
+          requester_tenant_id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      tenant_api_keys: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          expires_at: string | null;
+          id: string;
+          key_hash: string;
+          key_prefix: string;
+          last_used_at: string | null;
+          name: string;
+          revoked_at: string | null;
+          scopes: string[];
+          tenant_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at?: string | null;
+          id?: string;
+          key_hash: string;
+          key_prefix: string;
+          last_used_at?: string | null;
+          name: string;
+          revoked_at?: string | null;
+          scopes: string[];
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          expires_at?: string | null;
+          id?: string;
+          key_hash?: string;
+          key_prefix?: string;
+          last_used_at?: string | null;
+          name?: string;
+          revoked_at?: string | null;
+          scopes?: string[];
+          tenant_id?: string;
+        };
+        Relationships: [];
+      };
+      tenant_integrations: {
+        Row: {
+          config: Json;
+          created_at: string;
+          created_by: string | null;
+          enabled: boolean;
+          id: string;
+          name: string;
+          provider: string;
+          tenant_id: string;
+          updated_at: string;
+          webhook_secret_hash: string | null;
+          webhook_url: string | null;
+        };
+        Insert: {
+          config?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          id?: string;
+          name: string;
+          provider: string;
+          tenant_id: string;
+          updated_at?: string;
+          webhook_secret_hash?: string | null;
+          webhook_url?: string | null;
+        };
+        Update: {
+          config?: Json;
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          id?: string;
+          name?: string;
+          provider?: string;
+          tenant_id?: string;
+          updated_at?: string;
+          webhook_secret_hash?: string | null;
+          webhook_url?: string | null;
+        };
+        Relationships: [];
+      };
+      tenant_automation_rules: {
+        Row: {
+          action_config: Json;
+          action_type: string;
+          created_at: string;
+          created_by: string | null;
+          enabled: boolean;
+          id: string;
+          last_run_at: string | null;
+          name: string;
+          tenant_id: string;
+          trigger_config: Json;
+          trigger_type: string;
+          updated_at: string;
+        };
+        Insert: {
+          action_config?: Json;
+          action_type: string;
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          id?: string;
+          last_run_at?: string | null;
+          name: string;
+          tenant_id: string;
+          trigger_config?: Json;
+          trigger_type: string;
+          updated_at?: string;
+        };
+        Update: {
+          action_config?: Json;
+          action_type?: string;
+          created_at?: string;
+          created_by?: string | null;
+          enabled?: boolean;
+          id?: string;
+          last_run_at?: string | null;
+          name?: string;
+          tenant_id?: string;
+          trigger_config?: Json;
+          trigger_type?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_execution_log: {
+        Row: {
+          evidence: Json;
+          executed_at: string;
+          id: string;
+          message: string | null;
+          rule_id: string;
+          status: string;
+          tenant_id: string;
+        };
+        Insert: {
+          evidence?: Json;
+          executed_at?: string;
+          id?: string;
+          message?: string | null;
+          rule_id: string;
+          status: string;
+          tenant_id: string;
+        };
+        Update: {
+          evidence?: Json;
+          executed_at?: string;
+          id?: string;
+          message?: string | null;
+          rule_id?: string;
+          status?: string;
+          tenant_id?: string;
+        };
+        Relationships: [];
+      };
       tenant_operating_costs: {
         Row: {
           amount: number;

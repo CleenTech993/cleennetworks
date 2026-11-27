@@ -26,6 +26,7 @@ import {
   Smartphone,
   Archive,
   Power,
+  Code2,
   Stethoscope,
   Command,
   Map,
@@ -98,6 +99,7 @@ const ALL_NAV: NavItem[] = [
     group: "Administration",
   },
   { to: "/tenant/settings", label: "Settings", icon: Settings, group: "Administration" },
+  { to: "/tenant/developer", label: "Developer API", icon: Code2, group: "Administration" },
 ];
 
 export const Route = createFileRoute("/tenant")({
