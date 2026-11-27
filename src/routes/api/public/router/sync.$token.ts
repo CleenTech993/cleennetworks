@@ -10,6 +10,7 @@ import { buildPppoeSyncLines, PPPOE_BILLING_GRACE_PERIOD_MS } from "@/lib/pppoe"
 import { buildTvSyncLines } from "@/lib/tv";
 import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import { buildChainAgentLines } from "@/lib/router-chain";
+import { buildInterfaceAgentLines } from "@/lib/router-interfaces";
 import {
   buildBlockLines,
   buildCustomerEgressFilterLines,
@@ -577,6 +578,11 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
         );
 
         // Diagnostics and agents
+        lines.push(
+          ...buildInterfaceAgentLines(
+            `https://${host}/api/public/router/interfaces/${params.token}`,
+          ),
+        );
         lines.push(
           ...buildDeviceAgentLines(`https://${host}/api/public/router/devices/${params.token}`),
         );

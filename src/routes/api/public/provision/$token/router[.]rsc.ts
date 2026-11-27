@@ -9,6 +9,7 @@ import {
 } from "@/lib/hotspot-login.server";
 import { authenticateBootstrap, isMissingSchema, issueDeviceToken } from "@/lib/router-auth.server";
 import { buildChainAgentLines } from "@/lib/router-chain";
+import { buildInterfaceAgentLines } from "@/lib/router-interfaces";
 import { tooManyRequests } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/public/provision/$token/router.rsc")({
@@ -222,16 +223,8 @@ add name=netgrid-wan source={
   :set ngDns 0; :do { :resolve google.com; :set ngDns 1 } on-error={}
 }
 
-# Interface stats push (name|running|disabled|rx|tx|rx-err|tx-err|rx-drop|tx-drop)
-remove [find name=netgrid-ifaces]
-add name=netgrid-ifaces source={
-  :local d "";
-  :foreach i in=[/interface find] do={
-    :local x [/interface get $i];
-    :set d ($d . ($x->"name") . "|" . ($x->"running") . "|" . ($x->"disabled") . "|" . ($x->"rx-byte") . "|" . ($x->"tx-byte") . "|" . ($x->"rx-error") . "|" . ($x->"tx-error") . "|" . ($x->"rx-drop") . "|" . ($x->"tx-drop") . ";")
-  }
-  :do { /tool fetch url="${p.interfacesUrl}" http-method=post http-data=$d mode=https keep-result=no } on-error={ :log warning "NetGrid: interface push failed" }
-}
+${buildInterfaceAgentLines(p.interfacesUrl).join("\n")}
+/system script
 
 # PPPoE secrets + voucher users sync from the platform
 remove [find name=netgrid-sync]
@@ -290,7 +283,7 @@ add name=netgrid-heartbeat source={
 /system scheduler
 remove [find name~"netgrid-"]
 add name=netgrid-wan interval=1m on-event="/system script run netgrid-wan"
-add name=netgrid-ifaces interval=5m on-event="/system script run netgrid-ifaces"
+add name=netgrid-ifaces interval=1m on-event="/system script run netgrid-ifaces"
 add name=netgrid-sync interval=5m on-event="/system script run netgrid-sync"
 add name=netgrid-voucher-sync interval=10s on-event="/system script run netgrid-voucher-sync"
 add name=netgrid-heartbeat interval=1m on-event="/system script run netgrid-heartbeat"
