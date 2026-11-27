@@ -3406,6 +3406,10 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      expire_customer_access: {
+        Args: { p_now?: string };
+        Returns: Json;
+      };
       admin_approve_user: {
         Args: {
           p_new_tenant_name?: string;

@@ -6,7 +6,7 @@ import { appHost } from "@/lib/app-host.server";
 import { loginPageMarker, routerosHealLoginPage } from "@/lib/hotspot-login.server";
 import { buildDeviceMonitorLines } from "@/lib/inventory-monitor";
 import { buildDoctorInstallLines } from "@/lib/router-doctor";
-import { buildPppoeSyncLines, PPPOE_BILLING_GRACE_PERIOD_MS } from "@/lib/pppoe";
+import { buildPppoeSyncLines } from "@/lib/pppoe";
 import { buildTvSyncLines } from "@/lib/tv";
 import { buildPppoeAgentLines } from "@/lib/pppoe-sessions";
 import { buildChainAgentLines } from "@/lib/router-chain";
@@ -382,7 +382,6 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
                 routerId: router.id,
                 customers: serviceRestricted ? [] : (pppoeCustomers ?? []),
                 packages: serviceRestricted ? [] : packages,
-                gracePeriodMs: PPPOE_BILLING_GRACE_PERIOD_MS,
               })),
         );
         // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).

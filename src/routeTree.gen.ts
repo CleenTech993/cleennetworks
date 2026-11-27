@@ -72,6 +72,7 @@ import { Route as TenantTeamRouteImport } from './routes/tenant.team'
 import { Route as TenantTicketsRouteImport } from './routes/tenant.tickets'
 import { Route as TenantToolsRouteImport } from './routes/tenant.tools'
 import { Route as TenantWorkOrdersRouteImport } from './routes/tenant.work-orders'
+import { Route as ApiCronCustomerExpiryRouteImport } from './routes/api/cron/customer-expiry'
 import { Route as ApiCronMoodBoostRouteImport } from './routes/api/cron/mood-boost'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as ApiPublicDomainRouteImport } from './routes/api/public/domain'
@@ -428,6 +429,11 @@ const TenantWorkOrdersRoute = TenantWorkOrdersRouteImport.update({
   path: '/work-orders',
   getParentRoute: () => TenantRoute,
 } as any)
+const ApiCronCustomerExpiryRoute = ApiCronCustomerExpiryRouteImport.update({
+  id: '/api/cron/customer-expiry',
+  path: '/api/cron/customer-expiry',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronMoodBoostRoute = ApiCronMoodBoostRouteImport.update({
   id: '/api/cron/mood-boost',
   path: '/api/cron/mood-boost',
@@ -717,6 +723,7 @@ export interface FileRoutesByFullPath {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/cron/customer-expiry': typeof ApiCronCustomerExpiryRoute
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
@@ -818,6 +825,7 @@ export interface FileRoutesByTo {
   '/portal': typeof PortalIndexRoute
   '/super-admin': typeof SuperAdminIndexRoute
   '/tenant': typeof TenantIndexRoute
+  '/api/cron/customer-expiry': typeof ApiCronCustomerExpiryRoute
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
@@ -923,6 +931,7 @@ export interface FileRoutesById {
   '/portal/': typeof PortalIndexRoute
   '/super-admin/': typeof SuperAdminIndexRoute
   '/tenant/': typeof TenantIndexRoute
+  '/api/cron/customer-expiry': typeof ApiCronCustomerExpiryRoute
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
@@ -1029,6 +1038,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/cron/customer-expiry'
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
@@ -1130,6 +1140,7 @@ export interface FileRouteTypes {
     | '/portal'
     | '/super-admin'
     | '/tenant'
+    | '/api/cron/customer-expiry'
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
@@ -1234,6 +1245,7 @@ export interface FileRouteTypes {
     | '/portal/'
     | '/super-admin/'
     | '/tenant/'
+    | '/api/cron/customer-expiry'
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
@@ -1293,6 +1305,7 @@ export interface RootRouteChildren {
   PppoeSlugRoute: typeof PppoeSlugRoute
   StatusSlugRoute: typeof StatusSlugRoute
   SupportSessionSessionIdRoute: typeof SupportSessionSessionIdRoute
+  ApiCronCustomerExpiryRoute: typeof ApiCronCustomerExpiryRoute
   ApiCronMoodBoostRoute: typeof ApiCronMoodBoostRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
   ApiPublicDomainRoute: typeof ApiPublicDomainRoute
@@ -1768,6 +1781,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TenantWorkOrdersRouteImport
       parentRoute: typeof TenantRoute
     }
+    '/api/cron/customer-expiry': {
+      id: '/api/cron/customer-expiry'
+      path: '/api/cron/customer-expiry'
+      fullPath: '/api/cron/customer-expiry'
+      preLoaderRoute: typeof ApiCronCustomerExpiryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/mood-boost': {
       id: '/api/cron/mood-boost'
       path: '/api/cron/mood-boost'
@@ -2219,6 +2239,7 @@ const rootRouteChildren: RootRouteChildren = {
   PppoeSlugRoute: PppoeSlugRoute,
   StatusSlugRoute: StatusSlugRoute,
   SupportSessionSessionIdRoute: SupportSessionSessionIdRoute,
+  ApiCronCustomerExpiryRoute: ApiCronCustomerExpiryRoute,
   ApiCronMoodBoostRoute: ApiCronMoodBoostRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
   ApiPublicDomainRoute: ApiPublicDomainRoute,

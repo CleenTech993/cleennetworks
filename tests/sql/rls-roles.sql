@@ -196,6 +196,43 @@ SELECT t.denied('billing cannot create active PPPoE account', $$INSERT INTO publ
 SELECT t.denied ('billing cannot delete routers', $$DELETE FROM public.routers$$);
 SELECT t.denied ('billing cannot edit tenant',    $$UPDATE public.tenants SET name='x' WHERE id='aaaaaaaa-0000-0000-0000-000000000001'$$);
 
+-- ---- package and customer expiry ----------------------------------------------------------------
+RESET ROLE;
+UPDATE public.customers
+SET status='active', expires_at=now() - interval '1 minute'
+WHERE id='cccccccc-0000-0000-0000-000000000001';
+INSERT INTO public.vouchers (tenant_id, code, status, expires_at)
+VALUES ('aaaaaaaa-0000-0000-0000-000000000001','EXPIRED-VOUCHER','active',now() - interval '1 minute')
+ON CONFLICT (tenant_id, code) DO UPDATE SET status='active', expires_at=now() - interval '1 minute';
+INSERT INTO public.tv_devices (tenant_id, mac_address, status, expires_at)
+VALUES ('aaaaaaaa-0000-0000-0000-000000000001','AA:BB:CC:DD:EE:FF','active',now() - interval '1 minute')
+ON CONFLICT DO NOTHING;
+SET ROLE service_role;
+DO $$
+DECLARE v_result jsonb;
+BEGIN
+  v_result := public.expire_customer_access(now());
+  IF NOT EXISTS (
+    SELECT 1 FROM public.customers
+    WHERE id='cccccccc-0000-0000-0000-000000000001' AND status='suspended'
+  ) THEN
+    RAISE EXCEPTION 'expired PPPoE customer was not suspended';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vouchers
+    WHERE code='EXPIRED-VOUCHER' AND status='expired'
+  ) THEN
+    RAISE EXCEPTION 'expired voucher was not marked expired';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.tv_devices
+    WHERE mac_address='AA:BB:CC:DD:EE:FF' AND status='expired'
+  ) THEN
+    RAISE EXCEPTION 'expired TV device was not marked expired';
+  END IF;
+END $$;
+RESET ROLE;
+
 -- ---- MFA: the same admin on a password-only (aal1) session sees and changes nothing ---------
 SELECT t.as_user(:admin1, 'aal1');
 SELECT t.denied('aal1 admin cannot read customers',  $$SELECT 1 FROM public.customers$$);
