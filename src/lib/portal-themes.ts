@@ -179,6 +179,18 @@ export const PORTAL_THEMES: Record<PortalThemeId, PortalThemeDef> = {
   },
 };
 
+export const SEASONAL_PORTAL_IMAGES = {
+  festive: "https://images.unsplash.com/photo-1543257580-7269da773bf5?fit=crop&w=1600&q=80&fm=jpg",
+  "new-year":
+    "https://images.unsplash.com/photo-1531306728370-e2ebd9d7bb99?fit=crop&w=1600&q=80&fm=jpg",
+  tropical:
+    "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?fit=crop&w=1600&q=80&fm=jpg",
+  ramadan:
+    "https://images.unsplash.com/photo-1519817650390-64a93db51149?fit=crop&w=1600&q=80&fm=jpg",
+  safari:
+    "https://images.unsplash.com/photo-1516426122078-c23e76319801?fit=crop&w=1600&q=80&fm=jpg",
+} as const;
+
 export const PORTAL_THEME_LIST: PortalThemeDef[] = PORTAL_THEME_IDS.map((id) => PORTAL_THEMES[id]);
 
 /** Unknown / missing / tampered values fall back to the default theme. */
@@ -313,6 +325,8 @@ export function safeImageUrl(url: string | null | undefined): string | null {
     /^\/api\/public\/portal-image\?path=[0-9a-f-]{36}%2F[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/i.test(u)
   )
     return u;
+  if (/^\/api\/public\/portal-image\?preset=(?:festive|new-year|tropical|ramadan|safari)$/i.test(u))
+    return u;
   if (/^https?:\/\/[^\s"'<>()]+$/i.test(u)) return u;
   if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(u)) return u;
   return null;
@@ -323,10 +337,20 @@ export function portalImageUrl(
   supabaseUrl: string | undefined,
 ): string | null {
   const safeUrl = safeImageUrl(url);
-  if (!safeUrl || safeUrl.startsWith("data:") || !supabaseUrl) return safeUrl;
+  if (!safeUrl || safeUrl.startsWith("data:") || safeUrl.startsWith("/")) return safeUrl;
 
   try {
     const image = new URL(safeUrl);
+    const seasonalImage =
+      image.origin === "https://images.unsplash.com"
+        ? Object.entries(SEASONAL_PORTAL_IMAGES).find(
+            ([, imageUrl]) => new URL(imageUrl).pathname === image.pathname,
+          )
+        : undefined;
+    if (seasonalImage)
+      return `/api/public/portal-image?preset=${encodeURIComponent(seasonalImage[0])}`;
+    if (!supabaseUrl) return safeUrl;
+
     const storageOrigin = new URL(supabaseUrl).origin;
     const storagePrefix = "/storage/v1/object/public/portal-assets/";
     if (image.origin !== storageOrigin || !image.pathname.startsWith(storagePrefix)) return safeUrl;

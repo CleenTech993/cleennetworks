@@ -2,7 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Palette, Upload, Image as ImageIcon, Check, RefreshCw, Wand2 } from "lucide-react";
+import {
+  Sparkles,
+  Palette,
+  Upload,
+  Image as ImageIcon,
+  Check,
+  RefreshCw,
+  Wand2,
+} from "lucide-react";
 import { PageHeader } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +28,7 @@ import {
   normalizeHex,
   resolveThemeId,
   PORTAL_THEMES,
+  SEASONAL_PORTAL_IMAGES,
   type PortalThemeId,
 } from "@/lib/portal-themes";
 
@@ -27,7 +36,11 @@ export const Route = createFileRoute("/tenant/portal")({
   head: () => ({
     meta: [
       { title: "Captive Portal Branding & Themes — Tenant Console" },
-      { name: "description", content: "Customize your captive portal design, upload logos, set holiday and festive season themes." },
+      {
+        name: "description",
+        content:
+          "Customize your captive portal design, upload logos, set holiday and festive season themes.",
+      },
     ],
   }),
   component: PortalSettings,
@@ -48,35 +61,35 @@ const FESTIVE_WALLPAPERS = [
     name: "Festive Christmas",
     theme: "festive" as PortalThemeId,
     color: "#e11d48",
-    url: "https://images.unsplash.com/photo-1543257580-7269da773bf5?auto=format&fit=crop&w=1600&q=80",
+    url: SEASONAL_PORTAL_IMAGES.festive,
     welcome: "🎄 Happy Holidays! Enjoy complimentary high-speed Wi-Fi.",
   },
   {
     name: "New Year Fireworks",
     theme: "celebration" as PortalThemeId,
     color: "#f59e0b",
-    url: "https://images.unsplash.com/photo-1531306728370-e2ebd9d7bb99?auto=format&fit=crop&w=1600&q=80",
+    url: SEASONAL_PORTAL_IMAGES["new-year"],
     welcome: "🎆 Welcome to 2027! High-speed internet for all your celebrations.",
   },
   {
     name: "Tropical Palm Resort",
     theme: "tropical" as PortalThemeId,
     color: "#0891b2",
-    url: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1600&q=80",
+    url: SEASONAL_PORTAL_IMAGES.tropical,
     welcome: "🌊 Welcome to the Resort Wi-Fi. Relax and connect.",
   },
   {
     name: "Ramadan Starlight",
     theme: "ramadan" as PortalThemeId,
     color: "#047857",
-    url: "https://images.unsplash.com/photo-1519817650390-64a93db51149?auto=format&fit=crop&w=1600&q=80",
+    url: SEASONAL_PORTAL_IMAGES.ramadan,
     welcome: "🌙 Ramadan Mubarak. Stay connected with family & friends.",
   },
   {
     name: "Savannah Acacia",
     theme: "safari" as PortalThemeId,
     color: "#c2410c",
-    url: "https://images.unsplash.com/photo-1516426122078-c23e76319801?auto=format&fit=crop&w=1600&q=80",
+    url: SEASONAL_PORTAL_IMAGES.safari,
     welcome: "🦁 Welcome to Safari Lodge Wi-Fi. Fast & reliable in the wild.",
   },
 ];
@@ -85,7 +98,7 @@ function PortalSettings() {
   const { tenantId } = useAuth();
   const qc = useQueryClient();
 
-  const { data } = useQuery({
+  const { data, isLoading: portalLoading } = useQuery({
     queryKey: ["captive-portal", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
@@ -140,13 +153,14 @@ function PortalSettings() {
   }, [data]);
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (nextForm?: typeof form) => {
       if (!tenantId) throw new Error("No tenant");
-      const redirectInput = form.post_login_url.trim();
+      const values = nextForm ?? form;
+      const redirectInput = values.post_login_url.trim();
       const postLoginUrl = redirectInput ? parseHotspotDestinationUrl(redirectInput) : null;
       if (redirectInput && !postLoginUrl)
         throw new Error("Enter a valid http or https destination URL.");
-      const payload = { tenant_id: tenantId, ...form, post_login_url: postLoginUrl };
+      const payload = { tenant_id: tenantId, ...values, post_login_url: postLoginUrl };
       if (data?.id) {
         const { error } = await supabase.from("captive_portals").update(payload).eq("id", data.id);
         if (error) throw error;
@@ -164,15 +178,16 @@ function PortalSettings() {
 
   const brand = normalizeHex(form.primary_color);
 
-  function applyFestivePreset(preset: typeof FESTIVE_WALLPAPERS[0]) {
-    setForm({
+  function applyFestivePreset(preset: (typeof FESTIVE_WALLPAPERS)[0]) {
+    const nextForm = {
       ...form,
       theme: preset.theme,
       primary_color: preset.color,
       background_url: preset.url,
       welcome_text: preset.welcome,
-    });
-    toast.success(`Applied "${preset.name}" festive design`);
+    };
+    setForm(nextForm);
+    save.mutate(nextForm);
   }
 
   return (
@@ -191,7 +206,8 @@ function PortalSettings() {
               <h2 className="font-semibold text-base">Holiday & Seasonal 1-Click Packs</h2>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Instantly transform your captive portal for holidays, festive seasons, and events with matching themes and greeting.
+              Instantly transform your captive portal for holidays, festive seasons, and events with
+              matching themes and greeting. Selecting a pack saves it immediately.
             </p>
 
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -199,6 +215,7 @@ function PortalSettings() {
                 <button
                   key={preset.name}
                   type="button"
+                  disabled={portalLoading || save.isPending}
                   onClick={() => applyFestivePreset(preset)}
                   className="flex items-center gap-3 rounded-lg border p-2.5 text-left hover:bg-muted/50 hover:border-primary/40 transition-all group"
                 >
@@ -222,7 +239,8 @@ function PortalSettings() {
           <section className="rounded-xl border bg-card p-6 shadow-xs">
             <h2 className="font-semibold text-base">Portal Design & Theme</h2>
             <p className="mb-4 mt-1 text-xs text-muted-foreground">
-              Select a design style. Each theme formats the header, buttons, and voucher cards to match your venue.
+              Select a design style. Each theme formats the header, buttons, and voucher cards to
+              match your venue.
             </p>
             <ThemePicker
               value={form.theme}
@@ -236,7 +254,8 @@ function PortalSettings() {
             <div>
               <h2 className="font-semibold text-base">ISP Branding & Image Uploads</h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Upload your company logo and background wallpaper. Images are optimized and loaded directly onto the captive portal.
+                Upload your company logo and background wallpaper. Images are optimized and loaded
+                directly onto the captive portal.
               </p>
             </div>
 
@@ -274,7 +293,9 @@ function PortalSettings() {
                     type="button"
                     onClick={() => setForm({ ...form, primary_color: p.color })}
                     className={`h-7 w-7 rounded-full border-2 flex items-center justify-center transition-all ${
-                      brand === p.color ? "border-foreground scale-110 shadow-xs" : "border-transparent hover:scale-105"
+                      brand === p.color
+                        ? "border-foreground scale-110 shadow-xs"
+                        : "border-transparent hover:scale-105"
                     }`}
                     style={{ backgroundColor: p.color }}
                     title={p.name}
@@ -338,7 +359,8 @@ function PortalSettings() {
                   className="mt-1 text-xs"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  After login, send customers here. Leave blank to return them to the page they originally opened.
+                  After login, send customers here. Leave blank to return them to the page they
+                  originally opened.
                 </p>
               </div>
 
@@ -360,7 +382,11 @@ function PortalSettings() {
               </div>
             </div>
 
-            <Button onClick={() => save.mutate()} disabled={save.isPending} className="w-full sm:w-auto">
+            <Button
+              onClick={() => save.mutate()}
+              disabled={save.isPending}
+              className="w-full sm:w-auto"
+            >
               {save.isPending ? "Saving changes…" : "Save Portal Branding"}
             </Button>
           </section>

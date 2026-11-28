@@ -83,6 +83,9 @@ describe("colour helpers", () => {
     expect(
       safeImageUrl("/api/public/portal-image?path=123e4567-e89b-12d3-a456-426614174000%2F123.jpg"),
     ).toBe("/api/public/portal-image?path=123e4567-e89b-12d3-a456-426614174000%2F123.jpg");
+    expect(safeImageUrl("/api/public/portal-image?preset=festive")).toBe(
+      "/api/public/portal-image?preset=festive",
+    );
     for (const bad of [
       "javascript:alert(1)",
       "data:image/svg+xml;base64,AAA",
@@ -111,6 +114,14 @@ describe("colour helpers", () => {
         "https://project.supabase.co",
       ),
     ).toBe("https://project.supabase.co/storage/v1/object/public/other-bucket/logo.png");
+  });
+  it("serves curated seasonal portal images from the portal origin", () => {
+    expect(
+      portalImageUrl(
+        "https://images.unsplash.com/photo-1543257580-7269da773bf5?auto=format&fit=crop&w=1600&q=80",
+        undefined,
+      ),
+    ).toBe("/api/public/portal-image?preset=festive");
   });
 });
 
