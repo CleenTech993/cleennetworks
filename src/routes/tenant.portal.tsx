@@ -28,6 +28,7 @@ import {
   normalizeHex,
   resolveThemeId,
   PORTAL_THEMES,
+  SEASONAL_PORTAL_IMAGES,
   type PortalThemeId,
 } from "@/lib/portal-themes";
 
@@ -91,6 +92,44 @@ const PORTAL_STYLE_PRESETS = [
     theme: "venue" as PortalThemeId,
     color: "#0284c7",
     welcome: "Welcome, guest. Select your Wi-Fi plan to connect.",
+  },
+];
+
+const SEASONAL_STYLE_PRESETS = [
+  {
+    name: "Festive Christmas",
+    theme: "festive" as PortalThemeId,
+    color: "#e11d48",
+    backgroundUrl: SEASONAL_PORTAL_IMAGES.festive,
+    welcome: "🎄 Happy Holidays! Enjoy complimentary high-speed Wi-Fi.",
+  },
+  {
+    name: "New Year Fireworks",
+    theme: "celebration" as PortalThemeId,
+    color: "#f59e0b",
+    backgroundUrl: SEASONAL_PORTAL_IMAGES["new-year"],
+    welcome: "🎆 Welcome to 2027! High-speed internet for all your celebrations.",
+  },
+  {
+    name: "Tropical Palm Resort",
+    theme: "tropical" as PortalThemeId,
+    color: "#0891b2",
+    backgroundUrl: SEASONAL_PORTAL_IMAGES.tropical,
+    welcome: "🌊 Welcome to the Resort Wi-Fi. Relax and connect.",
+  },
+  {
+    name: "Ramadan Starlight",
+    theme: "ramadan" as PortalThemeId,
+    color: "#047857",
+    backgroundUrl: SEASONAL_PORTAL_IMAGES.ramadan,
+    welcome: "🌙 Ramadan Mubarak. Stay connected with family & friends.",
+  },
+  {
+    name: "Savannah Acacia",
+    theme: "safari" as PortalThemeId,
+    color: "#c2410c",
+    backgroundUrl: SEASONAL_PORTAL_IMAGES.safari,
+    welcome: "🦁 Welcome to Safari Lodge Wi-Fi. Fast & reliable in the wild.",
   },
 ];
 
@@ -190,6 +229,18 @@ function PortalSettings() {
     save.mutate(nextForm);
   }
 
+  function applySeasonalStyle(preset: (typeof SEASONAL_STYLE_PRESETS)[0]) {
+    const nextForm = {
+      ...form,
+      theme: preset.theme,
+      primary_color: preset.color,
+      background_url: preset.backgroundUrl,
+      welcome_text: preset.welcome,
+    };
+    setForm(nextForm);
+    save.mutate(nextForm);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -222,6 +273,40 @@ function PortalSettings() {
                   <div
                     className="h-10 w-10 rounded-md shrink-0 border shadow-xs"
                     style={{ backgroundColor: preset.color }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-xs text-foreground group-hover:text-primary transition-colors">
+                      {preset.name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">{preset.theme}</p>
+                  </div>
+                  <Wand2 className="h-3.5 w-3.5 text-muted-foreground/60 group-hover:text-primary transition-colors" />
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-card p-6 shadow-xs">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              <h2 className="font-semibold text-base">Holiday & Seasonal 1-Click Packs</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              The original holiday and event packs are still available alongside the year-round
+              styles. Selecting one saves it immediately.
+            </p>
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+              {SEASONAL_STYLE_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  type="button"
+                  disabled={portalLoading || save.isPending}
+                  onClick={() => applySeasonalStyle(preset)}
+                  className="flex items-center gap-3 rounded-lg border p-2.5 text-left hover:bg-muted/50 hover:border-primary/40 transition-all group"
+                >
+                  <div
+                    className="h-10 w-10 rounded-md shrink-0 bg-cover bg-center border shadow-xs"
+                    style={{ backgroundImage: `url(${preset.backgroundUrl})` }}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-xs text-foreground group-hover:text-primary transition-colors">
