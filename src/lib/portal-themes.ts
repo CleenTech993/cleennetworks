@@ -314,6 +314,27 @@ export function safeImageUrl(url: string | null | undefined): string | null {
   return null;
 }
 
+export function portalImageUrl(
+  url: string | null | undefined,
+  supabaseUrl: string | undefined,
+): string | null {
+  const safeUrl = safeImageUrl(url);
+  if (!safeUrl || safeUrl.startsWith("data:") || !supabaseUrl) return safeUrl;
+
+  try {
+    const image = new URL(safeUrl);
+    const storageOrigin = new URL(supabaseUrl).origin;
+    const storagePrefix = "/storage/v1/object/public/portal-assets/";
+    if (image.origin !== storageOrigin || !image.pathname.startsWith(storagePrefix)) return safeUrl;
+
+    const path = decodeURIComponent(image.pathname.slice(storagePrefix.length));
+    if (!/^[0-9a-f-]{36}\/[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/i.test(path)) return safeUrl;
+    return `/api/public/portal-image?path=${encodeURIComponent(path)}`;
+  } catch {
+    return safeUrl;
+  }
+}
+
 /** 0 (unknown) to 4 bars for a plan's download speed. */
 export function speedBars(kbps: number | null | undefined): 0 | 1 | 2 | 3 | 4 {
   if (!kbps || kbps <= 0) return 0;

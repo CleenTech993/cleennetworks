@@ -27,7 +27,6 @@ export function PortalThemeFrame({
           backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.65)), url("${safeBg}")`,
           backgroundSize: "cover",
           backgroundPosition: "center",
-          backgroundAttachment: "fixed",
         }
       : {};
 

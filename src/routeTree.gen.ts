@@ -76,6 +76,7 @@ import { Route as ApiCronCustomerExpiryRouteImport } from './routes/api/cron/cus
 import { Route as ApiCronMoodBoostRouteImport } from './routes/api/cron/mood-boost'
 import { Route as ApiCronPlatformBillingRouteImport } from './routes/api/cron/platform-billing'
 import { Route as ApiPublicDomainRouteImport } from './routes/api/public/domain'
+import { Route as ApiPublicPortalImageRouteImport } from './routes/api/public/portal-image'
 import { Route as ApiTenantApiKeysRouteImport } from './routes/api/tenant/api-keys'
 import { Route as ApiTenantNetworkDoctorRouteImport } from './routes/api/tenant/network-doctor'
 import { Route as TenantRoutersIdRouteImport } from './routes/tenant.routers.$id'
@@ -449,6 +450,11 @@ const ApiPublicDomainRoute = ApiPublicDomainRouteImport.update({
   path: '/api/public/domain',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPortalImageRoute = ApiPublicPortalImageRouteImport.update({
+  id: '/api/public/portal-image',
+  path: '/api/public/portal-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTenantApiKeysRoute = ApiTenantApiKeysRouteImport.update({
   id: '/api/tenant/api-keys',
   path: '/api/tenant/api-keys',
@@ -727,6 +733,7 @@ export interface FileRoutesByFullPath {
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
+  '/api/public/portal-image': typeof ApiPublicPortalImageRoute
   '/api/tenant/api-keys': typeof ApiTenantApiKeysRoute
   '/api/tenant/network-doctor': typeof ApiTenantNetworkDoctorRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
@@ -829,6 +836,7 @@ export interface FileRoutesByTo {
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
+  '/api/public/portal-image': typeof ApiPublicPortalImageRoute
   '/api/tenant/api-keys': typeof ApiTenantApiKeysRoute
   '/api/tenant/network-doctor': typeof ApiTenantNetworkDoctorRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
@@ -935,6 +943,7 @@ export interface FileRoutesById {
   '/api/cron/mood-boost': typeof ApiCronMoodBoostRoute
   '/api/cron/platform-billing': typeof ApiCronPlatformBillingRoute
   '/api/public/domain': typeof ApiPublicDomainRoute
+  '/api/public/portal-image': typeof ApiPublicPortalImageRoute
   '/api/tenant/api-keys': typeof ApiTenantApiKeysRoute
   '/api/tenant/network-doctor': typeof ApiTenantNetworkDoctorRoute
   '/tenant/routers/$id': typeof TenantRoutersIdRoute
@@ -1042,6 +1051,7 @@ export interface FileRouteTypes {
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
+    | '/api/public/portal-image'
     | '/api/tenant/api-keys'
     | '/api/tenant/network-doctor'
     | '/tenant/routers/$id'
@@ -1144,6 +1154,7 @@ export interface FileRouteTypes {
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
+    | '/api/public/portal-image'
     | '/api/tenant/api-keys'
     | '/api/tenant/network-doctor'
     | '/tenant/routers/$id'
@@ -1249,6 +1260,7 @@ export interface FileRouteTypes {
     | '/api/cron/mood-boost'
     | '/api/cron/platform-billing'
     | '/api/public/domain'
+    | '/api/public/portal-image'
     | '/api/tenant/api-keys'
     | '/api/tenant/network-doctor'
     | '/tenant/routers/$id'
@@ -1309,6 +1321,7 @@ export interface RootRouteChildren {
   ApiCronMoodBoostRoute: typeof ApiCronMoodBoostRoute
   ApiCronPlatformBillingRoute: typeof ApiCronPlatformBillingRoute
   ApiPublicDomainRoute: typeof ApiPublicDomainRoute
+  ApiPublicPortalImageRoute: typeof ApiPublicPortalImageRoute
   ApiTenantApiKeysRoute: typeof ApiTenantApiKeysRoute
   ApiTenantNetworkDoctorRoute: typeof ApiTenantNetworkDoctorRoute
   ApiPublicCustomerMessagesRoute: typeof ApiPublicCustomerMessagesRoute
@@ -1809,6 +1822,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicDomainRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/portal-image': {
+      id: '/api/public/portal-image'
+      path: '/api/public/portal-image'
+      fullPath: '/api/public/portal-image'
+      preLoaderRoute: typeof ApiPublicPortalImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/tenant/api-keys': {
       id: '/api/tenant/api-keys'
       path: '/api/tenant/api-keys'
@@ -2243,6 +2263,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronMoodBoostRoute: ApiCronMoodBoostRoute,
   ApiCronPlatformBillingRoute: ApiCronPlatformBillingRoute,
   ApiPublicDomainRoute: ApiPublicDomainRoute,
+  ApiPublicPortalImageRoute: ApiPublicPortalImageRoute,
   ApiTenantApiKeysRoute: ApiTenantApiKeysRoute,
   ApiTenantNetworkDoctorRoute: ApiTenantNetworkDoctorRoute,
   ApiPublicCustomerMessagesRoute: ApiPublicCustomerMessagesRoute,

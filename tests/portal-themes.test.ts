@@ -8,6 +8,7 @@ import {
   mix,
   normalizeHex,
   portalAccent,
+  portalImageUrl,
   readableOn,
   resolveThemeId,
   safeImageUrl,
@@ -89,6 +90,23 @@ describe("colour helpers", () => {
     ]) {
       expect(safeImageUrl(bad as string)).toBeNull();
     }
+  });
+  it("serves Supabase portal assets from the portal origin", () => {
+    expect(
+      portalImageUrl(
+        "https://project.supabase.co/storage/v1/object/public/portal-assets/123e4567-e89b-12d3-a456-426614174000/123.jpg",
+        "https://project.supabase.co",
+      ),
+    ).toBe("/api/public/portal-image?path=123e4567-e89b-12d3-a456-426614174000%2F123.jpg");
+    expect(portalImageUrl("https://cdn.example.com/logo.png", "https://project.supabase.co")).toBe(
+      "https://cdn.example.com/logo.png",
+    );
+    expect(
+      portalImageUrl(
+        "https://project.supabase.co/storage/v1/object/public/other-bucket/logo.png",
+        "https://project.supabase.co",
+      ),
+    ).toBe("https://project.supabase.co/storage/v1/object/public/other-bucket/logo.png");
   });
 });
 

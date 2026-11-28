@@ -51,6 +51,7 @@ import { PortalThemeFrame } from "@/components/portal/theme-frame";
 import {
   PORTAL_THEMES,
   portalAccent,
+  portalImageUrl,
   resolveThemeId,
   type PortalThemeDef,
 } from "@/lib/portal-themes";
@@ -300,6 +301,14 @@ function PortalPage() {
   const theme = PORTAL_THEMES[themeId];
   // Brand colour adjusted for this theme (e.g. lightened on a dark theme) so it stays legible.
   const primary = portalAccent(themeId, brand);
+  const logoUrl = portalImageUrl(
+    data?.portal?.logo_url ?? data?.tenant?.logo_url,
+    import.meta.env.VITE_SUPABASE_URL,
+  );
+  const backgroundUrl = portalImageUrl(
+    data?.portal?.background_url,
+    import.meta.env.VITE_SUPABASE_URL,
+  );
 
   if (routerId === undefined || isPending) {
     return (
@@ -342,14 +351,14 @@ function PortalPage() {
     <PortalThemeFrame
       themeId={themeId}
       brand={brand}
-      backgroundUrl={data.portal?.background_url}
+      backgroundUrl={backgroundUrl}
       className="min-h-screen"
     >
       <PortalHeader
         theme={theme}
         name={data.tenant.name}
-        logoUrl={data.portal?.logo_url ?? data.tenant.logo_url}
-        backgroundUrl={data.portal?.background_url}
+        logoUrl={logoUrl}
+        backgroundUrl={backgroundUrl}
         welcomeText={
           data.portal?.welcome_text ??
           "Connect to Wi-Fi — buy with M-Pesa, reconnect with your transaction code, or use an existing voucher."
