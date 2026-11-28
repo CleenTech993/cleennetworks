@@ -308,8 +308,8 @@ __KNOWN_NODES__
         :if (($p < ${MAX_CHAIN_PINGS_PER_REPORT}) && ($ip != "")) do={
           :set p ($p + 1)
           :do {
-            :local pr [/ping $ip count=1 interval=300ms as-value]
-            :if ([:len $pr] = 0) do={ :set reach 0 }
+            :local pr [/ping $ip count=1 interval=300ms]
+            :if ($pr = 0) do={ :set reach 0 }
           } on-error={}
         }
         :local cc ""
@@ -371,8 +371,8 @@ export function buildChainAgentLines(
     :if (($kReach = 0) && ($kIp != "") && ($p < ${MAX_CHAIN_PINGS_PER_REPORT})) do={
       :set p ($p + 1)
       :do {
-        :local kPing [/ping $kIp count=1 interval=300ms as-value]
-        :if ([:len $kPing] > 0) do={ :set kReach 1 }
+        :local kPing [/ping $kIp count=1 interval=300ms]
+        :if ($kPing > 0) do={ :set kReach 1 }
       } on-error={}
     }
     :local kClients ""

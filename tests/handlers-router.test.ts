@@ -492,7 +492,17 @@ describe("router.rsc provisioning", () => {
     const script = await (await rsc(BOOT1)).text();
 
     expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
-    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
+    expect(script).toContain(
+      "https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/",
+    );
+  });
+
+  it("uses RouterOS 6-compatible ping syntax throughout provisioning", async () => {
+    const script = await (await rsc(BOOT1)).text();
+
+    expect(script).not.toContain("as-value");
+    expect(script).toContain(":local res [/ping 8.8.8.8 count=1];");
+    expect(script).toContain(":local pr [/ping $ip count=1 interval=300ms]");
   });
 
   it("uses the canonical host even when a tenant has a verified hotspot domain", async () => {
@@ -510,7 +520,9 @@ describe("router.rsc provisioning", () => {
 
     expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/p/acme");
     expect(script).not.toContain("https://hotspot.ziwatti.ac.ke/p/acme");
-    expect(script).toContain("https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/");
+    expect(script).toContain(
+      "https://cleennetworks.ochiengclinton993.workers.dev/api/public/router/heartbeat/",
+    );
   });
 
   it("refuses to return a MikroTik script for another vendor", async () => {

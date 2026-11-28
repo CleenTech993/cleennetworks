@@ -206,18 +206,10 @@ function buildRsc(p: {
 remove [find name=netgrid-wan]
 add name=netgrid-wan source={
   :global ngLat; :global ngLoss; :global ngJit; :global ngDns;
+  :set ngLat ""; :set ngLoss 100; :set ngJit "";
   :do {
-    :local res [/ping 8.8.8.8 count=1 as-value];
-    :if ([:len $res] > 0) do={
-      :local s [:tostr ($res->0->"time")];
-      :set ngLat [:tonum [:pick $s 0 [:find $s "ms"]]];
-      :set ngLoss 0;
-      :set ngJit 0;
-    } else={
-      :set ngLat 0;
-      :set ngLoss 100;
-      :set ngJit 0;
-    }
+    :local res [/ping 8.8.8.8 count=1];
+    :if ($res > 0) do={ :set ngLoss 0 };
   } on-error={}
   :set ngDns 0; :do { :resolve google.com; :set ngDns 1 } on-error={}
 }

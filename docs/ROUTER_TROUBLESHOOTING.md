@@ -3,12 +3,16 @@
 Run these in a MikroTik terminal (WinBox → New Terminal, or SSH). Nothing here changes the router
 unless it says so.
 
-## 0. Run provisioning (RouterOS 6.49)
+## 0. Run provisioning (RouterOS 6.49.x or 7.x)
 
 Paste the setup command from the dashboard into the router terminal, not into a browser address bar.
 Opening the `.rsc` URL in a browser only downloads the file; it does not configure the router. The
 terminal command downloads `auto-config.rsc` and then imports that file. Wait for
 `NetGrid: auto-config complete` in the terminal or router log.
+
+RouterOS 6 does not support the ping `as-value` option used by newer versions. NetGrid's scripts use
+the cross-version ping reply count; WAN latency/jitter and per-device latency are therefore not
+reported by these scripts.
 
 If the file downloaded but setup did not start, run this in the router terminal:
 

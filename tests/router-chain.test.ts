@@ -403,5 +403,7 @@ describe("chain discovery, auto-MAC registration, offline updates, and client co
     expect(text).toContain(':local kMac "AA:BB:CC:00:00:04"');
     expect(text).toContain("192.168.10.4");
     expect(text).toContain("|Tenda Yard AP|generic|");
+    expect(text).not.toContain("as-value");
+    expect(text).toContain(":local pr [/ping $ip count=1 interval=300ms]");
   });
 });

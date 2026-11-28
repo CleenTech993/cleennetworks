@@ -110,9 +110,11 @@ describe("latency in reports", () => {
     expect(planReading(true, true, now, 9).patch.latency_ms).toBe(9);
     expect(planReading(true, false, now, 9).patch.latency_ms).toBeNull();
   });
-  it("the reporter script measures latency for devices that are up", () => {
+  it("the reporter uses Netwatch status without unsupported ping options", () => {
     const text = buildDeviceMonitorLines([{ id: A, ip_address: "10.0.0.5" }], URL).join("\n");
-    expect(text).toContain("/ping $h count=1 as-value");
+    expect(text).toContain(":local s [/tool netwatch get $n status]");
+    expect(text).not.toContain("/ping");
+    expect(text).not.toContain("as-value");
   });
 });
 
