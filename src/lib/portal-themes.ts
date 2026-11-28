@@ -309,6 +309,10 @@ export function ensureContrast(color: string, against: string, min: number): str
 /** Only http(s) image URLs are ever rendered. */
 export function safeImageUrl(url: string | null | undefined): string | null {
   const u = (url ?? "").trim();
+  if (
+    /^\/api\/public\/portal-image\?path=[0-9a-f-]{36}%2F[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/i.test(u)
+  )
+    return u;
   if (/^https?:\/\/[^\s"'<>()]+$/i.test(u)) return u;
   if (/^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(u)) return u;
   return null;

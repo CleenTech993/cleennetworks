@@ -80,11 +80,15 @@ describe("colour helpers", () => {
   });
   it("only allows http(s) image urls", () => {
     expect(safeImageUrl("https://cdn.example.com/a.jpg")).toBe("https://cdn.example.com/a.jpg");
+    expect(
+      safeImageUrl("/api/public/portal-image?path=123e4567-e89b-12d3-a456-426614174000%2F123.jpg"),
+    ).toBe("/api/public/portal-image?path=123e4567-e89b-12d3-a456-426614174000%2F123.jpg");
     for (const bad of [
       "javascript:alert(1)",
       "data:image/svg+xml;base64,AAA",
       'https://x.com/a.jpg"onerror="x',
       "//x.com/a.jpg",
+      "/api/public/other-image?path=logo.png",
       "",
       null,
     ]) {
