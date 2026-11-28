@@ -60,11 +60,28 @@ open the router and generate a new setup command, then run it.
 /ip hotspot user print where name="THECODE"
 /ip hotspot active print
 /ip hotspot host print
+/ip dhcp-server lease print where mac-address=AA:BB:CC:DD:EE:FF
 /ip hotspot profile print where name=netgrid-hsprof
 /file print where name~"hotspot/login.html"
 /ip dns static print where name~"hotspot"
 ```
 
+- A phone stuck on **Obtaining IP address** has not reached the hotspot login yet. Check the DHCP
+  server, pool, lease, and that the AP's router port is active in `netgrid-lan`:
+
+```
+/ip dhcp-server print detail where name=netgrid-dhcp
+/ip pool print detail where name=netgrid-hs-pool
+/ip dhcp-server lease print detail where mac-address=AA:BB:CC:DD:EE:FF
+/interface bridge port print detail where bridge=netgrid-lan
+/ip address print where interface=netgrid-lan
+/log print where topics~"dhcp"
+```
+
+- In Hotspot → Cookies, `expires-in` is the RouterOS MAC-cookie lifetime, not the voucher's remaining
+  package time. Package expiry is enforced from the platform's voucher expiry and removes the active
+  login, managed user, and its cookie on the next voucher sync. Use `/ip hotspot active print detail`
+  to confirm whether the client is currently authenticated.
 - The voucher is missing from `hotspot user print`: it has not reached the router yet (the router learns
   about new vouchers every ~2 minutes). Run `/system script run netgrid-sync` and check again.
 - The user's `mac-address` is not the customer's phone: the voucher is pinned to another device.

@@ -185,6 +185,45 @@ describe("buildHotspotUserLines", () => {
     );
   });
 
+  it("applies package download/upload caps using RouterOS rx/tx direction", () => {
+    const out = joined([
+      {
+        code: "SPEED00001",
+        bound_mac: null,
+        limit: 1,
+        download_kbps: 5000,
+        upload_kbps: 2000,
+      },
+    ]);
+
+    expect(out).toContain('add name=netgrid-d1-s2000-5000 shared-users=1 rate-limit="2000k/5000k"');
+    expect(out).toContain("profile=netgrid-d1-s2000-5000");
+  });
+
+  it("uses the strictest speed cap for a MAC shared by multiple live vouchers", () => {
+    const out = joined([
+      {
+        code: "SPEED00001",
+        bound_mac: "AA:BB:CC:DD:EE:02",
+        limit: 1,
+        download_kbps: 5000,
+        upload_kbps: 2000,
+      },
+      {
+        code: "SPEED00002",
+        bound_mac: "AA:BB:CC:DD:EE:02",
+        limit: 1,
+        download_kbps: 1000,
+        upload_kbps: 0,
+      },
+    ]);
+
+    expect(out).toContain('add name=netgrid-d1-s2000-1000 shared-users=1 rate-limit="2000k/1000k"');
+    expect(out).toContain(
+      'add name="AA:BB:CC:DD:EE:02" password="" server=netgrid-hs profile=netgrid-d1-s2000-1000',
+    );
+  });
+
   it("adds MAC authentication only for the MAC bound to a live one-device voucher", () => {
     const out = joined([
       { code: "BOUND000001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 },
@@ -217,17 +256,39 @@ describe("buildHotspotUserLines", () => {
     expect(out).toContain('[:typeof [:find $ngCurrentVouchers $ngCode]] = "nil"');
     expect(out).toContain("remove $ngActive");
     expect(out).toContain('find where comment="netgrid-voucher"');
+    expect(out).toContain("/ip hotspot cookie remove [find where user=$ngCode]");
   });
 
   it("keeps live voucher users in place during sync so active sessions are not restarted", () => {
     const out = joined([{ code: "LIVE000001", bound_mac: "AA:BB:CC:DD:EE:02", limit: 1 }]);
-    expect(out).not.toContain('remove [find where comment="netgrid-voucher"]');
-    expect(out).toContain(':if ([:len [find where name="LIVE000001"]] > 0) do={');
     expect(out).toContain(
-      'set [find where name="LIVE000001"] server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02 comment="netgrid-voucher"',
+      ':if ([:len [find where name="LIVE000001" comment="netgrid-voucher" server=netgrid-hs]] = 0)',
     );
     expect(out).toContain(
+      'set [find where name="LIVE000001" comment="netgrid-voucher" server=netgrid-hs] password="LIVE000001" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02 comment="netgrid-voucher"',
+    );
+    expect(out).toContain(
+      ':local ngGlobalUsers [find where name="LIVE000001" comment="netgrid-voucher" server=all]',
+    );
+    expect(out).not.toContain('add name="LIVE000001" password="LIVE000001" profile=default');
+    expect(out).toContain(
       ':if ([:typeof [:find $ngCurrentVouchers $ngCode]] = "nil") do={ remove $ngActive }',
+    );
+  });
+
+  it("disconnects a managed session before changing its speed profile", () => {
+    const out = joined([
+      {
+        code: "SPEED00001",
+        bound_mac: null,
+        limit: 1,
+        download_kbps: 2000,
+        upload_kbps: 500,
+      },
+    ]);
+
+    expect(out).toContain(
+      ':if ([:len [find where name="SPEED00001" comment="netgrid-voucher" server=netgrid-hs]] > 0) do={ :if ([get [find where name="SPEED00001" comment="netgrid-voucher" server=netgrid-hs] profile] != netgrid-d1-s500-2000) do={ :do { /ip hotspot active remove [find where user="SPEED00001"] }',
     );
   });
 
@@ -235,6 +296,7 @@ describe("buildHotspotUserLines", () => {
     it("disconnects current managed hotspot sessions before removing managed users", () => {
       const lines = buildHotspotSuspendLines().join("\n");
       expect(lines).toContain("/ip hotspot active remove [find where user=$n]");
+      expect(lines).toContain("/ip hotspot cookie remove [find where user=$n]");
       expect(lines).toContain(':do { remove [find where comment="netgrid-voucher"] }');
       expect(lines.indexOf("/ip hotspot active remove")).toBeLessThan(
         lines.indexOf(':do { remove [find where comment="netgrid-voucher"] }'),
@@ -272,7 +334,9 @@ describe("buildHotspotUserLines", () => {
     const lines = buildHotspotUserLines([{ code: "ORDER00001", bound_mac: null, limit: 2 }]);
     const idx = (needle: string) => lines.findIndex((l) => l.includes(needle));
     expect(idx("add name=netgrid-d2")).toBeLessThan(idx('add name="ORDER00001"'));
-    expect(idx('add name="ORDER00001"')).toBeLessThan(idx('set [find where name="ORDER00001"]'));
+    expect(idx('add name="ORDER00001"')).toBeLessThan(
+      idx('set [find where name="ORDER00001" comment="netgrid-voucher" server=netgrid-hs]'),
+    );
   });
 
   it("emits balanced RouterOS syntax", () => {
@@ -296,7 +360,10 @@ describe("buildHotspotVoucherRefreshLines", () => {
     const script = lines.join("\n");
     expect(script).toContain('find where name="FASTCODE01"');
     expect(script).toContain(
-      'set [find where name="FASTCODE01" comment="netgrid-voucher"] server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
+      'set [find where name="FASTCODE01" comment="netgrid-voucher" server=netgrid-hs] password="FASTCODE01" server=netgrid-hs profile=netgrid-d1 mac-address=AA:BB:CC:DD:EE:02',
+    );
+    expect(script).toContain(
+      ':local ngGlobalUsers [find where name="FASTCODE01" comment="netgrid-voucher" server=all]',
     );
     expect(script).toContain("idle-timeout=none keepalive-timeout=none session-timeout=0s");
     expect(script).toContain(
@@ -314,6 +381,26 @@ describe("buildHotspotVoucherRefreshLines", () => {
     expect(script).toContain('find where comment="netgrid-mac-voucher"');
     expect(script).not.toContain('bad"code');
     expect(balanced(script)).toBe(true);
+  });
+
+  it("applies package speed caps and reconnects active vouchers when their profile changes", () => {
+    const script = buildHotspotVoucherRefreshLines([
+      {
+        code: "FASTCODE01",
+        bound_mac: null,
+        limit: 2,
+        download_kbps: 8000,
+        upload_kbps: 1500,
+      },
+    ]).join("\n");
+
+    expect(script).toContain(
+      'add name=netgrid-d2-s1500-8000 shared-users=2 rate-limit="1500k/8000k"',
+    );
+    expect(script).toContain(
+      'set [find where name="FASTCODE01" comment="netgrid-voucher" server=netgrid-hs] password="FASTCODE01" server=netgrid-hs profile=netgrid-d2-s1500-8000',
+    );
+    expect(script).toContain('/ip hotspot active remove [find where user="FASTCODE01"]');
   });
 });
 

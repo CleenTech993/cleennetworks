@@ -15,6 +15,7 @@
 
 import { isUsableMac, normalizeMac } from "./tv";
 import { parseRouterOsDuration } from "./router-health";
+import { routerOsRateLimit } from "./routeros-rate-limit";
 
 export { normalizeMac, isUsableMac };
 
@@ -138,31 +139,115 @@ export interface SyncVoucher {
   bound_mac: string | null;
   /** From the voucher's package (packages.device_limit). */
   limit: number;
+  download_kbps?: number | null;
+  upload_kbps?: number | null;
 }
 
-function buildHotspotMacAuthLines(vouchers: SyncVoucher[]): string[] {
-  const macs = [
-    ...new Set(
-      vouchers
-        .filter((voucher) => SAFE_CODE.test(voucher.code) && voucher.limit === 1)
-        .map((voucher) => voucher.bound_mac)
-        .filter((mac): mac is string => !!mac && isUsableMac(mac)),
-    ),
+interface HotspotProfile {
+  name: string;
+  limit: number;
+  rateLimit: string | null;
+  downloadKbps: number;
+  uploadKbps: number;
+}
+
+function normalizedSpeed(kbps: number | null | undefined): number {
+  return kbps != null && Number.isFinite(kbps) && kbps > 0 ? Math.round(kbps) : 0;
+}
+
+function hotspotProfile(limit: number, downloadKbps: number, uploadKbps: number): HotspotProfile {
+  const rateLimit = routerOsRateLimit(downloadKbps, uploadKbps);
+  const suffix = rateLimit ? `-s${uploadKbps}-${downloadKbps}` : "";
+  return {
+    name: `${userProfileName(limit)}${suffix}`,
+    limit,
+    rateLimit,
+    downloadKbps,
+    uploadKbps,
+  };
+}
+
+function hotspotProfileForVoucher(voucher: SyncVoucher): HotspotProfile {
+  return hotspotProfile(
+    voucher.limit,
+    normalizedSpeed(voucher.download_kbps),
+    normalizedSpeed(voucher.upload_kbps),
+  );
+}
+
+function stricterCap(a: number, b: number): number {
+  if (!a) return b;
+  if (!b) return a;
+  return Math.min(a, b);
+}
+
+function hotspotMacProfiles(vouchers: SyncVoucher[]): Map<string, HotspotProfile> {
+  const profiles = new Map<string, HotspotProfile>();
+  for (const voucher of vouchers) {
+    const mac = voucher.bound_mac;
+    if (!SAFE_CODE.test(voucher.code) || voucher.limit !== 1 || !mac || !isUsableMac(mac)) {
+      continue;
+    }
+    const profile = hotspotProfileForVoucher(voucher);
+    const existing = profiles.get(mac);
+    profiles.set(
+      mac,
+      existing
+        ? hotspotProfile(
+            1,
+            stricterCap(existing.downloadKbps, profile.downloadKbps),
+            stricterCap(existing.uploadKbps, profile.uploadKbps),
+          )
+        : profile,
+    );
+  }
+  return profiles;
+}
+
+function hotspotProfiles(vouchers: SyncVoucher[], includeDefault: boolean): HotspotProfile[] {
+  const profiles = new Map<string, HotspotProfile>();
+  if (includeDefault) profiles.set(userProfileName(1), hotspotProfile(1, 0, 0));
+  for (const voucher of vouchers) {
+    const profile = hotspotProfileForVoucher(voucher);
+    profiles.set(profile.name, profile);
+  }
+  for (const profile of hotspotMacProfiles(vouchers).values()) {
+    profiles.set(profile.name, profile);
+  }
+  return [...profiles.values()];
+}
+
+function buildHotspotProfileLines(profiles: HotspotProfile[]): string[] {
+  const lines = [
+    "/ip hotspot user profile",
+    ':do { set [find where name=default] idle-timeout=none keepalive-timeout=none session-timeout=0s } on-error={ :log warning "NetGrid: default hotspot user profile timeout could not be disabled" }',
   ];
+  for (const profile of profiles) {
+    const rateLimit = profile.rateLimit ? ` rate-limit="${profile.rateLimit}"` : "";
+    lines.push(
+      `:do { :if ([:len [find name=${profile.name}]] = 0) do={ add name=${profile.name} shared-users=${profile.limit}${rateLimit} idle-timeout=none keepalive-timeout=none session-timeout=0s } else={ set [find name=${profile.name}] shared-users=${profile.limit}${rateLimit} idle-timeout=none keepalive-timeout=none session-timeout=0s } } on-error={ :log warning "NetGrid: hotspot profile ${profile.name} could not be applied" }`,
+    );
+  }
+  return lines;
+}
+
+function buildHotspotMacAuthLines(profiles: Map<string, HotspotProfile>): string[] {
+  const macs = [...profiles.keys()];
   const macList = macs.length ? macs.join(",") : "#";
   const lines = [
     "/ip hotspot user",
     `:local ngCurrentMacUsers [:toarray "${macList}"]`,
-    ':foreach ngUser in=[find where comment="netgrid-mac-voucher"] do={ :local ngMac [get $ngUser name]; :if ([:typeof [:find $ngCurrentMacUsers $ngMac]] = "nil") do={ :do { /ip hotspot active remove [find where user=$ngMac] } on-error={}; remove $ngUser } }',
+    ':foreach ngUser in=[find where comment="netgrid-mac-voucher"] do={ :local ngMac [get $ngUser name]; :if ([:typeof [:find $ngCurrentMacUsers $ngMac]] = "nil") do={ :do { /ip hotspot active remove [find where user=$ngMac] } on-error={}; :do { /ip hotspot cookie remove [find where user=$ngMac] } on-error={}; remove $ngUser } }',
   ];
   if (!macs.length) return lines;
 
   lines.unshift(
     ':do { /ip hotspot profile set [find name=netgrid-hsprof] login-by=http-chap,http-pap,mac-cookie,mac mac-auth-mode=mac-as-username mac-auth-password="" } on-error={ :log warning "NetGrid: MAC reconnect authentication could not be enabled" }',
   );
-  for (const mac of macs) {
+  for (const [mac, profile] of profiles) {
+    const user = `[find where name="${mac}" comment="netgrid-mac-voucher"]`;
     lines.push(
-      `:if ([:len [find where name="${mac}" comment="netgrid-mac-voucher"]] > 0) do={ :do { set [find where name="${mac}" comment="netgrid-mac-voucher"] password="" server=netgrid-hs profile=netgrid-d1 mac-address=${mac} } on-error={ :log warning "NetGrid: MAC reconnect user could not be updated" } } else={ :if ([:len [find where name="${mac}"]] = 0) do={ :do { add name="${mac}" password="" server=netgrid-hs profile=netgrid-d1 mac-address=${mac} comment="netgrid-mac-voucher" } on-error={ :log warning "NetGrid: MAC reconnect user could not be added" } } else={ :log warning "NetGrid: MAC reconnect user conflicts with an existing hotspot user" } }`,
+      `:if ([:len ${user}] > 0) do={ :if ([get ${user} profile] != ${profile.name}) do={ :do { /ip hotspot active remove [find where user="${mac}"] } on-error={} }; :do { set ${user} password="" server=netgrid-hs profile=${profile.name} mac-address=${mac} } on-error={ :log warning "NetGrid: MAC reconnect user could not be updated" } } else={ :if ([:len [find where name="${mac}"]] = 0) do={ :do { add name="${mac}" password="" server=netgrid-hs profile=${profile.name} mac-address=${mac} comment="netgrid-mac-voucher" } on-error={ :log warning "NetGrid: MAC reconnect user could not be added" } } else={ :log warning "NetGrid: MAC reconnect user conflicts with an existing hotspot user" } }`,
     );
   }
   return lines;
@@ -176,44 +261,38 @@ function buildExpiredVoucherCleanupLines(vouchers: SyncVoucher[]): string[] {
     "/ip hotspot active",
     ':foreach ngActive in=[find] do={ :local ngCode [get $ngActive user]; :if ([:len [/ip hotspot user find where name=$ngCode comment="netgrid-voucher"]] > 0) do={ :if ([:typeof [:find $ngCurrentVouchers $ngCode]] = "nil") do={ remove $ngActive } } }',
     "/ip hotspot user",
-    ':foreach ngUser in=[find where comment="netgrid-voucher"] do={ :local ngCode [get $ngUser name]; :if ([:typeof [:find $ngCurrentVouchers $ngCode]] = "nil") do={ remove $ngUser } }',
+    ':foreach ngUser in=[find where comment="netgrid-voucher"] do={ :local ngCode [get $ngUser name]; :if ([:typeof [:find $ngCurrentVouchers $ngCode]] = "nil") do={ :do { /ip hotspot active remove [find where user=$ngCode] } on-error={}; :do { /ip hotspot cookie remove [find where user=$ngCode] } on-error={}; remove $ngUser } }',
+  ];
+}
+
+function buildHotspotVoucherUserLines(voucher: SyncVoucher): string[] {
+  const profile = hotspotProfileForVoucher(voucher).name;
+  const mac =
+    voucher.limit === 1 && voucher.bound_mac && isUsableMac(voucher.bound_mac)
+      ? ` mac-address=${voucher.bound_mac}`
+      : "";
+  const user = `[find where name="${voucher.code}" comment="netgrid-voucher" server=netgrid-hs]`;
+  return [
+    `:if ([:len ${user}] = 0) do={ :do { add name="${voucher.code}" password="${voucher.code}" server=netgrid-hs profile=${profile}${mac} comment="netgrid-voucher" } on-error={ :log warning "NetGrid: voucher user ${voucher.code} could not be added to netgrid-hs" } }`,
+    `:if ([:len ${user}] > 0) do={ :if ([get ${user} profile] != ${profile}) do={ :do { /ip hotspot active remove [find where user="${voucher.code}"] } on-error={} }; :do { set ${user} password="${voucher.code}" server=netgrid-hs profile=${profile}${mac} comment="netgrid-voucher" } on-error={ :log warning "NetGrid: voucher user ${voucher.code} could not be updated" } } else={ :log warning "NetGrid: voucher user ${voucher.code} is missing from netgrid-hs" }`,
+    `:do { :local ngGlobalUsers [find where name="${voucher.code}" comment="netgrid-voucher" server=all]; :if ([:len $ngGlobalUsers] > 0) do={ remove $ngGlobalUsers } } on-error={ :log warning "NetGrid: duplicate global voucher user ${voucher.code} could not be removed" }`,
   ];
 }
 
 /** Keeps live voucher users in place; only missing users are added during sync. */
 export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
-  const limits = [...new Set([1, ...valid.map((v) => v.limit)])].sort((a, b) => a - b);
+  const macProfiles = hotspotMacProfiles(valid);
 
-  const lines = [...buildExpiredVoucherCleanupLines(valid), "/ip hotspot user profile"];
-  lines.push(
-    ':do { set [find where name=default] idle-timeout=none keepalive-timeout=none session-timeout=0s } on-error={ :log warning "NetGrid: default hotspot user profile timeout could not be disabled" }',
-  );
-  for (const n of limits) {
-    const p = userProfileName(n);
-    lines.push(
-      `:do { :if ([:len [find name=${p}]] = 0) do={ add name=${p} shared-users=${n} idle-timeout=none keepalive-timeout=none session-timeout=0s } else={ set [find name=${p}] shared-users=${n} idle-timeout=none keepalive-timeout=none session-timeout=0s } } on-error={}`,
-    );
-  }
+  const lines = [
+    ...buildExpiredVoucherCleanupLines(valid),
+    ...buildHotspotProfileLines(hotspotProfiles(valid, true)),
+  ];
   lines.push("/ip hotspot user");
   for (const v of valid) {
-    // Only a one-device plan can be pinned to a single MAC.
-    const mac =
-      v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
-    lines.push(
-      `:do { add name="${v.code}" password="${v.code}" server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" profile=default comment="netgrid-voucher" } on-error={ :do { add name="${v.code}" password="${v.code}" comment="netgrid-voucher" } on-error={} } } }`,
-    );
+    lines.push(...buildHotspotVoucherUserLines(v));
   }
-  for (const v of valid) {
-    const mac =
-      v.limit === 1 && v.bound_mac && isUsableMac(v.bound_mac) ? ` mac-address=${v.bound_mac}` : "";
-    lines.push(`:if ([:len [find where name="${v.code}"]] > 0) do={`);
-    lines.push(
-      `:do { set [find where name="${v.code}"] server=netgrid-hs profile=${userProfileName(v.limit)}${mac} comment="netgrid-voucher" } on-error={}`,
-    );
-    lines.push("}");
-  }
-  lines.push(...buildHotspotMacAuthLines(valid));
+  lines.push(...buildHotspotMacAuthLines(macProfiles));
   if (valid.length > 0) {
     // Every add above swallows its error, so a router where they all fail (for example no hotspot
     // server called netgrid-hs) would silently refuse every voucher. Compare what we meant to add
@@ -228,32 +307,17 @@ export function buildHotspotUserLines(vouchers: SyncVoucher[]): string[] {
 /** Refreshes managed hotspot users without rebuilding the full list on the fast schedule. */
 export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string[] {
   const valid = vouchers.filter((v) => SAFE_CODE.test(v.code));
-  const limits = [...new Set(valid.map((v) => v.limit))].sort((a, b) => a - b);
-  const lines = [...buildExpiredVoucherCleanupLines(valid), "/ip hotspot user profile"];
-  lines.push(
-    ':do { set [find where name=default] idle-timeout=none keepalive-timeout=none session-timeout=0s } on-error={ :log warning "NetGrid: default hotspot user profile timeout could not be disabled" }',
-  );
-
-  for (const limit of limits) {
-    const profile = userProfileName(limit);
-    lines.push(
-      `:do { :if ([:len [find name=${profile}]] = 0) do={ add name=${profile} shared-users=${limit} idle-timeout=none keepalive-timeout=none session-timeout=0s } else={ set [find name=${profile}] shared-users=${limit} idle-timeout=none keepalive-timeout=none session-timeout=0s } } on-error={}`,
-    );
-  }
+  const macProfiles = hotspotMacProfiles(valid);
+  const lines = [
+    ...buildExpiredVoucherCleanupLines(valid),
+    ...buildHotspotProfileLines(hotspotProfiles(valid, false)),
+  ];
 
   lines.push("/ip hotspot user");
   for (const voucher of valid) {
-    const profile = userProfileName(voucher.limit);
-    const mac =
-      voucher.limit === 1 && voucher.bound_mac && isUsableMac(voucher.bound_mac)
-        ? ` mac-address=${voucher.bound_mac}`
-        : "";
-    const user = `name="${voucher.code}" password="${voucher.code}" profile=${profile}${mac} comment="netgrid-voucher"`;
-    lines.push(
-      `:if ([:len [find where name="${voucher.code}" comment="netgrid-voucher"]] > 0) do={ :do { set [find where name="${voucher.code}" comment="netgrid-voucher"] server=netgrid-hs profile=${profile}${mac} } on-error={} } else={ :do { add ${user} server=netgrid-hs } on-error={ :do { add ${user} } on-error={} } }`,
-    );
+    lines.push(...buildHotspotVoucherUserLines(voucher));
   }
-  lines.push(...buildHotspotMacAuthLines(valid));
+  lines.push(...buildHotspotMacAuthLines(macProfiles));
   return lines;
 }
 
@@ -261,7 +325,7 @@ export function buildHotspotVoucherRefreshLines(vouchers: SyncVoucher[]): string
 export function buildHotspotSuspendLines(): string[] {
   return [
     "/ip hotspot user",
-    ':foreach u in=[find where comment="netgrid-voucher"] do={ :local n [get $u name]; :do { /ip hotspot active remove [find where user=$n] } on-error={} }',
+    ':foreach u in=[find where comment="netgrid-voucher"] do={ :local n [get $u name]; :do { /ip hotspot active remove [find where user=$n] } on-error={}; :do { /ip hotspot cookie remove [find where user=$n] } on-error={} }',
     ':do { remove [find where comment="netgrid-voucher"] } on-error={}',
   ];
 }

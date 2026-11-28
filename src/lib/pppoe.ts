@@ -1,5 +1,6 @@
 // PPPoE client helpers. Pure functions (no env / DB access) so they are unit-testable.
 import { expiryFrom } from "./duration";
+import { routerOsRateLimit } from "./routeros-rate-limit";
 
 // Credentials end up inside generated RouterOS scripts, so they are restricted to a
 // character set that can never break out of a quoted string.
@@ -39,11 +40,7 @@ export function pppoeRateLimit(
   downloadKbps: number | null,
   uploadKbps: number | null,
 ): string | null {
-  const dl = downloadKbps && downloadKbps > 0 ? Math.round(downloadKbps) : 0;
-  const ul = uploadKbps && uploadKbps > 0 ? Math.round(uploadKbps) : 0;
-  if (!dl && !ul) return null;
-  const side = (k: number) => (k ? `${k}k` : "0");
-  return `${side(ul)}/${side(dl)}`;
+  return routerOsRateLimit(downloadKbps, uploadKbps);
 }
 
 /** "5 Mbps", "512 kbps" or "Unlimited". */
@@ -118,8 +115,8 @@ export function pppoeFupExceeded(
  *  - Secrets are rebuilt every sync. Expired / suspended / deleted clients simply stop being
  *    emitted, so they can no longer log in.
  *  - RouterOS does NOT drop a live session when its secret disappears, so before rebuilding we
- *    remember every netgrid secret (name, profile and remote address). Afterwards, any client that
- *    is gone or whose profile/address changed has its active session removed.
+ *    remember every netgrid secret and its profile's speed limit. Afterwards, any client that is
+ *    gone or whose profile, address or speed changed has its active session removed.
  */
 export function buildPppoeSyncLines(opts: {
   routerId: string;
@@ -182,11 +179,14 @@ export function buildPppoeSyncLines(opts: {
   }
 
   const lines: string[] = [
-    "# PPPoE: remember current netgrid secrets (name|profile|remote-address) to detect changes",
+    "# PPPoE: remember current netgrid secrets and profile limits to detect changes",
     ':global ngOld [:toarray ""]',
     ":do {",
     '  :foreach s in=[/ppp secret find comment="netgrid"] do={',
-    '    :set ngOld ($ngOld, ([/ppp secret get $s name] . "|" . [/ppp secret get $s profile] . "|" . [/ppp secret get $s remote-address]))',
+    "    :local ngOldName [/ppp secret get $s name]",
+    "    :local ngOldProfile [/ppp secret get $s profile]",
+    '    :local ngOldRate ""; :do { :set ngOldRate [:tostr [/ppp profile get [find name=$ngOldProfile] rate-limit]] } on-error={}',
+    '    :set ngOld ($ngOld, ($ngOldName . "|" . $ngOldProfile . "|" . [/ppp secret get $s remote-address] . "|" . $ngOldRate))',
     "  }",
     "} on-error={}",
   ];
@@ -221,12 +221,16 @@ export function buildPppoeSyncLines(opts: {
     "  :foreach e in=$ngOld do={",
     '    :local sep [:find $e "|"]',
     "    :local nm [:pick $e 0 $sep]",
-    "    :local pf [:pick $e ($sep + 1) [:len $e]]",
     '    :local cur [/ppp secret find name=$nm comment="netgrid"]',
     "    :if ([:len $cur] = 0) do={ /ppp active remove [find name=$nm] } else={",
     '      :local sep2 [:find $e "|" ($sep + 1)]',
-    "      :local oldRemote [:pick $e ($sep2 + 1) [:len $e]]",
-    "      :if (([/ppp secret get $cur profile] != $pf) || ([/ppp secret get $cur remote-address] != $oldRemote)) do={ /ppp active remove [find name=$nm] }",
+    "      :local pf [:pick $e ($sep + 1) $sep2]",
+    '      :local sep3 [:find $e "|" ($sep2 + 1)]',
+    "      :local oldRemote [:pick $e ($sep2 + 1) $sep3]",
+    "      :local oldRate [:pick $e ($sep3 + 1) [:len $e]]",
+    "      :local curProfile [/ppp secret get $cur profile]",
+    '      :local curRate ""; :do { :set curRate [:tostr [/ppp profile get [find name=$curProfile] rate-limit]] } on-error={}',
+    "      :if (($curProfile != $pf) || ([/ppp secret get $cur remote-address] != $oldRemote) || ($curRate != $oldRate)) do={ /ppp active remove [find name=$nm] }",
     "    }",
     "  }",
     "} on-error={}",

@@ -14,8 +14,8 @@ import {
 import { portalMaintenanceBlock } from "@/lib/maintenance.server";
 
 // Smart-TV registration. A TV cannot show the captive portal, so the customer registers its MAC
-// address from a phone, pays, and the payment callback activates the device. The router picks it
-// up on its next sync (every 2 minutes) and bypasses the hotspot login for that MAC.
+// address from a phone, pays for a plan, and the payment callback activates the device. The router
+// picks it up on its next sync and authenticates the TV by MAC without showing a captive portal.
 const Schema = z.object({
   mac: z.string().min(11).max(40),
   name: z.string().trim().max(60).optional(),

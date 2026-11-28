@@ -305,11 +305,62 @@ describe("sync script scoping", () => {
     expect(text).not.toContain("idle-timeout=0s keepalive-timeout=0s");
   });
 
+  it("applies the package speed to existing hotspot vouchers during full sync", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db
+      .seed("packages", [
+        {
+          id: "hotspot-1",
+          tenant_id: T,
+          kind: "hotspot",
+          device_limit: 2,
+          download_kbps: 7000,
+          upload_kbps: 1500,
+        },
+      ])
+      .seed("vouchers", [
+        {
+          tenant_id: T,
+          code: "LIMITED1234",
+          status: "used",
+          expires_at: "2999-01-01T00:00:00Z",
+          package_id: "hotspot-1",
+          bound_mac: null,
+        },
+      ])
+      .seed("tv_devices", [
+        {
+          id: "tv-limited-1",
+          tenant_id: T,
+          package_id: "hotspot-1",
+          mac_address: "AA:BB:CC:DD:EE:08",
+          status: "active",
+          expires_at: "2999-01-01T00:00:00Z",
+        },
+      ]);
+
+    const { text } = await sync(token);
+
+    expect(text).toContain('rate-limit="1500k/7000k"');
+    expect(text).toContain("profile=netgrid-d2-s1500-7000");
+    expect(text).toContain('name="LIMITED1234"');
+    expect(text).toContain('rate-limit="1500k/7000k"');
+    expect(text).toContain("profile=netgrid-tv-s1500-7000");
+    expect(text).toContain('name="AA:BB:CC:DD:EE:08"');
+  });
+
   it("syncs only verified, unexpired M-Pesa receipts as hotspot users", async () => {
     const token = await issueDeviceToken(R1);
     h.db
       .seed("packages", [
-        { id: "hotspot-1", tenant_id: T, kind: "hotspot", device_limit: 1 },
+        {
+          id: "hotspot-1",
+          tenant_id: T,
+          kind: "hotspot",
+          device_limit: 1,
+          download_kbps: 5000,
+          upload_kbps: 2000,
+        },
         { id: "pppoe-1", tenant_id: T, kind: "pppoe", device_limit: 1 },
       ])
       .seed("payments", [
@@ -361,6 +412,8 @@ describe("sync script scoping", () => {
     const { text } = await sync(token);
 
     expect(text).toContain('add name="PAID123456"');
+    expect(text).toContain('rate-limit="2000k/5000k"');
+    expect(text).toContain("profile=netgrid-d1-s2000-5000");
     expect(text).toContain("mac-address=AA:BB:CC:DD:EE:02");
     expect(text).not.toContain("EXPIRED123");
     expect(text).not.toContain("RIVAL12345");
@@ -375,8 +428,10 @@ describe("sync script scoping", () => {
     const token = await issueDeviceToken(R1);
     h.db.seed("tv_devices", [
       {
+        id: "tv-fast-1",
         tenant_id: T,
         mac_address: "AA:BB:CC:DD:EE:02",
+        package_id: "tv-fast-package",
         status: "active",
         expires_at: "2999-01-01T00:00:00Z",
       },
@@ -391,6 +446,15 @@ describe("sync script scoping", () => {
         mac_address: "AA:BB:CC:DD:EE:06",
         status: "active",
         expires_at: "2999-01-01T00:00:00Z",
+      },
+    ]);
+    h.db.seed("packages", [
+      {
+        id: "tv-fast-package",
+        tenant_id: T,
+        kind: "hotspot",
+        download_kbps: 7000,
+        upload_kbps: 2000,
       },
     ]);
     const res = await call(Sync, "GET", {
@@ -411,12 +475,23 @@ describe("sync script scoping", () => {
     expect(text).toContain('find where comment="netgrid-tv"');
     expect(text).not.toContain("AA:BB:CC:DD:EE:04");
     expect(text).not.toContain("AA:BB:CC:DD:EE:06");
+    expect(text).toContain('rate-limit="2000k/7000k"');
+    expect(text).toContain("profile=netgrid-tv-s2000-7000");
   });
 
   it("serves paid M-Pesa access codes through the lightweight poll", async () => {
     const token = await issueDeviceToken(R1);
     h.db
-      .seed("packages", [{ id: "hotspot-1", tenant_id: T, kind: "hotspot", device_limit: 1 }])
+      .seed("packages", [
+        {
+          id: "hotspot-1",
+          tenant_id: T,
+          kind: "hotspot",
+          device_limit: 1,
+          download_kbps: 6000,
+          upload_kbps: 1000,
+        },
+      ])
       .seed("payments", [
         {
           tenant_id: T,
@@ -437,10 +512,49 @@ describe("sync script scoping", () => {
     const text = await res.text();
     expect(res.status).toBe(200);
     expect(text).toContain('add name="PAID123456"');
+    expect(text).toContain('rate-limit="1000k/6000k"');
+    expect(text).toContain("profile=netgrid-d1-s1000-6000");
     expect(text).toContain("AA:BB:CC:DD:EE:02");
     expect(text).toContain("UNUSED2345");
     expect(text).toContain("USED22345A");
     expect(text).not.toContain("/ppp secret");
+  });
+
+  it("applies package speed to existing vouchers in the lightweight poll", async () => {
+    const token = await issueDeviceToken(R1);
+    h.db
+      .seed("packages", [
+        {
+          id: "hotspot-1",
+          tenant_id: T,
+          kind: "hotspot",
+          device_limit: 1,
+          download_kbps: 9000,
+          upload_kbps: 3000,
+        },
+      ])
+      .seed("vouchers", [
+        {
+          tenant_id: T,
+          code: "FASTVOUCHER1",
+          status: "used",
+          expires_at: "2999-01-01T00:00:00Z",
+          package_id: "hotspot-1",
+          bound_mac: null,
+        },
+      ]);
+
+    const res = await call(Sync, "GET", {
+      url: `https://portal.test/api/public/router/sync/${token}?vouchers=1`,
+      params: { token },
+      ip: freshIp(),
+    });
+
+    const text = await res.text();
+    expect(res.status).toBe(200);
+    expect(text).toContain('rate-limit="3000k/9000k"');
+    expect(text).toContain("profile=netgrid-d1-s3000-9000");
+    expect(text).toContain('name="FASTVOUCHER1"');
   });
 
   it("does not return an empty TV list when the fast refresh cannot read TV access", async () => {

@@ -166,4 +166,14 @@ describe("buildPppoeSyncLines", () => {
       out.indexOf("/ppp active remove"),
     );
   });
+
+  it("reconnects active sessions when a package speed changes on the same profile", () => {
+    const out = build([client()]);
+    expect(out).toContain(
+      ':local ngOldRate ""; :do { :set ngOldRate [:tostr [/ppp profile get [find name=$ngOldProfile] rate-limit]] } on-error={}',
+    );
+    expect(out).toContain(
+      "if (($curProfile != $pf) || ([/ppp secret get $cur remote-address] != $oldRemote) || ($curRate != $oldRate)) do={ /ppp active remove [find name=$nm] }",
+    );
+  });
 });

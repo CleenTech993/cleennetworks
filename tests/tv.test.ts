@@ -66,13 +66,35 @@ describe("buildTvSyncLines", () => {
     expect(out).toContain(':toarray "AA:BB:CC:DD:EE:01"');
     expect(out).not.toContain("EE:02");
     expect(out).not.toContain("EE:03");
-    expect(out).toContain("type=bypassed");
+    expect(out).toContain('add name="AA:BB:CC:DD:EE:01" password="" server=netgrid-hs');
+    expect(out).not.toContain("type=bypassed");
   });
-  it("still emits the cleanup block when no TV is active, so expired TVs are cut off", () => {
+  it("still emits cleanup when no TV is active, so expired TVs are cut off", () => {
     const out = buildTvSyncLines([], NOW).join("\n");
     expect(out).toContain(':toarray ""');
-    expect(out).toContain("ip-binding remove");
+    expect(out).toContain("/ip hotspot ip-binding");
+    expect(out).toContain("remove $b");
     expect(out).toContain("ip hotspot active remove");
+    expect(out).toContain('find where comment="netgrid-tv"');
+    expect(out).toContain("/ip hotspot cookie remove [find where user=$m]");
+  });
+  it("applies the paid download and upload caps and reconnects changed profiles", () => {
+    const out = buildTvSyncLines(
+      [
+        {
+          mac_address: "AA:BB:CC:DD:EE:01",
+          status: "active",
+          expires_at: FUTURE,
+          download_kbps: 8000,
+          upload_kbps: 1500,
+        },
+      ],
+      NOW,
+    ).join("\n");
+    expect(out).toContain('rate-limit="1500k/8000k"');
+    expect(out).toContain("profile=netgrid-tv-s1500-8000");
+    expect(out).toContain('/ip hotspot active remove [find where user="AA:BB:CC:DD:EE:01"]');
+    expect(out).toContain("mac-auth-mode=mac-as-username");
   });
   it("never emits an address that fails validation", () => {
     const out = buildTvSyncLines(

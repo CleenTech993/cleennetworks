@@ -117,16 +117,28 @@ async function voucherRefreshResponse(router: {
     return new Response("# voucher sync unavailable\n", { status: 503 });
   }
 
+  const { data: tvs, error: tvError } = await supabaseAdmin
+    .from("tv_devices")
+    .select("id,package_id,mac_address,status,expires_at")
+    .eq("tenant_id", router.tenant_id)
+    .eq("status", "active")
+    .gt("expires_at", now);
+  if (tvError || !tvs) {
+    console.error("voucher sync: TV access could not be read", tvError);
+    return new Response("# voucher sync unavailable\n", { status: 503 });
+  }
+
   const packageIds = [
     ...new Set([
       ...voucherRows.flatMap((voucher) => (voucher.package_id ? [voucher.package_id] : [])),
       ...receiptPayments.flatMap((payment) => (payment.package_id ? [payment.package_id] : [])),
+      ...tvs.flatMap((tv) => (tv.package_id ? [tv.package_id] : [])),
     ]),
   ];
   const packages = packageIds.length
     ? await supabaseAdmin
         .from("packages")
-        .select("id,device_limit,kind")
+        .select("id,device_limit,kind,download_kbps,upload_kbps")
         .eq("tenant_id", router.tenant_id)
         .in("id", packageIds)
     : { data: [], error: null };
@@ -137,38 +149,42 @@ async function voucherRefreshResponse(router: {
 
   const packageById = new Map(packages.data.map((pkg) => [pkg.id, pkg]));
   const vouchers: SyncVoucher[] = [
-    ...voucherRows.map((voucher) => ({
-      code: voucher.code,
-      bound_mac: "bound_mac" in voucher ? (voucher.bound_mac ?? null) : null,
-      limit: voucher.package_id ? (limitByPackage.get(voucher.package_id) ?? 1) : 1,
-    })),
-    ...receiptPayments.flatMap((payment) =>
-      payment.mpesa_receipt &&
-      payment.package_id &&
-      isHotspotPackageKind(packageById.get(payment.package_id)?.kind ?? "")
+    ...voucherRows.map((voucher) => {
+      const pkg = voucher.package_id ? packageById.get(voucher.package_id) : undefined;
+      return {
+        code: voucher.code,
+        bound_mac: "bound_mac" in voucher ? (voucher.bound_mac ?? null) : null,
+        limit: deviceLimitOf(pkg),
+        download_kbps: pkg?.download_kbps ?? null,
+        upload_kbps: pkg?.upload_kbps ?? null,
+      };
+    }),
+    ...receiptPayments.flatMap((payment) => {
+      const pkg = payment.package_id ? packageById.get(payment.package_id) : undefined;
+      return payment.mpesa_receipt && pkg && isHotspotPackageKind(pkg.kind)
         ? [
             {
               code: payment.mpesa_receipt,
               bound_mac: payment.bound_mac,
-              limit: deviceLimitOf(packageById.get(payment.package_id)),
+              limit: deviceLimitOf(pkg),
+              download_kbps: pkg.download_kbps,
+              upload_kbps: pkg.upload_kbps,
             },
           ]
-        : [],
-    ),
+        : [];
+    }),
   ];
-  const { data: tvs, error: tvError } = await supabaseAdmin
-    .from("tv_devices")
-    .select("mac_address,status,expires_at")
-    .eq("tenant_id", router.tenant_id)
-    .eq("status", "active")
-    .gt("expires_at", now);
-  if (tvError || !tvs) {
-    console.error("voucher sync: TV access could not be read", tvError);
-    return new Response("# voucher sync unavailable\n", { status: 503 });
-  }
+  const syncTvs = tvs.map((tv) => {
+    const pkg = tv.package_id ? packageById.get(tv.package_id) : undefined;
+    return {
+      ...tv,
+      download_kbps: pkg?.download_kbps ?? null,
+      upload_kbps: pkg?.upload_kbps ?? null,
+    };
+  });
 
   return new Response(
-    [...buildHotspotVoucherRefreshLines(vouchers), ...buildTvSyncLines(tvs)].join("\n"),
+    [...buildHotspotVoucherRefreshLines(vouchers), ...buildTvSyncLines(syncTvs)].join("\n"),
     {
       headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
     },
@@ -266,14 +282,14 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
             .eq("kind", "pppoe"),
           supabaseAdmin
             .from("tv_devices")
-            .select("mac_address,status,expires_at")
+            .select("id,package_id,mac_address,status,expires_at")
             .eq("tenant_id", router.tenant_id)
             .eq("status", "active")
             .gt("expires_at", now),
           // Device limit of each hotspot/voucher package (one package = one device by default).
           supabaseAdmin
             .from("packages")
-            .select("id,device_limit")
+            .select("id,device_limit,download_kbps,upload_kbps")
             .eq("tenant_id", router.tenant_id)
             .in("kind", ["hotspot", "voucher", "hotspot_tv"]),
           // Devices the tenant blocked, on any of its routers.
@@ -384,13 +400,22 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
                 packages: serviceRestricted ? [] : packages,
               })),
         );
-        // Smart TVs: paid MAC addresses bypass the hotspot login (expired ones are cut off).
+        // Smart TVs: use MAC authentication so their package rate limit applies without a portal.
         lines.push(
           ...(serviceRestricted
             ? buildTvSyncLines([])
-            : tvsError || !tvs
-              ? skipped("smart TV", tvsError)
-              : buildTvSyncLines(tvs)),
+            : tvsError || !tvs || hotspotPackagesError || !hotspotPkgs
+              ? skipped("smart TV", tvsError ?? hotspotPackagesError)
+              : buildTvSyncLines(
+                  tvs.map((tv) => {
+                    const pkg = hotspotPkgs.find((item) => item.id === tv.package_id);
+                    return {
+                      ...tv,
+                      download_kbps: pkg?.download_kbps ?? null,
+                      upload_kbps: pkg?.upload_kbps ?? null,
+                    };
+                  }),
+                )),
         );
         // Hotspot vouchers: one package = one device (shared-users limit + MAC pinned from the database).
         // If the voucher list cannot be read, the router must KEEP its current voucher users: an empty
@@ -432,30 +457,37 @@ export const Route = createFileRoute("/api/public/router/sync/$token")({
           !hotspotPackagesError &&
           hotspotPkgs
         ) {
-          const limitByPackage = new Map((hotspotPkgs ?? []).map((p) => [p.id, deviceLimitOf(p)]));
-          const hotspotPackageIds = new Set((hotspotPkgs ?? []).map((pkg) => pkg.id));
+          const hotspotPackageById = new Map((hotspotPkgs ?? []).map((pkg) => [pkg.id, pkg]));
           const visibleVouchers = maintenance.some((notice) => notice.mode === "block_new")
             ? voucherRows.filter((voucher) => voucher.status !== "unused")
             : voucherRows;
           const syncUsers: SyncVoucher[] = [
-            ...visibleVouchers.map((v) => ({
-              code: v.code,
-              bound_mac: v.bound_mac ?? null,
-              limit: v.package_id ? (limitByPackage.get(v.package_id) ?? 1) : 1,
-            })),
-            ...receiptPayments.flatMap((payment) =>
-              payment.mpesa_receipt &&
-              payment.package_id &&
-              hotspotPackageIds.has(payment.package_id)
+            ...visibleVouchers.map((v) => {
+              const pkg = v.package_id ? hotspotPackageById.get(v.package_id) : undefined;
+              return {
+                code: v.code,
+                bound_mac: v.bound_mac ?? null,
+                limit: deviceLimitOf(pkg),
+                download_kbps: pkg?.download_kbps ?? null,
+                upload_kbps: pkg?.upload_kbps ?? null,
+              };
+            }),
+            ...receiptPayments.flatMap((payment) => {
+              const pkg = payment.package_id
+                ? hotspotPackageById.get(payment.package_id)
+                : undefined;
+              return payment.mpesa_receipt && pkg
                 ? [
                     {
                       code: payment.mpesa_receipt,
                       bound_mac: payment.bound_mac,
-                      limit: limitByPackage.get(payment.package_id) ?? 1,
+                      limit: deviceLimitOf(pkg),
+                      download_kbps: pkg.download_kbps,
+                      upload_kbps: pkg.upload_kbps,
                     },
                   ]
-                : [],
-            ),
+                : [];
+            }),
           ];
           lines.push(...buildHotspotUserLines(syncUsers));
         } else {

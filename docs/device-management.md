@@ -17,7 +17,11 @@ provided retry delay.
 
 - MikroTik: the existing outbound RouterOS agent provisions the router and reports health, interfaces,
   PPPoE, guest-voucher sync, device monitoring, and inventory monitoring. Heartbeats identify the
-  RouterOS family and firmware. The RouterOS bootstrap endpoint rejects non-MikroTik records.
+  RouterOS family and firmware. Package upload/download caps are enforced through PPP and hotspot
+  user-profile rate limits on RouterOS 6.49.x and 7.x; changing a cap disconnects an active managed
+  session so it reconnects under the new limit. Paid smart TVs use hotspot MAC authentication (not
+  bypass bindings) so their package speed is also enforced without opening a captive portal. The
+  RouterOS bootstrap endpoint rejects non-MikroTik records.
 - TP-Link Omada: vendor inventory and a tenant/site-specific captive portal URL are available. A
   tenant admin can save encrypted hotspot-operator credentials and test HTTPS login for Controller
   5.0.15–6.2.0. The Controller hostname must resolve only to public IPv4 addresses with a trusted
