@@ -33,7 +33,7 @@ const BRANDS = [
 describe("resolveThemeId", () => {
   it("accepts known ids and falls back to classic for anything else", () => {
     for (const id of PORTAL_THEME_IDS) expect(resolveThemeId(id)).toBe(id);
-    for (const v of [undefined, null, "", "neon", "CLASSIC", 5, "classic; x"])
+    for (const v of [undefined, null, "", "unknown-theme", "CLASSIC", 5, "classic; x"])
       expect(resolveThemeId(v)).toBe("classic");
   });
 });

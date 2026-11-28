@@ -1,6 +1,11 @@
 import { useState } from "react";
-import { Sparkles, Calendar, Palette, Briefcase } from "lucide-react";
-import { PORTAL_THEME_LIST, themeVars, type PortalThemeId, type PortalThemeDef } from "@/lib/portal-themes";
+import { Sparkles, Palette, Briefcase } from "lucide-react";
+import {
+  PORTAL_THEME_LIST,
+  themeVars,
+  type PortalThemeId,
+  type PortalThemeDef,
+} from "@/lib/portal-themes";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 /** A tiny abstract sample of a theme, tinted with the ISP's own brand colour. */
@@ -73,7 +78,7 @@ function ThemeCard({
   );
 }
 
-/** Grouped radio selector of portal themes with Holiday & Custom designs. */
+/** Grouped radio selector of year-round, optional seasonal, and custom portal designs. */
 export function ThemePicker({
   value,
   onChange,
@@ -84,11 +89,21 @@ export function ThemePicker({
   brand: string;
 }) {
   const businessThemes = PORTAL_THEME_LIST.filter((t) =>
-    ["classic", "midnight", "ticket", "block", "venue", "lite"].includes(t.id)
+    [
+      "classic",
+      "midnight",
+      "ticket",
+      "block",
+      "venue",
+      "lite",
+      "corporate",
+      "neon",
+      "cafe",
+    ].includes(t.id),
   );
 
   const holidayThemes = PORTAL_THEME_LIST.filter((t) =>
-    ["festive", "celebration", "tropical", "ramadan", "safari"].includes(t.id)
+    ["festive", "celebration", "tropical", "ramadan", "safari"].includes(t.id),
   );
 
   const customThemes = PORTAL_THEME_LIST.filter((t) => ["custom"].includes(t.id));
@@ -110,11 +125,11 @@ export function ThemePicker({
         <TabsList className="grid w-full sm:w-auto grid-cols-3 max-w-md">
           <TabsTrigger value="business" className="text-xs gap-1.5">
             <Briefcase className="h-3.5 w-3.5" />
-            Standard
+            Year-round
           </TabsTrigger>
           <TabsTrigger value="holidays" className="text-xs gap-1.5">
             <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-            Festive & Holiday
+            Seasonal (optional)
           </TabsTrigger>
           <TabsTrigger value="custom" className="text-xs gap-1.5">
             <Palette className="h-3.5 w-3.5 text-primary" />
@@ -134,7 +149,8 @@ export function ThemePicker({
           <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
             <Sparkles className="h-4 w-4 shrink-0" />
             <span>
-              Special holiday and festive season themes crafted for celebrations, end-of-year sales, and seasonal promotions.
+              Optional holiday and event styles. The year-round designs work for everyday customer
+              access.
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -148,7 +164,8 @@ export function ThemePicker({
           <div className="mb-3 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground flex items-center gap-2">
             <Palette className="h-4 w-4 text-primary shrink-0" />
             <span>
-              Custom Studio gives you complete freedom: upload your custom wallpaper, logo, and brand colors below.
+              Custom Studio gives you complete freedom: upload your custom wallpaper, logo, and
+              brand colors below.
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

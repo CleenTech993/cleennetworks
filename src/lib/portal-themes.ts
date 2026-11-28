@@ -12,6 +12,9 @@
 
 export const PORTAL_THEME_IDS = [
   "classic",
+  "corporate",
+  "neon",
+  "cafe",
   "midnight",
   "ticket",
   "block",
@@ -110,6 +113,39 @@ export const PORTAL_THEMES: Record<PortalThemeId, PortalThemeDef> = {
     usesImages: false,
     tagline: "A plain receipt-style list. No images, system fonts, loads fast.",
     bestFor: "Slow connections and older phones.",
+  },
+  corporate: {
+    id: "corporate",
+    name: "Corporate",
+    dark: false,
+    header: "left",
+    plan: "card",
+    sheet: false,
+    usesImages: true,
+    tagline: "A polished, calm layout with crisp cards and a professional feel.",
+    bestFor: "Offices, apartments, business parks, and managed Wi-Fi.",
+  },
+  neon: {
+    id: "neon",
+    name: "Neon Network",
+    dark: true,
+    header: "left",
+    plan: "bars",
+    sheet: false,
+    usesImages: true,
+    tagline: "A bold dark interface with high-contrast network accents.",
+    bestFor: "Gaming cafés, tech hubs, and late-night venues.",
+  },
+  cafe: {
+    id: "cafe",
+    name: "Cafe & Co-working",
+    dark: false,
+    header: "centered",
+    plan: "ticket",
+    sheet: false,
+    usesImages: true,
+    tagline: "Warm neutrals and a friendly ticket-style plan selector.",
+    bestFor: "Cafés, co-working spaces, and guest networks.",
   },
   festive: {
     id: "festive",
@@ -538,6 +574,51 @@ export function themeVars(
         "--pt-font-body": SYSTEM_SANS,
         "--pt-font-head": SYSTEM_SANS,
         "--pt-font-mono": SYSTEM_MONO,
+      };
+    case "corporate":
+      return {
+        ...surface({
+          page: "#f1f5f9",
+          fg: "#0f172a",
+          card: "#ffffff",
+          muted: "#e8eef5",
+          mutedFg: "#475569",
+          border: "#cbd5e1",
+        }),
+        ...accentVars(ensureContrast(brand, "#ffffff", 3)),
+        "--radius": "0.875rem",
+      };
+    case "neon": {
+      const card = "#111c2c";
+      const fill = ensureContrast(brand, card, 3.5);
+      return {
+        ...surface({
+          page: "#090f1a",
+          fg: "#e2e8f0",
+          card,
+          muted: "#17263a",
+          mutedFg: "#a6b8cf",
+          border: "#29405a",
+          input: "#29405a",
+        }),
+        ...accentVars(fill),
+        "--radius": "0.5rem",
+        "--pt-font-head": "var(--font-display)",
+      };
+    }
+    case "cafe":
+      return {
+        ...surface({
+          page: "#fffaf3",
+          fg: "#31251b",
+          card: "#ffffff",
+          muted: "#f5eadc",
+          mutedFg: "#61503f",
+          border: "#e7d5c0",
+        }),
+        ...accentVars(ensureContrast(brand, "#ffffff", 3)),
+        "--radius": "1rem",
+        "--pt-font-head": SYSTEM_SERIF,
       };
     case "festive": {
       const fill = ensureContrast(brand, "#2b0914", 3.5);

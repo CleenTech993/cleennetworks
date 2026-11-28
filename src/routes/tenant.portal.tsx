@@ -28,7 +28,6 @@ import {
   normalizeHex,
   resolveThemeId,
   PORTAL_THEMES,
-  SEASONAL_PORTAL_IMAGES,
   type PortalThemeId,
 } from "@/lib/portal-themes";
 
@@ -39,7 +38,7 @@ export const Route = createFileRoute("/tenant/portal")({
       {
         name: "description",
         content:
-          "Customize your captive portal design, upload logos, set holiday and festive season themes.",
+          "Choose year-round captive portal themes, customize branding, or optionally use seasonal styles.",
       },
     ],
   }),
@@ -48,49 +47,50 @@ export const Route = createFileRoute("/tenant/portal")({
 
 const CURATED_PALETTES = [
   { name: "Electric Blue", color: "#0ea5e9" },
-  { name: "Festive Cranberry", color: "#e11d48" },
-  { name: "Champagne Gold", color: "#f59e0b" },
-  { name: "Emerald Pine", color: "#10b981" },
+  { name: "Ruby", color: "#e11d48" },
+  { name: "Gold", color: "#f59e0b" },
+  { name: "Emerald", color: "#10b981" },
   { name: "Royal Purple", color: "#8b5cf6" },
   { name: "Sunset Terracotta", color: "#ea580c" },
   { name: "Midnight Obsidian", color: "#18181b" },
 ];
 
-const FESTIVE_WALLPAPERS = [
+const PORTAL_STYLE_PRESETS = [
   {
-    name: "Festive Christmas",
-    theme: "festive" as PortalThemeId,
-    color: "#e11d48",
-    url: SEASONAL_PORTAL_IMAGES.festive,
-    welcome: "🎄 Happy Holidays! Enjoy complimentary high-speed Wi-Fi.",
+    name: "Professional",
+    theme: "corporate" as PortalThemeId,
+    color: "#2563eb",
+    welcome: "Welcome to our Wi-Fi. Choose a plan to get connected.",
   },
   {
-    name: "New Year Fireworks",
-    theme: "celebration" as PortalThemeId,
-    color: "#f59e0b",
-    url: SEASONAL_PORTAL_IMAGES["new-year"],
-    welcome: "🎆 Welcome to 2027! High-speed internet for all your celebrations.",
+    name: "Neon Network",
+    theme: "neon" as PortalThemeId,
+    color: "#06b6d4",
+    welcome: "Welcome online. Choose the plan that fits your session.",
   },
   {
-    name: "Tropical Palm Resort",
-    theme: "tropical" as PortalThemeId,
-    color: "#0891b2",
-    url: SEASONAL_PORTAL_IMAGES.tropical,
-    welcome: "🌊 Welcome to the Resort Wi-Fi. Relax and connect.",
+    name: "Cafe & Co-working",
+    theme: "cafe" as PortalThemeId,
+    color: "#15803d",
+    welcome: "Welcome. Connect to our guest Wi-Fi in just a few steps.",
   },
   {
-    name: "Ramadan Starlight",
-    theme: "ramadan" as PortalThemeId,
-    color: "#047857",
-    url: SEASONAL_PORTAL_IMAGES.ramadan,
-    welcome: "🌙 Ramadan Mubarak. Stay connected with family & friends.",
+    name: "Classic Wi-Fi",
+    theme: "classic" as PortalThemeId,
+    color: "#0ea5e9",
+    welcome: "Welcome to our Wi-Fi. Choose a plan and connect.",
   },
   {
-    name: "Savannah Acacia",
-    theme: "safari" as PortalThemeId,
-    color: "#c2410c",
-    url: SEASONAL_PORTAL_IMAGES.safari,
-    welcome: "🦁 Welcome to Safari Lodge Wi-Fi. Fast & reliable in the wild.",
+    name: "Quick Connect",
+    theme: "lite" as PortalThemeId,
+    color: "#16a34a",
+    welcome: "Choose a Wi-Fi plan to get online.",
+  },
+  {
+    name: "Guest Venue",
+    theme: "venue" as PortalThemeId,
+    color: "#0284c7",
+    welcome: "Welcome, guest. Select your Wi-Fi plan to connect.",
   },
 ];
 
@@ -178,12 +178,12 @@ function PortalSettings() {
 
   const brand = normalizeHex(form.primary_color);
 
-  function applyFestivePreset(preset: (typeof FESTIVE_WALLPAPERS)[0]) {
+  function applyPortalStyle(preset: (typeof PORTAL_STYLE_PRESETS)[0]) {
     const nextForm = {
       ...form,
       theme: preset.theme,
       primary_color: preset.color,
-      background_url: preset.url,
+      background_url: "",
       welcome_text: preset.welcome,
     };
     setForm(nextForm);
@@ -194,34 +194,34 @@ function PortalSettings() {
     <div className="space-y-6">
       <PageHeader
         title="Captive Portal Studio"
-        description="Design your captive portal: upload logos, set festive season themes, and customize login experiences."
+        description="Choose a year-round design, customize your branding, or optionally apply a seasonal style."
       />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-6">
-          {/* Quick Festive Theme Presets */}
+          {/* Quick Year-Round Portal Styles */}
           <section className="rounded-xl border bg-card p-6 shadow-xs">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-4 w-4 text-amber-500" />
-              <h2 className="font-semibold text-base">Holiday & Seasonal 1-Click Packs</h2>
+              <Sparkles className="h-4 w-4 text-primary" />
+              <h2 className="font-semibold text-base">Year-Round 1-Click Styles</h2>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Instantly transform your captive portal for holidays, festive seasons, and events with
-              matching themes and greeting. Selecting a pack saves it immediately.
+              Choose a professional, modern, cafe, or guest design for everyday use. Selecting a
+              style saves it immediately; seasonal themes remain optional.
             </p>
 
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {FESTIVE_WALLPAPERS.map((preset) => (
+              {PORTAL_STYLE_PRESETS.map((preset) => (
                 <button
                   key={preset.name}
                   type="button"
                   disabled={portalLoading || save.isPending}
-                  onClick={() => applyFestivePreset(preset)}
+                  onClick={() => applyPortalStyle(preset)}
                   className="flex items-center gap-3 rounded-lg border p-2.5 text-left hover:bg-muted/50 hover:border-primary/40 transition-all group"
                 >
                   <div
-                    className="h-10 w-10 rounded-md shrink-0 bg-cover bg-center border shadow-xs"
-                    style={{ backgroundImage: `url(${preset.url})` }}
+                    className="h-10 w-10 rounded-md shrink-0 border shadow-xs"
+                    style={{ backgroundColor: preset.color }}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-xs text-foreground group-hover:text-primary transition-colors">
